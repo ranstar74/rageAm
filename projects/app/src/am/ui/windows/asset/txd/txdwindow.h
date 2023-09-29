@@ -26,7 +26,7 @@ namespace rageam::ui::assetview
 
 	// Supported DXGI formats
 
-	static constexpr ConstString sm_FormatString[] = { "Auto", "RGBA", "BC1", "BC2", "BC3", "BC4", "BC5", "BC7", };
+	static constexpr ConstString sm_FormatString[] = { "Auto", "RGBA", "BC1", "BC2", "BC3", "BC4", "BC5", "BC7" };
 	static constexpr DXGI_FORMAT sm_FormatDirect3D[] =
 	{
 		DXGI_FORMAT_UNKNOWN,
@@ -288,6 +288,41 @@ namespace rageam::ui::assetview
 
 			ImGui::SetCursorPosX((availableX - pWidth) / 2.0f); // Center image
 			preview.Render(pWidth, pHeight);
+
+			// Mouse coordinates in image space for zoom (we have to do it before drawing tooltip)
+			ImGuiIO& io = ImGui::GetIO();
+			ImGuiContext& ctx = *GImGui;
+			float zoomPosX = io.MousePos.x - ctx.LastItemData.Rect.Min.x;
+			float zoomPosY = io.MousePos.y - ctx.LastItemData.Rect.Min.y;
+
+			// Zoom Region
+			if (ImGui::BeginItemTooltip())
+			{
+				constexpr float zrSize = 256.0f;
+				constexpr float zrRatio = 80.0f; // How we zoom in
+
+				// Zoom tooltip rect
+				float zrMinX = ImMax(zoomPosX - zrSize * 0.5f, 0.0f);
+				float zrMinY = ImMax(zoomPosY - zrSize * 0.5f, 0.0f);
+				float zrMaxX = zrMinX + zrSize;
+				float zrMaxY = zrMinY + zrSize;
+
+				// Zoomed picture rect
+				ImRect zrRect(zrMinX, zrMinY, zrMaxX, zrMaxY);
+				zrRect.Expand(-zrRatio);
+
+				// Tex Coords
+				float u1 = zrRect.Min.x / pWidth;
+				float v1 = zrRect.Min.y / pHeight;
+				float u2 = zrRect.Max.x / pWidth;
+				float v2 = zrRect.Max.y / pHeight;
+
+				// Render
+				ImGui::Text("X: %.0f Y: %.0f", io.MousePos.x, ctx.LastItemData.Rect.Min.x);
+				ImGui::Image(preview.GetID(), ImVec2(zrSize, zrSize), ImVec2(u1, v1), ImVec2(u2, v2));
+
+				ImGui::EndTooltip();
+			}
 
 			ImGui::EndChild(); // ImagePreview
 		}
