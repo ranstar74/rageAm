@@ -144,7 +144,7 @@ namespace rage
 			return &m_NodePool[node->NextIndex];
 		}
 
-		Node* TryGetNodeAndIndex(u32 hash, s32* outIndex = nullptr) const
+		Node* TryGetNodeAndIndexByHash(u32 hash, s32* outIndex = nullptr) const
 		{
 			if (outIndex) *outIndex = -1;
 
@@ -170,18 +170,18 @@ namespace rage
 			return nullptr;
 		}
 
-		Node* TryGetNodeAndIndex(const TKey& key, s32* outIndex = nullptr)
+		Node* TryGetNodeAndIndexByKey(const TKey& key, s32* outIndex = nullptr)
 		{
 			u32 hash = GetHash(key);
-			return TryGetNodeAndIndex(hash, outIndex);
+			return TryGetNodeAndIndexByHash(hash, outIndex);
 		}
 
-		Node& AllocateNode(u32 hash)
+		Node& AllocateNodeByHash(u32 hash)
 		{
-			Node* existingNode = TryGetNodeAndIndex(hash);
+			Node* existingNode = TryGetNodeAndIndexByHash(hash);
 			if (existingNode) return *existingNode;
 
-			AM_ASSERT(m_FreeIndex != -1, "atMap::AllocateNode() -> Out of slots!");
+			AM_ASSERT(m_FreeIndex != -1, "atMap::AllocateNodeByHash() -> Out of slots!");
 
 			u32 bucket = GetBucket(hash);
 			s32 index = m_FreeIndex;
@@ -201,10 +201,22 @@ namespace rage
 			return node;
 		}
 
-		Node& AllocateNode(const TKey& key)
+		Node& AllocateNodeByKey(const TKey& key)
 		{
 			u32 hash = GetHash(key);
-			return AllocateNode(hash);
+			return AllocateNodeByHash(hash);
+		}
+
+		void BuildLinkedList()
+		{
+			for (u32 i = 0; i < m_BucketCount; i++)
+			{
+				m_BucketToNode[i] = -1;
+
+				Node& node = m_NodePool[i];
+				node.NextIndex = i + 1;
+			}
+			m_NodePool[m_BucketCount - 1].NextIndex = -1; // Last node points to void
 		}
 	public:
 		atMap() = default;
@@ -219,7 +231,7 @@ namespace rage
 		atMap(std::initializer_list<atMapInitializerKeyPair<TKey, TValue>> list)
 		{
 			InitAndAllocate(list);
-			for(const auto& pair : list)
+			for (const auto& pair : list)
 			{
 				Insert(pair.Key, pair.Value);
 			}
@@ -240,6 +252,9 @@ namespace rage
 		  */
 		void InitAndAllocate(u16 sizeHint)
 		{
+			if (m_BucketCount)
+				Destroy();
+
 			m_BucketCount = static_cast<u32>(atHashSize(sizeHint));
 			m_BucketToNode = new s32[m_BucketCount];
 
@@ -248,15 +263,7 @@ namespace rage
 			m_NodePool = static_cast<Node*>(operator new(nodePoolAllocSize));
 			memset(m_NodePool, 0, nodePoolAllocSize);  // NOLINT(bugprone-undefined-memory-manipulation)
 
-			// Build linked list
-			for (u32 i = 0; i < m_BucketCount; i++)
-			{
-				m_BucketToNode[i] = -1;
-
-				Node& node = m_NodePool[i];
-				node.NextIndex = i + 1;
-			}
-			m_NodePool[m_BucketCount - 1].NextIndex = -1; // Last node points to void
+			BuildLinkedList();
 		}
 
 		void Swap(atMap& other)
@@ -285,7 +292,7 @@ namespace rage
 			}
 		}
 
-		void Destroy()
+		void Clear()
 		{
 			if (m_BucketCount == 0)
 				return;
@@ -310,6 +317,14 @@ namespace rage
 				}
 			}
 
+			// TODO: This is called on Destroy too, although it's unneeded!
+			BuildLinkedList();
+		}
+
+		void Destroy()
+		{
+			Clear();
+
 			delete m_BucketToNode;
 			// Delete without invoking TValue destructor, because otherwise destructor will be called for 
 			// items that weren't even constructed
@@ -328,7 +343,7 @@ namespace rage
 
 		TValue& InsertAt(u32 hash, const TValue& value)
 		{
-			Node& node = AllocateNode(hash);
+			Node& node = AllocateNodeByHash(hash);
 			node.Value = value;
 			return node.Value;
 		}
@@ -342,7 +357,7 @@ namespace rage
 		template<typename... TArgs>
 		TValue& ConstructAt(u32 hash, TArgs... args)
 		{
-			Node& node = AllocateNode(hash);
+			Node& node = AllocateNodeByHash(hash);
 			pVoid where = &node.Value;
 			new (where) TValue(args...);
 			return node.Value;
@@ -358,7 +373,7 @@ namespace rage
 		void RemoveAt(u32 hash)
 		{
 			s32 index;
-			Node* node = TryGetNodeAndIndex(hash, &index);
+			Node* node = TryGetNodeAndIndexByHash(hash, &index);
 			AM_ASSERT(node, "atMap::Remove() -> Slot with key hash %u is not allocated.", hash);
 
 			// Remove node from bucket linked list
@@ -384,7 +399,7 @@ namespace rage
 
 		TValue* TryGetAt(u32 hash) const
 		{
-			Node* node = TryGetNodeAndIndex(hash);
+			Node* node = TryGetNodeAndIndexByHash(hash);
 			if (node)
 				return &node->Value;
 			return nullptr;

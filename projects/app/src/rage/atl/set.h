@@ -8,6 +8,7 @@
 #pragma once
 
 #include "map.h"
+#include "rage/paging/compiler/compiler.h"
 
 namespace rage
 {
@@ -34,12 +35,12 @@ namespace rage
 			Node* Next = nullptr;
 		};
 
-		Node** m_Buckets = nullptr;
+		Node** m_Buckets;
 
-		u16		m_BucketCount = 0;
-		u16		m_UsedSlotCount = 0;
+		u16		m_BucketCount;
+		u16		m_UsedSlotCount;
 		u8		m_UnusedC[3]{};	// I doubt that those are debug-related booleans but they're just here, unused
-		bool	m_AllowGrowing = false;
+		bool	m_AllowGrowing;
 
 		Node** AllocateBuckets(u16 size)
 		{
@@ -175,7 +176,13 @@ namespace rage
 			m_UsedSlotCount--;
 		}
 	public:
-		atSet() = default;
+		atSet()
+		{
+			m_Buckets = nullptr;
+			m_BucketCount = 0;
+			m_UsedSlotCount = 0;
+			m_AllowGrowing = false;
+		}
 		atSet(const std::initializer_list<TValue>& list)
 		{
 			InitAndAllocate(list.size());
@@ -186,11 +193,31 @@ namespace rage
 		{
 			CopyFrom(other);
 		}
+		// ReSharper disable once CppPossiblyUninitializedMember
+		// ReSharper disable CppObjectMemberMightNotBeInitialized
+		atSet(const datResource& rsc)
+		{
+			if (!m_Buckets)
+				return;
+
+			rsc.Fixup(m_Buckets);
+			for (u16 i = 0; i < m_BucketCount; i++)
+			{
+				rsc.Fixup(m_Buckets[i]);
+
+				Node* node = m_Buckets[i];
+				while (node)
+				{
+					rsc.Fixup(node->Next);
+					node = node->Next;
+				}
+			}
+		}
+		// ReSharper restore CppObjectMemberMightNotBeInitialized
 		atSet(atSet&& other) noexcept
 		{
 			Swap(other);
 		}
-
 		~atSet()
 		{
 			Destruct();
@@ -202,6 +229,8 @@ namespace rage
 
 		void InitAndAllocate(u16 bucketCountHint, bool allowGrowing = true)
 		{
+			Destruct();
+
 			u16 bucketCount = atHashSize(bucketCountHint);
 
 			m_Buckets = AllocateBuckets(bucketCount);
@@ -239,10 +268,38 @@ namespace rage
 					otherNode = otherNode->Next;
 				}
 			}
+
+			// Snapshot linked list if compiling resource
+			pgSnapshotAllocator* compilerAllocator = pgRscCompiler::GetVirtualAllocator();
+			if (compilerAllocator)
+			{
+				compilerAllocator->AddRef(m_Buckets);
+
+				for (u16 bucket = 0; bucket < other.m_BucketCount; bucket++)
+				{
+					Node* node = other.m_Buckets[bucket];
+
+					if (!node)
+						continue;
+
+					compilerAllocator->AddRef(other.m_Buckets[bucket]);
+
+					while (node)
+					{
+						if (node->Next)
+							compilerAllocator->AddRef(node->Next);
+
+						node = node->Next;
+					}
+				}
+			}
 		}
 
 		void Destruct()
 		{
+			if (!m_Buckets)
+				return;
+
 			// Delete nodes and call destructor, not any different from atMap one
 			for (u16 i = 0; i < m_BucketCount; i++)
 			{
@@ -383,7 +440,7 @@ namespace rage
 			return &node->Value;
 		}
 
-		TValue& GetAt(u32 hash)
+		TValue& GetAt(u32 hash) const
 		{
 			TValue* value = TryGetAt(hash);
 			AM_ASSERT(value, "atSet::Get() -> Value with hash %u is not present.", hash);
