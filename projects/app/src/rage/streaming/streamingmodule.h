@@ -102,7 +102,7 @@ namespace rage
 
 		virtual void Set(strLocalIndex slot, pVoid object) = 0;
 
-		virtual void AddSlot(strLocalIndex& outSlot, strLocalIndex slot, atHashString& name) = 0;
-		virtual void AddSlot(strLocalIndex& outSlot, atHashString& name) = 0;
+		virtual void AddSlotAt(strLocalIndex& outSlot, strLocalIndex slot, const atHashValue& name) = 0;
+		virtual void AddSlot(strLocalIndex& outSlot, const atHashValue& name) = 0;
 	};
 }

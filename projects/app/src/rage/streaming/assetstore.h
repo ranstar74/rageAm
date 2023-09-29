@@ -56,7 +56,12 @@ namespace rage
 			m_AssetExtension = GetPlatformAssetExtensionByID(assetTypeID);
 		}
 
-		bool SlotExists(strLocalIndex index) const { return m_Defs.GetSlot(index) != nullptr; }
+		// Can be used for iterating through every asset
+		auto& GetAssetPool() { return m_Defs; }
+		// Direct access to store entry
+		TDef* GetDef(strLocalIndex slot) { return m_Defs.GetSlot(slot); }
+
+		bool SlotExists(strLocalIndex slot) const { return m_Defs.GetSlot(slot) != nullptr; }
 
 		void FinalizeSize()
 		{
@@ -141,8 +146,9 @@ namespace rage
 		{
 			datResource rsc(map);
 
-			TDef* def = m_Defs.GetSlot(slot);
-			def->m_pObject = new (rsc) TAsset(rsc);
+			// TODO: Fails with phBound
+			//TDef* def = m_Defs.GetSlot(slot);
+			//def->m_pObject = new (rsc.Map->MainChunk) TAsset(rsc);
 
 			pgRscBuilder::Cleanup(map);
 		}
@@ -152,7 +158,7 @@ namespace rage
 			// TODO
 		}
 
-		TAsset* GetPtr(strLocalIndex slot) override
+		pVoid GetPtr(strLocalIndex slot) override
 		{
 			TDef* def = m_Defs.GetSlot(slot);
 			if (!AM_VERIFY(def != nullptr, "fwAssetStore::GetPtr() -> Slot at index %i is not in image (RPF)!", slot))
@@ -161,7 +167,7 @@ namespace rage
 			return def->m_pObject;
 		}
 
-		TAsset* Defragment(strLocalIndex slot, datResourceMap& map, bool& success) override
+		pVoid Defragment(strLocalIndex slot, datResourceMap& map, bool& success) override
 		{
 			success = false;
 
@@ -169,8 +175,9 @@ namespace rage
 			if (!AM_VERIFY(def != nullptr, "fwAssetStore::DefragmentComplete() -> Slot at index %i is not in image (RPF)!", slot))
 				return nullptr;
 
-			datResource rsc(map, "<defrag>");
-			def->m_pObject = new (rsc) TAsset(rsc);
+			// TODO: Fails with phBound...
+			//datResource rsc(map, "<defrag>");
+			//def->m_pObject = new (rsc.Map->MainChunk) TAsset(rsc);
 
 			success = true;
 			return def->m_pObject;
@@ -194,7 +201,7 @@ namespace rage
 			def->m_Flags.Set(FW_DEF_FLAG_ON_DEFRAG, true);
 		}
 
-		TAsset* GetResource(strLocalIndex slot) override
+		pVoid GetResource(strLocalIndex slot) override
 		{
 			TDef* def = m_Defs.GetSlot(slot);
 			if (!AM_VERIFY(def != nullptr, "fwAssetStore::GetPtr() -> Slot at index %i is not in image (RPF)!", slot))
@@ -202,11 +209,15 @@ namespace rage
 
 			return def->m_pObject;
 		}
+		
+		//void Set(strLocalIndex slot, pVoid object) override
+		//{
+		//	TDef* def = m_Defs.GetSlot(slot);
+		//	if (!AM_VERIFY(def != nullptr, "fwAssetStore::Set() -> Slot at index %i is not in image (RPF)!", slot))
+		//		return;
 
-		void Set(strLocalIndex index, pVoid object) override
-		{
-
-		}
+		//	def->m_pObject = object;
+		//}
 	};
 
 	template<typename TAsset, typename TDef>
