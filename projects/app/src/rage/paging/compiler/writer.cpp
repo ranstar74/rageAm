@@ -19,19 +19,19 @@ rage::datResourceHeader rage::datCompileData::GetHeader() const
 	return datResourceHeader(MAGIC_RSC, Version, info);
 }
 
-u32 rage::pgRscWriter::ComputeUsedSize(const datPackedChunks& packedPage, const pgSnapshotAllocator* pAllocator) const
+u32 rage::pgRscWriter::ComputeUsedSize(const datPackedChunks& packedPage) const
 {
-	// Accumulate allocate size, simply add up chunk sizes
+	// Accumulate allocation size, simply add up chunk sizes
 	u32 bufferSize = 0;
+	u32 chunkSize = PG_MIN_CHUNK_SIZE << packedPage.SizeShift;
 	for (u8 i = 0; i < PG_MAX_BUCKETS; i++)
 	{
-		for (const auto& chunk : packedPage.Buckets[i])
+		for ([[maybe_unused]] const auto& chunk : packedPage.Buckets[i])
 		{
-			for (u16 index : chunk)
-			{
-				bufferSize += pAllocator->GetBlockSize(index);
-			}
+			if(chunk.Any()) // If there's any block packed in chunk, otherwise chunk is 'empty' (unused) and skipped
+				bufferSize += chunkSize;
 		}
+		chunkSize /= 2;
 	}
 	return bufferSize;
 }
@@ -55,7 +55,7 @@ void rage::pgRscWriter::WriteData(const datPackedChunks& packedPage, const pgSna
 	u32 chunkSize = PG_MIN_CHUNK_SIZE << packedPage.SizeShift;
 
 	// Allocate buffer that is large enough to compress all chunks in single pass (it is much faster)
-	u32 bufferSize = ComputeUsedSize(packedPage, pAllocator);
+	u32 bufferSize = ComputeUsedSize(packedPage);
 	char* buffer = new char[bufferSize];
 	memset(buffer, 0, bufferSize);
 
@@ -73,6 +73,7 @@ void rage::pgRscWriter::WriteData(const datPackedChunks& packedPage, const pgSna
 				continue;
 
 			// Copy every block data to chunk buffer
+			u32 chunkOffset = 0;
 			for (u16 index : chunk)
 			{
 				pVoid block = pAllocator->GetBlock(index);
@@ -80,37 +81,39 @@ void rage::pgRscWriter::WriteData(const datPackedChunks& packedPage, const pgSna
 
 				m_RawSize += blockSize;
 
-				if (bufferOffset + blockSize > bufferSize)
-				{
-					AM_DEBUGF("pgRscWriter::WriteData() -> Compressing %u bytes", bufferOffset);
-					CompressAndWrite(buffer, bufferOffset);
-					bufferOffset = 0;
+				//if (bufferOffset + blockSize > bufferSize)
+				//{
+				//	AM_DEBUGF("pgRscWriter::WriteData() -> Compressing %u bytes", bufferOffset);
+				//	CompressAndWrite(buffer, /*bufferOffset*/ chunkSize);
+				//	bufferOffset = 0;
 
-					// Erase buffer from previous chunks, trash will make compression worse
-					memset(buffer, 0, bufferSize);
-				}
+				//	// Erase buffer from previous chunks, trash will make compression worse
+				//	memset(buffer, 0, bufferSize);
+				//}
 
-				memcpy(buffer + bufferOffset, block, blockSize);
-				bufferOffset += blockSize;
+				memcpy(buffer + bufferOffset + chunkOffset, block, blockSize);
+				chunkOffset += blockSize;
 			}
+
+			bufferOffset += chunkSize;
 			m_AllocSize += chunkSize;
 		}
 		chunkSize /= 2;
 	}
 
+	CompressAndWrite(buffer, bufferSize);
+	//// Erase buffer from previous data, trash will make compression worse
+	//memset(buffer, 0, bufferSize);
+
 	// Finalize remaining bytes, if there's anything (in best scenario we must compress once here)
-	if (bufferOffset > 0)
-		CompressAndWrite(buffer, bufferOffset);
+	//if (bufferOffset > 0)
+	//	CompressAndWrite(buffer, /*bufferOffset*/ chunkSize);
 
 	delete[] buffer;
 }
 
-void rage::pgRscWriter::CompressAndWrite(pVoid buffer, u32 bufferSize)
+void rage::pgRscWriter::CompressAndWrite(pVoid data, u32 dataSize)
 {
-	// Assuming compression ratio 2:1
-	u32 compressBufferSize = bufferSize / 2;
-	zLibCompressor compressor(compressBufferSize);
-
 	DWORD dwBytesWritten;
 
 	bool done = false;
@@ -119,12 +122,12 @@ void rage::pgRscWriter::CompressAndWrite(pVoid buffer, u32 bufferSize)
 		pVoid compressedBuffer;
 		u32	compressedSize;
 
-		done = compressor.Compress(buffer, bufferSize, compressedBuffer, compressedSize);
+		done = m_Compressor.Compress(data, dataSize, compressedBuffer, compressedSize);
 
 		WriteFile(m_File, compressedBuffer, compressedSize, &dwBytesWritten, NULL);
 		m_FileSize += compressedSize;
 
-		AM_DEBUGF("pgRscWriter::CompressAndWrite() -> Compressed %u to %u", bufferSize, compressedSize);
+		AM_DEBUGF("pgRscWriter::CompressAndWrite() -> Compressed %u to %u", dataSize, compressedSize);
 	}
 }
 

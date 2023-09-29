@@ -11,6 +11,7 @@
 #include "common/types.h"
 #include "am/system/ptr.h"
 #include "rage/paging/resourceheader.h"
+#include "rage/zlib/stream.h"
 
 namespace rage
 {
@@ -42,16 +43,18 @@ namespace rage
 		u32 m_AllocSize;
 		// Size of compressed resource file on disk.
 		u32 m_FileSize;
-		
+
 		HANDLE m_File;
+
+		zLibCompressor m_Compressor = { 30 * 1024u * 1024u }; // 30MB~ buffer
 
 		const datCompileData* m_WriteData;
 		const wchar_t* m_Path;
 
-		u32 ComputeUsedSize(const datPackedChunks& packedPage, const pgSnapshotAllocator* pAllocator) const;
+		u32 ComputeUsedSize(const datPackedChunks& packedPage) const;
 		void WriteHeader() const;
 		void WriteData(const datPackedChunks& packedPage, const pgSnapshotAllocator* pAllocator);
-		void CompressAndWrite(pVoid buffer, u32 bufferSize);
+		void CompressAndWrite(pVoid data, u32 dataSize);
 
 		bool OpenResource();
 		void CloseResource() const;

@@ -13,7 +13,6 @@
 
 #include "common/logger.h"
 #include "am/system/timer.h"
-#include "rage/paging/paging.h"
 
 namespace rage
 {
@@ -31,36 +30,10 @@ namespace rage
 		pgSnapshotAllocator* m_VirtualAllocator = nullptr;
 		pgSnapshotAllocator* m_PhysicalAllocator = nullptr;
 
+		pgBase* m_RootResourceAllocation = nullptr;
+
 		// Replaces pointers on file offsets
-		void FixupReferences(const datPackedChunks& pack, const pgSnapshotAllocator& allocator) const
-		{
-			if (pack.IsEmpty)
-				return;
-
-			// We accumulate file offset while iterating through all packed blocks
-			u32 fileOffset = 0;
-			u32 chunkSize = PG_MIN_CHUNK_SIZE << pack.SizeShift;
-			for (u8 i = 0; i < PG_MAX_BUCKETS; i++)
-			{
-				for (const auto& chunk : pack.Buckets[i])
-				{
-					if (!chunk.Any())
-						continue;
-
-					u32 inChunkOffset = 0;
-					for (u16 blockIndex : chunk)
-					{
-						u64 newAddress = allocator.GetBaseAddress() | static_cast<u64>(fileOffset + inChunkOffset);
-						allocator.FixupBlockReferences(blockIndex, newAddress);
-
-						inChunkOffset += allocator.GetBlockSize(blockIndex);
-					}
-
-					fileOffset += chunkSize;
-				}
-				chunkSize /= 2;
-			}
-		}
+		void FixupReferences(const datPackedChunks& pack, const pgSnapshotAllocator& allocator) const;
 
 		template<typename TPaged>
 		TPaged* DoSnapshot(const TPaged* pPaged)
@@ -68,6 +41,7 @@ namespace rage
 			// 'Compiling' resource is done through literally copying it
 
 			pVoid block = m_VirtualAllocator->Allocate(sizeof(TPaged));
+			m_RootResourceAllocation = (pgBase*)block;
 			return new (block) TPaged(*pPaged);
 		}
 
@@ -162,6 +136,18 @@ namespace rage
 
 			tl_Compiler = nullptr;
 			return result;
+		}
+
+		// Gets whether given pgBase instance is root of the resource
+		// We need this in cases when resource is composed of multiple structs that inherit pgBase
+		// such as rmcDrawable -> crSkeletonData, but we have to generate map only for rmcDrawable pgBase
+		static bool IsRootResourceAllocation(const pgBase* base)
+		{
+			pgRscCompiler* compiler = GetCurrent();
+			if (!compiler)
+				return false;
+
+			return base == compiler->m_RootResourceAllocation;
 		}
 
 		static pgSnapshotAllocator* GetVirtualAllocator() { return tl_Compiler ? tl_Compiler->m_VirtualAllocator : nullptr; }
