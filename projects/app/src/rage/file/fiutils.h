@@ -27,4 +27,12 @@ namespace rage
 		}
 		return false;
 	}
+
+	inline u64 fiGetFileTime(ConstString path)
+	{
+		fiDevicePtr device = fiDevice::GetDeviceImpl(path);
+		if (!device)
+			return 0;
+		return device->GetFileTime(path);
+	}
 }
