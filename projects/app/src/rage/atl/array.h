@@ -16,6 +16,8 @@
 #include "am/system/asserts.h"
 #include "rage/system/new.h"
 #include "helpers/align.h"
+#include "rage/paging/resource.h"
+#include "rage/paging/compiler/compilerhelper.h"
 
 namespace rage
 {
@@ -55,6 +57,9 @@ namespace rage
 		// If current buffer size is smaller than given, allocates larger one.
 		void VerifyBufferCanFitOrGrow(TSize size)
 		{
+			if (size <= m_Capacity)
+				return;
+
 			// We can't allocate size smaller than 16
 			if (size < 16)
 			{
@@ -67,9 +72,6 @@ namespace rage
 				// Growing twice in size will work fine in most cases.
 				size = NEXT_POWER_OF_TWO_32(size);
 			}
-
-			if (size <= m_Capacity)
-				return;
 
 			Reserve(size);
 		}
@@ -84,6 +86,10 @@ namespace rage
 		}
 		atArray()
 		{
+			// Deserializing resource, we shouldn't touch anything and let pgArray fixup things
+			if (datResource::GetCurrent())
+				return;
+
 			m_Items = nullptr;
 			m_Capacity = 0;
 			m_Size = 0;
@@ -92,8 +98,39 @@ namespace rage
 		{
 			m_Size = other.m_Size;
 			Reserve(other.m_Capacity);
+			// Copy all items
 			for (u32 i = 0; i < m_Size; i++)
-				m_Items[i] = other.m_Items[i];
+			{
+				// Special case for resource compiler:
+				// We can't copy some structs (such as pgPtr / pgUPtr) for various reasons:
+				// - It will mess up reference counter
+				// - Unique pointer can't be even copied
+				// As solution those classes must implement 'Snapshot' method
+				constexpr bool canSnapshot = requires(T t) { t.Snapshot(t); };
+				constexpr bool canCopy = requires(T lhs, T rhs) { lhs = rhs; };
+				if constexpr (canSnapshot)
+				{
+					if (IsResourceCompiling())
+					{
+						m_Items[i].Snapshot(other.m_Items[i]);
+						continue;
+					}
+					// Otherwise we do regular copy
+				}
+
+				if constexpr (canCopy)
+				{
+					m_Items[i] = other.m_Items[i];
+				}
+				else
+				{
+					// This is a terrible way to handle it but otherwise code won't just compile
+					// for pgUPtr that can't be copied but can be snapshot.
+					// I'm open for better ideas how to handle this.
+					AM_UNREACHABLE("atArray::Copy() -> Type %s can't be copied.", typeid(T).name());
+				}
+			}
+			//atArrayCopy(m_Items, other.m_Items, m_Size);
 		}
 		atArray(atArray&& other) noexcept : atArray(0)
 		{
@@ -130,6 +167,24 @@ namespace rage
 		 *	------------------ Initializers / Destructors ------------------
 		 */
 
+		 // WARNING: To use only when it is required to get internal array buffer without copying!
+		 // Buffer must be deleted manually or memory will be leaked!
+		T* MoveBuffer()
+		{
+			T* buffer = m_Items;
+
+			m_Items = nullptr;
+			m_Capacity = 0;
+			m_Size = 0;
+
+			return buffer;
+		}
+
+		T*& GetBufferRef()
+		{
+			return m_Items;
+		}
+
 		void Destroy()
 		{
 			if (!m_Items)
@@ -143,9 +198,31 @@ namespace rage
 			m_Capacity = 0;
 		}
 
+		void SetItems(T* items, TSize size, TSize capacity)
+		{
+			Destroy();
+			m_Items = items;
+			m_Size = size;
+			m_Capacity = capacity;
+		}
+
 		/*
 		 *	------------------ Adding / Removing items ------------------
 		 */
+
+		void AddRange(const atArray& other)
+		{
+			Reserve(m_Size + other.m_Size);
+			for (const T& element : other)
+				Add(element);
+		}
+
+		void AddRange(atArray&& other)
+		{
+			Reserve(m_Size + other.m_Size);
+			for (u16 i = 0; i < other.m_Size; i++)
+				Emplace(std::move(other.m_Items[i]));
+		}
 
 		/**
 		 * \brief Appends item copy in the end of array.
@@ -290,9 +367,9 @@ namespace rage
 		 *	------------------ Altering array size ------------------
 		 */
 
-		/**
-		 * \brief Resizes internal array buffer capacity to given size.
-		 */
+		 /**
+		  * \brief Resizes internal array buffer capacity to given size.
+		  */
 		void Resize(TSize newSize)
 		{
 			if (m_Size == newSize)
@@ -307,15 +384,15 @@ namespace rage
 				return;
 			}
 
-			m_Size = newSize;
-			Reserve(m_Size);
+			Reserve(newSize);
 
 			// We must ensure that accessible items are constructed
-			for (TSize i = 0; i < m_Size; ++i)
+			for (TSize i = m_Size; i < newSize; ++i)
 			{
 				pVoid where = (pVoid)(m_Items + i);
 				new (where) T();
 			}
+			m_Size = newSize;
 		}
 
 		/**
@@ -333,12 +410,17 @@ namespace rage
 		/**
 		 * \brief Reserves memory in array buffer without constructing items (see Resize).
 		 * \remarks If new capacity is smaller or equal to current one, nothing is done.
+		 * \n By default function aligns given capacity to multiple of 16, using forceExactSize
+		 * it can be forced to exact given value without aligning applied
 		 */
-		void Reserve(TSize capacity)
+		void Reserve(TSize capacity, bool forceExactSize = false)
 		{
-			capacity = ALIGN_16(capacity);
-			if (capacity <= m_Capacity)
-				return;
+			if (!forceExactSize)
+			{
+				capacity = ALIGN_16(capacity);
+				if (capacity <= m_Capacity)
+					return;
+			}
 
 			m_Capacity = capacity;
 
@@ -358,9 +440,9 @@ namespace rage
 		 *	------------------ Getters / Operators ------------------
 		 */
 
-		/**
-		 * \brief Sorts array in ascending order using default predicate.
-		 */
+		 /**
+		  * \brief Sorts array in ascending order using default predicate.
+		  */
 		void Sort()
 		{
 			std::sort(m_Items, m_Items + m_Size);
@@ -453,10 +535,10 @@ namespace rage
 			return (pItem - m_Items) / sizeof T;
 		}
 
-		 /**
-		  * \brief Performs binary search to find given value index.
-		  * \remarks Array has to be sorted in ascending order.
-		  */
+		/**
+		 * \brief Performs binary search to find given value index.
+		 * \remarks Array has to be sorted in ascending order.
+		 */
 		s32 Find(const T& value) const
 		{
 			auto it = std::lower_bound(begin(), end(), value);
@@ -467,9 +549,9 @@ namespace rage
 			return std::distance(begin(), it);
 		}
 
-		 /**
-		  * \brief Gets whether array contains given item, type must have comparison operator implemented.
-		  */
+		/**
+		 * \brief Gets whether array contains given item, type must have comparison operator implemented.
+		 */
 		bool Contains(const T& item) const
 		{
 			for (TSize i = 0; i < m_Size; ++i)
