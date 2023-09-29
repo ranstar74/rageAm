@@ -15,12 +15,13 @@ namespace rage
 	 */
 	struct datResource
 	{
-		datResourceMap* Map;								// Offset map
-		datResource* PreviousResource;						// Previous resource from TLS
-		const char* Name;									// Debug name, <unknown> in most of the cases
-		datResourceSortedChunk SrcChunks[PG_MAX_CHUNKS];	// Chunks from file
-		datResourceSortedChunk DestChunks[PG_MAX_CHUNKS];	// Chunks allocated on game heap
-		u8 ChunkCount;										// Virtual + Physical
+		datResourceMap* Map;
+		datResource* PreviousResource;
+
+		ConstString				DebugName;
+		datResourceSortedChunk	SrcChunks[PG_MAX_CHUNKS];	// Chunks from file
+		datResourceSortedChunk	DestChunks[PG_MAX_CHUNKS];	// Chunks allocated on game heap
+		u8						ChunkCount;					// Virtual + Physical
 
 	private:
 		static inline thread_local datResource* tl_CurrentResource = nullptr;
@@ -28,115 +29,102 @@ namespace rage
 		datResource(datResourceMap& map, ConstString name = "<unknown>");
 		~datResource();
 
-		// Comparer for sorting chunks.
-		static bool SortByRegionAddress(const datResourceSortedChunk& lhs, const datResourceSortedChunk& rhs);
-
+		// Gets current active resource in this thread, if there's any.
 		static datResource* GetCurrent() { return tl_CurrentResource; }
-
+		// Whether resource is building in current thread or not.
+		static bool IsBuilding() { return GetCurrent() != nullptr; }
 		// Gets corresponding resource chunk from it's sorted version.
 		datResourceChunk* GetChunk(const datResourceSortedChunk* sortedChunk) const;
-
-		/**
-		 * \brief Searches for an address in given chunk array.
-		 * \param chunks A pointer to chunk array (source or destination).
-		 * \param address Address to find.
-		 * \return A pointer to datResourceSortedChunk whose address range
-		 * contains the given address, if any; otherwise, nullptr.
-		 */
+		// Searches for chunk that contains given address.
 		const datResourceSortedChunk* Find(const datResourceSortedChunk* chunks, u64 address) const;
-
-		/**
-		 * \brief Checks whether resource contains given game heap address.
-		 * \param address Game address to check.
-		 * \return True if any game memory chunk address range contains address; otherwise False.
-		 */
+		// Checks whether given heap address belongs to this resource.
 		bool ContainsThisAddress(u64 address) const;
-
-		/**
-		 * \brief Gets offset for resource offset that maps it into allocated chunk in game heap.
-		 * \param resourceOffset Offset address of the resource.
-		 * \return Offset that maps resource address into game address.
-		 */
+		// Gets offset for given resource offset to map it into corresponding address in game heap.
 		u64 GetFixup(u64 resourceOffset) const;
 
-		/**
-		 * \brief Maps resource offset into allocated chunk in game heap.
-		 * \n USAGE: Fixup(m_Name);
-		 * \tparam T Type of resource struct field.
-		 * \param pField Pointer to resource struct field.
-		 */
+		// Automatically adds offset to passed pointer reference
 		template<typename T>
-		void Fixup(T& pField) const
+		void Fixup(T& obj) const
 		{
-			if (!(u64)pField)
+			if (!obj)
 				return;
 
-			/* Spam machine
-			auto chunk = Find(SrcChunks, (u64)pField);
-			AM_DEBUGF("datResource::Fixup(%llx) -> %llx in chunk (%u, base: %llx)",
-				(u64)pField,
-				(u64)pField + GetFixup((u64)pField),
-				chunk->GetChunkIndex(),
-				chunk->Address);
-			*/
-
-			pField = (T)((u64)pField + GetFixup((u64)pField));
+			obj = (T)((u64)obj + GetFixup((u64)obj));
 		}
 
-		/**
-		 * \brief Fixes address and performs new placement for resource struct.
-		 * \n Used for collection elements for e.g. in pgPtrArray.
-		 * \tparam T Type of structure to place.
-		 * \param paged Pointer to structure.
-		 */
+		// Fixes up and calls place function
 		template<typename T>
-		void Place(T& paged) const
+		void FixupAndPlace(T*& obj) const
 		{
-			Fixup(paged);
-			Construct(paged);
+			if (!obj)
+				return;
+
+			Fixup(obj);
+			Place(obj);
 		}
 
-		/**
-		 * \brief Performs new placement (datResource constructor) for resource struct.
-		 * \tparam T Type of structure to construct.
-		 * \param pPaged Pointer to structure.
-		 */
+		// Calls T::Place function if defined, otherwise ::PlaceDefault.
 		template<typename T>
-		void Construct(T* pPaged) const
+		void Place(T* obj) const
 		{
-			// Important thing to note here is that with manual new-placing no destructor
-			// will be invoked, and that's exactly what we need because it has to be managed
-			// by streaming allocator.
-			// Otherwise for e.g. destructor of atArray will blow up whole operation.
+			constexpr bool hasPlaceFn = requires(T t, datResource rsc)
+			{
+				T::Place(rsc, &t);
+			};
 
+			// We allow resources to implement their own place function,
+			// example of how it is used can be seen in phBound::Place factory
+			if constexpr (hasPlaceFn)
+			{
+				T::Place(*this, obj);
+			}
+			else
+			{
+				PlaceDefault(obj);
+			}
+		}
+
+		// Default place function that just calls resource constructor
+		template<typename T>
+		void PlaceDefault(T* obj) const
+		{
+			// Key thing to note here is that we're new-placing struct on de-serialized memory from resource file
 			const datResource& rsc = *this;
-			void* addr = (void*)pPaged;
+			void* addr = (void*)obj;
 			new (addr) T(rsc);
 		}
 
-		/**
-		 * \brief Performs new placement of main resource page.
-		 * \n Alternative way is to use overloaded operator new: new (rsc) pgDictionary<grcTexture>(rsc);
-		 * \tparam T Resource type.
-		 * \return Pointer to resource instance.
-		 */
+		// Automatically decides whether to just fixup pointer or also perform placement (if datResource constructor exists)
 		template<typename T>
-		void Construct() const
+		void operator>>(T*& obj) const
 		{
-			static_assert(std::is_base_of_v<pgBase, T>, "Resource type must be derived from pgBase.");
+			constexpr bool hasResourceConstructor = requires(T t, datResource rsc)
+			{
+				new (&t) T(rsc); // Check if T(const datResource& rsc) constructor exists
+			};
 
-			T* t = (T*)Map->MainChunk;
-			Construct(t);
+			constexpr bool hasPlaceFn = requires(T t, datResource rsc)
+			{
+				T::Place(rsc, &t);
+			};
+
+			if constexpr (hasResourceConstructor || hasPlaceFn)
+			{
+				FixupAndPlace(obj);
+			}
+			else
+			{
+				Fixup(obj);
+			}
 		}
 	};
-}
 
-/**
- * \brief Constructs resource from main page.
- * \n NOTE: datResource still has to be passed into resource constructor.
- */
-inline void* operator new(size_t, const rage::datResource& rsc)
-{
-	return rsc.Map->MainChunk;
+	template<typename T>
+	concept pgCanDeserialize = requires(T t, datResource r) { r >> t; };
+
+	template<typename T>
+	constexpr bool pgHasRscConstructor = requires(T t, datResource rsc)
+	{
+		new (&t) T(rsc); // Check if T(const datResource& rsc) constructor exists
+	};
 }
-inline void operator delete(void*, const rage::datResource&) {}

@@ -6,7 +6,7 @@
 rage::datResource::datResource(datResourceMap& map, ConstString name)
 {
 	Map = &map;
-	Name = name;
+	DebugName = name;
 	ChunkCount = map.GetChunkCount();
 
 	for (u8 i = 0; i < ChunkCount; i++)
@@ -17,8 +17,13 @@ rage::datResource::datResource(datResourceMap& map, ConstString name)
 		DestChunks[i] = datResourceSortedChunk(chunk.DestAddr, chunk.Size, i);
 	}
 
-	std::sort(SrcChunks, &SrcChunks[ChunkCount], SortByRegionAddress);
-	std::sort(DestChunks, &DestChunks[ChunkCount], SortByRegionAddress);
+	// Chunks has to be sorted so we can quickly find chunk from address
+	auto compareFn = [](const datResourceSortedChunk& lhs, const datResourceSortedChunk& rhs)
+	{
+		return lhs.Address < rhs.Address;
+	};
+	std::sort(SrcChunks, SrcChunks + ChunkCount, compareFn);
+	std::sort(DestChunks, DestChunks + ChunkCount, compareFn);
 
 	tl_CurrentResource = this;
 }
@@ -26,11 +31,6 @@ rage::datResource::datResource(datResourceMap& map, ConstString name)
 rage::datResource::~datResource()
 {
 	tl_CurrentResource = nullptr;
-}
-
-bool rage::datResource::SortByRegionAddress(const datResourceSortedChunk& lhs, const datResourceSortedChunk& rhs)
-{
-	return lhs.Address < rhs.Address;
 }
 
 rage::datResourceChunk* rage::datResource::GetChunk(const datResourceSortedChunk* sortedChunk) const
