@@ -3,8 +3,7 @@
 #include "am/file/fileutils.h"
 #include "am/file/path.h"
 #include "am/system/ptr.h"
-#include "am/xml/doc.h"
-#include "am/xml/element.h"
+#include "am/xml/serialize.h"
 #include "common/types.h"
 #include "rage/atl/set.h"
 #include "rage/crypto/joaat.h"
@@ -37,17 +36,19 @@ namespace rageam::asset
 	 * \brief Base class for assets.
 	 * \remarks This class is only to be used AssetFactory! Use GameAsset / GameRscAsset for anything else.
 	 */
-	class AssetBase
+	class AssetBase : public IXml
 	{
 		file::WPath m_Directory; // Path to directory where asset-specific files are located
+		bool		m_HasSavedConfig;
 
 	public:
 		AssetBase(const file::WPath& path)
 		{
 			m_Directory = path;
+			m_HasSavedConfig = IsFileExists(GetConfigPath());
 		}
 
-		virtual ~AssetBase() = default;
+		~AssetBase() override = default;
 
 		// Compiles asset into file. If path is null, GetCompilePath() is used.
 		virtual bool CompileToFile(ConstWString filePath = nullptr) = 0;
@@ -60,14 +61,13 @@ namespace rageam::asset
 		// Gets extension of compiled asset - 'ytd', 'ysc', 'yft', etc.
 		virtual ConstWString GetCompileExtension() const = 0;
 
-		virtual bool Deserialize(const xml::Element& xml) = 0;
-		virtual bool Serialize(xml::Element& xml) const = 0;
-
 		// Loads asset configuration file from "config.xml", if config doesn't exist - creates default one.
 		// Note that this function automatically calls refresh!
 		bool LoadConfig();
 		// Saves asset configuration file to "config.xml".
 		bool SaveConfig() const;
+		// Useful when some data needs to be set only on config creation
+		bool HasSavedConfig() const { return m_HasSavedConfig; }
 
 		// Gets full path to asset directory 'x:/assets/adder.itd'
 		const file::WPath& GetDirectoryPath() const { return m_Directory; }
@@ -109,7 +109,7 @@ namespace rageam::asset
 	 * For texture dictionary such file will be an image.
 	 * \remarks Asset may have multiple source files, of course.
 	 */
-	class AssetSource
+	class AssetSource : IXml
 	{
 		AssetBase* m_Parent;
 
@@ -123,10 +123,7 @@ namespace rageam::asset
 			m_HashKey = joaat(m_FileName);
 		}
 
-		virtual ~AssetSource() = default;
-
-		virtual bool Deserialize(const xml::Element& xml) = 0;
-		virtual bool Serialize(xml::Element& xml) const = 0;
+		~AssetSource() override = default;
 
 		// Gets base asset resource this source file belongs to.
 		AssetBase* GetParent() const { return m_Parent; }
@@ -179,12 +176,15 @@ namespace rageam::asset
 
 			rage::pgRscCompiler compiler;
 			compiler.CompileCallback = [this](ConstWString message, double progress)
-			{
-				this->ReportProgress(message, progress);
-			};
+				{
+					this->ReportProgress(message, progress);
+				};
 
 			return compiler.Compile(&gameFormat, GetResourceVersion(), compilePath);
 		}
+
+		// Hot-reload part of asset, if possible.
+		virtual void ApplyChange(TGameFormat* resource, int changeId) {}
 
 		// RORC (Rockstar Offline Resource Compiler) version from resource header.
 		virtual u32 GetResourceVersion() const = 0;

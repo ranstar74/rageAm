@@ -1,5 +1,8 @@
 #include "gameasset.h"
 
+#include "am/time/datetime.h"
+#include "am/xml/doc.h"
+
 bool rageam::asset::AssetBase::LoadConfig()
 {
 	static Logger logger("asset_config");
@@ -14,42 +17,41 @@ bool rageam::asset::AssetBase::LoadConfig()
 		return AM_VERIFY(SaveConfig(), "Unable to save just created config");
 	}
 
-	xml::Document doc;
-	if (!AM_VERIFY(doc.LoadFromFile(configPath), L"Failed to load xml file %ls", configPath.GetCStr()))
-		return false;
+	try
+	{
+		XmlDoc xDoc;
+		xDoc.LoadFromFile(configPath);
 
-	// Document must have root element
-	xml::nElement nRoot = doc.GetRoot();
-	if (!AM_VERIFY(nRoot.HasValue(),
-		L"Root element is missing, XML file is invalid %ls", configPath.GetCStr()))
-		return false;
+		XmlHandle xRoot = xDoc.Root();
 
-	// Root element name must match to asset-specific name constant
-	xml::Element root = nRoot.GetValue();
-	ConstWString documentRootName = String::ToWideTemp(root.GetName());
-	ConstWString expectedRootName = GetXmlName();
-	if (!AM_VERIFY(String::Equals(documentRootName, expectedRootName),
-		L"Root element name doesn't match (file: %ls, actual: %ls), XML file is invalid %ls",
-		documentRootName, expectedRootName, configPath.GetCStr()))
-		return false;
+		// Root element name must match to asset-specific name constant
+		ConstWString documentRootName = String::ToWideTemp(xRoot.GetName());
+		ConstWString expectedRootName = GetXmlName();
+		if (!String::Equals(documentRootName, expectedRootName))
+		{
+			AM_ERRF(L"Root element name doesn't match (file: %ls, actual: %ls), XML file is invalid %ls",
+				documentRootName, expectedRootName, configPath.GetCStr());
+			return false;
+		}
 
-	// Try to retrieve version
-	u32 version;
-	if (!AM_VERIFY(root.TryGetAttribute("Version", version),
-		L"Format version is not specified, XML file is invalid %ls", configPath.GetCStr()))
-		return false;
+		// Verify format version
+		u32 version;
+		xRoot.GetAttribute("Version", version);
+		if (version != GetFormatVersion()) // TODO: Ideally we would have to support different format version
+		{
+			AM_ERRF(L"Format version doesn't match (file: %u, actual: %u) %ls", version, GetFormatVersion(), configPath.GetCStr());
+			return false;
+		}
 
-	// Compare file format version to current one
-	if (!AM_VERIFY(version == GetFormatVersion(),
-		L"Format version doesn't match (file: %u, actual: %u) %ls", version, GetFormatVersion(), configPath.GetCStr()))
+		Deserialize(xRoot);
+	}
+	catch (const XmlException& ex)
+	{
+		ex.Print();
 		return false;
+	}
 
-	// Try to deserialize xml to config
-	if (!AM_VERIFY(Deserialize(root), L"Failed to deserialize config for %ls", GetDirectoryPath().GetCStr()))
-		return false;
-
-	// Actualize config
-	Refresh();
+	Refresh(); // Actualize config
 
 	return true;
 }
@@ -59,15 +61,27 @@ bool rageam::asset::AssetBase::SaveConfig() const
 	const file::WPath& configPath = GetConfigPath();
 
 	// Create root element with asset-specific name, (for txd its TextureDictionary). It will help to detect errors in xml file faster.
-	xml::Document doc;
-	doc.CreateNew(String::ToAnsiTemp(GetXmlName()));
+	XmlDoc xDoc(String::ToAnsiTemp(GetXmlName()));
 
 	// Add asset format version
-	xml::Element root = doc.GetRoot().GetValue();
-	root.AddAttribute("Version", GetFormatVersion());
+	XmlHandle xRoot = xDoc.Root();
+	xRoot.SetAttribute("Version", GetFormatVersion());
+
+	// Add timestamp
+	char timeBuffer[36];
+	DateTime::Now().Format(timeBuffer, sizeof timeBuffer, "s");
+	xRoot.SetAttribute("Timestamp", timeBuffer);
 
 	// Write config to xml
-	Serialize(root);
-
-	return AM_VERIFY(doc.SaveToFile(configPath), L"GameAsset::SaveConfig() -> Failed to save config %ls", configPath.GetCStr());
+	try
+	{
+		Serialize(xRoot);
+		xDoc.SaveToFile(configPath);
+	}
+	catch (const XmlException& ex)
+	{
+		ex.Print();
+		return false;
+	}
+	return true;
 }
