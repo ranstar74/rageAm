@@ -7,6 +7,7 @@
 //
 #pragma once
 
+#include "am/desktop/input.h"
 #include "am/ui/apps.h"
 #include "am/ui/icons.h"
 #include "am/task/undo.h"
@@ -26,6 +27,7 @@ namespace rageam::ui
 		Apps			Apps;
 		WindowManager*	Windows;
 		StatusBar*		Status;
+		Input			Input;
 
 		UIContext();
 		~UIContext();

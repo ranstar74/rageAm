@@ -8,10 +8,11 @@
 #pragma once
 
 #include "rage/atl/array.h"
-#include "am/task/undo.h"
 #include "app.h"
 
 #include <mutex>
+
+#include "am/system/ptr.h"
 
 namespace rageam::ui
 {

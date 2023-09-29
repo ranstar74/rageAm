@@ -52,9 +52,11 @@ rageam::ui::UIContext::~UIContext()
 
 bool rageam::ui::UIContext::Update()
 {
+	Input.BeginFrame();
 	Renderer.BeginFrame();
 	bool needContinue = Apps.UpdateAll();
 	Renderer.EndFrame();
+	Input.EndFrame();
 
 	if (!needContinue)
 		return false;

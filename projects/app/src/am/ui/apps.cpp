@@ -12,6 +12,11 @@
 #include "extensions.h"
 #include "windows/explorer/explorer.h"
 
+#ifndef AM_STANDALONE
+#include "am/desktop/window_integrated.h"
+#include "apps/integration/modelscene.h"
+#endif
+
 void rageam::ui::Apps::RegisterSystemApps()
 {
 	std::unique_lock lock(m_Mutex);
@@ -19,6 +24,9 @@ void rageam::ui::Apps::RegisterSystemApps()
 	AddApp(new TestbedApp());
 	AddApp(new StatusBar());
 	AddApp(new WindowManager());
+#ifndef AM_STANDALONE
+	AddApp(new ModelSceneApp());
+#endif
 }
 
 bool rageam::ui::Apps::UpdateAll()
@@ -27,6 +35,21 @@ bool rageam::ui::Apps::UpdateAll()
 
 	// We display UI disabled if game viewport is focused (active) in integration mode
 #ifndef AM_STANDALONE
+	static bool gameDisabled = false;
+	if (ImGui::IsKeyPressed(ImGuiKey_F10))
+	{
+		gameDisabled = !gameDisabled;
+	}
+
+	if (gameDisabled)
+	{
+		static gmAddress disabledAllControlsCommand = gmAddress::Scan("40 53 48 83 EC 20 33 DB 85 C9 75 09");
+		disabledAllControlsCommand.To<void(*)(int)>()(0);
+	}
+
+	// TODO: Bring back cursor clip hook
+	GImGui->IO.MouseDrawCursor = gameDisabled;
+
 	bool disabled = false;// sm_GameApp->IsFocused();
 #else
 	bool disabled = false;
@@ -39,7 +62,7 @@ bool rageam::ui::Apps::UpdateAll()
 
 	// Dock space in integration mode will cover all game viewport, we don't want that
 #ifdef AM_STANDALONE
-	ImGui::BeginDockSpace();
+	ImGui::BeginDockSpace(); // TODO: In integration mode this creates debug window...
 #endif
 	if (ImGui::BeginMenuBar())
 	{
@@ -79,16 +102,22 @@ bool rageam::ui::Apps::UpdateAll()
 
 	if (ImGui::BeginPopupModal(ABOUT_POPUP_ID, 0, ImGuiWindowFlags_AlwaysAutoResize))
 	{
+		static Image* amIcon = Gui->Icons.GetIcon("am", IconSize_256);
+		static int currentYear = DateTime::Now().Year();
+
 		SlGui::PushFont(SlFont_Medium);
-		ImGui::Text("RAGE AM");
-		ImGui::Dummy(ImVec2(0, ImGui::GetFrameHeight() * 0.25f));
 
-		ImGui::Text("The 'rageAm' research project");
-		ImGui::Text(U8("© 2023 ranstar74"));
+		amIcon->Render(64);
+		ImGui::SameLine();
+		ImGui::Text("The 'rageAm' RAGE Research Project");
+		ImGui::SnapToPrevious();
+		ImGui::Text(U8("©"));
+		ImGui::SameLine(0, 0);
+		ImGui::Text(" %i ranstar74.", currentYear);
 
-		ImGui::Dummy(ImVec2(0, ImGui::GetFrameHeight() * 0.25f));
-
-		if (ImGui::Button("OK"))
+		ImGui::Dummy(ImVec2(0, ImGui::GetFrameHeight() * 1.75f));
+		
+		if (ImGui::Button("Continue"))
 			ImGui::CloseCurrentPopup();
 
 		ImGui::PopFont();

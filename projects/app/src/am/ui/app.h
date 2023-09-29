@@ -9,6 +9,7 @@
 
 #include <typeinfo>
 
+#include "am/desktop/input.h"
 #include "common/types.h"
 
 namespace rageam::ui
@@ -44,5 +45,7 @@ namespace rageam::ui
 
 			OnRender();
 		}
+
+		InputState& GetInput() const;
 	};
 }
