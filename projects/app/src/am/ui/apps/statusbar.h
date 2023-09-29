@@ -19,6 +19,7 @@ namespace rageam::ui
 
 		void OnRender() override
 		{
+#ifdef AM_STANDALONE // works bad in integration
 			const ImGuiViewport* viewport = ImGui::GetMainViewport();
 
 			// Set position to the bottom of the viewport
@@ -51,6 +52,7 @@ namespace rageam::ui
 			{
 				m_Status = "Ready";
 			}
+#endif
 		}
 	public:
 		StatusBar()
