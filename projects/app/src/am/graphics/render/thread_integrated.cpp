@@ -1,3 +1,4 @@
+#include "am/integration/gamehooks.h"
 #include "common/logger.h"
 #ifndef AM_STANDALONE
 #include "thread_integrated.h"
@@ -17,6 +18,9 @@ void rageam::render::ThreadIntegrated::PresentCallback()
 	if (!initialized)
 	{
 		SetThreadDescription(GetCurrentThread(), L"[RAGE] Render Thread");
+
+		// Initialize game hooks that require rage thread with tls
+		GameHooks::InitFromGtaThread();
 
 		initialized = true;
 	}

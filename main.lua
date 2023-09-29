@@ -122,6 +122,10 @@ project "rageAm"
 	defines { "AM_DEFAULT_DATA_DIR=" .. "LR\"(" .. (os.realpath("data")) .. ")\"" }
 	defines { "AM_DATA_DIR=L\"data\"" }
 
+	filter { "not options:standalone" }
+		include_vendors { "shv" }
+	filter{}
+	
 	include_vendors {
 		"imgui",
 		"implot",
