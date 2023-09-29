@@ -78,6 +78,8 @@ namespace rage
 		// Copies from given string with maximum length specified.
 		atBaseString(ConstString str, TSize hintLength)
 		{
+			if (!str) 
+				return;
 			TSize length = MIN(String::Length(str), hintLength);
 			Set(str, length);
 		}
