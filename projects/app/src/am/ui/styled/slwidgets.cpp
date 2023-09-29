@@ -72,10 +72,24 @@ void SlGui::EndToolWindow()
 
 bool SlGui::ToggleButton(ConstString text, bool& isActive)
 {
-	ImGui::PushStyleVar(ImGuiStyleVar_Alpha, isActive ? 1.0f : 0.4f);
+	float alpha = GImGui->Style.Alpha * (isActive ? 1.0f : 0.8f);
+	ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
+	// Make inactive toggle buttons gray, easier to understand
+	ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBg));
 	bool pressed = MenuButton(text);
 	if (pressed) isActive = !isActive;
-	ImGui::PopStyleVar(1);
+	ImGui::PopStyleVar();
+	ImGui::PopStyleColor();
+
+	// Render underline for active button
+	if (isActive)
+	{
+		ImRect& btnRect = GImGui->LastItemData.Rect;
+		constexpr float lineHeight = 2.0f;
+		ImGui::RenderFrame(btnRect.GetBL() + ImVec2(0, lineHeight), btnRect.GetBR(),
+			ImGui::GetColorU32(ImGuiCol_ButtonActive));
+	}
+
 	return pressed;
 }
 

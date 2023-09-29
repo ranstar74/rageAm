@@ -482,29 +482,37 @@ void rageam::ModelSceneApp::OnRender()
 
 	if (SlGui::BeginToolWindow("Scene Toolbar"))
 	{
-		if (SlGui::ToggleButton(ICON_AM_OBJECT " Isolate", m_IsolatedSceneActive))
-		{
-			ResetCameraPosition();
-			m_ModelScene.SetEntityPos(GetEntityScenePos());
-
-			scrInvoke([=]
-				{
-					bool display = !m_IsolatedSceneActive;
-					SHV::UI::DISPLAY_HUD(display);
-					SHV::UI::DISPLAY_RADAR(display);
-				});
-		}
-		ImGui::ToolTip("Isolates scene model");
-
 		if (SlGui::ToggleButton(ICON_AM_CAMERA_GIZMO" Camera", m_CameraEnabled))
 			UpdateCamera();
 
-		if (SlGui::ToggleButton(ICON_AM_ORBIT" Orbit", m_UseOrbitCamera))
-			UpdateCamera();
-		ImGui::ToolTip("Use orbit camera instead of free");
+		ImGui::PushStyleVar(ImGuiStyleVar_DisabledAlpha, 0.2f);
+		if (!m_CameraEnabled) ImGui::BeginDisabled();
+		{
+			if (SlGui::ToggleButton(ICON_AM_ORBIT" Orbit", m_UseOrbitCamera))
+				UpdateCamera();
+			ImGui::ToolTip("Use orbit camera instead of free");
 
-		if (SlGui::MenuButton(ICON_AM_HOME" Reset Cam"))
-			ResetCameraPosition();
+			if (SlGui::ToggleButton(ICON_AM_OBJECT " Isolate", m_IsolatedSceneActive))
+			{
+				ResetCameraPosition();
+				m_ModelScene.SetEntityPos(GetEntityScenePos());
+
+				scrInvoke([=]
+					{
+						bool display = !m_IsolatedSceneActive;
+						SHV::UI::DISPLAY_HUD(display);
+						SHV::UI::DISPLAY_RADAR(display);
+					});
+			}
+			ImGui::ToolTip("Isolates scene model");
+
+			// Separate toggle buttons from actions
+			if (!m_CameraEnabled) ImGui::EndDisabled(); // Draw separator without opacity
+			ImGui::Separator();
+			if (!m_CameraEnabled) ImGui::BeginDisabled();
+
+			if (SlGui::MenuButton(ICON_AM_HOME" Reset Cam"))
+				ResetCameraPosition();
 
 			if (SlGui::MenuButton(ICON_AM_PED_ARROW" Warp Ped"))
 			{
