@@ -1,4 +1,6 @@
 #include "modelscene.h"
+
+#include "rage/math/math.h"
 #ifdef AM_INTEGRATED
 
 #include "am/ui/font_icons/icons_am.h"
@@ -75,7 +77,9 @@ void rageam::ModelScene::RegisterArchetype()
 	modelDef.m_BsCentre = drBs.GetCenter();
 	modelDef.m_BsRadius = drBs.GetRadius().Get();
 	modelDef.m_AssetName = RAGEAM_HASH;
-	modelDef.m_LodDist = 100;
+	// TODO: This breaks on very large objects, for example plane covering whole map
+	// modelDef.m_LodDist = 100;
+	modelDef.m_LodDist = drBs.GetRadius().Get() + 100.0f; // Temporary solution for large models
 	modelDef.m_PhysicsDictionary = RAGEAM_HASH;
 	modelDef.m_Flags = rage::ADF_STATIC | rage::ADF_BONE_ANIMS;
 	//modelDef.m_TextureDictionary = rage::joaat("adder");
