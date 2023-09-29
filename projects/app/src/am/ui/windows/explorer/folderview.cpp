@@ -139,7 +139,7 @@ void rageam::ui::FolderView::UpdateEntryRenaming(const ExplorerEntryPtr& entry, 
 			{
 				RenameEntry(entry, newName);
 			},
-				[=, this]
+			[=, this]
 			{
 				RenameEntry(entry, oldName);
 			}));
@@ -265,7 +265,10 @@ void rageam::ui::FolderView::UpdateEntryOpening()
 	if (m_EntryToOpen->IsAsset())
 	{
 		asset::AssetPtr asset = m_EntryToOpen->GetAsset();
-		assetview::AssetWindowFactory::OpenNewOrFocusExisting(asset);
+		if (asset) // If asset was loaded successfully... TODO: We need to handle loading exceptions from UI
+		{
+			assetview::AssetWindowFactory::OpenNewOrFocusExisting(asset);
+		}
 		m_EntryToOpen = nullptr; // To prevent it from actually opening
 	}
 }
