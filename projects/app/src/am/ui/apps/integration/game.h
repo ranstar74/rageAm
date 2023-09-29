@@ -4,7 +4,7 @@
 #include "am/ui/extensions.h"
 #include "am/ui/styled/slwidgets.h"
 #include "am/integration/hooks/gameviewport.h"
-#include "am/integration/hooks/input.h"
+#include "am/integration/hooks/GameInput.h"
 
 namespace rageam
 {
@@ -57,7 +57,7 @@ namespace rageam
 
 			if (!m_IsFocused)
 			{
-				hooks::Input::DisableAllControlsThisFrame();
+				hooks::GameInput::DisableAllControlsThisFrame();
 			}
 
 			//m_WasResized = !AlmostEquals(gameSize.x, m_PrevGameSize.x) || !AlmostEquals(gameSize.y, m_PrevGameSize.y);
