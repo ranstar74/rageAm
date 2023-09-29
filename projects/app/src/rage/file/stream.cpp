@@ -179,6 +179,9 @@ u32 rage::fiStream::Size() const
 
 u32 rage::fiStream::Read(pVoid dest, u32 size)
 {
+	return m_Device->Read(m_File, dest, size);
+	// TODO: Rest is broken
+
 	char* cDest = static_cast<char*>(dest);
 
 	// Prepare buffer for reading after writing
