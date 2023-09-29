@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	File: template.natvis
+	
+	Copyright (C) 2023 ranstar74. All rights violated.
+	
+	Part of "Rage Am" Research Project.
+-->
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<!-- Array -->
+	<Type Name="rage::pgFixedArray&lt;*&gt;">
+		<Expand>
+			<ArrayItems>
+				<Size>m_Size</Size>
+				<ValuePointer>m_Items</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+</AutoVisualizer>

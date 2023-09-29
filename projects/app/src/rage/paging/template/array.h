@@ -11,7 +11,7 @@
 
 #include "rage/atl/array.h"
 #include "rage/paging/compiler/compiler.h"
-#include "rage/paging/place.h"
+#include "rage/paging/ref.h"
 #include "rage/paging/resource.h"
 
 namespace rage
@@ -44,79 +44,99 @@ namespace rage
 		}
 	};
 
-	/**
-	 * \brief Array for paged resource.
-	 * \remark For pointer, see rage::pgPtrArray;
-	 */
+	// Re-allocates and moves all array items to snapshot allocator (if resource is being compiled).
 	template<typename T>
+	void pgSnapshotArray(T* items, u16 size)
+	{
+		if constexpr (pgCanDeserialize<T>)
+		{
+			pgSnapshotAllocator* pAllocator = pgRscCompiler::GetVirtualAllocator();
+			if (!pAllocator)
+				return;
+
+			// atArray will copy items but won't snapshot them, we have to do it for every item manually
+			for (int i = 0; i < size; i++)
+			{
+				auto& item = items[i];
+
+				// As usual, allocate memory for resource struct on virtual allocator
+				// and copy structure memory via placement new and copy constructor
+				pVoid where = pAllocator->Allocate(sizeof(T));
+				item = new (where) T(std::move(item));
+
+				pAllocator->AddRef(item);
+			}
+		}
+	}
+
+	// Fixes up items pointer and places all array items.
+	template<typename T>
+	void pgPlaceArray(const datResource& rsc, T*& items, u16 size, bool placeItems)
+	{
+		rsc.Fixup(items);
+
+		// Raw pointers must be used for testing only!
+		if constexpr (std::is_pointer<T>())
+		{
+			for (u16 i = 0; i < size; i++)
+				rsc.Fixup(items[i]);
+		}
+
+		if (!placeItems)
+			return;
+
+		if constexpr (pgHasRscConstructor<T>)
+		{
+			for (u16 i = 0; i < size; i++)
+			{
+				// We don't have to fixup structs, only place (construct)
+				// Special case is pgPtr / pgUPtr and they have fix-up inside them, as it should be
+				T* pItem = &items[i];
+				rsc.Place(pItem);
+			}
+		}
+	}
+
+	/**
+	 * \brief Array that supports paged serialization.
+	 */
+	template<typename T, bool bPlaceItems = true>
 	class pgArray : public atArray<T, u16, pgArrayAllocate<T, u16>>
 	{
 		using Array = atArray<T, u16, pgArrayAllocate<T, u16>>;
 	public:
 		using Array::atArray;
 
+		pgArray()
+		{
+			// Perform placement if we're building resource
+			datResource* rsc = datResource::GetCurrent();
+			if (rsc)
+				pgPlaceArray(*rsc, Array::m_Items, Array::m_Size, bPlaceItems);
+		}
+
+		pgArray(const pgArray& other) : Array(other)
+		{
+			pgSnapshotArray(Array::m_Items, Array::m_Size);
+
+			if (pgRscCompiler::GetCurrent())
+			{
+				// NOTE: We clamp capacity to size because tools like CodeWalker use it instead of
+				// size and crash with null reference exception
+				Array::m_Capacity = Array::m_Size;
+			}
+		}
+
 		pgArray(const datResource& rsc) : Array(rsc)
 		{
-			rsc.Fixup(this->m_Items);
-		}
-
-		IMPLEMENT_PLACE_INLINE(pgArray);
-	};
-
-	/**
-	 * \brief Array of pointers to non pgBase structures.
-	 */
-	template <typename T>
-	class pgPtrArray : public pgArray<T*>
-	{
-		using TArray = pgArray<T*>;
-	public:
-		using TArray::atArray;
-
-		pgPtrArray(const datResource& rsc) : pgArray<T*>(rsc)
-		{
-			for (u16 i = 0; i < this->GetSize(); i++)
-				rsc.Fixup(this->Get(i));
+			pgPlaceArray(rsc, Array::m_Items, Array::m_Size, bPlaceItems);
 		}
 	};
 
-	/**
-	 * \brief Array of pointers to pgBase structures, such as grcTexture.
-	 */
-	template <typename T>
-	class pgRscArray : public pgArray<T*>
-	{
-		using TArray = pgArray<T*>;
-	public:
-		using TArray::pgArray;
-
-		pgRscArray(const pgRscArray& other) : TArray(other)
-		{
-			pgSnapshotAllocator* pAllocator = pgRscCompiler::GetVirtualAllocator();
-			if (!pAllocator)
-				return;
-
-			// atArray will copy pgRef but won't snapshot structure, we have to do it for every item manually
-			for (int i = 0; i < TArray::GetSize(); i++)
-			{
-				auto& item = TArray::Get(i);
-
-				// As usual, allocate memory for resource struct on virtual allocator
-				// and copy structure memory via placement new and copy constructor
-				pVoid where = pAllocator->Allocate(sizeof(T));
-				item = new (where) T(*item); // Construct and replace old pointer
-
-				pAllocator->AddRef(item);
-			}
-		}
-
-		pgRscArray(const datResource& rsc) : TArray(rsc)
-		{
-			for (u16 i = 0; i < this->GetSize(); i++)
-			{
-				// In contrast with pgPtrArray we not only fixup address but also execute new-placement constructor
-				rsc.Place(this->Get(i));
-			}
-		}
-	};
+	// Array of shared pointers.
+	template<typename T, bool bPlaceItems = true>
+	using pgPtrArray = pgArray<pgPtr<T>, bPlaceItems>;
+	// Array of unique pointers.
+	template<typename T, bool bPlaceItems = true>
+	using pgUPtrArray = pgArray<pgUPtr<T>, bPlaceItems>;
 }
