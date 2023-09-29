@@ -272,6 +272,11 @@ void rage::sysBuddyHeap::Free(u32 index)
 
 	sysBuddy* node = GetBuddy(index);
 
+	// Rockstar were lazy? with resources so buddy allocator is allowed
+	// to delete pointer twice (first in resource destructor then in pgBase::FreeMemory)
+	if (!node->GetIsAllocated())
+		return;
+
 	u8 level = node->GetLevel();
 	u8 bucket = node->GetMemoryBucket();
 	u32 buddySize = GetBuddySize(level);
