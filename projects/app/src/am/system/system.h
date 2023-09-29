@@ -8,13 +8,16 @@
 #pragma once
 
 #include "am/desktop/window.h"
+#include "am/graphics/render/context.h"
 #include "am/graphics/render/engine.h"
 #include "am/task/worker.h"
 #include "am/ui/context.h"
 #include "exception/handler.h"
+#include "rage/grcore/fvf.h"
 
 #ifdef AM_INTEGRATED
 #include "am/integration/gamehooks.h"
+#include "am/integration/integration.h"
 #endif
 
 namespace rageam
@@ -40,6 +43,11 @@ namespace rageam
 			if (!m_Initialized)
 				return;
 
+			// RAGE-Specific
+			{
+				rage::grcVertexDeclaration::CleanUpCache();
+			}
+
 			if (m_UseWindowRender)
 			{
 				WindowFactory::DestroyRenderWindow();
@@ -49,6 +57,7 @@ namespace rageam
 				m_RenderEngine->SetRenderFunction(nullptr);
 
 			DestroyUIContext();
+			DestroyRenderContext();
 
 			m_RenderEngine.reset();
 			render::Engine::SetInstance(nullptr);
@@ -57,6 +66,7 @@ namespace rageam
 			// - render::Engine hooks game render thread
 #ifdef AM_INTEGRATED
 			GameHooks::Shutdown();
+			DestroyIntegrationContext();
 #endif
 
 			asset::AssetFactory::Shutdown();
@@ -77,6 +87,7 @@ namespace rageam
 		{
 #ifdef AM_INTEGRATED
 			GameHooks::EnableAll();
+			CreateIntegrationContext();
 #endif
 
 			m_Initialized = true;
@@ -115,11 +126,14 @@ namespace rageam
 			if (useWindow)
 			{
 				WindowFactory::CreateRenderWindow();
+				Input::InitClass();
 				m_UseWindowRender = true;
 			}
 
 			m_RenderEngine = std::make_unique<render::Engine>(useWindow);
 			render::Engine::SetInstance(m_RenderEngine.get());
+
+			CreateRenderContext();
 
 			AM_DEBUGF("System::InitRender() -> Render Started");
 		}
