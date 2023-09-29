@@ -1,7 +1,9 @@
 #include "datetime.h"
 
 #include "am/system/asserts.h"
+
 #include <cmath>
+#include <stdio.h>
 
 bool rageam::IsLeapYear(int year)
 {
