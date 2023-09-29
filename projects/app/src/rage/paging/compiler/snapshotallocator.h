@@ -12,6 +12,12 @@
 
 #include <typeinfo>
 
+#include "helpers/ranges.h"
+
+// Sets HWBreakpoint on allocation header to detect memory overruns, may cause instability
+// Use only for debugging
+//#define ENABLE_SNAPSHOT_OVERRUN_DETECTION
+
 namespace rage
 {
 	/**
@@ -21,11 +27,22 @@ namespace rage
 	{
 		struct Node
 		{
+			// Currently its used only for grmShaderGroup container block, it uses singe allocation
+			// to store atArray + grmShader's and pointers to them
+			// So generally it allows to have reference on address within the snapshot block
+			struct OffsetRef
+			{
+				void** Ref;
+				u32 Offset;
+			};
+
 			u32 Guard;
 			u32 Size;
 			atArray<void**> Refs;
+			atArray<OffsetRef> OffsetRefs;
 
 			Node(u32 size);
+			~Node();
 
 			u32	CreateGuard() const;
 			bool VerifyGuard() const;
@@ -44,8 +61,11 @@ namespace rage
 		u16 m_NodeCount = 0;
 
 		Node* GetNodeFromBlock(pVoid block) const;
+		Node* FindBlockThatContainsPointer(pVoid ptr) const; // Used for offset ref
 		Node* GetNodeFromBlockIndex(u32 index) const;
 		Node* GetRootNode() const;
+
+		void SanityCheck() const;
 	public:
 		pgSnapshotAllocator(u32 size, bool isVirtual);
 		~pgSnapshotAllocator();
@@ -103,13 +123,29 @@ namespace rage
 		template<typename T>
 		void AddRef(T*& block)
 		{
+			AM_ASSERT(block != nullptr, "SnapshotAllocator::AddRef() -> Block was NULL");
+
+			void** ref = (void**)&block; // NOLINT(clang-diagnostic-cast-qual)
+
 			Node* node = GetNodeFromBlock((pVoid)block);
+			if (node)
+			{
+				node->Refs.Add(ref);
+				AM_DEBUGF("SnapshotAllocator::AddRef<%s>() -> %#llx", typeid(T).name(), (u64)block);
+				return;
+			}
 
-			AM_ASSERT(node, "SnapshotAllocator::AddRef() -> Block is not valid.");
+			// Check for a possible 'Offset Ref' (see description above)
+			node = FindBlockThatContainsPointer((pVoid)block);
+			if (node)
+			{
+				u32 offset = DISTANCE(node->GetBlock(), block);
+				node->OffsetRefs.Add(Node::OffsetRef(ref, offset));
+				AM_DEBUGF("SnapshotAllocator::AddRef<%s>() -> %#llx with offset %u", typeid(T).name(), (u64)block, offset);
+				return;
+			}
 
-			node->Refs.Add((void**)&block);
-
-			AM_DEBUGF("SnapshotAllocator::AddRef<%s>() -> %#llx", typeid(T).name(), (u64)block);
+			AM_ASSERT(node, "SnapshotAllocator::AddRef() -> Pointer is neither allocation nor within any of allocated blocks.");
 		}
 
 		/**
@@ -122,19 +158,6 @@ namespace rage
 		{
 			block = static_cast<T*>(Allocate(size));
 			AddRef(block);
-		}
-
-		void AllocateRefString(ConstString& str)
-		{
-			// grcTexture holds static name (not atString) that we have to snapshot
-			// This is quite retarded hack but it's rockstar that decided not to use atString for some reason...
-			// TODO: Can we add new type instead? pgConstString
-
-			u32 size = strlen(str) + 1; // Including null-terminator
-			ConstString orig = str;
-			AllocateRef(str, size);
-			// We have to cast it back to char* in order to perform copying
-			String::Copy((char*)str, size, orig); // NOLINT(clang-diagnostic-cast-qual)
 		}
 
 		/**

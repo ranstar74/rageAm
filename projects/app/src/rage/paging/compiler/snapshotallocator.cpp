@@ -1,6 +1,11 @@
 #include "snapshotallocator.h"
 
+#include "helpers/ranges.h"
 #include "rage/paging/paging.h"
+
+#ifdef ENABLE_SNAPSHOT_OVERRUN_DETECTION
+#include <breakpoint.h>
+#endif
 
 u32 rage::pgSnapshotAllocator::Node::CreateGuard() const
 {
@@ -26,6 +31,18 @@ rage::pgSnapshotAllocator::Node::Node(u32 size)
 {
 	Guard = CreateGuard();
 	Size = size;
+
+#ifdef ENABLE_SNAPSHOT_OVERRUN_DETECTION
+	// Protect from array overrun
+	HWBreakpoint::Set(&Guard, BP_Write, 8 /* Guard + Size */);
+#endif
+}
+
+rage::pgSnapshotAllocator::Node::~Node()
+{
+#ifdef ENABLE_SNAPSHOT_OVERRUN_DETECTION
+	HWBreakpoint::Clear(&Guard);
+#endif
 }
 
 void rage::pgSnapshotAllocator::Node::FixupRefs(u64 newAddress) const
@@ -37,6 +54,11 @@ void rage::pgSnapshotAllocator::Node::FixupRefs(u64 newAddress) const
 	{
 		*pRef = reinterpret_cast<void*>(newAddress);
 	}
+
+	for (OffsetRef& offsetRef : OffsetRefs)
+	{
+		*offsetRef.Ref = reinterpret_cast<void*>(newAddress + offsetRef.Offset);
+	}
 }
 
 char* rage::pgSnapshotAllocator::Node::GetBlock() const
@@ -46,7 +68,7 @@ char* rage::pgSnapshotAllocator::Node::GetBlock() const
 
 rage::pgSnapshotAllocator::Node* rage::pgSnapshotAllocator::Node::GetNext() const
 {
-	Node* next = (Node*)(GetBlock() + Size);
+	Node* next = (Node*)((u64)GetBlock() + Size);
 	if (next->VerifyGuard())
 		return next;
 	return nullptr;
@@ -57,6 +79,18 @@ rage::pgSnapshotAllocator::Node* rage::pgSnapshotAllocator::GetNodeFromBlock(pVo
 	Node* node = (Node*)((u64)block - sizeof(Node));
 	if (node->VerifyGuard())
 		return node;
+	return nullptr;
+}
+
+rage::pgSnapshotAllocator::Node* rage::pgSnapshotAllocator::FindBlockThatContainsPointer(pVoid ptr) const
+{
+	Node* node = GetRootNode();
+	while (node)
+	{
+		if (IS_WITHIN(ptr, node->GetBlock(), node->Size))
+			return node;
+		node = node->GetNext();
+	}
 	return nullptr;
 }
 
@@ -80,6 +114,26 @@ rage::pgSnapshotAllocator::Node* rage::pgSnapshotAllocator::GetRootNode() const
 	if (node->VerifyGuard())
 		return node;
 	return nullptr;
+}
+
+void rage::pgSnapshotAllocator::SanityCheck() const
+{
+#ifdef DEBUG
+	if (m_NodeCount == 0)
+		return;
+
+	u32 nodeCount = 0;
+	Node* node = (Node*)m_Heap;
+	while (node)
+	{
+		node->AssertGuard();
+
+		nodeCount++;
+		node = node->GetNext();
+	}
+
+	AM_ASSERT(nodeCount == m_NodeCount, "pgSnapshotAllocator::SanityCheck() -> Node count mismatch.");
+#endif
 }
 
 rage::pgSnapshotAllocator::pgSnapshotAllocator(u32 size, bool isVirtual)
@@ -109,7 +163,15 @@ rage::pgSnapshotAllocator::~pgSnapshotAllocator()
 
 pVoid rage::pgSnapshotAllocator::Allocate(u32 size)
 {
-	// We really don't care about alignment here
+	SanityCheck();
+
+	if (size == 0)
+	{
+		AM_WARNINGF("pgSnapshotAllocator::Allocate() -> Request size is zero, defaulting to 1.");
+		size = 16;
+	}
+
+	size = ALIGN_16(size);
 
 	pVoid block = (pVoid)((u64)m_Heap + m_Offset);
 	Node* header = new (block) Node(size);
