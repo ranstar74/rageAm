@@ -28,8 +28,8 @@ namespace rage
 		static bool PerformReadInMainThread(ConstString path, u32 version, datResourceMap& map, datResourceInfo& info);
 		static void ConstructName(char* buffer, u32 bufferSize, const char* path);
 
-		static pgBase* LoadBuild(ConstString path, u32 version, datResourceMap& map, datResourceInfo& info);
 	public:
+		static pgBase* LoadBuild(ConstString path, u32 version, datResourceMap& map, datResourceInfo& info);
 		/**
 		 * \brief Frees up physical chunks.
 		 */
@@ -57,7 +57,7 @@ namespace rage
 			if (*ppPaged)
 			{
 				datResource rsc(map);
-				*ppPaged = new TPaged(rsc);
+				rsc.Place(*ppPaged);
 			}
 			else
 			{
