@@ -10,6 +10,9 @@
 #include <cctype>
 #include <cwctype>
 #include <Windows.h>
+#include <array>
+
+#include "common/types.h"
 
 template<typename TChar>
 struct CharBase
@@ -64,3 +67,39 @@ template<> inline wchar_t CharBase<wchar_t>::ToLower(wchar_t value) { return (wc
 
 using Char = CharBase<char>;
 using WChar = CharBase<wchar_t>;
+
+// Compile-time ToUpper & ToLower
+
+constexpr auto ToUpperLUTArray()
+{
+	std::array<char, 255> lookup;
+	for (u8 i = 0; i < 255; i++)
+	{
+		char c = i >= 'a' && i <= 'z' ? char(i - ('a' - 'A')) : char(i);
+		lookup[i] = c;
+	}
+	return lookup;
+}
+
+constexpr auto ToLowerLUTArray()
+{
+	std::array<char, 255> lookup;
+	for (u8 i = 0; i < 255; i++)
+	{
+		char c = i >= 'A' && i <= 'Z' ? char(i + ('a' - 'A')) : char(i);
+		lookup[i] = c;
+	}
+	return lookup;
+}
+
+constexpr char ToUpperLUT(char c)
+{
+	constexpr auto lookup = ToUpperLUTArray();
+	return char(lookup[c]);
+}
+
+constexpr char ToLowerLUT(char c)
+{
+	constexpr auto lookup = ToLowerLUTArray();
+	return char(lookup[c]);
+}
