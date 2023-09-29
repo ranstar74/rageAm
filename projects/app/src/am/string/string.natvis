@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	File: string.natvis
+	
+	Copyright (C) 2023 ranstar74. All rights violated.
+	
+	Part of "Rage Am" Research Project.
+-->
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<!-- Wide String -->
+	<Type Name="StringWrapper&lt;wchar_t const*&gt;">
+		<DisplayString>{m_Str,su}</DisplayString>
+		<StringView>m_Str,su</StringView>
+	</Type>
+	<!-- String -->
+	<Type Name="StringWrapper&lt;char const*&gt;">
+		<DisplayString>{m_Str,s}</DisplayString>
+		<StringView>m_Str,s</StringView>
+	</Type>
+</AutoVisualizer>

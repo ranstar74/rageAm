@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	File: string.natvis
+	
+	Copyright (C) 2023 ranstar74. All rights violated.
+	
+	Part of "Rage Am" Research Project.
+-->
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<!-- Wide String -->
+	<Type Name="rageam::file::PathBase&lt;wchar_t, *&gt;">
+		<DisplayString>{m_Buffer,su}</DisplayString>
+		<StringView>m_Buffer,su</StringView>
+	</Type>
+	<!-- String -->
+	<Type Name="rageam::file::PathBase&lt;char, *&gt;">
+		<DisplayString>{m_Buffer,s}</DisplayString>
+		<StringView>m_Buffer,s</StringView>
+	</Type>
+</AutoVisualizer>

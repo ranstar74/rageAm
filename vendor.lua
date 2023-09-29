@@ -25,7 +25,7 @@ function vendor_files(name)
 end
 
 function include_vendor(name)
-	dofile("vendor/" .. name .. ".lua")
+	dofile("projects/app/vendor/" .. name .. ".lua")
 end
 
 function include_vendors(names)

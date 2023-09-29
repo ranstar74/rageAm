@@ -36,54 +36,118 @@ function add_launcher_events(build_dir)
 
 	local base_command = launcher .. " -exe GTA5.exe -dll " .. rageAm .. " -scylla " .. scylla
 	prebuildcommands { base_command .. " -unload" }
-	postbuildcommands { base_command .. " -load" }
+	
+	buildcommands { base_command .. " -load" }
+	-- Hack to make visual studio execute build command even if there's nothing to build.
+	-- It will execute command if file not found (meaning everytime). Please don't put GTAVI in compile directory.
+	buildoutputs { "GTAVI.exe" }
 end
 
-function setup_launcher_events()
-	filter "configurations:Debug"
-		add_launcher_events "bin/Debug/"
-	filter "configurations:Release"
-		add_launcher_events "bin/Release/"
-	filter{}
-end
+newoption {
+   trigger = "standalone",
+   description = "Compile rageAm as command line offline resource compiler."
+}
+
+newoption {
+   trigger = "unittests",
+   description = "Enable microsoft native unit tests."
+}
+
+newoption {
+   trigger = "nostacksymbols",
+   description = "Disables .pdb symbols in stack trace."
+}
 
 workspace "rageAm"
 	configurations { "Debug", "Release" }
+	location "projects"
 
 project "Launcher"
 	kind "ConsoleApp"
 	default_config()
 	
-	files { "launcher/**.h", "launcher/**.cpp" }
+	location "projects/launcher"
+
+	files 
+	{ 
+		"projects/launcher/src/**.h", 
+		"projects/launcher/src/**.cpp" 
+	}
 
 project "rageAm"
-	kind "SharedLib"
-	-- kind "ConsoleApp"
-	-- defines { "RAGE_STANDALONE" }
+	debugdir "bin/%{cfg.buildcfg}" -- Work directory
+	
+	-- Unit Tests: DLL
+	-- Standalone: EXE
+	-- Integrated: DLL
+	
+	filter { "options:unittests" }
+		kind "SharedLib"
+		defines { "AM_STANDALONE" }
+		defines { "AM_UNIT_TESTS" }
+
+	filter { "not options:unittests" }
+		
+		filter { "options:standalone" }
+			kind "ConsoleApp"
+			defines { "AM_STANDALONE" }
+		
+		filter { "not options:standalone" }
+			kind "SharedLib"
+			add_launcher_events("bin/%{cfg.buildcfg}" .. "/")
+			defines { "AM_INTEGRATED" }
+
+	filter { "not options:nostacksymbols" }
+		defines { "AM_STACKTRACE_SYMBOLS" }
+
+	filter{}
+	
+	location "projects/app"
+
 	default_config()
 	
-	files { "src/**.h", "src/**.cpp", "src/**.hint", "src/**.natvis" }
-	includedirs { "src", "src/common", "src/memory", "src/rage" }
+	files 
+	{ 
+		"projects/app/src/**.h", 
+		"projects/app/src/**.cpp", 
+		"projects/app/src/**.hint", 
+		"projects/app/src/**.natvis",
+		
+		"projects/app/resources/*.*"
+	}
+	
+	includedirs { "projects/app/src" }
 
-	dofile("config.lua")
-
-	setup_launcher_events()
-
-	defines { "IMGUI_USER_CONFIG=" .. "\"" .. (os.realpath("src/imgui_rage/ImGuiConfigRage.h")) .. "\"" }
-
+	-- TODO: Can we rewrite this mess better?
+	defines { "IMGUI_USER_CONFIG=" .. "\"" .. (os.realpath("projects/app/src/am/ui/imgui/config.h")) .. "\"" }
+	defines { "AM_DEFAULT_DATA_DIR=" .. "LR\"(" .. (os.realpath("data")) .. ")\"" }
+	defines { "AM_DATA_DIR=L\"data\"" }
+	
+	filter { "not options:standalone" }
+		include_vendors { "shv" }
+	filter{}
+	
 	include_vendors {
 		"imgui",
-		"boost",
+		"implot",
 		"tinyxml2",
 		"minhook",
-		"backward-cpp",
 		"directxtex",
 		"directxtk",
 		"freetype",
 		"zlib",
+		"nvtt",
+		"magic_enum",
+		"cgltf",
+		"hwbreakpoint",
 	}
 	links { "Comctl32.lib" } -- TaskDialog
+	links { "dbghelp" } -- StackTrace
+	links { "d3d11.lib" }
+	links { "Shlwapi.lib" } -- PathMatchSpecA
 
 	filter "files:**.natvis"
 		buildaction "Natvis"
 	filter{}
+	
+	dpiawareness "HighPerMonitor"

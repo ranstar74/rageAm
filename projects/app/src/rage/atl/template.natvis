@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	File: template.natvis
+	
+	Copyright (C) 2023 ranstar74. All rights violated.
+	
+	Part of "Rage Am" Research Project.
+-->
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<!-- Array -->
+	<Type Name="rage::atArray&lt;*&gt;">
+		<DisplayString>{{ size={m_Size} }}</DisplayString>
+		<Expand>
+			<Item Name="[size]" ExcludeView="simple">m_Size</Item>
+			<Item Name="[capacity]" ExcludeView="simple">m_Capacity</Item>
+			<ArrayItems>
+				<Size>m_Size</Size>
+				<ValuePointer>m_Items</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+	<!-- Wide String -->
+	<Type Name="rage::atBaseString&lt;wchar_t, *&gt;">
+		<DisplayString>{m_Items,su}</DisplayString>
+		<StringView>m_Items,su</StringView>
+		<Expand>
+			<Item Name="[length]" ExcludeView="simple">m_Size - 1</Item>
+			<Item Name="[size]" ExcludeView="simple">m_Size</Item>
+			<Item Name="[capacity]" ExcludeView="simple">m_Capacity</Item>
+			<ArrayItems>
+				<Size>m_Size</Size>
+				<ValuePointer>m_Items</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+	<!-- String -->
+	<Type Name="rage::atBaseString&lt;char, *&gt;">
+		<DisplayString>{m_Items,s}</DisplayString>
+		<StringView>m_Items,s</StringView>
+		<Expand>
+			<Item Name="[length]" ExcludeView="simple">m_Size - 1</Item>
+			<Item Name="[size]" ExcludeView="simple">m_Size</Item>
+			<Item Name="[capacity]" ExcludeView="simple">m_Capacity</Item>
+			<ArrayItems>
+				<Size>m_Size</Size>
+				<ValuePointer>m_Items</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+	<!-- Set -->
+	<Type Name="rage::atSet&lt;*, *&gt;">
+		<DisplayString>{{ used = {m_UsedSlotCount} }}</DisplayString>
+		<Expand>
+			<Item Name="[used]" ExcludeView="simple">m_UsedSlotCount</Item>
+			<Item Name="[buckets]" ExcludeView="simple">m_BucketCount</Item>
+			<CustomListItems MaxItemsPerView="5000">
+				<!-- Set is simply array of linked lists, where index in array is defined by function: hash % size -->
+				<Variable Name="BucketIndex" InitialValue="0" />
+				<Variable Name="Node" InitialValue="m_Buckets[0]" /> <!-- Whatever to set right type -->
+				<!-- Foreach bucket -->
+				<Loop>
+					<Break Condition="BucketIndex == m_BucketCount" />
+					
+					<!-- Foreach node in linked list -->
+					<Exec>Node = m_Buckets[BucketIndex]</Exec>
+					<Loop>
+						<Break Condition="Node == nullptr" />
+						
+						<!-- Display -->
+						<Item Name="hash: {Node->HashKey}">Node->Value</Item>
+
+						<Exec>Node = Node->Next</Exec>
+					</Loop>
+					
+					<Exec>BucketIndex++</Exec>
+				</Loop>
+			</CustomListItems>
+		</Expand>
+	</Type>
+	<!-- Map -->
+	<Type Name="rage::atMap&lt;*, *, *&gt;">
+		<DisplayString>{{ used = {m_UsedSlotCount} }}</DisplayString>
+		<Expand>
+			<Item Name="[used]" ExcludeView="simple">m_UsedSlotCount</Item>
+			<Item Name="[buckets]" ExcludeView="simple">m_BucketCount</Item>
+			<CustomListItems MaxItemsPerView="5000">
+				<!-- In set we have array of node pointers but in map we've got pool 
+					 of them and separate array for head indices -->
+				<Variable Name="BucketIndex" InitialValue="0" />
+				<Variable Name="NodeIndex" InitialValue="-1" />
+				<Variable Name="Node" InitialValue="m_NodePool" /> <!-- Whatever to set right type-->
+				
+				<!-- Foreach bucket -->
+				<Loop>
+					<Break Condition="BucketIndex == m_BucketCount" />
+
+					<Exec>NodeIndex = m_BucketToNode[BucketIndex]</Exec>
+					
+					<!-- Foreach node in linked list -->
+					<Loop>
+						<Break Condition="NodeIndex == -1" />
+
+						<!-- Note that we don't use [] here because we only allowed to use pointers -->
+						<Exec>Node = m_NodePool + NodeIndex</Exec>
+
+						<!-- Display -->
+						<Item Name="hash: {Node->HashKey}">Node->Value</Item>
+
+						<Exec>NodeIndex = Node->NextIndex</Exec>
+					</Loop>
+
+					<Exec>BucketIndex++</Exec>
+				</Loop>
+			</CustomListItems>
+		</Expand>
+	</Type>
+</AutoVisualizer>

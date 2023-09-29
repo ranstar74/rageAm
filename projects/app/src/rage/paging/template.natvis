@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<Type Name="rage::pgMap&lt;*&gt;">
+		<DisplayString>{{ size={m_Size} buckets={m_Capacity} }}</DisplayString>
+		<Expand>
+			<Item Name="[size]" ExcludeView="simple">m_Size</Item>
+			<Item Name="[buckets]" ExcludeView="simple">m_Capacity</Item>
+
+			<!-- Would be good if anyone can manage to properly display it -->
+			<ArrayItems>
+				<Size>m_Capacity</Size>
+				<ValuePointer>m_Buckets</ValuePointer>
+			</ArrayItems>
+
+			<!--
+			<LinkedListItems>
+				<Size>m_Capacity</Size>
+				<HeadPointer>m_Buckets</HeadPointer>
+				<NextPointer>Next</NextPointer>
+				<ValueNode>Value</ValueNode>
+			</LinkedListItems>
+			-->
+		</Expand>
+	</Type>
+</AutoVisualizer>

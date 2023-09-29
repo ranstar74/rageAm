@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	File: math.natvis
+	
+	Copyright (C) 2023 ranstar74. All rights violated.
+	
+	Part of "Rage Am" Research Project.
+-->
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<!-- ScalarV -->
+	<Type Name="rage::ScalarV">
+		<DisplayString>{M.m128_f32[0]}</DisplayString>
+		<Expand>
+			<Item Name="[Value]" ExcludeView="simple">M.m128_f32[0]</Item>
+		</Expand>
+	</Type>
+	<!-- Vec3V -->
+	<Type Name="rage::Vec3V">
+		<DisplayString>{{ {M.m128_f32[0]} {M.m128_f32[1]} {M.m128_f32[2]} }}</DisplayString>
+		<Expand>
+			<Item Name="[X]" ExcludeView="simple">M.m128_f32[0]</Item>
+			<Item Name="[Y]" ExcludeView="simple">M.m128_f32[1]</Item>
+			<Item Name="[Z]" ExcludeView="simple">M.m128_f32[2]</Item>
+		</Expand>
+	</Type>
+	<!-- Vec4V -->
+	<Type Name="rage::Vec4V">
+		<DisplayString>{{ {M.m128_f32[0]} {M.m128_f32[1]} {M.m128_f32[2]} {M.m128_f32[3]} }}</DisplayString>
+		<Expand>
+			<Item Name="[X]" ExcludeView="simple">M.m128_f32[0]</Item>
+			<Item Name="[Y]" ExcludeView="simple">M.m128_f32[1]</Item>
+			<Item Name="[Z]" ExcludeView="simple">M.m128_f32[2]</Item>
+			<Item Name="[W]" ExcludeView="simple">M.m128_f32[3]</Item>
+		</Expand>
+	</Type>
+	<!-- VecV -->
+	<Type Name="rage::VecV">
+		<DisplayString>{{ {M.m128_f32[0]} {M.m128_f32[1]} {M.m128_f32[2]} {M.m128_f32[3]} }}</DisplayString>
+		<Expand>
+			<Item Name="[X]" ExcludeView="simple">M.m128_f32[0]</Item>
+			<Item Name="[Y]" ExcludeView="simple">M.m128_f32[1]</Item>
+			<Item Name="[Z]" ExcludeView="simple">M.m128_f32[2]</Item>
+			<Item Name="[W]" ExcludeView="simple">M.m128_f32[3]</Item>
+		</Expand>
+	</Type>
+</AutoVisualizer>

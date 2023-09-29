@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<Type Name="rageam::DateTime">
+		<!-- ISO 8601 -->
+		<DisplayString>{{ {m_TimeCache.wYear}-{m_TimeCache.wMonth}-{m_TimeCache.wDay}T{m_TimeCache.wHour}:{m_TimeCache.wMinute}:{m_TimeCache.wSecond}}}</DisplayString>
+		<Expand>
+			<Item Name="Year" ExcludeView="simple">m_TimeCache.wYear</Item>
+			<Item Name="Month" ExcludeView="simple">m_TimeCache.wMonth</Item>
+			<Item Name="Day" ExcludeView="simple">m_TimeCache.wDay</Item>
+			<Item Name="Hour" ExcludeView="simple">m_TimeCache.wHour</Item>
+			<Item Name="Second" ExcludeView="simple">m_TimeCache.wSecond</Item>
+			<Item Name="Millisecond" ExcludeView="simple">m_TimeCache.wMilliseconds</Item>
+			<Item Name="Ticks" ExcludeView="simple">m_Ticks</Item>
+		</Expand>
+	</Type>
+</AutoVisualizer>

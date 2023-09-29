@@ -1,0 +1,18 @@
+// Hint files help the Visual Studio IDE interpret Visual C++ identifiers
+// such as names of functions and macros.
+// For more information see https://go.microsoft.com/fwlink/?linkid=865984
+
+#define NOINLINE __attribute__((noinline))
+#define NOINLINE __declspec(noinline)
+#define MACRO_END static_assert(true, "" )
+
+#define AM_EXPORT extern "C" __declspec(dllexport)
+
+#define IMPLEMENT_PLACE_INLINE(name)
+#define IMPLEMENT_TYPE_RESOLVE(type, infos)
+#define IMPLEMENT_REF_COUNTER()
+#define AM_NOINLINE __declspec(noinline)
+#define AM_NORET __declspec(noreturn)
+#define PRINTF_ATTR
+#define WPRINTF_ATTR(StringIndex, FirstToCheck)
+#define IS_POWER_OF_TWO(value)
