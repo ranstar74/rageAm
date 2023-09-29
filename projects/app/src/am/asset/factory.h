@@ -9,6 +9,7 @@
 
 #include "gameasset.h"
 #include "am/system/ptr.h"
+#include "types/drawable.h"
 #include "types/txd.h"
 
 namespace rageam::asset
@@ -34,9 +35,10 @@ namespace rageam::asset
 	public:
 		static void Init()
 		{
-			sm_ExtToAssetDef.InitAndAllocate(1); // Extend this as more added
+			sm_ExtToAssetDef.InitAndAllocate(2); // Extend this as more added
 
 			sm_ExtToAssetDef.Insert(L"itd", AssetDefinition("Texture Dictionary", TxdAsset::Allocate));
+			sm_ExtToAssetDef.Insert(L"idr", AssetDefinition("Drawable", DrawableAsset::Allocate));
 		}
 
 		static void Shutdown()
