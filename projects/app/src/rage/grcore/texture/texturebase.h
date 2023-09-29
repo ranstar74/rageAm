@@ -8,6 +8,7 @@
 #pragma once
 
 #include "textureinfo.h"
+#include "rage/paging/base.h"
 
 #include "common/types.h"
 
@@ -20,15 +21,8 @@ namespace rage
 	// So they're marked as private.
 	// Can anyone suggest better way to do this?
 
-	class grcTextureBase
+	class grcTextureBase : public pgBase
 	{
-	public:
-		virtual ~grcTextureBase() = default;
-
-	protected:
-		virtual int32_t Get44() const = 0;
-		virtual void Set44(int32_t value) = 0;
-
 	private:
 		virtual bool Function3() { return false; }
 		virtual bool Function4() { return false; }
@@ -57,8 +51,9 @@ namespace rage
 
 	protected:
 		virtual bool GetUnk19() = 0;
-		virtual void* GetResource1() = 0;
-		virtual void* GetResource2() = 0;
+
+		virtual pVoid GetResource() = 0;
+		virtual pVoid GetResource() const = 0;
 
 	public:
 		virtual void* GetResourceView() const = 0;

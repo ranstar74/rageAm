@@ -12,7 +12,6 @@
 
 namespace rage
 {
-	using pgTextureDictionary = pgDictionary<grcTextureDX11>;
-
-	using pTxd = pgRef<pgTextureDictionary>;
+	using grcTextureDictionary = pgDictionary<grcTextureDX11>;
+	using grcTextureDictionaryPtr = pgPtr<grcTextureDictionary>;
 }

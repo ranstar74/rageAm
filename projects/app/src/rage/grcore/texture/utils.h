@@ -96,7 +96,7 @@ namespace D3D
 		if (!IS_POWER_OF_TWO(width) || !IS_POWER_OF_TWO(height))
 			return 1;
 
-		if (min(width, height) <= 4)
+		if (MIN(width, height) <= 4)
 			return 1;
 
 		// -1 to make 4x4 be minimum possible mip level ( as required by d3d )

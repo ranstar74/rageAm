@@ -16,16 +16,17 @@ namespace rage
 {
 	class grcTextureDX11 : public grcTexturePC
 	{
-		static constexpr DXGI_FORMAT GRC_TX_FALLBACK_FORMAT = DXGI_FORMAT_R8G8B8A8_UINT;
+		static constexpr DXGI_FORMAT DXGI_FALLBACK_FORMAT = DXGI_FORMAT_R8G8B8A8_UINT;
 
-		char* m_PixelData;
-		ID3D11ShaderResourceView* m_ShaderView;
-		int64_t m_CacheEntry;
-		int32_t unk88;
+		pVoid								m_PixelData;
+		amComPtr<ID3D11ShaderResourceView>	m_ShaderView;
+		u64									m_Unknown80;
+		u32									m_Unknown88;
 
 		static void GetUsageAndAccessFlags(u8 createFlags, D3D11_USAGE& usage, UINT& access);
 
-		u8 GetD3DArraySize() const;
+		// In rage terms layer count 0 = Texture 2D
+		u8 GetArraySize() const { return m_LayerCount + 1; }
 
 		// Tries to convert format from legacy to DXGI. If unsuccessful, uses R8G8B8A8.
 		void ConvertFormatToDXGI();
@@ -34,7 +35,7 @@ namespace rage
 
 		bool ComputePitch(u8 mip, u32* pRowPitch, u32* pSlicePitch) const;
 
-		D3D11_TEXTURE3D_DESC GetDesk3D(u8 createFlags, u8 bindFlags) const;
+		D3D11_TEXTURE3D_DESC GetDesc3D(u8 createFlags, u8 bindFlags) const;
 		D3D11_TEXTURE2D_DESC GetDesc2D(u8 createFlags, u8 bindFlags) const;
 		void GetViewDesc3D(D3D11_SHADER_RESOURCE_VIEW_DESC& viewDesk) const;
 		void GetViewDesc2D(D3D11_SHADER_RESOURCE_VIEW_DESC& viewDesk) const;
@@ -48,30 +49,13 @@ namespace rage
 		// Initializes texture from parsed resource data.
 		void Init();
 	public:
-		grcTextureDX11()
-		{
-			m_PixelData = nullptr;
-			m_ShaderView = nullptr;
-			m_CacheEntry = 0;
-			unk88 = 0;
-		}
-		grcTextureDX11(u16 width, u16 height, u16 depth, u8 mipLevels, DXGI_FORMAT fmt, char* pixelData)
-			: grcTexturePC(width, height, depth, mipLevels)
-		{
-			m_ShaderView = nullptr;
-			m_CacheEntry = 0;
-			unk88 = 0;
-
-			m_PixelData = pixelData;
-			m_Format = fmt;
-
-			Init();
-		}
+		grcTextureDX11();
+		grcTextureDX11(u16 width, u16 height, u16 depth, u8 mipLevels, DXGI_FORMAT fmt, pVoid pixelData, bool keepData = true);
 		grcTextureDX11(const datResource& rsc);
 		grcTextureDX11(const grcTextureDX11& other);
 		~grcTextureDX11() override;
 
-		void* GetResourceView() const override { return m_ShaderView; }
+		pVoid GetResourceView() const override { return m_ShaderView.Get(); }
 
 		ID3D11ShaderResourceView* GetShaderResourceView() const;
 

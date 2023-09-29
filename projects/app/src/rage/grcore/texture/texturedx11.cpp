@@ -1,6 +1,8 @@
 #include "texturedx11.h"
 
 #include "formats.h"
+#include "am/types.h"
+#include "am/file/fileutils.h"
 #include "am/graphics/render/engine.h"
 #include "rage/paging/compiler/compiler.h"
 
@@ -25,18 +27,13 @@ void rage::grcTextureDX11::GetUsageAndAccessFlags(u8 createFlags, D3D11_USAGE& u
 	}
 }
 
-u8 rage::grcTextureDX11::GetD3DArraySize() const
-{
-	return m_ArraySize + 1;
-}
-
 void rage::grcTextureDX11::ConvertFormatToDXGI()
 {
-	m_Format = D3D::LegacyTextureFormatToDXGI((u32)m_Format, m_PcFlags2);
+	m_Format = D3D::LegacyTextureFormatToDXGI((u32)m_Format, m_Flags5F);
 	if (m_Format == DXGI_FORMAT_UNKNOWN)
 	{
-		AM_WARNINGF("grcTextureDX11::ConvertFormatToDXGI() -> Unknown format %u, from importing texture %s...", m_Format, m_Name);
-		m_Format = GRC_TX_FALLBACK_FORMAT;
+		AM_WARNINGF("grcTextureDX11::ConvertFormatToDXGI() -> Unknown format %u, from importing texture %s...", m_Format, m_Name.GetCStr());
+		m_Format = DXGI_FORMAT_R8G8B8A8_UINT;
 	}
 }
 
@@ -69,7 +66,7 @@ bool rage::grcTextureDX11::ComputePitch(u8 mip, u32* pRowPitch, u32* pSlicePitch
 	return result == S_OK;
 }
 
-D3D11_TEXTURE3D_DESC rage::grcTextureDX11::GetDesk3D(u8 createFlags, u8 bindFlags) const
+D3D11_TEXTURE3D_DESC rage::grcTextureDX11::GetDesc3D(u8 createFlags, u8 bindFlags) const
 {
 	D3D11_TEXTURE3D_DESC desk{};
 	desk.Format = m_Format;
@@ -89,7 +86,7 @@ D3D11_TEXTURE2D_DESC rage::grcTextureDX11::GetDesc2D(u8 createFlags, u8 bindFlag
 	desk.Height = m_Height;
 	desk.MipLevels = m_MipLevels;
 	desk.BindFlags = bindFlags | D3D11_BIND_SHADER_RESOURCE;
-	desk.ArraySize = m_ArraySize + 1;
+	desk.ArraySize = m_LayerCount + 1;
 	GetUsageAndAccessFlags(createFlags, desk.Usage, desk.CPUAccessFlags);
 
 	desk.SampleDesc.Count = 1;
@@ -111,7 +108,7 @@ void rage::grcTextureDX11::GetViewDesc3D(D3D11_SHADER_RESOURCE_VIEW_DESC& viewDe
 void rage::grcTextureDX11::GetViewDesc2D(D3D11_SHADER_RESOURCE_VIEW_DESC& viewDesk) const
 {
 	viewDesk.Format = m_Format;
-	u8 arraySize = GetD3DArraySize();
+	u8 arraySize = GetArraySize();
 
 	if (IsCubeMap())
 	{
@@ -157,15 +154,15 @@ HRESULT rage::grcTextureDX11::CreateFromData(const std::shared_ptr<D3D11_SUBRESO
 	//     v9 = 32;
 	// m_PcFlags2 = m_PcFlags2 & 0xB1 | (2 * (createFlags & 7 | v9));
 
-	m_PcFlags2 &= 0xB1;
-	m_PcFlags2 |= 2 * (createFlags & 7 | 32 * (createFlags >= 0x3));
+	m_Flags5F &= 0xB1;
+	m_Flags5F |= 2 * (createFlags & 7 | 32 * (createFlags >= 0x3));
 
 	D3D11_SUBRESOURCE_DATA* pInitialData = subData.get();
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC viewDesk{};
 	if (IsVolume())
 	{
-		const D3D11_TEXTURE3D_DESC desk = GetDesk3D(createFlags, bindFlags);
+		const D3D11_TEXTURE3D_DESC desk = GetDesc3D(createFlags, bindFlags);
 		if (desk.Usage != D3D11_USAGE_IMMUTABLE)
 			pInitialData = nullptr;
 
@@ -198,7 +195,7 @@ HRESULT rage::grcTextureDX11::CreateFromData(const std::shared_ptr<D3D11_SUBRESO
 	}
 
 	// Also can be seen as flag removal &= ~0x80u;
-	m_PcFlags2 &= 0x7F;
+	m_Flags5F &= 0x7F;
 
 	// TODO: There's some weird code...
 
@@ -235,13 +232,36 @@ void rage::grcTextureDX11::Init()
 	std::shared_ptr<D3D11_SUBRESOURCE_DATA[]> pSubData = GetInitialData();
 
 	u8 createFlags = 0; // Immutable?
-	if (m_PcFlags1 != 0)
+	if (m_Flags48 != 0)
 	{
 		createFlags = 1; // Create cache entry?
 		m_PixelData = nullptr;
 	}
 
 	CreateFromData(pSubData, createFlags, 0, D3D11_BIND_SHADER_RESOURCE);
+}
+
+rage::grcTextureDX11::grcTextureDX11()
+{
+	m_PixelData = nullptr;
+	m_ShaderView = nullptr;
+	m_Unknown80 = 0;
+	m_Unknown88 = 0;
+}
+
+rage::grcTextureDX11::grcTextureDX11(u16 width, u16 height, u16 depth, u8 mipLevels, DXGI_FORMAT fmt, pVoid pixelData, bool keepData) : grcTexturePC(width, height, depth, mipLevels)
+{
+	m_ShaderView = nullptr;
+	m_Unknown80 = 0;
+	m_Unknown88 = 0;
+
+	m_Format = fmt;
+	m_PixelData = pixelData;
+
+	Init();
+
+	if (!keepData)
+		m_PixelData = nullptr;
 }
 
 rage::grcTextureDX11::grcTextureDX11(const datResource& rsc) : grcTexturePC(rsc)
@@ -284,8 +304,8 @@ rage::grcTextureDX11::grcTextureDX11(const grcTextureDX11& other) : grcTexturePC
 
 rage::grcTextureDX11::~grcTextureDX11()
 {
-	if (m_ShaderView)
-		m_ShaderView->Release();
+	delete m_PixelData;
+}
 
 ID3D11ShaderResourceView* rage::grcTextureDX11::GetShaderResourceView() const
 {
@@ -319,7 +339,7 @@ void rage::grcTextureDX11::ExportTextureTo(ConstWString outDir, bool allowOverwr
 		else
 		{
 			isNameFine = true;
-}
+		}
 	} while (!isNameFine);
 
 	if (SUCCEEDED(hr))
@@ -328,7 +348,7 @@ void rage::grcTextureDX11::ExportTextureTo(ConstWString outDir, bool allowOverwr
 			image.GetImages(), image.GetImageCount(), image.GetMetadata(), DirectX::DDS_FLAGS_NONE, texturePath);
 
 		if (FAILED(hr))
-{
+		{
 			AM_ERRF(L"grcTextureDX11::ExportTextureTo() -> Failed to export texture %ls", textureName.GetCStr());
 		}
 	}
