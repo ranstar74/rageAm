@@ -575,23 +575,29 @@ bool rageam::asset::DrawableAsset::GenerateSkeleton()
 		graphics::SceneNode* sceneNode = m_Scene->GetNode(nodeIndex);
 
 		s32 parentBoneIndex = GetNodeBoneIndex(sceneNode->GetParent());
-		s32 siblingBoneIndex = GetNodeBoneIndex(sceneNode->GetNextSibling());
+		s32 siblingBoneIndex = -1;
+		// For next sibling bone we'll have to search until we find a node that is bone,
+		// such scenario may occur when:
+		// Node 1: Is Bone
+		// Node 2: Is Not Bone
+		// Node 3: Is Bone
+		// In skeleton Node 3 will appear after Node 1 but as 'NextSibling' in scene it won't
+		for (u16 nextNodeIndex = nodeIndex + 1; nextNodeIndex < sceneNodeCount; nextNodeIndex++)
+		{
+			if (m_NodeToBone[nextNodeIndex] == nullptr)
+				continue;
+
+			// We found next node that is also a bone
+			siblingBoneIndex = GetNodeBoneIndex(m_Scene->GetNode(nextNodeIndex));
+			break;
+		}
+
+		// We have to link root bone with first child manually
+		if (needRootBone && parentBoneIndex == -1)
+			parentBoneIndex = 0; // Bones with parent index -1 are getting new root parent at index 0
 
 		bone->SetParentIndex(parentBoneIndex);
 		bone->SetNextIndex(siblingBoneIndex);
-	}
-
-	// We have to link root bone with first child manually
-	if (needRootBone && boneCount >= 2)
-	{
-		rage::crBoneData* bone = skeletonData->GetBone(1);
-
-		// Iterate through all bones on level 1 and set root as new parent
-		while (bone)
-		{
-			bone->SetParentIndex(0);
-			bone = skeletonData->GetBone(bone->GetNextIndex());
-		}
 	}
 
 	skeletonData->Finalize();
