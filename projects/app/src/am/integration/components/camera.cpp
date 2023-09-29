@@ -145,7 +145,7 @@ void rageam::integration::CameraComponentBase::OnEarlyUpdate()
 		u64 frame = (u64)m_Camera + 0x20;
 		*(rage::Mat44V*)(frame + 0x10) = GetMatrix();
 	}
-	
+
 	// Update blip
 	if (m_BlipHandle != 0)
 	{
@@ -173,6 +173,11 @@ void rageam::integration::CameraComponentBase::SetActive(bool active)
 		DisableCameraAsync(m_CameraHandle);
 		DestroyBlipAsync(m_BlipHandle);
 	}
+}
+
+const rage::Vec3V& rageam::integration::CameraComponentBase::GetPosition() const
+{
+	return m_Pos;
 }
 
 void rageam::integration::CameraComponentBase::SetMatrix(const rage::Mat44V& mtx)

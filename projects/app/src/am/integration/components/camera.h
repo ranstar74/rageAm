@@ -1,14 +1,12 @@
 #pragma once
 #ifdef AM_INTEGRATED
 
-#include <atomic>
-
 #include "am/integration/updatecomponent.h"
 #include "rage/math/mtxv.h"
 
 namespace rageam::integration
 {
-	// TODO: CAMERA BLIP
+	// TODO: Breaks if used inside a vehicle
 
 	class ICameraComponent : IUpdateComponent
 	{
@@ -18,6 +16,7 @@ namespace rageam::integration
 	public:
 		~ICameraComponent() override = default;
 
+		virtual const rage::Vec3V& GetPosition() const = 0;
 		virtual const rage::Vec3V& GetVelocity() = 0;
 		virtual const rage::Mat44V& GetMatrix() const = 0;
 		virtual void SetMatrix(const rage::Mat44V& mtx) = 0;
@@ -61,6 +60,7 @@ namespace rageam::integration
 
 		void SetActive(bool active) override;
 
+		const rage::Vec3V& GetPosition() const override;
 		const rage::Vec3V& GetVelocity() override;
 		const rage::Mat44V& GetMatrix() const override;
 		void SetMatrix(const rage::Mat44V& mtx) override;
