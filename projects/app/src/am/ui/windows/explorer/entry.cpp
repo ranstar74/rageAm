@@ -201,36 +201,36 @@ void rageam::ui::ExplorerEntryBase::Sort(ImGuiTableSortSpecs* specs)
 
 	static ImGuiTableSortSpecs* currentSortSpecs = nullptr;
 	auto sortPredicate = [this](const u16& l, const u16& r) -> bool
-	{
-		const ExplorerEntryPtr lhs = GetChildFromIndex(l);
-		const ExplorerEntryPtr rhs = GetChildFromIndex(r);
-
-		// Group by directory / file first
-		if (lhs->IsDirectory() != rhs->IsDirectory())
 		{
-			return lhs->IsDirectory() ? true : false;
-		}
+			const ExplorerEntryPtr lhs = GetChildFromIndex(l);
+			const ExplorerEntryPtr rhs = GetChildFromIndex(r);
 
-		for (int i = 0; i < currentSortSpecs->SpecsCount; i++)
-		{
-			const ImGuiTableColumnSortSpecs* sortSpec = &currentSortSpecs->Specs[i];
-			int delta;
-			switch (sortSpec->ColumnUserID)
+			// Group by directory / file first
+			if (lhs->IsDirectory() != rhs->IsDirectory())
 			{
-			case ExplorerEntryColumnID_Name:			delta = strcmp(lhs->GetName(), rhs->GetName()); break;
-			case ExplorerEntryColumnID_DateModified:	delta = (lhs->GetTime() - rhs->GetTime()).GetTicks(); break;
-			case ExplorerEntryColumnID_TypeName:		delta = strcmp(lhs->GetTypeName(), rhs->GetTypeName()); break;
-			case ExplorerEntryColumnID_Size:			delta = (int)lhs->GetSize() - (int)rhs->GetSize(); break;
-			default: AM_UNREACHABLE("ExplorerEntrySortFn() -> Column sorting (%u) is not implemented.", sortSpec->ColumnUserID);
+				return lhs->IsDirectory() ? true : false;
 			}
 
-			if (delta > 0)
-				return sortSpec->SortDirection == ImGuiSortDirection_Ascending ? true : false;
-			if (delta < 0)
-				return sortSpec->SortDirection == ImGuiSortDirection_Ascending ? false : true;
-		}
-		return lhs->GetID() < rhs->GetID(); // Default sort by ID
-	};
+			for (int i = 0; i < currentSortSpecs->SpecsCount; i++)
+			{
+				const ImGuiTableColumnSortSpecs* sortSpec = &currentSortSpecs->Specs[i];
+				int delta;
+				switch (sortSpec->ColumnUserID)
+				{
+				case ExplorerEntryColumnID_Name:			delta = strcmp(lhs->GetName(), rhs->GetName()); break;
+				case ExplorerEntryColumnID_DateModified:	delta = (lhs->GetTime() - rhs->GetTime()).GetTicks(); break;
+				case ExplorerEntryColumnID_TypeName:		delta = strcmp(lhs->GetTypeName(), rhs->GetTypeName()); break;
+				case ExplorerEntryColumnID_Size:			delta = (int)lhs->GetSize() - (int)rhs->GetSize(); break;
+				default: AM_UNREACHABLE("ExplorerEntrySortFn() -> Column sorting (%u) is not implemented.", sortSpec->ColumnUserID);
+				}
+
+				if (delta > 0)
+					return sortSpec->SortDirection == ImGuiSortDirection_Ascending ? true : false;
+				if (delta < 0)
+					return sortSpec->SortDirection == ImGuiSortDirection_Ascending ? false : true;
+			}
+			return lhs->GetID() < rhs->GetID(); // Default sort by ID
+		};
 
 	currentSortSpecs = specs;
 
@@ -296,16 +296,16 @@ void rageam::ui::ExplorerEntryFi::SetPath(const file::U8Path& path)
 void rageam::ui::ExplorerEntryFi::UpdateIcon()
 {
 	auto SetIcon = [this](ConstString name)
-	{
-		Icons& icons = Gui->Icons;
+		{
+			Icons& icons = Gui->Icons;
 
-		// We store two icon sizes mainly because .ico files contain different image for 16x16 comparing to 256x256
-		// Those small icons made for better readability and contain less details
-		m_StaticIcon = icons.GetIcon(name, ExplorerEntrySmallIcon);
-		m_StaticLargeIcon = icons.GetIcon(name, ExplorerEntryLargeIcon);
+			// We store two icon sizes mainly because .ico files contain different image for 16x16 comparing to 256x256
+			// Those small icons made for better readability and contain less details
+			m_StaticIcon = icons.GetIcon(name, ExplorerEntrySmallIcon);
+			m_StaticLargeIcon = icons.GetIcon(name, ExplorerEntryLargeIcon);
 
-		return m_StaticIcon != nullptr;
-	};
+			return m_StaticIcon != nullptr;
+		};
 
 	ConstString type = GetType();
 	Icons& icons = Gui->Icons;
@@ -406,7 +406,7 @@ void rageam::ui::ExplorerEntryFi::PrepareToBeDisplayed()
 void rageam::ui::ExplorerEntryFi::LoadChildren()
 {
 	if (m_ChildrenLoaded) return;
-	
+
 	u16 index = 0;
 	rage::fiIterator iterator(m_Path);
 	while (iterator.Next())
@@ -464,13 +464,13 @@ void rageam::ui::ExplorerEntryFi::SetIconOverride(ConstString name)
 
 rageam::asset::AssetPtr rageam::ui::ExplorerEntryFi::GetAsset()
 {
+	AM_ASSERT(m_IsAsset, "ExplorerEntryFi::GetAsset() -> Entry is not asset!");
+
+	// Load asset on request
 	if (m_IsAsset && !m_Asset)
 		m_Asset = asset::AssetFactory::LoadFromPath(file::PathConverter::Utf8ToWide(m_Path));
 
-	if (m_Asset)
-		return m_Asset;
-
-	AM_UNREACHABLE("ExplorerEntryFi::GetAsset() -> Entry is not asset!");
+	return m_Asset;
 }
 
 void rageam::ui::ExplorerEntryUser::ScanSubDirs()
