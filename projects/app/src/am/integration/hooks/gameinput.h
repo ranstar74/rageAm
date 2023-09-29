@@ -2,7 +2,7 @@
 
 namespace hooks
 {
-	class Input
+	class GameInput
 	{
 	public:
 		static void Init();
