@@ -505,6 +505,24 @@ void rageam::ModelSceneApp::OnRender()
 
 		if (SlGui::MenuButton(ICON_AM_HOME" Reset Cam"))
 			ResetCameraPosition();
+
+			if (SlGui::MenuButton(ICON_AM_PED_ARROW" Warp Ped"))
+			{
+				const rage::Vec3V pos = m_Camera->GetPosition();
+				scrInvoke([=]
+					{
+						float groundZ = pos.Z();
+						SHV::GAMEPLAY::GET_GROUND_Z_FOR_3D_COORD(pos.X(), pos.Y(), pos.Z(), &groundZ, FALSE);
+
+						SHV::Ped ped = SHV::PLAYER::PLAYER_PED_ID();
+						SHV::PED::SET_PED_COORDS_KEEP_VEHICLE(ped, pos.X(), pos.Y(), groundZ);
+					});
+			}
+			ImGui::ToolTip("Teleports player ped on surface to camera position.");
+		}
+
+		if (!m_CameraEnabled) ImGui::EndDisabled();
+		ImGui::PopStyleVar(1); // DisabledAlpha
 	}
 	SlGui::EndToolWindow();
 
