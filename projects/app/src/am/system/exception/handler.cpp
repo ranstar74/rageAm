@@ -51,7 +51,6 @@ rageam::ExceptionHandler::Context::Context(const _EXCEPTION_POINTERS* exInfo)
 AM_NOINLINE void rageam::ExceptionHandler::HandleException(const EXCEPTION_POINTERS* exInfo, bool isHandled)
 {
 	Context ctx(exInfo);
-
 	ErrorDisplay::Exception(ctx, isHandled);
 	Debugger::BreakIfAttached(); // If debugger wasn't attached, dialog gives you a great time to do it
 }
@@ -65,6 +64,9 @@ AM_NOINLINE LONG rageam::ExceptionHandler::ExceptionFilter(EXCEPTION_POINTERS* e
 
 AM_NOINLINE LONG rageam::ExceptionHandler::ExceptionFilterSafe(const _EXCEPTION_POINTERS* exInfo)
 {
+	if (Debugger::IsPresent()) // Pass exception to attached debugger
+		return EXCEPTION_CONTINUE_SEARCH;
+
 	HandleException(exInfo, true);
 	return EXCEPTION_EXECUTE_HANDLER;
 }
