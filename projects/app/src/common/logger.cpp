@@ -92,8 +92,13 @@ void rageam::Logger::EnsureInitialized()
 	if (initialized)
 		return;
 
+	// TODO: UTF16 is broken with alloc console
+#ifdef AM_STANDALONE
 	// Support wide characters in console
 	_setmode(_fileno(stdout), _O_U16TEXT);
+#endif
+
+#ifdef AM_ENABLE_FILE_LOG
 
 	// Format logs directory file name with current time
 	DateTime time = DateTime::Now();
@@ -120,6 +125,7 @@ void rageam::Logger::EnsureInitialized()
 	initialized = true;
 
 	FindAndRemoveOldLogFolders();
+#endif
 }
 
 void rageam::Logger::EnsureThreadInitialized(Logger* defaultLogger)
@@ -139,6 +145,14 @@ rageam::Logger::Logger(ConstString name, FlagSet<eLogOptions> options)
 	m_Name = name;
 	m_Options = options;
 
+#ifndef AM_STANDALONE
+	if (AllocConsole())
+	{
+		freopen_s(&m_ConsoleFile, "CONOUT$", "w", stdout);
+	}
+#endif
+
+#ifdef AM_ENABLE_FILE_LOG
 	wchar_t fileName[64];
 	String::ToWide(fileName, 64, name);
 	file::WPath filePath = sm_LogDirectory / fileName;
@@ -149,11 +163,23 @@ rageam::Logger::Logger(ConstString name, FlagSet<eLogOptions> options)
 
 	if (!m_Options.IsSet(LOG_OPTION_NO_PREFIX))
 		m_Stream << "Level, Time (HH/MM/SS), Message\n";
+#endif
 }
 
 rageam::Logger::~Logger()
 {
+#ifdef AM_ENABLE_FILE_LOG
 	m_Stream.close();
+#endif
+
+#ifndef AM_STANDALONE
+	if (m_ConsoleFile)
+	{
+		fclose(m_ConsoleFile);
+		FreeConsole();
+		m_ConsoleFile = nullptr;
+	}
+#endif
 }
 
 void rageam::Logger::Log(eLogLevel level, ConstWString msg)
@@ -178,20 +204,28 @@ void rageam::Logger::Log(eLogLevel level, ConstWString msg)
 		{
 			wprintf(L"[%hs] %ls", m_Name, prefix);
 		}
+#ifdef AM_ENABLE_FILE_LOG
 		m_Stream << prefix;
+#endif
 	}
 
 	SetConsoleColor(oldColor);
 
+	bool sameLine = m_Options.IsSet(LOG_OPTION_SAME_LINE);
+
 	if (!m_Options.IsSet(LOG_OPTION_FILE_ONLY))
 	{
 		wprintf(L"%s", msg);
-		wprintf(L"\n");
+		if (!sameLine)
+			wprintf(L"\n");
 	}
 
+#ifdef AM_ENABLE_FILE_LOG
 	m_Stream << msg;
-	m_Stream << L"\n";
-}
+	if (!sameLine)
+		m_Stream << L"\n";
+#endif
+	}
 
 void rageam::Logger::Log(eLogLevel level, const char* msg)
 {

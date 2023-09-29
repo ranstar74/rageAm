@@ -30,7 +30,10 @@ enum eLogOptions : u32
 
 	LOG_OPTION_FILE_ONLY = 1 << 0, // Without additionally printing to console
 	LOG_OPTION_NO_PREFIX = 1 << 1,
+	LOG_OPTION_SAME_LINE = 1 << 2, // Without '\n' after message
 };
+
+// #define AM_ENABLE_FILE_LOG
 
 namespace rageam
 {
@@ -67,9 +70,14 @@ namespace rageam
 		// Puts default logger in current thread storage
 		static void EnsureThreadInitialized(Logger* defaultLogger);
 
+#ifdef AM_ENABLE_FILE_LOG
 		std::wofstream m_Stream;
+#endif
 		ConstString m_Name;
 		FlagSet<eLogOptions> m_Options;
+#ifndef AM_STANDALONE
+		FILE* m_ConsoleFile = nullptr;
+#endif
 	public:
 		Logger(ConstString name, FlagSet<eLogOptions> options = LOG_OPTION_NONE);
 		~Logger();
@@ -81,7 +89,7 @@ namespace rageam
 		WPRINTF_ATTR(3, 4) void LogFormat(eLogLevel level, ConstWString fmt, ...);
 
 		FlagSet<eLogOptions>& GetOptions() { return m_Options; }
-		
+
 		/**
 		 * \brief Gets relative path to directory where all logs are written to.
 		 */
