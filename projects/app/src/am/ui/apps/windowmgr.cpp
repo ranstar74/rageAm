@@ -6,8 +6,10 @@
 
 void rageam::ui::WindowManager::OnStart()
 {
+#ifdef AM_STANDALONE
 	// Open default windows
 	EnsureOpened<Explorer>();
+#endif
 }
 
 void rageam::ui::WindowManager::OnRender()
