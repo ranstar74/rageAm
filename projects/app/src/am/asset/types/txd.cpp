@@ -6,6 +6,7 @@
 #include "am/string/string.h"
 #include "am/system/enum.h"
 #include "am/task/worker.h"
+#include "am/xml/iterator.h"
 #include "helpers/format.h"
 #include "rage/atl/set.h"
 
@@ -19,28 +20,34 @@ void rageam::asset::TextureOptions::GetCompressionOptions(texture::CompressionOp
 	outOptions.Quality = Quality;
 }
 
-bool rageam::asset::Texture::Deserialize(const xml::Element& xml)
+void rageam::asset::TextureOptions::Serialize(XmlHandle& node) const
 {
-	XML_CHILD_GET_A(xml, Options.MaxSize);
-	XML_CHILD_GET_A(xml, Options.GenerateMips);
-	XML_CHILD_GET_ENUM_A(xml, Options.Format);
-	XML_CHILD_GET_ENUM_A(xml, Options.MipFilter);
-	XML_CHILD_GET_ENUM_A(xml, Options.ResizeFilter);
-	XML_CHILD_GET_ENUM_A(xml, Options.Quality);
-
-	return true;
+	XML_SET_CHILD_VALUE(node, MaxSize);
+	XML_SET_CHILD_VALUE(node, GenerateMips);
+	XML_SET_CHILD_VALUE(node, Format);
+	XML_SET_CHILD_VALUE(node, MipFilter);
+	XML_SET_CHILD_VALUE(node, ResizeFilter);
+	XML_SET_CHILD_VALUE(node, Quality);
 }
 
-bool rageam::asset::Texture::Serialize(xml::Element& xml) const
+void rageam::asset::TextureOptions::Deserialize(const XmlHandle& node)
 {
-	XML_INSERT_CHILD_A(xml, Options.MaxSize);
-	XML_INSERT_CHILD_A(xml, Options.GenerateMips);
-	XML_INSERT_CHILD_ENUM_A(xml, Options.Format);
-	XML_INSERT_CHILD_ENUM_A(xml, Options.MipFilter);
-	XML_INSERT_CHILD_ENUM_A(xml, Options.ResizeFilter);
-	XML_INSERT_CHILD_ENUM_A(xml, Options.Quality);
+	XML_GET_CHILD_VALUE(node, MaxSize);
+	XML_GET_CHILD_VALUE(node, GenerateMips);
+	XML_GET_CHILD_VALUE(node, Format);
+	XML_GET_CHILD_VALUE(node, MipFilter);
+	XML_GET_CHILD_VALUE(node, ResizeFilter);
+	XML_GET_CHILD_VALUE(node, Quality);
+}
 
-	return true;
+void rageam::asset::Texture::Serialize(XmlHandle& node) const
+{
+	Options.Serialize(node);
+}
+
+void rageam::asset::Texture::Deserialize(const XmlHandle& node)
+{
+	Options.Deserialize(node);
 }
 
 bool rageam::asset::TxdAsset::CompileToGame(rage::pgDictionary<rage::grcTextureDX11>* ppOutGameFormat)
@@ -82,7 +89,11 @@ bool rageam::asset::TxdAsset::CompileToGame(rage::pgDictionary<rage::grcTextureD
 				CompressJob& job = compressJobs[index];
 				job.Texture = pTexture;
 
+				texture::CompressionOptions options;
+				pTexture->Options.GetCompressionOptions(options);
+
 				texture::Surface surface;
+				surface.SetCompressOptions(options);
 				if (!surface.LoadToRam(texturePath, &job.PixelData))
 					return false;
 
@@ -112,14 +123,14 @@ bool rageam::asset::TxdAsset::CompileToGame(rage::pgDictionary<rage::grcTextureD
 		return false;
 
 	// Step 3: Create grcTexture's
-	rage::pgTextureDictionary& txd = *ppOutGameFormat;
+	rage::grcTextureDictionary& txd = *ppOutGameFormat;
 	for (CompressJob& job : compressJobs)
 	{
 		texture::CompressedInfo& info = job.Info;
 
 		ConstString textureName = job.Texture->Name;
 
-		rage::grcTextureDX11* texture = txd.Construct(
+		rage::grcTexture* texture = txd.Construct(
 			textureName, info.Width, info.Height, 1, info.MipCount, info.Format, job.PixelData);
 		texture->SetName(textureName);
 	}
@@ -206,37 +217,27 @@ void rageam::asset::TxdAsset::Refresh()
 	}
 }
 
-bool rageam::asset::TxdAsset::Serialize(xml::Element& xml) const
+void rageam::asset::TxdAsset::Serialize(XmlHandle& node) const
 {
 	for (const Texture& texture : m_Textures)
 	{
-		xml::Element xitem = xml.Insert("Item");
-		xitem.AddAttribute("Name", String::ToUtf8Temp(texture.GetFileName()));
-
-		if (!texture.Serialize(xitem))
-			return false;
+		XmlHandle xTexture = node.AddChild("Texture");
+		xTexture.SetAttribute("File", String::ToUtf8Temp(texture.GetFileName()));
+		texture.Serialize(xTexture);
 	}
-
-	return true;
 }
 
-bool rageam::asset::TxdAsset::Deserialize(const xml::Element& xml)
+void rageam::asset::TxdAsset::Deserialize(const XmlHandle& node)
 {
-	xml::ElementChildIterator childIt(xml, "Item");
-	while (childIt != xml.end())
+	for (XmlHandle xTexture : XmlIterator(node, "Texture"))
 	{
-		const xml::Element& xitem = childIt.Current();
-
 		ConstString fileName;
-		XML_GET_ATTR(xitem, fileName, "Name");
+		xTexture.GetAttribute("File", fileName);
 
 		ConstWString texturePath = String::ToWideTemp(fileName);
 		u32 hashKey = rage::joaat(texturePath); // AssetSource::GetHashKey() is file name hash
 
 		Texture& texture = m_Textures.ConstructAt(hashKey, this, texturePath);
-		texture.Deserialize(xitem);
-
-		++childIt;
+		texture.Deserialize(xTexture);
 	}
-	return true;
 }

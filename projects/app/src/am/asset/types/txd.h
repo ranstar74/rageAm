@@ -17,8 +17,10 @@ namespace rageam::asset
 	// Version History:
 	// 0: Initial
 
-	struct TextureOptions
+	struct TextureOptions : IXml
 	{
+		XML_DEFINE(TextureOptions);
+
 		texture::CompressorQuality	Quality = texture::COMPRESSOR_QUALITY_NORMAL;
 		texture::ResizeFilter		ResizeFilter = texture::RESIZE_FILTER_KRAISER;
 		texture::MipFilter			MipFilter = texture::MIP_FILTER_KRAISER;
@@ -27,10 +29,14 @@ namespace rageam::asset
 		bool						GenerateMips = true;
 
 		void GetCompressionOptions(texture::CompressionOptions& outOptions) const;
+
+		void Serialize(XmlHandle& node) const override;
+		void Deserialize(const XmlHandle& node) override;
 	};
 
 	struct Texture : AssetSource
 	{
+
 		static constexpr int MAX_NAME = 128;
 
 		// This is actual name that will be used in game after export, contains no extension and unicode characters
@@ -47,8 +53,8 @@ namespace rageam::asset
 			IsPreCompressed = String::Equals(file::GetExtension(fileName), L"dds", true);
 		}
 
-		bool Deserialize(const xml::Element& xml) override;
-		bool Serialize(xml::Element& xml) const override;
+		void Serialize(XmlHandle& node) const override;
+		void Deserialize(const XmlHandle& node) override;
 	};
 	struct TextureHashFn { u32 operator()(const Texture& texture) const { return texture.GetHashKey(); } };
 	using Textures = rage::atSet<Texture, TextureHashFn>;
@@ -57,7 +63,7 @@ namespace rageam::asset
 	 * \brief Texture Dictionary
 	 * \remarks Resource Info: Extension: "YTD", Version: "13"
 	 */
-	class TxdAsset : public GameRscAsset<rage::pgTextureDictionary>
+	class TxdAsset : public GameRscAsset<rage::grcTextureDictionary>
 	{
 		Textures m_Textures;
 
@@ -72,8 +78,8 @@ namespace rageam::asset
 		u32 GetFormatVersion()				const override { return 0; }
 		u32 GetResourceVersion()			const override { return 13; }
 
-		bool Serialize(xml::Element& xml) const override;
-		bool Deserialize(const xml::Element& xml) override;
+		void Serialize(XmlHandle& node) const override;
+		void Deserialize(const XmlHandle& node) override;
 
 		eAssetType GetType() const override { return AssetType_Txd; }
 
@@ -82,5 +88,7 @@ namespace rageam::asset
 		// ---------- Asset Related ----------
 
 		Textures& GetTextures() { return m_Textures; }
+		u32 GetTextureCount() const { return m_Textures.GetNumUsedSlots(); }
 	};
+	using TxdAssetPtr = amPtr<TxdAsset>;
 }
