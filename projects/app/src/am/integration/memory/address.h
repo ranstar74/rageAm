@@ -21,6 +21,7 @@ struct gmAddress
 	gmAddress(u64 value) : Value(value) {}
 	gmAddress() : gmAddress(0) {}
 
+	// TODO: Store offset from image base in HashSet + game version
 	static gmAddress Scan(const char* patternStr, const char* debugName = nullptr);
 
 	// A bit of ugly address manipulations, here's short explanation how this works and used:
@@ -43,10 +44,10 @@ struct gmAddress
 	gmAddress GetCall() const { return GetRef(1); }
 
 	template<typename T>
-	T To() const { return reinterpret_cast<T>(Value); }
+	T To() const { return (T)Value; }
 
 	template<typename T>
-	std::function<T> ToFunc() const { return To<std::function<T>>(); }
+	T* ToFunc() const { return To<T*>(); }
 
 	gmAddress& operator=(u64 value) { Value = value; return *this; }
 	operator u64() const { return Value; }
