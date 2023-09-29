@@ -12,7 +12,7 @@
 
 namespace rageam::asset
 {
-#define ASSET_CONFIG_NAME L"config.xml"
+#define ASSET_CONFIG_NAME L"tune.xml"
 
 	// Must be implemented in all asset classes that are used in AssetFactory
 #define ASSET_IMPLEMENT_ALLOCATE(name)									\
