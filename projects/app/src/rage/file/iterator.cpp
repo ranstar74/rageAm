@@ -31,7 +31,14 @@ bool rage::fiIterator::FindNext()
 
 	// Compose full path to current file
 	if (hasAny)
-		m_FilePath = m_Path / m_FindData.FileName;
+	{
+		ImmutableString path = m_Path.GetCStr();
+		// If path is not a file
+		if (path.IndexOf('.') == -1)
+			m_FilePath = m_Path / m_FindData.FileName;
+		else
+			m_FilePath = m_Path;
+	}
 
 	return hasAny;
 }
