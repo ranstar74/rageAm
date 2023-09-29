@@ -186,7 +186,13 @@ public:
 	bool EndsWith(TString postfix, bool ignoreCase = false)
 	{
 		StringWrapper expectedPostfix = postfix;
-		StringWrapper actualPostfix = Substring(Length() - expectedPostfix.Length());
+
+		u32 length = Length();
+		u32 postfixLength = expectedPostfix.Length();
+		if (length < postfixLength)
+			return false;
+
+		StringWrapper actualPostfix = Substring(length - postfixLength);
 		return expectedPostfix.Equals(actualPostfix, ignoreCase);
 	}
 
