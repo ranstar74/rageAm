@@ -67,6 +67,8 @@ namespace rage
 		s32 GetIndex() const { return (s32)(InfoAndIndex >> INDEX_SHIFT); }
 		fwPoolInfo GetInfo() const { return fwPoolInfo(InfoAndIndex & INFO_MASK); }
 	};
+	// Casts u32 guid to fwGuid
+	#define POOL_TO_GUID(guid) (*(rage::fwGuid*)&(guid))
 
 	class fwBasePool
 	{
@@ -161,7 +163,8 @@ namespace rage
 		u32 GetSize() const { return m_Size; }
 
 		// Gets slot pointer if allocated, otherwise null.
-		pVoid GetSlot(s32 index) const;
+		pVoid GetSlotFromJustIndex(s32 index) const;
+		pVoid GetSlot(fwGuid id) const { return GetSlotFromJustIndex(id.GetIndex()); }
 
 		s32 GetJustIndex(pVoid slot) const { return (s32)(GetOffset(slot) / m_ItemSize); }
 		fwGuid GetIndex(pVoid slot) const; // Actually GetGuid but we're keeping legacy name.
@@ -188,6 +191,11 @@ namespace rage
 		T* New()
 		{
 			return static_cast<T*>(fwBasePool::New());
+		}
+
+		T* GetSlot(u32 index)
+		{
+			return static_cast<T*>(fwBasePool::GetSlotFromJustIndex(index));
 		}
 
 		void Delete(T* item)

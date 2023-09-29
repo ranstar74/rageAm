@@ -41,7 +41,7 @@ void rage::fwBasePool::Destroy()
 	SetUsedSlotsCount(0);
 }
 
-pVoid rage::fwBasePool::GetSlot(s32 index) const
+pVoid rage::fwBasePool::GetSlotFromJustIndex(s32 index) const
 {
 	fwPoolInfo& info = m_SlotInfos[index];
 	if (info.GetIsFree())
