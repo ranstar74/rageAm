@@ -11,7 +11,6 @@
 #include "am/graphics/buffereditor.h"
 #include "am/graphics/meshsplitter.h"
 #include "am/graphics/scene.h"
-#include "am/graphics/model/model.h"
 #include "am/graphics/render/engine.h"
 #include "am/graphics/texture/imagefit.h"
 
@@ -45,7 +44,6 @@
 #include "scripthook/shvnatives.h"
 #include "am/integration/hooks/streaming.h"
 #include "am/integration/memory/hook.h"
-#include "am/integration/memory/vftpatch.h"
 #endif
 //#define PHTEST
 
@@ -1972,47 +1970,47 @@ namespace rageam::ui
 				AM_TRACEF("");
 			}
 
-			if (ImGui::Button("Model File"))
-			{
-				model::ModelFileGl modelFile;
-				modelFile.Load(L"C:/Users/falco/Desktop/demo.gltf");
+			//if (ImGui::Button("Model File"))
+			//{
+			//	model::ModelFileGl modelFile;
+			//	modelFile.Load(L"C:/Users/falco/Desktop/demo.gltf");
 
-				// TODO: Format builder
-				rage::grcFvf format{};
-				format.Channels |= 1 << 0; // POSITION
-				format.Channels |= 1 << 3; // NORMAL
-				format.Channels |= 1 << 4; // COLOR0
-				format.Channels |= 1 << 6; // TEXCOORD0
-				format.Stride = sizeof rage::Vector3 + sizeof rage::Vector3 + sizeof u32 + sizeof rage::Vector2;
-				format.ChannelCount = 4;
-				format.ChannelFormats |= rage::GRC_FORMAT_R32G32B32_FLOAT;
-				format.ChannelFormats |= rage::GRC_FORMAT_R32G32B32_FLOAT << 12;
-				format.ChannelFormats |= rage::GRC_FORMAT_R8G8B8A8_UNORM << 16;
-				format.ChannelFormats |= rage::GRC_FORMAT_R32G32_FLOAT << 24;
+			//	// TODO: Format builder
+			//	rage::grcFvf format{};
+			//	format.Channels |= 1 << 0; // POSITION
+			//	format.Channels |= 1 << 3; // NORMAL
+			//	format.Channels |= 1 << 4; // COLOR0
+			//	format.Channels |= 1 << 6; // TEXCOORD0
+			//	format.Stride = sizeof rage::Vector3 + sizeof rage::Vector3 + sizeof u32 + sizeof rage::Vector2;
+			//	format.ChannelCount = 4;
+			//	format.ChannelFormats |= rage::GRC_FORMAT_R32G32B32_FLOAT;
+			//	format.ChannelFormats |= rage::GRC_FORMAT_R32G32B32_FLOAT << 12;
+			//	format.ChannelFormats |= rage::GRC_FORMAT_R8G8B8A8_UNORM << 16;
+			//	format.ChannelFormats |= rage::GRC_FORMAT_R32G32_FLOAT << 24;
 
-				//modelFile.SetVertexFormat(&format);
+			//	//modelFile.SetVertexFormat(&format);
 
-				// Print hierarchy
-				std::function<void(const model::MeshNodePtr&)> printNode;
-				printNode = [&](const model::MeshNodePtr& node)
-					{
-						AM_TRACEF("%s", node->Name);
-						for (auto& child : node->Children)
-							printNode(child);
-					};
-				printNode(modelFile.GetRootNode());
+			//	// Print hierarchy
+			//	std::function<void(const model::MeshNodePtr&)> printNode;
+			//	printNode = [&](const model::MeshNodePtr& node)
+			//		{
+			//			AM_TRACEF("%s", node->Name);
+			//			for (auto& child : node->Children)
+			//				printNode(child);
+			//		};
+			//	printNode(modelFile.GetRootNode());
 
-				//auto node = model.GetRootNode()->Children[0];
-				//char* vertices = new char[format.Stride * model.GetVertexCount(node)];
+			//	//auto node = model.GetRootNode()->Children[0];
+			//	//char* vertices = new char[format.Stride * model.GetVertexCount(node)];
 
-				//model.ReadVertices(node, vertices);
+			//	//model.ReadVertices(node, vertices);
 
-				//delete[] vertices;
+			//	//delete[] vertices;
 
-				auto model = modelFile.ReadModel(modelFile.GetRootNode()->Children[0]);
+			//	auto model = modelFile.ReadModel(modelFile.GetRootNode()->Children[0]);
 
-				AM_TRACEF("");
-			}
+			//	AM_TRACEF("");
+			//}
 
 			static float margin = 0.04f;
 			static float interpolation = 0.0f;
@@ -2029,145 +2027,145 @@ namespace rageam::ui
 				setMarginAndShrinkFn(bound, margin, interpolation);
 			}
 
-			if (ImGui::Button("Load Custom Mesh"))
-			{
-				struct Vertex
-				{
-					rage::Vector3 Pos;
-					rage::Vector3 Normal;
-					u8 A, R, G, B;
-					rage::Vector2 TexCoors;
-					rage::Vector4 Tangent;
-				};
+			//if (ImGui::Button("Load Custom Mesh"))
+			//{
+			//	struct Vertex
+			//	{
+			//		rage::Vector3 Pos;
+			//		rage::Vector3 Normal;
+			//		u8 A, R, G, B;
+			//		rage::Vector2 TexCoors;
+			//		rage::Vector4 Tangent;
+			//	};
 
-				rage::atArray<Vertex, u32> vertices;
-				rage::atArray<u16, u32> indices;
+			//	rage::atArray<Vertex, u32> vertices;
+			//	rage::atArray<u16, u32> indices;
 
-				cgltf_options options{};
-				cgltf_data* data = NULL;
-				cgltf_result result = cgltf_parse_file(&options, "C:/Users/falco/Desktop/monkey.glb", &data);
-				if (result == cgltf_result_success)
-				{
-					/* TODO make awesome stuff */
-					cgltf_load_buffers(&options, data, NULL);
-
-
-					cgltf_mesh& mesh = data->meshes[0];
-					cgltf_primitive& primitive = mesh.primitives[0];
-					vertices.Resize(primitive.indices->count);
-					for (auto& vtx : vertices)
-					{
-						vtx.Tangent = { 1.0f, 0.0f, 0.0f, 1.0f }; // TODO: Compute if missing
-						vtx.A = 125;
-						vtx.R = 125;
-						vtx.G = 125;
-						vtx.B = 125;
-					}
-
-					for (cgltf_size i = 0; i < primitive.attributes_count; i++)
-					{
-						cgltf_attribute& attribute = primitive.attributes[i];
-						if (attribute.type == cgltf_attribute_type_position)
-						{
-							auto& view = attribute.data->buffer_view;
-							auto values = (rage::Vector3*)((char*)view->buffer->data + view->offset);
-							auto posCount = view->size / sizeof rage::Vector3;
-							for (cgltf_size k = 0; k < posCount; k++)
-								vertices[k].Pos = values[k];
-						}
-						if (attribute.type == cgltf_attribute_type_normal)
-						{
-							auto& view = attribute.data->buffer_view;
-							auto normals = (rage::Vector3*)((char*)view->buffer->data + view->offset);
-							auto cunt = view->size / sizeof rage::Vector3;
-							for (cgltf_size k = 0; k < cunt; k++)
-								vertices[k].Normal = normals[k];
-						}
-						if (attribute.type == cgltf_attribute_type_tangent)
-						{
-							auto& view = attribute.data->buffer_view;
-							auto normals = (rage::Vector4*)((char*)view->buffer->data + view->offset);
-							auto cunt = view->size / sizeof rage::Vector4;
-							for (cgltf_size k = 0; k < cunt; k++)
-								vertices[k].Tangent = normals[k];
-						}
-						if (attribute.type == cgltf_attribute_type_texcoord)
-						{
-							auto& view = attribute.data->buffer_view;
-							auto normals = (rage::Vector2*)((char*)view->buffer->data + view->offset);
-							auto cunt = view->size / sizeof rage::Vector2;
-							for (cgltf_size k = 0; k < cunt; k++)
-								vertices[k].TexCoors = normals[k];
-						}
-					}
-					// TODO: Indices type can be different
-					auto& indView = primitive.indices->buffer_view;
-					indices.Reserve(indView->size / sizeof u16);
-					auto inx = (u16*)((char*)indView->buffer->data + indView->offset);
-					for (auto i = 0; i < indView->size / sizeof u16; i++)
-					{
-						indices.Add(inx[i]);
-					}/*
-					for (auto i = 0; i < vertices.GetSize(); i++)
-						indices.Add(i);*/
-
-					auto device = rageam::render::Engine::GetInstance()->GetFactory();
-					ID3D11Buffer* vtxBuffer;
-					D3D11_BUFFER_DESC vtxDesc{};
-					vtxDesc.Usage = D3D11_USAGE_DEFAULT;
-					vtxDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-					vtxDesc.StructureByteStride = sizeof Vertex;//68;
-					vtxDesc.ByteWidth = sizeof Vertex * vertices.GetSize();
-					D3D11_SUBRESOURCE_DATA vtxData{};
-					vtxData.pSysMem = vertices.GetItems();
-					device->CreateBuffer(&vtxDesc, &vtxData, &vtxBuffer);
-
-					ID3D11Buffer* idxBuffer;
-					D3D11_BUFFER_DESC idxDesc{};
-					idxDesc.Usage = D3D11_USAGE_DEFAULT;
-					idxDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-					idxDesc.StructureByteStride = sizeof u16;//68;
-					idxDesc.ByteWidth = sizeof u16 * indices.GetSize();
-					D3D11_SUBRESOURCE_DATA idxData{};
-					idxData.pSysMem = indices.GetItems();
-					device->CreateBuffer(&idxDesc, &idxData, &idxBuffer);
-
-					cgltf_free(data);
-
-					////static char drawableName[64] = "prop_palm_fan_03_c";
-					//static char drawableName[64] = "prop_metal_plates02";
-					//rage::strLocalIndex slot;
-					//rage::strStreamingModule* module = hooks::Streaming::GetModule("ydr");
-					//module->GetSlotIndexByName(slot, drawableName);
-					//auto dr = (gtaDrawable*)(module->GetPtr(slot));
+			//	cgltf_options options{};
+			//	cgltf_data* data = NULL;
+			//	cgltf_result result = cgltf_parse_file(&options, "C:/Users/falco/Desktop/monkey.glb", &data);
+			//	if (result == cgltf_result_success)
+			//	{
+			//		/* TODO make awesome stuff */
+			//		cgltf_load_buffers(&options, data, NULL);
 
 
-					/*for (auto& lod : dr->m_LodGroup.m_LodModels)
-					{
-						if (lod == nullptr)
-							continue;
+			//		cgltf_mesh& mesh = data->meshes[0];
+			//		cgltf_primitive& primitive = mesh.primitives[0];
+			//		vertices.Resize(primitive.indices->count);
+			//		for (auto& vtx : vertices)
+			//		{
+			//			vtx.Tangent = { 1.0f, 0.0f, 0.0f, 1.0f }; // TODO: Compute if missing
+			//			vtx.A = 125;
+			//			vtx.R = 125;
+			//			vtx.G = 125;
+			//			vtx.B = 125;
+			//		}
 
-						u64 vtxDecl = 0;
-						for (auto& model : lod->GetModels())
-						{
-							for (auto& geometry : model->GetGeometries())
-							{
-								if (vtxDecl == 0)
-									vtxDecl = geometry->m_VertexDeclaration;
+			//		for (cgltf_size i = 0; i < primitive.attributes_count; i++)
+			//		{
+			//			cgltf_attribute& attribute = primitive.attributes[i];
+			//			if (attribute.type == cgltf_attribute_type_position)
+			//			{
+			//				auto& view = attribute.data->buffer_view;
+			//				auto values = (rage::Vector3*)((char*)view->buffer->data + view->offset);
+			//				auto posCount = view->size / sizeof rage::Vector3;
+			//				for (cgltf_size k = 0; k < posCount; k++)
+			//					vertices[k].Pos = values[k];
+			//			}
+			//			if (attribute.type == cgltf_attribute_type_normal)
+			//			{
+			//				auto& view = attribute.data->buffer_view;
+			//				auto normals = (rage::Vector3*)((char*)view->buffer->data + view->offset);
+			//				auto cunt = view->size / sizeof rage::Vector3;
+			//				for (cgltf_size k = 0; k < cunt; k++)
+			//					vertices[k].Normal = normals[k];
+			//			}
+			//			if (attribute.type == cgltf_attribute_type_tangent)
+			//			{
+			//				auto& view = attribute.data->buffer_view;
+			//				auto normals = (rage::Vector4*)((char*)view->buffer->data + view->offset);
+			//				auto cunt = view->size / sizeof rage::Vector4;
+			//				for (cgltf_size k = 0; k < cunt; k++)
+			//					vertices[k].Tangent = normals[k];
+			//			}
+			//			if (attribute.type == cgltf_attribute_type_texcoord)
+			//			{
+			//				auto& view = attribute.data->buffer_view;
+			//				auto normals = (rage::Vector2*)((char*)view->buffer->data + view->offset);
+			//				auto cunt = view->size / sizeof rage::Vector2;
+			//				for (cgltf_size k = 0; k < cunt; k++)
+			//					vertices[k].TexCoors = normals[k];
+			//			}
+			//		}
+			//		// TODO: Indices type can be different
+			//		auto& indView = primitive.indices->buffer_view;
+			//		indices.Reserve(indView->size / sizeof u16);
+			//		auto inx = (u16*)((char*)indView->buffer->data + indView->offset);
+			//		for (auto i = 0; i < indView->size / sizeof u16; i++)
+			//		{
+			//			indices.Add(inx[i]);
+			//		}/*
+			//		for (auto i = 0; i < vertices.GetSize(); i++)
+			//			indices.Add(i);*/
 
-								geometry->m_QuadTreeData = 0;
-								geometry->m_IndexCount = indices.GetSize();
-								geometry->m_PrimitiveCount = vertices.GetSize() / 3;
-								geometry->m_VertexStride = sizeof Vertex;
-								geometry->m_VertexDeclaration = vtxDecl;
-								geometry->m_VertexBuffers[0]->m_Buffer.Buffer = vtxBuffer;
-								geometry->m_IndexBuffers[0]->m_Buffer.Buffer = idxBuffer;
-								geometry->m_VertexBuffers[0]->m_VertexStride = sizeof Vertex;
-							}
-						}
-					}*/
-				}
-			}
+			//		auto device = rageam::render::Engine::GetInstance()->GetFactory();
+			//		ID3D11Buffer* vtxBuffer;
+			//		D3D11_BUFFER_DESC vtxDesc{};
+			//		vtxDesc.Usage = D3D11_USAGE_DEFAULT;
+			//		vtxDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+			//		vtxDesc.StructureByteStride = sizeof Vertex;//68;
+			//		vtxDesc.ByteWidth = sizeof Vertex * vertices.GetSize();
+			//		D3D11_SUBRESOURCE_DATA vtxData{};
+			//		vtxData.pSysMem = vertices.GetItems();
+			//		device->CreateBuffer(&vtxDesc, &vtxData, &vtxBuffer);
+
+			//		ID3D11Buffer* idxBuffer;
+			//		D3D11_BUFFER_DESC idxDesc{};
+			//		idxDesc.Usage = D3D11_USAGE_DEFAULT;
+			//		idxDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+			//		idxDesc.StructureByteStride = sizeof u16;//68;
+			//		idxDesc.ByteWidth = sizeof u16 * indices.GetSize();
+			//		D3D11_SUBRESOURCE_DATA idxData{};
+			//		idxData.pSysMem = indices.GetItems();
+			//		device->CreateBuffer(&idxDesc, &idxData, &idxBuffer);
+
+			//		cgltf_free(data);
+
+			//		////static char drawableName[64] = "prop_palm_fan_03_c";
+			//		//static char drawableName[64] = "prop_metal_plates02";
+			//		//rage::strLocalIndex slot;
+			//		//rage::strStreamingModule* module = hooks::Streaming::GetModule("ydr");
+			//		//module->GetSlotIndexByName(slot, drawableName);
+			//		//auto dr = (gtaDrawable*)(module->GetPtr(slot));
+
+
+			//		/*for (auto& lod : dr->m_LodGroup.m_LodModels)
+			//		{
+			//			if (lod == nullptr)
+			//				continue;
+
+			//			u64 vtxDecl = 0;
+			//			for (auto& model : lod->GetModels())
+			//			{
+			//				for (auto& geometry : model->GetGeometries())
+			//				{
+			//					if (vtxDecl == 0)
+			//						vtxDecl = geometry->m_VertexDeclaration;
+
+			//					geometry->m_QuadTreeData = 0;
+			//					geometry->m_IndexCount = indices.GetSize();
+			//					geometry->m_PrimitiveCount = vertices.GetSize() / 3;
+			//					geometry->m_VertexStride = sizeof Vertex;
+			//					geometry->m_VertexDeclaration = vtxDecl;
+			//					geometry->m_VertexBuffers[0]->m_Buffer.Buffer = vtxBuffer;
+			//					geometry->m_IndexBuffers[0]->m_Buffer.Buffer = idxBuffer;
+			//					geometry->m_VertexBuffers[0]->m_VertexStride = sizeof Vertex;
+			//				}
+			//			}
+			//		}*/
+			//	}
+			//}
 
 
 			//// Streaming
