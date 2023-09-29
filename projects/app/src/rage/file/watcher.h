@@ -16,6 +16,7 @@ namespace rage
 	{
 		static constexpr u32 WATCH_UPDATE_INTERVAL = 200; // In milliseconds
 
+		bool			m_IsEnabled = true;
 		bool			m_Initialized = false;
 		bool			m_Changed = false;
 		std::mutex		m_Mutex;
@@ -29,9 +30,9 @@ namespace rage
 			fiDirectoryWatcher* watcher = static_cast<fiDirectoryWatcher*>(ctx->Param);
 			while (!ctx->Thread->ExitRequested())
 			{
+				watcher->m_Mutex.lock();
+				if (watcher->m_IsEnabled)
 				{
-					std::unique_lock lock(watcher->m_Mutex);
-
 					if (!String::IsNullOrEmpty(watcher->m_Path))
 					{
 						// The easiest & fastest way to check if anything was modified is to
@@ -60,6 +61,7 @@ namespace rage
 						oldChecksum = newChecksum;
 					}
 				}
+				watcher->m_Mutex.unlock();
 
 				std::this_thread::sleep_for(std::chrono::milliseconds(WATCH_UPDATE_INTERVAL));
 			}
@@ -74,6 +76,8 @@ namespace rage
 		void SetEntry(ConstString path)
 		{
 			std::unique_lock lock(m_Mutex);
+			if (m_Path.Equals(path, true))
+				return;
 			m_Path = path;
 			m_Initialized = false;
 		}
@@ -84,6 +88,12 @@ namespace rage
 			bool changed = m_Changed;
 			m_Changed = false;
 			return changed;
+		}
+
+		void SetEnabled(bool on)
+		{
+			std::unique_lock lock(m_Mutex);
+			m_IsEnabled = on;
 		}
 
 		// Note: This callback is not thread safe!
