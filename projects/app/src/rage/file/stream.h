@@ -119,6 +119,52 @@ namespace rage
 		void WriteLineVA(const char* fmt, const va_list& args);
 		PRINTF_ATTR(2, 3) void WriteLinef(const char* fmt, ...);
 		void WriteLine(const char* line);
+
+		// Helper methods
+
+		template<typename T>
+		T ReadValue()
+		{
+			T value;
+			Read(&value, sizeof(T));
+			return value;
+		}
+
+		u8 ReadU8() { return ReadValue<u8>(); }
+		u16 ReadU16() { return ReadValue<u16>(); }
+		u32 ReadU32() { return ReadValue<u32>(); }
+		u64 ReadU64() { return ReadValue<u64>(); }
 	};
-	static_assert(sizeof(fiStream) == 0x30);
+
+	/**
+	 * \brief Smart unique pointer for fiStream.
+	 */
+	class fiStreamPtr
+	{
+		fiStream* m_Stream;
+	public:
+		fiStreamPtr(fiStream* stream) { m_Stream = stream; }
+		fiStreamPtr(const fiStreamPtr& other) = delete;
+		fiStreamPtr(fiStreamPtr&& other) noexcept
+		{
+			std::swap(m_Stream, other.m_Stream);
+		}
+		~fiStreamPtr()
+		{
+			if (m_Stream == nullptr)
+				return;
+
+			m_Stream->Close();
+			m_Stream = nullptr;
+		}
+
+		fiStream* operator->() const { return m_Stream; }
+
+		fiStreamPtr& operator=(const fiStreamPtr& other) = delete;
+		fiStreamPtr& operator=(fiStreamPtr&& other) noexcept
+		{
+			std::swap(m_Stream, other.m_Stream);
+			return *this;
+		}
+	};
 }
