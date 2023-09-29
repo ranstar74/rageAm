@@ -8,7 +8,9 @@
 LRESULT(*gImpl_WndProc)(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 LRESULT rageam::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-	ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam);
+	LRESULT common = Common_WndProc(hWnd, msg, wParam, lParam);
+	if (common != 0)
+		return common;
 
 	return gImpl_WndProc(hWnd, msg, wParam, lParam);
 }
@@ -56,16 +58,20 @@ rageam::WindowIntegrated::WindowIntegrated()
 	s_gAddr_WndProc = gmAddress::Scan("48 8D 05 ?? ?? ?? ?? 33 C9 89 75 20", "WndProc").GetRef(3);
 	Hook::Create(s_gAddr_WndProc, WndProc, &gImpl_WndProc);
 
-	Hook::Create(ShowCursor, aImpl_ShowCursor, &gImpl_ShowCursor, true);
-	Hook::Create(ClipCursor, aImpl_ClipCursor, &gImpl_ClipCursor, true);
+	// TODO: Disable cursor clipping when in imgui mode so we can easily move cursor out
+
+	//Hook::Create(ShowCursor, aImpl_ShowCursor, &gImpl_ShowCursor, true);
+	//Hook::Create(ClipCursor, aImpl_ClipCursor, &gImpl_ClipCursor, true);
 
 	s_gAddr_UpdateResize = gmAddress::Scan("48 8B C4 55 53 56 57 41 54 41 56 41 57 48 8D A8 F8");
 	Hook::Create(s_gAddr_UpdateResize, aImpl_UpdateResize, &gImpl_UpdateResize);
 
+	// TODO: We use ImGui cursor for now, following code will show it so I commented it out
+
 	// Game clips cursor, we don't want that
-	gImpl_ClipCursor(NULL);
+	// gImpl_ClipCursor(NULL);
 	// Game cursor is hidden by default
-	WindowIntegrated::SetCursorVisible(true);
+	// WindowIntegrated::SetCursorVisible(true);
 }
 
 rageam::WindowIntegrated::~WindowIntegrated()
@@ -75,8 +81,8 @@ rageam::WindowIntegrated::~WindowIntegrated()
 
 	Hook::Remove(s_gAddr_WndProc);
 	Hook::Remove(s_gAddr_UpdateResize);
-	Hook::Remove(ShowCursor);
-	Hook::Remove(ClipCursor);
+	//Hook::Remove(ShowCursor);
+	//Hook::Remove(ClipCursor);
 }
 
 void rageam::WindowIntegrated::SetCursorVisible(bool visible)
@@ -104,4 +110,5 @@ void rageam::WindowIntegrated::SetCursorVisible(bool visible)
 
 	m_CursorVisible = visible;
 }
+
 #endif

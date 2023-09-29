@@ -1,5 +1,8 @@
 #include "window.h"
 
+#include "input.h"
+#include "am/ui/context.h"
+
 #ifdef AM_STANDALONE
 #include "window_standalone.h"
 #else
@@ -7,6 +10,15 @@
 #endif
 
 amUniquePtr<rageam::Window> rageam::WindowFactory::sm_Window;
+
+LRESULT rageam::Common_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam);
+
+	if (Gui) Gui->Input.HandleProc(msg, wParam, lParam);
+
+	return 0;
+}
 
 void rageam::Window::Show()
 {

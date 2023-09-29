@@ -22,6 +22,8 @@ namespace rageam
 	// Implemented in window_integrated.cpp / window_standalone.cpp
 	extern LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
+	LRESULT WINAPI Common_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 	struct WindowSize { u32 Width, Height; };
 
 	class Window

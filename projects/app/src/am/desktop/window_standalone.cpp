@@ -6,9 +6,13 @@
 
 LRESULT rageam::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-	// Call ImGui WndProc handler only if ui context was initialized
-	if (Gui && ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
-		return true;
+	//// Call WndProc handler only if ui context was initialized
+	//if (!Gui)
+	//	return 0;
+
+	LRESULT common = Common_WndProc(hWnd, msg, wParam, lParam);
+	if (common != 0)
+		return common;
 
 	static bool resizing = false;
 

@@ -14,7 +14,7 @@ namespace rageam
 {
 	class WindowIntegrated : public Window
 	{
-		bool m_CursorVisible = false;
+		std::atomic_bool m_CursorVisible = false;
 	public:
 		WindowIntegrated();
 		~WindowIntegrated() override;
