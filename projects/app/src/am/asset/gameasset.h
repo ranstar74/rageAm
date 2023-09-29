@@ -27,7 +27,11 @@ namespace rageam::asset
 	enum eAssetType
 	{
 		AssetType_Txd,
+		AssetType_Drawable,
 	};
+
+	static constexpr ConstWString ASSET_ITD_EXT = L".itd";
+	static constexpr ConstWString ASSET_IDR_EXT = L".idr";
 
 	/**
 	 * \brief Base class for assets.
