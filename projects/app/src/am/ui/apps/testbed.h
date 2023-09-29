@@ -1466,7 +1466,7 @@ namespace rageam::ui
 
 
 				// gtaDrawable
-				integration::VftPatch::Install(sceneDrawable, "48 8D 05 ?? ?? ?? ?? 33 FF 48 89 03 48 8B 93 B0 00 00 00");
+				// integration::VftPatch::Install(sceneDrawable, "48 8D 05 ?? ?? ?? ?? 33 FF 48 89 03 48 8B 93 B0 00 00 00");
 				int i = 0;
 
 #endif
