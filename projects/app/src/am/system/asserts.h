@@ -11,6 +11,8 @@
 #include "helpers/compiler.h"
 #include "helpers/resharper.h"
 
+// #define ENABLE_VERIFY_STACKTRACE
+
 namespace rageam
 {
 	// TODO: This and errordisplay.h have some insane amount of code duplicate

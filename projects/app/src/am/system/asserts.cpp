@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include "debugger.h"
 #include "errordisplay.h"
+#include "common/logger.h"
 
 void rageam::AssertHandler(bool expression, ConstString assert, ConstString file, int line, ConstWString fmt, ...)
 {
@@ -52,12 +53,17 @@ bool rageam::VerifyHandler(bool expression, ConstString assert, ConstString file
 	vswprintf_s(formatBuffer, ASSERT_MAX, fmt, args);
 	va_end(args);
 
+#ifdef ENABLE_VERIFY_STACKTRACE
 	wchar_t errorBuffer[ASSERT_MAX];
 	swprintf_s(errorBuffer, ASSERT_MAX, L"File: %hs at line: %i\n%ls", file, line, formatBuffer);
 
 	ErrorDisplay::Verify(formatBuffer, assert, 1 /* This */);
 
 	return false;
+#else
+	AM_ERR(formatBuffer);
+	return false;
+#endif
 }
 
 bool rageam::VerifyHandler(bool expression, ConstString assert, ConstString file, int line, ConstString fmt, ...)
@@ -102,7 +108,7 @@ void rageam::Unreachable(ConstString file, int line, ConstString fmt, ...)
 	va_start(args, fmt);
 	vsprintf_s(formatBuffer, ASSERT_MAX, fmt, args);
 	va_end(args);
-	
+
 	Unreachable(file, line, L"%s", formatBuffer);
 }
 
