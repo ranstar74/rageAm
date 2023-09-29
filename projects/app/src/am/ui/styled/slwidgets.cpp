@@ -4,6 +4,7 @@
 #include "am/ui/extensions.h"
 #include "am/ui/font_icons/icons_awesome.h"
 #include "common/logger.h"
+#include "rage/crypto/joaat.h"
 
 void SlGui::RenderGloss(const ImRect& bb, SlGuiCol col)
 {
@@ -40,6 +41,50 @@ void SlGui::RenderArrow(ImDrawList* draw_list, ImVec2 pos, ImU32 col, ImGuiDir d
 	}
 
 	draw_list->AddText(pos, ImGui::GetColorU32(ImGuiCol_Text), text, text + strlen(text));
+}
+
+void SlGui::BeginHorizontal()
+{
+	ImGui::GetCurrentWindow()->DC.LayoutType = ImGuiLayoutType_Horizontal;
+}
+
+void SlGui::EndHorizontal()
+{
+	ImGui::GetCurrentWindow()->DC.LayoutType = ImGuiLayoutType_Vertical;
+}
+
+bool SlGui::BeginToolWindow(ConstString text)
+{
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
+	bool opened = ImGui::Begin(text, 0, ImGuiWindowFlags_AlwaysAutoResize);
+	ImGui::PopStyleVar(1); // WindowPadding
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
+	BeginHorizontal();
+	return opened;
+}
+
+void SlGui::EndToolWindow()
+{
+	EndHorizontal();
+	ImGui::PopStyleVar(1); // ItemSpacing
+	ImGui::End();
+}
+
+bool SlGui::ToggleButton(ConstString text, bool& isActive)
+{
+	ImGui::PushStyleVar(ImGuiStyleVar_Alpha, isActive ? 1.0f : 0.4f);
+	bool pressed = MenuButton(text);
+	if (pressed) isActive = !isActive;
+	ImGui::PopStyleVar(1);
+	return pressed;
+}
+
+bool SlGui::MenuButton(ConstString text)
+{
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1);
+	bool pressed = ImGui::Button(text);
+	ImGui::PopStyleVar(1);
+	return pressed;
 }
 
 bool SlGui::Button(ConstString text, const ImVec2& sizeOverride)
@@ -112,6 +157,11 @@ bool SlGui::Begin(ConstString name, bool* open, ImGuiWindowFlags flags)
 	bool opened = ImGui::Begin(name, open, flags);
 	ImGui::PopStyleVar();
 	return opened;
+}
+
+void SlGui::End()
+{
+	ImGui::End();
 }
 
 bool SlGui::TreeNode(ConstString text, bool& selected, bool& toggled, ImTextureID icon, ImGuiTreeNodeFlags flags)
@@ -272,6 +322,32 @@ bool SlGui::TreeNode(ConstString text, bool& selected, bool& toggled, ImTextureI
 	if (isOpen)
 		ImGui::TreePushOverrideID(id);
 	return isOpen;
+}
+
+bool SlGui::BeginTable(ConstString text, int columnCount, ImGuiTableFlags flags)
+{
+	// Remove huge gap between the columns
+	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(1, 0));
+	bool opened = ImGui::BeginTable(text, columnCount, flags);
+	ImGui::PopStyleVar(); // CellPadding
+	return opened;
+}
+
+void SlGui::EndTable()
+{
+	ImGui::EndTable();
+}
+
+bool SlGui::Selectable(ConstString text, bool selected, ImTextureID icon, ImVec2 iconSize, float iconScale)
+{
+	SlRenamingSelectableState state{};
+	state.TextDisplay = text;
+	state.Icon = icon;
+	state.IconWidth = iconSize.x;
+	state.IconHeight = iconSize.y;
+	state.IconScale = iconScale;
+	state.Selected = selected;
+	return RenamingSelectable(state, 0);
 }
 
 bool SlGui::RenamingSelectable(SlRenamingSelectableState& state, SlGuiRenamingSelectableFlags flags)
@@ -491,6 +567,234 @@ bool SlGui::RenamingSelectable(SlRenamingSelectableState& state, SlGuiRenamingSe
 		return true; // 'Pressed'
 
 	return pressed;
+}
+
+SlPickerState SlGui::InputPicker(const char* name, const char* text, int hintCount, const SlHintGetFn& hintFn, const SlHintCompareFn& compareFn)
+{
+	struct slPickerInstanceState
+	{
+		// - Easier way to understand those indices:
+		// 0: Apple
+		// 1: Orange
+		// 2: Papaya
+		// 2: > Potato
+		// 3: Cornbread
+		// - Search result for "p":
+		// 0: Papaya
+		// 1: > Potato
+		// - Potato is selected,	
+		// hintIndex = 3
+		// hintIndexSearch = 1
+		int	HintIndex;
+		int	HintIndexSearch;
+
+		// Max hint index within search result array (see comment above, it's gonna be 1)
+		int	SearchResultCount;
+
+		int	LastSearchHash;
+
+		// We open hints overlay when input fields gets focused then close it if user clicked
+		// outside of hints and input field
+		bool HintsOpened;
+
+		bool SearchChangedSinceFocus;
+	};
+
+	SlPickerState outState{};
+
+	ImGuiWindow* window = ImGui::GetCurrentWindow();
+	ImGuiStorage* storage = window->DC.StateStorage;
+
+	ImGuiID id = ImGui::GetID(name);
+	ImGui::PushOverrideID(id);
+
+	slPickerInstanceState state;
+	state.HintIndex = storage->GetInt(id + 0);
+	state.HintIndexSearch = storage->GetInt(id + 1);
+	state.SearchResultCount = storage->GetInt(id + 2);
+	state.LastSearchHash = storage->GetInt(id + 3);
+	state.HintsOpened = storage->GetBool(id + 4);
+	state.SearchChangedSinceFocus = storage->GetBool(id + 5);
+
+	static char buffer[256]{};
+
+	// This is pretty dangerous
+	char* displayBuffer = state.HintsOpened ? buffer : (char*)text;
+	bool textChanged = ImGui::InputText(name, displayBuffer, IM_ARRAYSIZE(buffer), ImGuiInputTextFlags_AutoSelectAll);
+
+	outState.Search = buffer;
+	outState.SearchChanged = textChanged;
+
+	bool inputFocused = ImGui::IsItemActive();
+	bool inputJustActivated = ImGui::IsItemActivated();
+	// User just clicked on input field, show hints to him
+	if (inputJustActivated)
+	{
+		state.HintsOpened = true;
+		state.SearchChangedSinceFocus = false;
+
+		String::Copy(buffer, IM_ARRAYSIZE(buffer), text);
+	}
+
+	// We have to reset highlighted index if search request was changed
+	int lastSearchHash = state.LastSearchHash;
+	int	searchHash = (int)rage::joaat(buffer);
+	bool searchChanged = lastSearchHash != searchHash;
+	state.LastSearchHash = searchHash;
+	if (!inputJustActivated && searchChanged)
+	{
+		state.SearchChangedSinceFocus = true;
+		state.HintIndex = 0;
+		state.HintIndexSearch = 0;
+	}
+
+	bool navigatedHint = false;
+	bool hintsHovered = false;
+	if (state.HintsOpened)
+	{
+		// Navigate through search results manually because hovered window prevents that
+		if (IsKeyDownDelayed(ImGuiKey_DownArrow))
+		{
+			navigatedHint = true;
+			state.HintIndexSearch++;
+		}
+		if (IsKeyDownDelayed(ImGuiKey_UpArrow))
+		{
+			navigatedHint = true;
+			state.HintIndexSearch--;
+		}
+
+		if (navigatedHint)
+		{
+			// Wrap highlighted index instead of clamping
+			if (state.SearchResultCount == 0)
+			{
+				// Prevent division by zero
+				state.HintIndexSearch = 0;
+			}
+			else
+			{
+				state.HintIndexSearch = state.HintIndexSearch % state.SearchResultCount;
+				if (state.HintIndexSearch < 0)
+					state.HintIndexSearch += state.SearchResultCount;
+			}
+		}
+
+		// Prevent our hint navigation to mess up ImGui navigation
+		ImGui::NavMoveRequestCancel();
+
+		// Position hints right below input field and stretch it to get the same width
+		constexpr float hintsHeight = 200.0f; // We have to force window height because otherwise scroll won't work
+		ImRect& inputRect = GImGui->LastItemData.Rect;
+		ImGui::SetNextWindowPos(inputRect.GetBL(), ImGuiCond_Always);
+		ImGui::SetNextWindowSize(ImVec2(inputRect.GetWidth(), hintsHeight), ImGuiCond_Always);
+
+		ImGuiWindowFlags hintWindowFlags =
+			ImGuiWindowFlags_Tooltip |
+			ImGuiWindowFlags_NoTitleBar |
+			ImGuiWindowFlags_NoMove |
+			ImGuiWindowFlags_NoResize |
+			ImGuiWindowFlags_NoSavedSettings |
+			ImGuiWindowFlags_AlwaysAutoResize |
+			ImGuiWindowFlags_NoFocusOnAppearing;
+
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+		if (ImGui::Begin("##InputText_HintWindow", 0, hintWindowFlags))
+		{
+			ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
+			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+
+			// Hints window is always on top so we can simply do cheap rect check
+			ImGuiWindow* hintsWindow = ImGui::GetCurrentWindow();
+			hintsHovered = hintsWindow->OuterRectClipped.Contains(GImGui->IO.MousePos);
+
+			// Index within search results array
+			int indexSearch = 0;
+
+			ConstString hint;
+			ImTextureID icon = 0;
+			ImVec2 iconSize = ImVec2(-1, -1);
+			float iconScale = 1;
+			for (int i = 0; i < hintCount; i++)
+			{
+				hintFn(i, &hint, &icon, &iconSize, &iconScale);
+
+				// We allow user to see all hints when he focuses text box even if there's
+				// search text filled in already, this helps to pick new hint easier without
+				// removing existing search text
+				if (state.SearchChangedSinceFocus)
+				{
+					// Check if hint name matches search request:
+					// Empty search request will match any hint, then we check if hint starts with request phrase
+					if (!String::IsNullOrEmpty(buffer))
+					{
+						// Default fallback to starts with if no comparison function was set
+						if (compareFn)
+						{
+							if (!compareFn(buffer, hint))
+								continue;
+						}
+						else
+						{
+							if (!ImmutableString(hint).StartsWith(buffer, true))
+								continue;
+						}
+					}
+				}
+				bool hintSelected = state.HintIndexSearch == indexSearch;
+
+				// We allow to accept selected hint using enter
+				bool pressedEnter = ImGui::IsKeyPressed(ImGuiKey_Enter, false) && state.HintIndexSearch == indexSearch;
+				bool clickedHint = Selectable(hint, hintSelected, icon, iconSize, iconScale);
+
+				// Since we do item selecting manually we have to maintain scroll too
+				if (navigatedHint && hintSelected)
+					ImGui::ScrollToItem();
+
+				// Accept hint
+				if (pressedEnter || clickedHint)
+				{
+					state.HintIndexSearch = indexSearch;
+					state.HintIndex = i;
+					state.HintsOpened = false;
+					outState.HintAccepted = true;
+				}
+				indexSearch++;
+			}
+			state.SearchResultCount = indexSearch;
+
+			ImGui::PopStyleVar(); // ItemSpacing
+		}
+		ImGui::PopStyleVar(); // WindowPadding
+		ImGui::End(); // InputText_HintWindow
+	}
+
+	// We clicked somewhere outside input and hints area, hide hints
+	bool clickedOutside = ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !hintsHovered;
+	if (!inputFocused && clickedOutside)
+	{
+		state.HintsOpened = false;
+	}
+
+	outState.NeedHints = state.HintsOpened;
+	outState.HintIndex = state.HintIndex;
+
+	storage->SetInt(id + 0, state.HintIndex);
+	storage->SetInt(id + 1, state.HintIndexSearch);
+	storage->SetInt(id + 2, state.SearchResultCount);
+	storage->SetInt(id + 3, state.LastSearchHash);
+	storage->SetBool(id + 4, state.HintsOpened);
+	storage->SetBool(id + 5, state.SearchChangedSinceFocus);
+
+	ImGui::PopID();
+
+	return outState;
+}
+
+bool SlGui::IsKeyDownDelayed(ImGuiKey key, float delay)
+{
+	ImGuiKeyData* data = ImGui::GetKeyData(key);
+	return ImGui::IsKeyPressed(key, data->DownDuration > delay);
 }
 
 void SlGui::TableHeadersRow()

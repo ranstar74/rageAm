@@ -104,6 +104,7 @@ namespace SlGui
 	SlGradient GetColorAnimated(ConstString strId, SlGuiCol col, float time = 1.0f);
 
 	void PushFont(SlFont font);
+	void PopFont();
 
 	void ShadeVerts(const ImRect& bb, const SlGradient& col, int vtx0, int vtx1, float bias = 0, float shift = 0, ImGuiAxis axis = ImGuiAxis_Y);
 

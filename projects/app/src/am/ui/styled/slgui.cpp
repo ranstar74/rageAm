@@ -359,6 +359,11 @@ void SlGui::PushFont(SlFont font)
 	ImGui::PushFont(io.Fonts->Fonts[font]);
 }
 
+void SlGui::PopFont()
+{
+	ImGui::PopFont();
+}
+
 void SlGui::ShadeVerts(const ImRect& bb, const SlGradient& col, int vtx0, int vtx1, float bias, float shift, ImGuiAxis axis)
 {
 	ImGuiWindow* window = ImGui::GetCurrentWindow();

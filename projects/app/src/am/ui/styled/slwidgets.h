@@ -7,6 +7,8 @@
 //
 #pragma once
 
+#include <functional>
+
 #include "slgui.h"
 #include "common/types.h"
 
@@ -74,19 +76,49 @@ struct SlRenamingSelectableState
 	bool StoppedRenaming() const { return WasRenaming && !Renaming; }
 };
 
+using SlHintCompareFn = std::function<bool(const char* search, const char* hint)>;
+using SlHintGetFn = std::function<void(int index, const char** hint, ImTextureID* icon, ImVec2* iconSize, float* iconScale)>;
+
+struct SlPickerState
+{
+	int			HintIndex;
+	bool		HintAccepted;
+	bool		NeedHints;
+	bool		SearchChanged;
+	ConstString Search;
+};
+
 namespace SlGui
 {
 	void RenderGloss(const ImRect& bb, SlGuiCol col = SlGuiCol_Gloss);
 	void RenderShadow(const ImRect& bb);
 	void RenderArrow(ImDrawList* draw_list, ImVec2 pos, ImU32 col, ImGuiDir dir, float scale);
 
+	void BeginHorizontal();
+	void EndHorizontal();
+	bool BeginToolWindow(ConstString text);
+	void EndToolWindow();
+	bool ToggleButton(ConstString text, bool& isActive);
+	bool MenuButton(ConstString text);
 	bool Button(ConstString text, const ImVec2& sizeOverride = ImVec2(0, 0));
 	bool Begin(ConstString name, bool* open = 0, ImGuiWindowFlags flags = 0);
+	void End();
 	bool TreeNode(ConstString text, bool& selected, bool& toggled, ImTextureID icon, ImGuiTreeNodeFlags flags = 0);
+
+	bool BeginTable(ConstString text, int columnCount, ImGuiTableFlags flags = 0);
+	void EndTable();
+
+	// Wrapper for renaming selectable without renaming option
+	bool Selectable(ConstString text, bool selected, ImTextureID icon = nullptr, ImVec2 iconSize = ImVec2(-1, -1), float iconScale = 1.0f);
 
 	// Button with editable name, works similar to Selectable.
 	// Renaming can be started by pressing F2 or setting state::Renaming value to True.
 	bool RenamingSelectable(SlRenamingSelectableState& state, SlGuiRenamingSelectableFlags flags = 0);
+
+	SlPickerState InputPicker(const char* name, const char* text, int hintCount, const SlHintGetFn& hintFn, const SlHintCompareFn& compareFn = 0);
+
+	// Will return once when button was pressed down and repeatedly after button was held for time that is greater than specified delay
+	bool IsKeyDownDelayed(ImGuiKey key, float delay = 0.4f);
 
 	void TableHeadersRow();
 	void TableHeader(const char* label);
