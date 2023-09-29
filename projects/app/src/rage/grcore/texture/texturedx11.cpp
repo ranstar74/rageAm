@@ -287,13 +287,49 @@ rage::grcTextureDX11::~grcTextureDX11()
 	if (m_ShaderView)
 		m_ShaderView->Release();
 
-	if (m_Resource)
-		static_cast<ID3D11Resource*>(m_Resource)->Release();
-
-	delete m_PixelData;
-}
-
 ID3D11ShaderResourceView* rage::grcTextureDX11::GetShaderResourceView() const
 {
-	return (ID3D11ShaderResourceView*)GetResourceView();
+	return m_ShaderView.Get();
+}
+
+void rage::grcTextureDX11::ExportTextureTo(ConstWString outDir, bool allowOverwrite) const
+{
+	rageam::render::Engine* render = rageam::render::Engine::GetInstance();
+
+	DirectX::ScratchImage image;
+	ID3D11Resource* pResource = (ID3D11Resource*)m_Resource;
+	HRESULT hr = CaptureTexture(
+		render->GetFactory(),
+		render->GetDeviceContext(), pResource, image);
+
+	rageam::wstring textureName = String::ToWideTemp(m_Name);
+	rageam::file::WPath texturePath;
+	bool isNameFine = true;
+	do
+	{
+		texturePath = outDir;
+		texturePath /= textureName;
+		texturePath += L".dds";
+
+		if (!allowOverwrite && IsFileExists(texturePath))
+		{
+			isNameFine = false;
+			textureName += L" (copy)";
+		}
+		else
+		{
+			isNameFine = true;
+}
+	} while (!isNameFine);
+
+	if (SUCCEEDED(hr))
+	{
+		hr = SaveToDDSFile(
+			image.GetImages(), image.GetImageCount(), image.GetMetadata(), DirectX::DDS_FLAGS_NONE, texturePath);
+
+		if (FAILED(hr))
+{
+			AM_ERRF(L"grcTextureDX11::ExportTextureTo() -> Failed to export texture %ls", textureName.GetCStr());
+		}
+	}
 }

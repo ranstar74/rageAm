@@ -74,6 +74,8 @@ namespace rage
 		void* GetResourceView() const override { return m_ShaderView; }
 
 		ID3D11ShaderResourceView* GetShaderResourceView() const;
+
+		void ExportTextureTo(ConstWString outDir, bool allowOverwrite = true) const;
 	};
 
 	static_assert(sizeof(grcTextureDX11) == 0x90);
