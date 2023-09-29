@@ -35,7 +35,7 @@ namespace rageam
 			T Value;
 
 			Holder() { memset(this, 0, sizeof Holder); }
-			~Holder() { Destroy(); }
+			~Holder() { /* Destroy called by nullable only if there's value */ }
 
 			void Destroy()
 			{
@@ -47,7 +47,11 @@ namespace rageam
 		bool	m_HasValue = false;
 	public:
 		Nullable() {}
-		~Nullable() {}
+		~Nullable()
+		{
+			if (m_HasValue)
+				m_Holder.Destroy();
+		}
 
 		Nullable(const T& value)
 		{
