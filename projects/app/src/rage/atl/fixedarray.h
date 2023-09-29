@@ -205,7 +205,8 @@ namespace rage
 		/**
 		 * \brief Sorts array using given predicate and std::sort;
 		 */
-		void Sort(std::function<bool(const T& lhs, const T& rhs)> predicate)
+		template<typename TPredicate>
+		void Sort(TPredicate predicate)
 		{
 			std::sort(m_Items, m_Items + m_Size, predicate);
 		}
@@ -253,9 +254,9 @@ namespace rage
 		 *	------------------ Getters / Operators ------------------
 		 */
 
-		 /**
-		  * \brief Gets last element in the array.
-		  */
+		/**
+		 * \brief Gets last element in the array.
+		 */
 		T& Last()
 		{
 			AM_ASSERT(m_Size != 0, "atFixedArray::Last() -> No items in array.");
@@ -294,7 +295,9 @@ namespace rage
 		bool Any() const { return m_Size > 0; }
 
 		T* begin() { return m_Items; }
-		T* end() { return m_Items + Capacity; }
+		T* end() { return m_Items + m_Size; }
+		const T* begin() const { return m_Items; }
+		const T* end() const { return m_Items + m_Size; }
 
 		T& operator [](TSize index) { return Get(index); }
 		const T& operator [] (TSize index) const { return Get(index); }
