@@ -95,6 +95,7 @@ project "rageAm"
 		filter { "not options:standalone" }
 			kind "SharedLib"
 			add_launcher_events("bin/%{cfg.buildcfg}" .. "/")
+			defines { "AM_INTEGRATED" }
 
 	filter { "not options:nostacksymbols" }
 		defines { "AM_STACKTRACE_SYMBOLS" }
@@ -121,7 +122,7 @@ project "rageAm"
 	defines { "IMGUI_USER_CONFIG=" .. "\"" .. (os.realpath("projects/app/src/am/ui/imgui/config.h")) .. "\"" }
 	defines { "AM_DEFAULT_DATA_DIR=" .. "LR\"(" .. (os.realpath("data")) .. ")\"" }
 	defines { "AM_DATA_DIR=L\"data\"" }
-
+	
 	filter { "not options:standalone" }
 		include_vendors { "shv" }
 	filter{}
@@ -136,7 +137,9 @@ project "rageAm"
 		"freetype",
 		"zlib",
 		"nvtt",
-		"magic_enum"
+		"magic_enum",
+		"cgltf",
+		"hwbreakpoint",
 	}
 	links { "Comctl32.lib" } -- TaskDialog
 	links { "dbghelp" } -- StackTrace
