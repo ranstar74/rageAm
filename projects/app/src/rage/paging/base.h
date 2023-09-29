@@ -8,7 +8,7 @@ namespace rage
 
 	/**
 	 * \brief Base class for every paged resource.
-	 * \n For more details on how this system works, see datResourceDef.h;
+	 * \n For more details on how this system works, see paging.h;
 	 */
 	class pgBase
 	{
@@ -76,10 +76,10 @@ namespace rage
 		// Recreates resource map of this resource. If resource has no map, nothing is done.
 		void RegenerateMap(datResourceMap& map) const;
 
-		// Unused in final version.
+		// Unused in final version (overriden only once in grcTexture)
 		// They're present only for virtual table completeness.
 
-		virtual u32 GetHandleIndex() { return 0; }
+		virtual u32 GetHandleIndex() const { return 0; }
 		virtual void SetHandleIndex(u32 index) { }
 	};
 }

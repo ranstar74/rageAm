@@ -62,8 +62,12 @@ void rage::pgBase::FreeMemory(const datResourceMap& map) const
 	if (m_Map->bIsDynamic)
 		return;
 
-	sysMemAllocator* allocator = GetMultiAllocator()->GetAllocator(ALLOC_TYPE_VIRTUAL);
+	// Important thing to note here is that sysMemGrowBuddyAllocator allows 'invalid'
+	// or already deleted pointers, it is really weird but for paged resources
+	// first destructor is called, where it will free up all the things and then
+	// this function, which will do basically nothing because everything been already cleaned up
 
+	sysMemAllocator* allocator = GetMultiAllocator()->GetAllocator(ALLOC_TYPE_VIRTUAL);
 	for (u8 i = 0; i < map.VirtualChunkCount; i++)
 		allocator->Free(reinterpret_cast<void*>(map.Chunks[i].DestAddr));
 
@@ -75,7 +79,7 @@ rage::pgBase::pgBase()
 	datResource* rsc = datResource::GetCurrent();
 
 	// ReSharper disable once CppObjectMemberMightNotBeInitialized
-	if (rsc && AM_VERIFY(m_Map != nullptr, "pgBase() -> Compiled resource has no internal map."))
+	if (rsc && m_Map) // Only root pgBase has map
 	{
 		rsc->Fixup(m_Map);
 		MakeDefragmentable(*rsc->Map);
@@ -94,7 +98,7 @@ rage::pgBase::pgBase(const pgBase& other)
 	// Just like in atArray, we have to allocate memory for
 	// mini map (which presents only in compiled / file resources) manually.
 	pgSnapshotAllocator* pAllocator = pgRscCompiler::GetVirtualAllocator();
-	if (!pAllocator)
+	if (!pAllocator || !pgRscCompiler::IsRootResourceAllocation(this))
 	{
 		// We're not compiling resource so no need to have a map.
 		m_Map = nullptr;
@@ -107,19 +111,19 @@ void rage::pgBase::Destroy() const
 {
 	if (!HasMap()) // Not compiled resource
 	{
-		sysMemAllocator* allocator = GetMultiAllocator()->GetPointerOwner((pVoid)this);
+		sysMemAllocator* allocator = GetMultiAllocator()->GetAllocator(ALLOC_TYPE_VIRTUAL);
 		if (allocator)
 		{
-			AM_DEBUGF("pgBase::Destroy() -> Not compiled resource, but allocated on heap, deleting this.");
+			//AM_DEBUGF("pgBase::Destroy() -> Not compiled resource, but allocated on heap, deleting this.");
 			allocator->Free((pVoid)this);
 		}
 		else
 		{
-			AM_DEBUGF("pgBase::Destroy() -> Not compiled resource nor allocated on heap.");
+			//AM_DEBUGF("pgBase::Destroy() -> Not compiled resource nor allocated on heap.");
 		}
 		return;
 	}
-	AM_DEBUGF("pgBase::Destroy() -> Deallocating resource map.");
+	//AM_DEBUGF("pgBase::Destroy() -> Deallocating resource map.");
 
 	datResourceMap map;
 	RegenerateMap(map);
