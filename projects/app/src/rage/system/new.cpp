@@ -15,38 +15,37 @@ void* operator new(size_t size, size_t align, rage::eAllocatorType type)
 
 void* operator new(size_t size)
 {
-	return GetMultiAllocator()->Allocate(size);
+	return GetAllocator()->Allocate(size);
 }
 
 void* operator new(size_t size, size_t align)
 {
-	return GetMultiAllocator()->Allocate(size, align);
+	return GetAllocator()->Allocate(size, align);
 }
 
 void* operator new [](size_t size)
 {
-	return GetMultiAllocator()->Allocate(size);
+	return GetAllocator()->Allocate(size);
 }
 
 void* operator new [](size_t size, size_t align)
 {
-	return GetMultiAllocator()->Allocate(size, align);
+	return GetAllocator()->Allocate(size, align);
 }
 
 void operator delete(void* block)
 {
 	if (!block)
 		return;
-	GetMultiAllocator()->Free(block);
+	GetAllocator()->Free(block);
 }
 
 void operator delete [](void* block)
 {
 	if (!block)
 		return;
-	GetMultiAllocator()->Free(block);
+	GetAllocator()->Free(block);
 }
 
 #endif
-
-#pragma warning( pop ) 
+#pragma warning( pop )

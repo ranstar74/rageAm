@@ -5,12 +5,12 @@
 
 // Enables checking of allocator state
 #ifdef _DEBUG
-#define ENABLE_ALLOCATOR_SANITY_CHECK
+//#define ENABLE_ALLOCATOR_SANITY_CHECK
 #endif
 
 // Enables ::BeginMemoryLog which prints memory operations, stacktrace and such
 #ifdef _DEBUG
-#define ENABLE_ALLOCATOR_OPERATION_LOG
+//#define ENABLE_ALLOCATOR_OPERATION_LOG
 #endif
 
 // Enables detailed allocator log
@@ -66,9 +66,13 @@ namespace rage
 
 	class sysMemAllocator
 	{
+		static inline sysMemAllocator* sm_Current = nullptr;
 	public:
 		sysMemAllocator() = default;
 		virtual ~sysMemAllocator() = default;
+
+		static sysMemAllocator* GetCurrent() { return sm_Current; }
+		static void SetCurrent(sysMemAllocator* that) { sm_Current = that; }
 
 		/**
 		 * \brief Sets whether allocator should throw on errors or ignore them.
@@ -91,7 +95,7 @@ namespace rage
 		 * \brief Only shrinks allocated block, allowing allocator to reuse unused memory.
 		 * \n NOTE: New size has to be less or equal to current block size!
 		 */
-		virtual void Resize(pVoid block, u64 newSize) = 0;
+		virtual void Resize(pVoid block, u64 newSize) {}
 
 		/**
 		 * \brief For multi allocator, gets specific allocator by type index.
@@ -113,7 +117,7 @@ namespace rage
 		/**
 		 * \brief Gets size of allocated block from pointer.
 		 */
-		virtual u64 GetSize(pVoid block) = 0;
+		virtual u64 GetSize(pVoid block) { return 0; }
 
 		/**
 		 * \brief Gets memory used by particular bucket (see ::GetCurrentMemoryBucket),
@@ -128,24 +132,24 @@ namespace rage
 		/**
 		 * \brief For multi allocator, allocator type is always ALLOC_TYPE_GENERAL.
 		 */
-		virtual u64 GetLargestAvailableBlock() = 0;
+		virtual u64 GetLargestAvailableBlock() { return 0; }
 
 		/**
 		 * \brief Gets lowest available memory since beginning of measurement.
 		 * \param updateMeasure Whether to reset measure or not.
 		 */
-		virtual u64 GetLowWaterMark(bool updateMeasure = false) = 0;
+		virtual u64 GetLowWaterMark(bool updateMeasure = false) { return 0; }
 
 		/**
 		 * \brief Gets highest available memory since beginning of measurement
 		 * \param updateMeasure Whether to reset measure or not.
 		 */
-		virtual u64 GetHighWaterMark(bool updateMeasure) = 0;
+		virtual u64 GetHighWaterMark(bool updateMeasure) { return 0; }
 
 		/**
 		 * \brief Backups currently allocated memory stats (see ::GetCurrentMemoryBucket).
 		 */
-		virtual void UpdateMemorySnapshots() = 0;
+		virtual void UpdateMemorySnapshots() {}
 
 		/**
 		 * \brief Gets memory used from bucket snapshot.
@@ -153,10 +157,10 @@ namespace rage
 		 * (see ::GetCurrentMemoryBucket for more details)
 		 * \param memoryBucket Value in range from 0 to 15 inclusive.
 		 */
-		virtual u64 GetMemorySnapshot(u8 memoryBucket) = 0;
+		virtual u64 GetMemorySnapshot(u8 memoryBucket) { return 0; }
 
 		// TODO: Both simple / buddy allocator are 'tailed'. What is this for? Definitely not about block headers.
-		virtual bool IsTailed() = 0;
+		virtual bool IsTailed() { return true; }
 
 		/**
 		 * \brief Begins new memory layer, which is used to track down memory leaks.
@@ -164,7 +168,7 @@ namespace rage
 		 * \n After layer is created, every new allocation is belongs to him and to layers created later.
 		 * \return AllocID counter at the moment of creation of the layer.
 		 */
-		virtual u64 BeginLayer() = 0;
+		virtual u64 BeginLayer() { return 0; }
 
 		/**
 		 * \brief Ends up layer created earlier and prints out memory leaks.
@@ -172,29 +176,29 @@ namespace rage
 		 * \param layerName Name of the layer in log, for example 'Global'.
 		 * \param logName Path to file where leaked AllocID's will be printed to.
 		 */
-		virtual void EndLayer(const char* layerName, const char* logName) = 0;
+		virtual void EndLayer(const char* layerName, const char* logName) {}
 
 		/**
 		 * \brief Begins printing operation details in file.
 		 * \param logName Name of the file where log will be written to.
 		 * \param traceStack Whether to print stack trace or not, might be computationally expensive.
 		 */
-		virtual void BeginMemoryLog(const char* logName, bool traceStack = true) = 0;
-		virtual void EndMemoryLog() = 0;
+		virtual void BeginMemoryLog(const char* logName, bool traceStack = true) {}
+		virtual void EndMemoryLog() {}
 
-		virtual bool IsBuildingResource() = 0;
-		virtual bool HasMemoryBuckets() = 0;
+		virtual bool IsBuildingResource() { return false; }
+		virtual bool HasMemoryBuckets() { return false; }
 
 		/**
 		 * \brief Ensured that the state of the allocator is valid, debug only.
 		 * \n Automatically performed on alloc, free, resize operations.
 		 */
-		virtual void SanityCheck() = 0;
+		virtual void SanityCheck() {}
 
 		/**
 		 * \brief Gets whether this block is owned by this allocator and in allocated state.
 		 */
-		virtual bool IsValidPointer(pVoid block) = 0;
+		virtual bool IsValidPointer(pVoid block) { return true; }
 
 	private:
 		// Not implemented / Debug only
@@ -207,10 +211,13 @@ namespace rage
 		 * \brief Gets size of block including header size,
 		 * or simply how much memory it consumes in total.
 		 */
-		virtual u64 GetSizeWithOverhead(pVoid block) = 0;
+		virtual u64 GetSizeWithOverhead(pVoid block)
+		{
+			return GetSize(block); // No overhead
+		}
 
-		virtual u64 GetHeapSize() = 0;
-		virtual pVoid GetHeapBase() = 0;
+		virtual u64 GetHeapSize() { return 0; }
+		virtual pVoid GetHeapBase() { return nullptr; }
 		virtual void SetHeapBase(pVoid newBase) { }
 
 	private:

@@ -28,6 +28,10 @@ void operator delete(void* block);
 void operator delete[](void* block);
 #endif
 
+inline void* rage_malloc(size_t size) { return operator new(size); }
+inline void* rage_malloc(size_t size, size_t align) { return operator new(size, align); }
+inline void rage_free(void* block) { return operator delete(block); }
+
 // Allocates memory on virtual allocator.
 #define virtual_new		new(16, rage::ALLOC_TYPE_VIRTUAL)
 // Allocates memory on physical allocator.
