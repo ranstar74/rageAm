@@ -11,6 +11,8 @@
 
 namespace rage
 {
+	static constexpr float PI = 3.14159265358979323846f;
+
 	class Math
 	{
 	public:
@@ -21,5 +23,25 @@ namespace rage
 
 		template<typename T>
 		static const T& Min(const T& left, const T& right) { return left <= right ? left : right; }
+
+		static constexpr float Clamp(float value, float min, float max)
+		{
+			if (value < min)
+				return min;
+			if (value > max)
+				return max;
+			return value;
+		}
+
+		static constexpr float DegToRad(float deg)
+		{
+			return deg / 180.0f * PI;
+		}
+
+		static constexpr float RadToDeg(float rad)
+		{
+			return rad / PI * 180.0f;
+		}
+
 	};
 }
