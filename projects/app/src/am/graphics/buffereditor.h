@@ -139,7 +139,7 @@ namespace rageam::graphics
 		~VertexBufferEditor();
 
 		// Computes total vertex buffer in bytes
-		u32 ComputeBufferSize() const { return m_VertexCount * m_Decl.Stride; }
+		u64 ComputeBufferSize() const { return (u64)m_VertexCount * (u64)m_Decl.Stride; }
 
 		// If buffer is not specified, allocates internal one
 		void Init(u32 vertexCount, char* buffer = nullptr);
@@ -164,7 +164,7 @@ namespace rageam::graphics
 		void SetFromGeometry(const SceneGeometry* geometry);
 
 		// Computes attribute (element ) offset in given vertex within the vertex buffer
-		u32 GetBufferOffset(u32 vertexIndex, u32 vertexOffset) const;
+		u64 GetBufferOffset(u32 vertexIndex, u64 vertexOffset) const;
 
 		// Gets whether given semantic was set using SetTexcoord/SetPosition etc functions
 		bool IsSet(VertexSemantic semantic, u32 semanticIndex) const
@@ -175,14 +175,14 @@ namespace rageam::graphics
 
 		// Gets reference to attribute at given position
 		template<typename T>
-		T& Attribute(u32 vertexIndex, u32 vertexOffset) const
+		T& Attribute(u32 vertexIndex, u64 vertexOffset) const
 		{
 			return *(T*)(m_Buffer + GetBufferOffset(vertexIndex, vertexOffset));
 		}
 
 		// Sets element value at given position
 		template<typename T>
-		void SetAttributeAt(u32 vertexIndex, u32 vertexOffset, const T& value) const
+		void SetAttributeAt(u32 vertexIndex, u64 vertexOffset, const T& value) const
 		{
 			Attribute<T>(vertexIndex, vertexOffset) = value;
 		}

@@ -99,7 +99,8 @@ void rageam::graphics::VertexBufferEditor::Init(u32 vertexCount, char* buffer)
 	}
 	else
 	{
-		m_Buffer = new char[ComputeBufferSize()];
+		u64 bufferSize = ComputeBufferSize();
+		m_Buffer = new char[bufferSize];
 		m_OwnBufferMemory = true;
 	}
 }
@@ -161,9 +162,9 @@ void rageam::graphics::VertexBufferEditor::SetFromGeometry(const SceneGeometry* 
 	}
 }
 
-u32 rageam::graphics::VertexBufferEditor::GetBufferOffset(u32 vertexIndex, u32 vertexOffset) const
+u64 rageam::graphics::VertexBufferEditor::GetBufferOffset(u32 vertexIndex, u64 vertexOffset) const
 {
-	return m_Decl.Stride * vertexIndex + vertexOffset;
+	return (u64)m_Decl.Stride * (u64)vertexIndex + vertexOffset;
 }
 
 void rageam::graphics::VertexBufferEditor::SetColorSingle(u32 semanticIndex, u32 color)
