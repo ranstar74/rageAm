@@ -1038,6 +1038,10 @@ rageam::asset::DrawableAsset::DrawableAsset(const file::WPath& path) : GameRscAs
 
 bool rageam::asset::DrawableAsset::CompileToGame(gtaDrawable* ppOutGameFormat)
 {
+	// TODO: Move scene loading here, loading scene in refresh is ridiculous
+	if (!m_Scene)
+		return false;
+
 	m_Drawable = ppOutGameFormat;
 	PrepareForConversion();
 	bool result = TryCompileToGame();
