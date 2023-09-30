@@ -352,26 +352,26 @@ const rage::Mat44V& rageam::graphics::SceneNodeGl::GetWorldBoneTransform(u16 bon
 
 
 	DirectX::XMMATRIX boneMatrix = GetBone(boneIndex)->GetLocalTransform();
-//	DirectX::XMMATRIX boneMatrix = GetBone(boneIndex)->GetWorldTransform();
+	//	DirectX::XMMATRIX boneMatrix = GetBone(boneIndex)->GetWorldTransform();
 
 
-	//boneMatrix.r[0] = rage::Vec3V(boneMatrix.r[0]).XZY();
-	//boneMatrix.r[1] = rage::Vec3V(boneMatrix.r[1]).XZY();
-	//boneMatrix.r[2] = rage::Vec3V(boneMatrix.r[2]).XZY();
-	//boneMatrix.r[3] = rage::Vec3V(boneMatrix.r[3]).XZY();
+		//boneMatrix.r[0] = rage::Vec3V(boneMatrix.r[0]).XZY();
+		//boneMatrix.r[1] = rage::Vec3V(boneMatrix.r[1]).XZY();
+		//boneMatrix.r[2] = rage::Vec3V(boneMatrix.r[2]).XZY();
+		//boneMatrix.r[3] = rage::Vec3V(boneMatrix.r[3]).XZY();
 
-	//rage::Vec4V scale, rot, trans;
-	//XMMatrixDecompose(&scale.M, &rot.M, &trans.M, boneMatrix);
+		//rage::Vec4V scale, rot, trans;
+		//XMMatrixDecompose(&scale.M, &rot.M, &trans.M, boneMatrix);
 
-	//rage::QuatV			m_DefaultRotation;
-	//rage::Vec3V			m_DefaultTranslation;
-	//rage::Vec3V			m_DefaultScale;
-	//rage::Mat44V(boneMatrix).Decompose(&m_DefaultTranslation, &m_DefaultScale, &m_DefaultRotation);
+		//rage::QuatV			m_DefaultRotation;
+		//rage::Vec3V			m_DefaultTranslation;
+		//rage::Vec3V			m_DefaultScale;
+		//rage::Mat44V(boneMatrix).Decompose(&m_DefaultTranslation, &m_DefaultScale, &m_DefaultRotation);
 
-	//return {};
+		//return {};
 
 
-	//return rage::Mat44V::Identity();
+		//return rage::Mat44V::Identity();
 
 	return rage::Mat44V(boneMatrix);
 }
@@ -386,20 +386,47 @@ cgltf_size rageam::graphics::SceneGl::GetGlNodeIndex(cgltf_node* glNode) const
 	return std::distance(m_Data->nodes, glNode);
 }
 
-bool rageam::graphics::SceneGl::LoadGl(ConstWString path)
+bool rageam::graphics::SceneGl::TryLoadGl(const cgltf_options& options, ConstWString path)
 {
-	file::FileBytes file;
-	ReadAllBytes(path, file);
-
-	cgltf_options options{};
-	cgltf_result result = cgltf_parse(&options, file.Data.get(), file.Size, &m_Data);
+	cgltf_result result = cgltf_parse(&options, m_FileData.Data.get(), m_FileData.Size, &m_Data);
 	if (!AM_VERIFY(VerifyResult(result),
 		L"SceneGl::LoadGl() -> Failed to load model at path %ls, error: %hs", path, GetResultString(result)))
 	{
 		return false;
 	}
 
-	cgltf_load_buffers(&options, m_Data, NULL);
+	cgltf_result resultBuffer = cgltf_load_buffers(&options, m_Data, NULL);
+	if (!AM_VERIFY(VerifyResult(resultBuffer),
+		L"SceneGl::LoadGl() -> Failed to load model buffer at path %ls, error: %hs", path, GetResultString(resultBuffer)))
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool rageam::graphics::SceneGl::LoadGl(ConstWString path)
+{
+	if (!ReadAllBytes(path, m_FileData))
+	{
+		AM_ERRF("SceneGl::LoadGl() -> Failed to read file bytes.");
+		return false;
+	}
+
+	cgltf_options options{};
+	if (!TryLoadGl(options, path))
+	{
+		m_FileData = {}; // Clean up file data, loading failed
+		return false;
+	}
+
+	// We don't have to store loaded file for gltf, buffers are deserialized from BASE64 and copied.
+	// Binary (glb) points to file buffer directly so we have to keep it
+	if (options.type == cgltf_file_type_gltf)
+	{
+		m_FileData = {};
+	}
+
 	return true;
 }
 

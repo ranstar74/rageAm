@@ -9,6 +9,7 @@
 
 #include "cgltf.h"
 #include "scene.h"
+#include "am/file/fileutils.h"
 #include "am/system/enum.h"
 #include "am/system/ptr.h"
 #include "rage/atl/array.h"
@@ -143,6 +144,9 @@ namespace rageam::graphics
 
 	class SceneGl : public Scene
 	{
+		// In case of .glb file must be loaded always because cgltf buffers point to it
+		file::FileBytes m_FileData;
+
 		cgltf_data* m_Data = nullptr;
 
 		rage::atArray<u16> m_NodeGlToSceneNode; // Maps cgltf_node* index to SceneNode index
@@ -156,6 +160,7 @@ namespace rageam::graphics
 		bool VerifyResult(cgltf_result result) const { return result == cgltf_result_success; }
 		ConstString GetResultString(cgltf_result result) const { return Enum::GetName(result); }
 
+		bool TryLoadGl(const cgltf_options& options, ConstWString path);
 		bool LoadGl(ConstWString path);
 
 		// Returns the first added child, if any
