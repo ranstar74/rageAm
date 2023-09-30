@@ -58,6 +58,13 @@ namespace rageam::graphics
 			InitFromGrcInfo();
 		}
 
+		void ComputeStride()
+		{
+			Stride = 0;
+			for (const VertexAttribute& attribute : Attributes)
+				Stride += attribute.SizeInBytes;
+		}
+
 		// Fills in stride and attributes from grcVertexFormatInfo
 		void InitFromGrcInfo()
 		{
