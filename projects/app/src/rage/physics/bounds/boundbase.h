@@ -19,6 +19,38 @@ namespace rage
 {
 	static constexpr int BOUND_PARTS_ALL = -1;
 
+	enum phBoundMaterialFlags
+	{
+		BMF_NONE = 0,
+		BMF_STAIRS = 1 << 0,
+		BMF_NOT_CLIMBABLE = 1 << 1,
+		BMF_SEE_THROUGH = 1 << 2,
+		BMF_SHOOT_THROUGH = 1 << 3,
+		BMF_NOT_COVER = 1 << 4,
+		BMF_WALKABLE_PATH = 1 << 5,
+		BMF_NO_CAM_COLLISION = 1 << 6,
+		BMF_SHOOT_THROUGH_FX = 1 << 7,
+		BMF_NO_DECAL = 1 << 8,
+		BMF_NO_NAVMESH = 1 << 9,
+		BMF_NO_RAGDOLL = 1 << 10,
+		BMF_VEHICLE_WHEEL = 1 << 11,
+		BMF_NO_PTFX = 1 << 12,
+		BMF_TOO_STEEP_FOR_PLAYER = 1 << 13,
+		BMF_NO_NETWORK_SPAWN = 1 << 14,
+		BMF_NO_CAM_COLLISION_ALLOW_CLIPPING = 1 << 15,
+	};
+
+	// Only for bound primitives, geometry bound stores flags per poly
+	inline u64 phApplyFlagsToMaterialID(u64 materialID, phBoundMaterialFlags flags)
+	{
+		return materialID | flags << 24;
+	}
+
+	inline phBoundMaterialFlags phGetFlagsFromMaterialID(u64 materialID)
+	{
+		return phBoundMaterialFlags(materialID >> 24 & 0xF);
+	}
+
 	enum phBoundType : u8
 	{
 		PH_BOUND_SPHERE = 0,
