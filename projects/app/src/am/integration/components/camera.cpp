@@ -226,7 +226,7 @@ void rageam::integration::FreeCamera::OnEarlyUpdate()
 
 		if (scrollWheel < rage::S_ZERO)
 			m_MoveSpeed += m_MoveSpeed * zoomFactorIn;
-		else 
+		else
 			m_MoveSpeed += m_MoveSpeed * zoomFactorOut;
 
 		m_MoveSpeed = m_MoveSpeed.Clamp(m_MinMoveSpeed, m_MaxMoveSpeed);
@@ -244,9 +244,19 @@ void rageam::integration::FreeCamera::OnEarlyUpdate()
 	rage::ScalarV moveMag = move.LengthSquared();
 	if (moveMag > rage::S_EPSION) // Check if we have any input at all
 	{
+		rage::ScalarV moveSpeed = m_MoveSpeed;
+
+		const rage::ScalarV boostFactorUp = { 2.0f };
+		const rage::ScalarV boostFactorDown = { -0.5f };
+		if (ImGui::IsKeyDown(ImGuiKey_LeftShift))
+			moveSpeed += moveSpeed * boostFactorUp;
+		if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl))
+			moveSpeed += moveSpeed * boostFactorDown;
+
 		move *= moveMag.ReciprocalSqrt(); // Normalize
 		move *= ImGui::GetIO().DeltaTime;
-		move *= m_MoveSpeed;
+		move *= moveSpeed;
+
 		m_Pos += move;
 	}
 
