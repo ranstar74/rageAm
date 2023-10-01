@@ -166,7 +166,7 @@ namespace rageam::graphics
 		// Returns the first added child, if any
 		SceneNodeGl* AddNodesRecursive(cgltf_node** glNodes, cgltf_size nodeCount, SceneNodeGl* parent = nullptr);
 
-		void ConstructScene();
+		bool ConstructScene();
 
 	public:
 		~SceneGl() override;

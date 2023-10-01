@@ -455,9 +455,19 @@ rageam::graphics::SceneNodeGl* rageam::graphics::SceneGl::AddNodesRecursive(cglt
 	return firstNode;
 }
 
-void rageam::graphics::SceneGl::ConstructScene()
+bool rageam::graphics::SceneGl::ConstructScene()
 {
 	cgltf_scene* scene = m_Data->scene;
+	if (!scene)
+	{
+		if (!AM_VERIFY(m_Data->scenes_count != 0, "SceneGl::ConstructScene() -> File has no scene."))
+			return false;
+
+		if (m_Data->scenes_count != 1)
+			AM_WARNINGF("SceneGl::ConstructScene() -> More than 1 scene in file, not supported. Using the first one.");
+
+		scene = &m_Data->scenes[0];
+	}
 
 	// Note that we aren't using scene->node_count because it will give us node count
 	// on the first layer of depth, but we need total num of nodes
@@ -475,6 +485,7 @@ void rageam::graphics::SceneGl::ConstructScene()
 		SceneMaterialGl* mat = new SceneMaterialGl(this, static_cast<u16>(i), cmat);
 		m_Materials.Construct(mat);
 	}
+	return true;
 }
 
 rageam::graphics::SceneGl::~SceneGl()
@@ -488,7 +499,9 @@ bool rageam::graphics::SceneGl::Load(ConstWString path)
 	if (!LoadGl(path))
 		return false;
 
-	ConstructScene();
+	if (!ConstructScene())
+		return false;
+
 	return true;
 }
 
