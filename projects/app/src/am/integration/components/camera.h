@@ -69,6 +69,13 @@ namespace rageam::integration
 
 	class FreeCamera : public CameraComponentBase
 	{
+		static constexpr float DEFAULT_MOVE_SPEED = 10.0f;
+
+		// In meters per second
+		rage::ScalarV m_MinMoveSpeed = 0.01f;
+		rage::ScalarV m_MaxMoveSpeed = 900.0f;
+		rage::ScalarV m_MoveSpeed = DEFAULT_MOVE_SPEED;
+
 	public:
 		void OnEarlyUpdate() override;
 

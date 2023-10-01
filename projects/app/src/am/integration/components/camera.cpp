@@ -217,6 +217,26 @@ void rageam::integration::FreeCamera::OnEarlyUpdate()
 
 	CameraComponentBase::OnEarlyUpdate();
 
+	// Speed edit by zooming
+	rage::ScalarV scrollWheel = ImGui::GetKeyData(ImGuiKey_MouseWheelY)->AnalogValue;
+	if (!scrollWheel.AlmostEqual(rage::S_EPSION))
+	{
+		const rage::ScalarV zoomFactorIn = { -0.15f };
+		const rage::ScalarV zoomFactorOut = { 0.25f };
+
+		if (scrollWheel < rage::S_ZERO)
+			m_MoveSpeed += m_MoveSpeed * zoomFactorIn;
+		else 
+			m_MoveSpeed += m_MoveSpeed * zoomFactorOut;
+
+		m_MoveSpeed = m_MoveSpeed.Clamp(m_MinMoveSpeed, m_MaxMoveSpeed);
+	}
+
+	if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket, false))
+	{
+		m_MoveSpeed = DEFAULT_MOVE_SPEED;
+	}
+
 	// Movement
 	rage::Vec3V move = rage::S_ZERO;
 	move += m_Front * (ImGui::GetKeyData(ImGuiKey_W)->AnalogValue - ImGui::GetKeyData(ImGuiKey_S)->AnalogValue);
@@ -225,6 +245,8 @@ void rageam::integration::FreeCamera::OnEarlyUpdate()
 	if (moveMag > rage::S_EPSION) // Check if we have any input at all
 	{
 		move *= moveMag.ReciprocalSqrt(); // Normalize
+		move *= ImGui::GetIO().DeltaTime;
+		move *= m_MoveSpeed;
 		m_Pos += move;
 	}
 
