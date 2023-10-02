@@ -102,7 +102,8 @@ namespace rageam
 		void UpdateDrawableStats();
 		void ResetCameraPosition();
 		void UpdateCamera();
-		void DrawDrawableUi(const gtaDrawable* drawable) const;
+		void DrawLightEditor(gtaDrawable* drawable) const;
+		void DrawDrawableUi(gtaDrawable* drawable) const;
 		void OnRender() override;
 
 	public:

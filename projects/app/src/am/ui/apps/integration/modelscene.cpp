@@ -1,7 +1,5 @@
 #include "modelscene.h"
 
-#include <shlobj_core.h>
-#include "rage/math/math.h"
 #ifdef AM_INTEGRATED
 
 #include "am/ui/font_icons/icons_am.h"
@@ -12,6 +10,9 @@
 
 #include "am/task/worker.h"
 #include "rage/math/math.h"
+
+#include "am/ui/im3d.h"
+
 void rageam::ModelScene::CreateEntity(const rage::Vec3V& coors)
 {
 	DeleteEntity();
@@ -39,26 +40,25 @@ void rageam::ModelScene::LoadAndCompileDrawableAsync(ConstWString path)
 	m_LoadTask = BackgroundWorker::Run([&, wPath]
 		{
 			amPtr<asset::DrawableAsset> asset = asset::AssetFactory::LoadFromPath<asset::DrawableAsset>(wPath);
-	if (!asset)
-	{
+			if (!asset)
+			{
 				AM_ERRF(L"ModelScene::LoadAndCompileDrawable() -> Failed to load drawable from path %ls", wPath.GetCStr());
-		return false;
-	}
+				return false;
+			}
 
-	gtaDrawable* drawable = new gtaDrawable();
-	if (!asset->CompileToGame(drawable))
-	{
+			gtaDrawable* drawable = new gtaDrawable();
+			if (!asset->CompileToGame(drawable))
+			{
 				AM_ERRF(L"ModelScene::LoadAndCompileDrawable() -> Failed to compile drawable from path %ls", wPath.GetCStr());
-		return false;
-	}
-	m_Drawable = amUniquePtr<gtaDrawable>(drawable);
+				return false;
+			}
 
 			std::unique_lock lock(m_Mutex);
 			m_Drawable = amUniquePtr<gtaDrawable>(drawable);
-	m_FileWatcher.SetEntry(String::ToUtf8Temp(asset->GetDrawableModelPath()));
-	m_FileWatcher.SetEnabled(true);
+			m_FileWatcher.SetEntry(String::ToUtf8Temp(asset->GetDrawableModelPath()));
+			m_FileWatcher.SetEnabled(true);
 
-	return true;
+			return true;
 		});
 }
 
@@ -179,7 +179,7 @@ bool rageam::ModelScene::OnAbort()
 
 	m_CleanUpRequested = true;
 	return m_IsLoaded == false;
-	}
+}
 
 void rageam::ModelScene::OnEarlyUpdate()
 {
@@ -228,7 +228,7 @@ void rageam::ModelScene::OnLateUpdate()
 			m_HasModelRequest = false;
 			m_LoadTask = nullptr;
 		}
-		}
+	}
 
 	if (m_LoadTask && m_LoadTask->IsFinished() && !m_LoadTask->IsSuccess())
 	{
@@ -400,10 +400,66 @@ void rageam::ModelSceneApp::UpdateCamera()
 	}
 }
 
-void rageam::ModelSceneApp::DrawDrawableUi(const gtaDrawable* drawable) const
+void rageam::ModelSceneApp::DrawLightEditor(gtaDrawable* drawable) const
+{
+	static auto getEntity = gmAddress::Scan("E8 ?? ?? ?? ?? 90 EB 4B").GetCall().ToFunc<u64(u32)>();
+	u64 entity = getEntity(m_ModelScene->GetEntityHandle());
+	rage::Mat44V entityMtx = rage::Mat44V::Identity();;
+	if (entity)
+	{
+		entityMtx = *(rage::Mat44V*)(entity + 0x60); //3x4
+		entityMtx.r[0].m128_f32[3] = 0.0f;
+		entityMtx.r[1].m128_f32[3] = 0.0f;
+		entityMtx.r[2].m128_f32[3] = 0.0f;
+		entityMtx.r[3].m128_f32[3] = 1.0f;
+	}
+
+	CLightAttr& light = drawable->m_Lights[0];
+	rage::Mat44V lightWorld(XMMatrixMultiply(
+		DirectX::XMMatrixTranslation(light.Position.X, light.Position.Y, light.Position.Z),
+		entityMtx));
+	if (Im3D::GizmoTrans(lightWorld))
+	{
+		rage::Mat44V lightLocal(XMMatrixMultiply(
+			lightWorld,
+			XMMatrixInverse(nullptr, entityMtx)));
+		light.Position = *(rage::Vec3V*)&lightLocal.r[3];
+	}
+	Im3D::TextBgColored(*(rage::Vec3V*)&lightWorld.r[3], graphics::COLOR_ORANGE, "Point Light #%u", 0);
+
+	ImGui::Begin("Light Editor");
+
+	ImVec4 colorV4 = ImGui::ColorConvertU32ToFloat4(
+		IM_COL32(light.ColorR, light.ColorG, light.ColorB, 255));
+	if (ImGui::ColorPicker3("Color", (float*)&colorV4))
+	{
+		u32 colorU32 = ImGui::ColorConvertFloat4ToU32(colorV4);
+		light.ColorR = colorU32 >> IM_COL32_R_SHIFT & 0xFF;
+		light.ColorG = colorU32 >> IM_COL32_G_SHIFT & 0xFF;
+		light.ColorB = colorU32 >> IM_COL32_B_SHIFT & 0xFF;
+	}
+
+	ImGui::End();
+}
+
+void rageam::ModelSceneApp::DrawDrawableUi(gtaDrawable* drawable) const
 {
 	if (!drawable)
 		return;
+
+	DrawLightEditor(drawable);
+
+	static auto getEntity = gmAddress::Scan("E8 ?? ?? ?? ?? 90 EB 4B").GetCall().ToFunc<u64(u32)>();
+	u64 entity = getEntity(m_ModelScene->GetEntityHandle());
+	rage::Mat44V entityMtx = rage::Mat44V::Identity();;
+	if (entity)
+	{
+		entityMtx = *(rage::Mat44V*)(entity + 0x60); //3x4
+		entityMtx.r[0].m128_f32[3] = 0.0f;
+		entityMtx.r[1].m128_f32[3] = 0.0f;
+		entityMtx.r[2].m128_f32[3] = 0.0f;
+		entityMtx.r[3].m128_f32[3] = 1.0f;
+	}
 
 	if (ImGui::CollapsingHeader("Render Options"))
 	{
@@ -468,6 +524,7 @@ void rageam::ModelSceneApp::DrawDrawableUi(const gtaDrawable* drawable) const
 				ImGui::EndTable();
 			}
 
+
 			std::function<void(rage::crBoneData*)> recurseBone;
 			recurseBone = [&](const rage::crBoneData* bone)
 				{
@@ -479,6 +536,13 @@ void rageam::ModelSceneApp::DrawDrawableUi(const gtaDrawable* drawable) const
 					{
 						ImGui::BulletText("%s", bone->GetName());
 						constexpr ImVec4 attrColor = ImVec4(0, 0.55, 0, 1);
+
+
+						if (GRenderContext->DebugRender.bRenderSkeleton)
+						{
+							rage::Vec3V boneWorld = bone->GetTranslation().Transform(entityMtx);
+							Im3D::TextBg(boneWorld, "<%s; Tag: %u>", bone->GetName(), bone->GetBoneTag());
+						}
 
 						ImGui::SameLine();
 						ImGui::TextColored(attrColor, "Tag: %u", bone->GetBoneTag());
@@ -601,15 +665,15 @@ void rageam::ModelSceneApp::OnRender()
 		//if (ImGui::Button("Load YDR", buttonSize))
 		//{
 		//	gtaDrawable* drawable;
-		//	rage::pgRscBuilder::Load(&drawable, "C:/Users/falco/Desktop/cable1_root.ydr", 165);
+		//	rage::pgRscBuilder::Load(&drawable, "C:/Users/falco/Desktop/vb_ca_tunnel_04_lightdummy.ydr", 165);
 		//	if (drawable)
 		//	{
-		//		m_ModelScene.SetDrawable(drawable);
-		//		m_ModelScene.SetEntityPos(GetEntityScenePos());
+		//		m_ModelScene->SetDrawable(drawable);
+		//		m_ModelScene->SetEntityPos(GetEntityScenePos());
 		//	}
 		//	else
 		//	{
-		//		m_ModelScene.CleanUp();
+		//		m_ModelScene->CleanUp();
 		//		AM_ERRF("ModelSceneApp::OnRender() -> Failed to build drawable from ydr.");
 		//	}
 		//}
@@ -654,5 +718,4 @@ rageam::ModelSceneApp::ModelSceneApp()
 			UpdateDrawableStats();
 		};
 }
-
 #endif
