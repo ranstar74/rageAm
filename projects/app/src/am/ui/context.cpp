@@ -4,6 +4,7 @@
 #include "am/graphics/render/engine.h"
 #include "am/ui/apps/statusbar.h"
 #include "am/ui/styled/slgui.h"
+#include "ImGuizmo.h"
 
 void rageam::ui::UIContext::SetupImGui() const
 {
@@ -54,6 +55,12 @@ bool rageam::ui::UIContext::Update()
 {
 	Input.BeginFrame();
 	Renderer.BeginFrame();
+	{
+		ImGuizmo::SetImGuiContext(GImGui);
+		ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
+		ImGuizmo::SetRect(0, 0, GImGui->IO.DisplaySize.x, GImGui->IO.DisplaySize.y);
+		ImGuizmo::BeginFrame();
+	}
 	bool needContinue = Apps.UpdateAll();
 	Renderer.EndFrame();
 	Input.EndFrame();
