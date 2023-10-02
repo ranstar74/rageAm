@@ -78,3 +78,17 @@ bool rageam::render::Engine::InvokeRenderFunction()
 
 	return instance->m_RenderFn();
 }
+
+void D3DAssertHandler(HRESULT status, ConstString fmt, ...)
+{
+	if (status == S_OK)
+		return;
+
+	char buffer[256];
+	va_list args;
+	va_start(args, fmt);
+	vsprintf_s(buffer, 256, fmt, args);
+	va_end(args);
+
+	AM_UNREACHABLE("%s ; Error Code: %u", buffer, status);
+}

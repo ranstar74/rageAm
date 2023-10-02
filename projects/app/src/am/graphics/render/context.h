@@ -2,6 +2,7 @@
 
 #include "am/graphics/checkertexture.h"
 #include "debugrender.h"
+#include "am/graphics/overlayrender.h"
 
 namespace rageam::graphics
 {
@@ -9,6 +10,7 @@ namespace rageam::graphics
 	{
 		CheckerTexture	CheckerTexture;
 		DebugRender		DebugRender;
+		OverlayRender	OverlayRender;
 
 		void Init()
 		{
@@ -16,6 +18,7 @@ namespace rageam::graphics
 #ifndef AM_STANDALONE
 			DebugRender.Init();
 #endif
+			OverlayRender.Init();
 		}
 	};
 }

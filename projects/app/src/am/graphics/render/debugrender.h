@@ -268,8 +268,8 @@ namespace rageam::graphics
 			if (!bound)
 				return;
 
-			if (bRenderBoundExtents)
-				Render(bound->GetBoundingBox(), mtx, 0xFF0000FF);
+			//if (bRenderBoundExtents)
+			//	Render(bound->GetBoundingBox(), mtx, 0xFF0000FF);
 
 			rage::grcDevice::SetWorldMtx(mtx);
 

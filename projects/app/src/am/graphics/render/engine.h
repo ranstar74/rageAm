@@ -13,6 +13,11 @@
 #include "am/graphics/render/thread.h"
 #include "am/graphics/render/device.h"
 
+void D3DAssertHandler(HRESULT status, ConstString fmt, ...);
+#define AM_ASSERT_D3D(status, fmt, ...) D3DAssertHandler(status, fmt, __VA_ARGS__)
+#define AM_ASSERT_D3D(status, msg) D3DAssertHandler(status, msg)
+#define AM_ASSERT_D3D(status) D3DAssertHandler(status, "")
+
 namespace rageam::render
 {
 	using TRenderFn = std::function<bool()>;
@@ -48,4 +53,8 @@ namespace rageam::render
 		static void SetInstance(Engine* instance) { sm_Instance = instance; }
 		static Engine* GetInstance() { return sm_Instance; }
 	};
+
+	inline ID3D11Device* GetDevice() { return Engine::GetInstance()->GetFactory(); }
+	inline ID3D11DeviceContext* GetDeviceContext() { return Engine::GetInstance()->GetDeviceContext(); }
+	inline IDXGISwapChain* GetSwapchain() { return Engine::GetInstance()->GetSwapchain(); }
 }

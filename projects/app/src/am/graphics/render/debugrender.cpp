@@ -9,7 +9,7 @@ void rageam::graphics::DebugRender::RenderDrawable(gtaDrawable* drawable, const 
 	rage::rmcLodGroup& lodGroup = drawable->GetLodGroup();
 
 	if (bRenderBoundMesh) Render(bound, mtx);
-	if (bRenderSkeleton) Render(skeleton, mtx);
+	/*if (bRenderSkeleton) Render(skeleton, mtx);
 	if (bRenderLodGroupExtents) Render(lodGroup.GetBoundingBox(), mtx, 0xFF0000FF);
 	if (bRenderGeometryExtents)
 	{
@@ -17,5 +17,5 @@ void rageam::graphics::DebugRender::RenderDrawable(gtaDrawable* drawable, const 
 		{
 			Render(model->GetCombinedBoundingBox(), mtx, 0x00FF00FF);
 		}
-	}
+	}*/
 }
