@@ -79,6 +79,7 @@ namespace rage
 		ScalarV Max(const ScalarV& other) const;
 
 		ScalarV Clamp(const ScalarV& min, const ScalarV& max) const;
+		ScalarV Lerp(const ScalarV& to, const ScalarV& t) const;
 
 		// -- Arithmetic Operators --
 
@@ -141,6 +142,7 @@ namespace rage
 		Vec3V Max(const Vec3V& other) const;
 
 		Vec3V Transform(const Mat44V& mtx) const;
+		Vec4V Transform4(const Mat44V& mtx) const;
 
 		// -- Arithmetic Operators --
 
@@ -259,6 +261,7 @@ namespace rage
 	static const Vec3V VEC_Y = { 0.0f, 1.0f, 0.0f };
 	static const Vec3V VEC_Z = { 0.0f, 0.0f, 1.0f };
 
+	static const Vec3V VEC_ORIGIN = { 0.0f, 0.0f, 0.0f };
 	static const Vec3V VEC_UP = { 0.0f, 0.0f, 1.0f };
 	static const Vec3V VEC_DOWN = { 0.0f, 0.0f, -1.0f };
 	static const Vec3V VEC_FORWARD = { 0.0f, 1.0f, 0.0f };

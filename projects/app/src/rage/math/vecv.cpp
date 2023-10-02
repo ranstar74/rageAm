@@ -80,6 +80,11 @@ rage::ScalarV rage::ScalarV::Clamp(const ScalarV& min, const ScalarV& max) const
 	return DirectX::XMVectorClamp(M, min.M, max.M);
 }
 
+rage::ScalarV rage::ScalarV::Lerp(const ScalarV& to, const ScalarV& t) const
+{
+	return DirectX::XMVectorLerpV(M, to.M, t.M);
+}
+
 rage::Vec3V::Vec3V(const Vec4V& s)
 {
 	M = s.M;
@@ -113,6 +118,13 @@ rage::Vec3V rage::Vec3V::Max(const Vec3V& other) const
 }
 
 rage::Vec3V rage::Vec3V::Transform(const Mat44V& mtx) const
+{
+	Vec4V temp = XMVector3Transform(M, mtx);
+	temp /= temp.W();
+	return temp;
+}
+
+rage::Vec4V rage::Vec3V::Transform4(const Mat44V& mtx) const
 {
 	return XMVector3Transform(M, mtx);
 }
