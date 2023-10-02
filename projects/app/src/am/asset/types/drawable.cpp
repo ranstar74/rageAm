@@ -972,6 +972,36 @@ void rageam::asset::DrawableAsset::GeneratePaletteTexture()
 	//m_EmbedDict->Refresh();
 }
 
+void rageam::asset::DrawableAsset::CreateLights() const
+{
+	CLightAttr& light = m_Drawable->m_Lights.Construct();;
+	light.FixupVft();
+	light.Type = 1; // Point
+	light.Position = { 0,0,3 };
+	light.ColorR = 255;
+	light.ColorG = 255;
+	light.ColorB = 255;
+	light.Direction = { 0, 0, -1 };
+	light.Tangent = { 1, 0, 0 };
+	light.Intensity = 75;
+	light.Flags = 65536;
+	light.TimeFlags = 16777215;
+	light.Fallof = 2.5;
+	light.FallofExponent = 32;
+	light.ConeInnerAngle = 8;
+	light.ConeOuterAngle = 50;
+	light.Extent = { 1, 1 ,1 };
+	light.CoronaZBias = 0.1;
+	light.ProjectedTexture = 0;
+	light.VolumeOuterColorR = 255;
+	light.VolumeOuterColorG = 255;
+	light.VolumeOuterColorB = 255;
+	light.VolumeOuterExponent = 1;
+	light.ShadowNearClip = 0.01;
+	light.CullingPlaneNormal = { 0, 0, -1 };
+	light.CullingPlaneOffset = 1;
+}
+
 bool rageam::asset::DrawableAsset::TryCompileToGame()
 {
 	if (!CompileAndSetEmbedDict())
@@ -990,6 +1020,7 @@ bool rageam::asset::DrawableAsset::TryCompileToGame()
 	CreateAndSetCompositeBound();
 	PoseModelBoundsFromScene();
 	CalculateLodExtents();
+	CreateLights();
 
 	return true;
 }
