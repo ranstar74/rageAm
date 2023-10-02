@@ -6,7 +6,8 @@
 struct CLightAttr
 {
 	u64 Vftable;
-	rage::Vec3V Position;
+	rage::Vector3 Position;
+	u32 Pad;
 	u8 ColorR;
 	u8 ColorG;
 	u8 ColorB;
@@ -55,3 +56,4 @@ struct CLightAttr
 #endif
 	}
 };
+static_assert(sizeof(CLightAttr) == 0xA8);
