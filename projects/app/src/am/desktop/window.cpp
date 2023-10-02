@@ -26,6 +26,14 @@ void rageam::Window::Show()
 	UpdateWindow(m_Handle);
 }
 
+void rageam::Window::GetSize(u32& width, u32& height) const
+{
+	RECT rect;
+	GetWindowRect(m_Handle, &rect);
+	width = rect.right - rect.left;
+	height = rect.bottom - rect.top;
+}
+
 void rageam::WindowFactory::CreateRenderWindow()
 {
 #ifdef AM_STANDALONE

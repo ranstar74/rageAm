@@ -53,6 +53,8 @@ namespace rageam
 		ActionEvent<WindowSize> OnResizeEnd;
 
 		HWND GetHandle() const { return m_Handle; }
+
+		void GetSize(u32& width, u32& height) const;
 	};
 
 	/**
