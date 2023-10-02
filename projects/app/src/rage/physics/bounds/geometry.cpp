@@ -853,10 +853,10 @@ void rage::phBoundGeometry::SetMesh(const spdAABB& bb, const Vector3* vertices, 
 	ComputePolyArea();
 
 	SetMarginAndShrink();
-	//RecomputeOctantMap();
-	auto addr = gmAddress::Scan("E8 ?? ?? ?? ?? 48 03 DE").GetCall();
-	auto ro = addr.To<void(*)(phBoundGeometry*)>();
-	ro(this);
+	RecomputeOctantMap();
+	//auto addr = gmAddress::Scan("E8 ?? ?? ?? ?? 48 03 DE").GetCall();
+	//auto ro = addr.To<void(*)(phBoundGeometry*)>();
+	//ro(this);
 
 	CalculateVolumeDistribution();
 }
