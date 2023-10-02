@@ -52,6 +52,8 @@ namespace rage
 			grcVertexBuffer* vtxBuffer, grcIndexBuffer* idxBuffer, u32 idxCount);
 
 		static void SetWorldMtx(const Mat44V& mtx);
+
+		static void GetScreenSize(u32& width, u32& height);
 	};
 
 	// Extra draw functions

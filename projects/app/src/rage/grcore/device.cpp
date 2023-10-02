@@ -88,6 +88,13 @@ void rage::grcDevice::SetWorldMtx(const Mat44V& mtx)
 	fn(mtx);
 }
 
+void rage::grcDevice::GetScreenSize(u32& width, u32& height)
+{
+	static gmAddress addr = gmAddress::Scan("44 8B 1D ?? ?? ?? ?? 48 8B 3C D0");
+	height = *addr.GetRef(3).To<u32*>();
+	width = *addr.GetRef(0xB + 2).To<u32*>();
+}
+
 void rage::grcDrawLine()
 {
 
