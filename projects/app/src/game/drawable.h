@@ -38,8 +38,53 @@ public:
 	void SetBound(rage::phBound* bound) { m_Bound = bound; }
 	rage::phBound* GetBound() const { return m_Bound.Get(); }
 
-	void DrawDebug(const rage::Mat44V& mtx)
+	void RenderBoneRecurse(rage::crSkeletonData* skel, const rage::crBoneData* rootBone, const rage::Mat44V& mtx, u32 depth = 0)
 	{
+		u32 colors[] =
+		{
+			rageam::graphics::COLOR_BLUE,
+			rageam::graphics::COLOR_NAVY,
+			rageam::graphics::COLOR_RED,
+			rageam::graphics::COLOR_ORANGE,
+			rageam::graphics::COLOR_YELLOW,
+		};
+		static constexpr u32 colorCount = 5;
+
+		rage::crBoneData* childBone = skel->GetFirstChildBone(rootBone->GetIndex());
+		while (childBone)
+		{
+			GRenderContext->OverlayRender.DrawLine(
+				rootBone->GetTranslation(), childBone->GetTranslation(), mtx, colors[depth % colorCount]);
+			RenderBoneRecurse(skel, childBone, mtx, depth + 1);
+			childBone = skel->GetBone(childBone->GetNextIndex());
+		}
+	}
+
+	void DrawDebug(const rage::Mat44V& mtx_)
+	{
+		rage::Mat44V mtx = mtx_;
+		mtx.r[0].m128_f32[3] = 0.0f;
+		mtx.r[1].m128_f32[3] = 0.0f;
+		mtx.r[2].m128_f32[3] = 0.0f;
+		mtx.r[3].m128_f32[3] = 1.0f;
+
+		// TODO: Move bools and well... code
+		if (GRenderContext->DebugRender.bRenderLodGroupExtents)
+			GRenderContext->OverlayRender.DrawAABB(m_LodGroup.GetBoundingBox(), mtx, rageam::graphics::COLOR_GREEN);
+
+		rage::crSkeletonData* skel = m_SkeletonData.Get();
+		if (skel && GRenderContext->DebugRender.bRenderSkeleton)
+		{
+			for (u16 k = 0; k < skel->GetBoneCount(); k++)
+			{
+				RenderBoneRecurse(skel, skel->GetBone(k), mtx);
+			}
+		}
+
+		if (GRenderContext->DebugRender.bRenderBoundExtents && GetBound())
+			GRenderContext->OverlayRender.DrawAABB(GetBound()->GetBoundingBox(), mtx, rageam::graphics::COLOR_WHITE);
+
+
 		GRenderContext->DebugRender.RenderDrawable(this, mtx);
 	}
 
