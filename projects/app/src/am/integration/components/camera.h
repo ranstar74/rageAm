@@ -8,13 +8,12 @@ namespace rageam::integration
 {
 	// TODO: Breaks if used inside a vehicle
 
-	class ICameraComponent : IUpdateComponent
+	class ICameraComponent : public IUpdateComponent
 	{
 	protected:
 		static inline ICameraComponent* sm_Active = nullptr;
 
 	public:
-		~ICameraComponent() override = default;
 
 		virtual const rage::Vec3V& GetPosition() const = 0;
 		virtual const rage::Vec3V& GetVelocity() = 0;
@@ -53,8 +52,8 @@ namespace rageam::integration
 
 	public:
 		CameraComponentBase() = default;
-		~CameraComponentBase() override;
 
+		bool OnAbort() override;
 		void OnStart() override;
 		void OnEarlyUpdate() override;
 

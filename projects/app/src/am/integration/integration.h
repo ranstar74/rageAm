@@ -1,7 +1,6 @@
 #pragma once
 #ifdef AM_INTEGRATED
 
-#include "gameupdate.h"
 #include "updatecomponent.h"
 
 namespace rageam::integration
@@ -9,23 +8,11 @@ namespace rageam::integration
 	class GameIntegration
 	{
 	public:
-		void Init() const
-		{
-			HookGameUpdate();
-		}
+		amUniquePtr<ComponentManager> ComponentMgr;
+
+		GameIntegration();
+		~GameIntegration();
 	};
-
-	// Update functions are declared in gameupdate.h
-
-	inline void EarlyGameUpdateFn()
-	{
-		IUpdateComponent::EarlyUpdateAll();
-	}
-
-	inline void LateGameUpdateFn()
-	{
-		IUpdateComponent::LateUpdateAll();
-	}
 }
 
 extern rageam::integration::GameIntegration* GIntegration;

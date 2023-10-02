@@ -92,21 +92,20 @@ void rageam::integration::CameraComponentBase::CreateBlipAsync()
 		});
 }
 
-rageam::integration::CameraComponentBase::~CameraComponentBase()
+bool rageam::integration::CameraComponentBase::OnAbort()
 {
 	if (IsActive())
 	{
 		CameraComponentBase::SetActive(false);
 
-		scrInvoke([=]
-			{
-				SHV::UI::UNLOCK_MINIMAP_ANGLE();
-				SHV::UI::UNLOCK_MINIMAP_POSITION();
-			});
+		SHV::UI::UNLOCK_MINIMAP_ANGLE();
+		SHV::UI::UNLOCK_MINIMAP_POSITION();
 	}
 
 	DestroyBlipAsync(m_BlipHandle);
 	DestroyCameraAsync(m_CameraHandle);
+
+	return true;
 }
 
 void rageam::integration::CameraComponentBase::OnStart()

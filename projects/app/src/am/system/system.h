@@ -57,6 +57,11 @@ namespace rageam
 				m_RenderEngine->SetRenderFunction(nullptr);
 
 			DestroyUIContext();
+	
+#ifdef AM_INTEGRATED
+			DestroyIntegrationContext();
+#endif
+			
 			DestroyRenderContext();
 
 			m_RenderEngine.reset();
@@ -133,6 +138,9 @@ namespace rageam
 			m_RenderEngine = std::make_unique<render::Engine>(useWindow);
 			render::Engine::SetInstance(m_RenderEngine.get());
 
+#ifdef AM_INTEGRATED
+			CreateIntegrationContext();
+#endif
 			CreateRenderContext();
 
 			AM_DEBUGF("System::InitRender() -> Render Started");

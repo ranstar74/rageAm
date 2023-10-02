@@ -8,6 +8,10 @@
 #include "am/ui/styled/slwidgets.h"
 #include "rage/paging/builder/builder.h"
 
+#include <shlobj_core.h>
+
+#include "am/task/worker.h"
+#include "rage/math/math.h"
 void rageam::ModelScene::CreateEntity(const rage::Vec3V& coors)
 {
 	DeleteEntity();
@@ -25,31 +29,37 @@ void rageam::ModelScene::DeleteEntity()
 	SHV::OBJECT::DELETE_OBJECT(&m_Entity);
 }
 
-bool rageam::ModelScene::LoadAndCompileDrawable(ConstWString path)
+void rageam::ModelScene::LoadAndCompileDrawableAsync(ConstWString path)
 {
 	DeleteDrawable();
 
-	m_FileWatcher.SetEnabled(false);
+	file::WPath wPath = path;
 
-	amPtr<asset::DrawableAsset> asset = asset::AssetFactory::LoadFromPath<asset::DrawableAsset>(path);
+	m_FileWatcher.SetEnabled(false);
+	m_LoadTask = BackgroundWorker::Run([&, wPath]
+		{
+			amPtr<asset::DrawableAsset> asset = asset::AssetFactory::LoadFromPath<asset::DrawableAsset>(wPath);
 	if (!asset)
 	{
-		AM_ERRF(L"ModelScene::LoadAndCompileDrawable() -> Failed to load drawable from path %ls", path);
+				AM_ERRF(L"ModelScene::LoadAndCompileDrawable() -> Failed to load drawable from path %ls", wPath.GetCStr());
 		return false;
 	}
 
 	gtaDrawable* drawable = new gtaDrawable();
 	if (!asset->CompileToGame(drawable))
 	{
-		AM_ERRF(L"ModelScene::LoadAndCompileDrawable() -> Failed to compile drawable from path %ls", path);
+				AM_ERRF(L"ModelScene::LoadAndCompileDrawable() -> Failed to compile drawable from path %ls", wPath.GetCStr());
 		return false;
 	}
 	m_Drawable = amUniquePtr<gtaDrawable>(drawable);
 
+			std::unique_lock lock(m_Mutex);
+			m_Drawable = amUniquePtr<gtaDrawable>(drawable);
 	m_FileWatcher.SetEntry(String::ToUtf8Temp(asset->GetDrawableModelPath()));
 	m_FileWatcher.SetEnabled(true);
 
 	return true;
+		});
 }
 
 void rageam::ModelScene::RegisterArchetype()
@@ -161,12 +171,14 @@ void rageam::ModelScene::DeleteDrawable()
 		m_Drawable = nullptr;
 }
 
-rageam::ModelScene::~ModelScene()
+bool rageam::ModelScene::OnAbort()
 {
-	if (m_IsLoaded)
-	{
-		CleanUp();
-		while (m_IsLoaded) {} // Wait until scene is fully unloaded
+	// Wait for current loading task
+	if (m_LoadTask)
+		return false;
+
+	m_CleanUpRequested = true;
+	return m_IsLoaded == false;
 	}
 }
 
@@ -190,15 +202,20 @@ void rageam::ModelScene::OnLateUpdate()
 	// We accept request only once previous entity was cleaned up
 	if (m_HasModelRequest && !m_CleanUpRequested)
 	{
+		// Use drawable from request or load it from .idr
 		if (m_DrawableRequest)
 		{
 			DeleteDrawable();
 			m_Drawable = std::move(m_DrawableRequest);
 		}
+		else if (!m_LoadTask)
+		{
+			LoadAndCompileDrawableAsync(m_LoadRequest->Path);
+		}
 
 		// Use existing drawable (if we just want to respawn entity or if drawable
 		// was set externally) or compile a new one from asset
-		if (m_Drawable || LoadAndCompileDrawable(m_LoadRequest->Path))
+		if (m_Drawable)
 		{
 			RegisterDrawable();
 			RegisterArchetype();
@@ -209,7 +226,15 @@ void rageam::ModelScene::OnLateUpdate()
 			//	m_Drawable->GetSkeletonData()->DebugPrint();
 
 			if (LoadCallback) LoadCallback();
+			m_HasModelRequest = false;
+			m_LoadTask = nullptr;
 		}
+		}
+
+	if (m_LoadTask && m_LoadTask->IsFinished() && !m_LoadTask->IsSuccess())
+	{
+		// Failed to load...
+		m_LoadTask = nullptr;
 		m_HasModelRequest = false;
 	}
 
@@ -221,10 +246,12 @@ void rageam::ModelScene::OnLateUpdate()
 		// entity and on the next frame we clean up the rest
 		if (m_Entity != 0) // First tick
 		{
+			AM_DEBUGF("ModelScene -> Clean Up requested, removing entity...");
 			DeleteEntity();
 		}
 		else // Second tick
 		{
+			AM_DEBUGF("ModelScene -> Finishing clean up");
 			UnregisterArchetype();
 			UnregisterDrawable();
 			DeleteDrawable();
@@ -277,6 +304,12 @@ void rageam::ModelScene::SetDrawable(gtaDrawable* drawable)
 	RequestReload();
 }
 
+bool rageam::ModelScene::IsLoading()
+{
+	std::unique_lock lock(m_Mutex);
+	return m_LoadTask && !m_LoadTask->IsFinished();
+}
+
 rage::Vec3V rageam::ModelSceneApp::GetEntityScenePos() const
 {
 	return m_IsolatedSceneActive ? DEFAULT_ISOLATED_POS : DEFAULT_POS;
@@ -289,7 +322,7 @@ void rageam::ModelSceneApp::UpdateDrawableStats()
 	m_VertexCount = 0;
 	m_TriCount = 0;
 
-	gtaDrawable* drawable = m_ModelScene.GetDrawable();
+	gtaDrawable* drawable = m_ModelScene->GetDrawable();
 	if (!drawable)
 		return;
 
@@ -327,7 +360,7 @@ void rageam::ModelSceneApp::ResetCameraPosition()
 	rage::Vec3V targetPos;
 	rage::Vec3V scenePos = m_IsolatedSceneActive ? DEFAULT_ISOLATED_POS : DEFAULT_POS;
 
-	gtaDrawable* drawable = m_ModelScene.GetDrawable();
+	gtaDrawable* drawable = m_ModelScene->GetDrawable();
 	if (drawable)
 	{
 		rage::rmcLodGroup& lodGroup = drawable->GetLodGroup();
@@ -355,9 +388,9 @@ void rageam::ModelSceneApp::UpdateCamera()
 	if (m_CameraEnabled)
 	{
 		if (m_UseOrbitCamera)
-			m_Camera = std::make_unique<integration::OrbitCamera>();
+			m_Camera.Create<integration::OrbitCamera>();
 		else
-			m_Camera = std::make_unique<integration::FreeCamera>();;
+			m_Camera.Create<integration::FreeCamera>();
 
 		ResetCameraPosition();
 		m_Camera->SetActive(true);
@@ -502,7 +535,7 @@ void rageam::ModelSceneApp::OnRender()
 			if (SlGui::ToggleButton(ICON_AM_OBJECT " Isolate", m_IsolatedSceneActive))
 			{
 				ResetCameraPosition();
-				m_ModelScene.SetEntityPos(GetEntityScenePos());
+				m_ModelScene->SetEntityPos(GetEntityScenePos());
 
 				scrInvoke([=]
 					{
@@ -543,24 +576,27 @@ void rageam::ModelSceneApp::OnRender()
 
 	if (ImGui::Begin("Scene"))
 	{
-		ImGui::Text("Entity Handle: %u", m_ModelScene.GetEntityHandle());
+		ImGui::Text("Entity Handle: %u", m_ModelScene->GetEntityHandle());
 
 		char drawablePtrBuf[64];
-		sprintf_s(drawablePtrBuf, 64, "%p", m_ModelScene.GetDrawable());
+		sprintf_s(drawablePtrBuf, 64, "%p", m_ModelScene->GetDrawable());
 		ImGui::InputText("Drawable Ptr", drawablePtrBuf, 64, ImGuiInputTextFlags_ReadOnly);
 
 		constexpr ImVec2 buttonSize = { 90, 0 };
 
+		bool isLoading = m_ModelScene->IsLoading();
+
+		if (isLoading) ImGui::BeginDisabled();
 		if (ImGui::Button("Load", buttonSize))
 		{
-			m_ModelScene.SetupFor(m_AssetPath, GetEntityScenePos());
+			m_ModelScene->SetupFor(m_AssetPath, GetEntityScenePos());
 		}
 
 		ImGui::SameLine();
 
 		if (ImGui::Button("Unload", buttonSize))
 		{
-			m_ModelScene.CleanUp();
+			m_ModelScene->CleanUp();
 		}
 
 		//if (ImGui::Button("Load YDR", buttonSize))
@@ -587,8 +623,16 @@ void rageam::ModelSceneApp::OnRender()
 		//	if (asset)
 		//		asset->CompileToFile(L"C:/Users/falco/Desktop/collider.ydr");
 		//}
+		if (isLoading) ImGui::EndDisabled();
 
-		DrawDrawableUi(m_ModelScene.GetDrawable());
+		if (isLoading)
+		{
+			// Loading indicator
+			int type = (int)(ImGui::GetTime() * 5) % 3;
+			ImGui::Text("Loading%s", type == 0 ? "." : type == 1 ? ".." : "...");
+		}
+
+		DrawDrawableUi(m_ModelScene->GetDrawable());
 	}
 	ImGui::End();
 }
@@ -605,7 +649,8 @@ rageam::ModelSceneApp::ModelSceneApp()
 		CoTaskMemFree(path);
 	}
 
-	m_ModelScene.LoadCallback = [&]
+	m_ModelScene.Create();
+	m_ModelScene->LoadCallback = [&]
 		{
 			UpdateDrawableStats();
 		};
