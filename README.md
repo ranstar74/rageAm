@@ -1,5 +1,7 @@
 # rageAm for GTA V
 
+How it works? See here https://www.youtube.com/watch?v=-uz1p3hUxSo
+
 This is a library / toolkit that is focused on realtime development without need to reboot game every time.
 
 Note that this is still in alpha/concept stage so it's not recommented to attempt to use it.
