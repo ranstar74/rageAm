@@ -129,6 +129,7 @@ project "rageAm"
 	
 	include_vendors {
 		"imgui",
+		"imguizmo",
 		"implot",
 		"tinyxml2",
 		"minhook",
