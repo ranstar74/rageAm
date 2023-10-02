@@ -71,7 +71,6 @@ namespace rageam
 			// - render::Engine hooks game render thread
 #ifdef AM_INTEGRATED
 			GameHooks::Shutdown();
-			DestroyIntegrationContext();
 #endif
 
 			asset::AssetFactory::Shutdown();
@@ -92,7 +91,6 @@ namespace rageam
 		{
 #ifdef AM_INTEGRATED
 			GameHooks::EnableAll();
-			CreateIntegrationContext();
 #endif
 
 			m_Initialized = true;
@@ -155,6 +153,7 @@ namespace rageam
 
 			m_RenderEngine->SetRenderFunction([this]
 				{
+					GRenderContext->OverlayRender.Render();
 					return Gui->Update();
 				});
 
