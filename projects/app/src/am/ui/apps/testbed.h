@@ -6,6 +6,7 @@
 #include <d3d11shader.h>
 #include <d3dcompiler.h>
 
+#include "ImGuizmo.h"
 #include "am/asset/factory.h"
 #include "am/asset/types/drawable.h"
 #include "am/graphics/buffereditor.h"
@@ -13,8 +14,10 @@
 #include "am/graphics/scene.h"
 #include "am/graphics/render/engine.h"
 #include "am/graphics/texture/imagefit.h"
+#include "am/ui/context.h"
 
 #include "am/ui/extensions.h"
+#include "am/ui/im3d.h"
 #include "am/ui/font_icons/icons_am.h"
 #include "am/ui/styled/slgui.h"
 #include "am/ui/styled/slwidgets.h"
@@ -40,6 +43,7 @@
 #include "rage/streaming/assetstore.h"
 #include "rage/streaming/streaming.h"
 #ifndef AM_STANDALONE
+#include "am/integration/components/camera.h"
 #include "am/integration/shvthread.h"
 #include "scripthook/shvnatives.h"
 #include "am/integration/hooks/streaming.h"
@@ -604,11 +608,48 @@ namespace rageam::ui
 				MaterialEditor();
 			}
 #endif
-			//return;
+			return;
 			//ImPlot::ShowDemoWindow();
 			//ImGui::ShowMetricsWindow();
 			//ImGui::SetNextWindowSize(ImVec2(512, 512), ImGuiCond_Always);
+
 			ImGui::Begin("RageAm Testbed");
+
+			static rage::Mat44V mat = rage::Mat44V::Identity();
+
+			Mat44V view = CViewport::GetViewMatrix(); // (XMMatrixTranspose(DirectX::XMMatrixIdentity())); // );
+			Mat44V proj = CViewport::GetProjectionMatrix(); // (XMMatrixTranspose(DirectX::XMMatrixPerspectiveFovRH(90, 1, 0.0001f, 800)));// CViewport::GetProjectionMatrix()));
+
+			//ImGuizmo::Manipulate(
+			//	(float*)&view, (float*)&proj,
+			//	ImGuizmo::TRANSLATE, ImGuizmo::WORLD, (float*)&mat);
+
+			// Im3D::TextBg(ImVec3(0, 0, 100), "<victor>");
+
+
+			if (ImGui::Button("Large Geometry"))
+			{
+				using namespace graphics;
+
+				auto scene = SceneFactory::LoadFrom(L"C:/Users/falco/Desktop/large_monkey.glb");
+				auto geom = scene->GetNode(0)->GetMesh()->GetGeometry(0);
+
+				VertexDeclaration decl;
+				decl.Attributes.Add(VertexAttribute(POSITION, 0, 0, DXGI_FORMAT_R32G32B32_FLOAT, 4));
+				decl.ComputeStride();
+
+				VertexBufferEditor bufferEditor(decl);
+				bufferEditor.Init(geom->GetVertexCount());
+				bufferEditor.SetFromGeometry(geom);
+
+				AM_TRACEF("");
+			}
+
+
+			ImGui::End();
+			return;
+
+
 
 			if (ImGui::Button("YDR"))
 			{
@@ -821,7 +862,7 @@ namespace rageam::ui
 #endif
 
 				AM_TRACEF("");
-		}
+			}
 
 #ifdef AM_STANDALONE
 			if (ImGui::Button("Import Textured Cube"))
@@ -829,7 +870,7 @@ namespace rageam::ui
 				auto scene = graphics::SceneFactory::LoadFrom(L"C:/Users/falco/Desktop/textcube.idr/mesh.gltf");
 
 				AM_TRACEF("");
-			}
+		}
 #endif
 			if (ImGui::Button("Composite Drawable"))
 			{
@@ -1156,7 +1197,7 @@ namespace rageam::ui
 				//phInst->SetArchetype(arch);
 				phInst->m_Archetype.SetNoRef(arch);
 				//((gtaDrawable*)m_Drawable)->SetBound(bound);
-			}
+	}
 #endif
 
 			if (ImGui::Button("MTX"))
@@ -1301,8 +1342,8 @@ namespace rageam::ui
 						xElement.SetAttribute("SemanticIndex", element.SemanticIndex);
 						xElement.SetAttribute("Format", Enum::GetName(element.Format));
 						xElement.SetAttribute("Offset", decl->GetElementOffset(k));
-			}
-	}
+					}
+				}
 				doc.SaveToFile(L"C:/Users/falco/Desktop/Effects.xml");
 			}
 #endif
@@ -1689,7 +1730,7 @@ namespace rageam::ui
 
 				// Export OBJs
 				AM_TRACE("");
-				}
+			}
 
 			/*	if (ImGui::Button("Drawable Tessellated"))
 				{
@@ -1943,8 +1984,8 @@ namespace rageam::ui
 					// grmModel->SortForTesselation()
 #ifndef AM_STANDALONE
 					models.Emplace(std::move(model));
+				}
 			}
-}
 #endif
 #endif
 			if (ImGui::Button("YTD"))
