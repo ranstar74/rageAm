@@ -72,7 +72,7 @@ namespace rageam
 
 	class ModelSceneApp : public ui::App
 	{
-		static inline const ConstWString ASSET_PATH = L"C:/Users/falco/Desktop/collider.idr";
+		// static inline const ConstWString ASSET_PATH = L"C:/Users/falco/Desktop/collider.idr";
 
 		using Camera = amUniquePtr<integration::ICameraComponent>;
 
@@ -80,6 +80,7 @@ namespace rageam
 		static inline const rage::Vec3V DEFAULT_POS = { -676, 167, 73.55f };
 		static constexpr u32 RAGEAM_HASH = Hash("RAGEAM_TESTBED_ARCHETYPE");
 
+		file::WPath		m_AssetPath; // User/Desktop/rageAm.idr
 		rage::Vector3	m_Dimensions;
 		u32				m_NumLods = 0;
 		u32				m_NumModels = 0;

@@ -1,5 +1,6 @@
 #include "modelscene.h"
 
+#include <shlobj_core.h>
 #include "rage/math/math.h"
 #ifdef AM_INTEGRATED
 
@@ -546,40 +547,40 @@ void rageam::ModelSceneApp::OnRender()
 
 		if (ImGui::Button("Load", buttonSize))
 		{
-			m_ModelScene.SetupFor(ASSET_PATH, GetEntityScenePos());
+			m_ModelScene.SetupFor(m_AssetPath, GetEntityScenePos());
 		}
+
+		ImGui::SameLine();
 
 		if (ImGui::Button("Unload", buttonSize))
 		{
 			m_ModelScene.CleanUp();
 		}
 
-		if (ImGui::Button("Load YDR", buttonSize))
-		{
-			gtaDrawable* drawable;
-			rage::pgRscBuilder::Load(&drawable, "C:/Users/falco/Desktop/cable1_root.ydr", 165);
-			if (drawable)
-			{
-				m_ModelScene.SetDrawable(drawable);
-				m_ModelScene.SetEntityPos(GetEntityScenePos());
-			}
-			else
-			{
-				m_ModelScene.CleanUp();
-				AM_ERRF("ModelSceneApp::OnRender() -> Failed to build drawable from ydr.");
-			}
-		}
+		//if (ImGui::Button("Load YDR", buttonSize))
+		//{
+		//	gtaDrawable* drawable;
+		//	rage::pgRscBuilder::Load(&drawable, "C:/Users/falco/Desktop/cable1_root.ydr", 165);
+		//	if (drawable)
+		//	{
+		//		m_ModelScene.SetDrawable(drawable);
+		//		m_ModelScene.SetEntityPos(GetEntityScenePos());
+		//	}
+		//	else
+		//	{
+		//		m_ModelScene.CleanUp();
+		//		AM_ERRF("ModelSceneApp::OnRender() -> Failed to build drawable from ydr.");
+		//	}
+		//}
 
-		if (ImGui::Button("Export", buttonSize))
-		{
-			using namespace asset;
+		//if (ImGui::Button("Export", buttonSize))
+		//{
+		//	using namespace asset;
 
-			amPtr<DrawableAsset> asset = AssetFactory::LoadFromPath<DrawableAsset>(
-				ASSET_PATH);
-
-			if (asset)
-				asset->CompileToFile(L"C:/Users/falco/Desktop/collider.ydr");
-		}
+		//	amPtr<DrawableAsset> asset = AssetFactory::LoadFromPath<DrawableAsset>(m_AssetPath);
+		//	if (asset)
+		//		asset->CompileToFile(L"C:/Users/falco/Desktop/collider.ydr");
+		//}
 
 		DrawDrawableUi(m_ModelScene.GetDrawable());
 	}
@@ -588,6 +589,16 @@ void rageam::ModelSceneApp::OnRender()
 
 rageam::ModelSceneApp::ModelSceneApp()
 {
+	// Temporary solution until we have explorer integration
+	wchar_t* path;
+	if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Desktop, 0, 0, &path)))
+	{
+		m_AssetPath = path;
+		m_AssetPath /= L"rageAm.idr";
+
+		CoTaskMemFree(path);
+	}
+
 	m_ModelScene.LoadCallback = [&]
 		{
 			UpdateDrawableStats();
