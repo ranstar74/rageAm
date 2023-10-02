@@ -180,7 +180,6 @@ bool rageam::ModelScene::OnAbort()
 	m_CleanUpRequested = true;
 	return m_IsLoaded == false;
 	}
-}
 
 void rageam::ModelScene::OnEarlyUpdate()
 {
