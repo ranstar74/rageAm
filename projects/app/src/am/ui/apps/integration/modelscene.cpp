@@ -489,6 +489,12 @@ void rageam::ModelSceneApp::OnRender()
 		ImGui::PushStyleVar(ImGuiStyleVar_DisabledAlpha, 0.2f);
 		if (!m_CameraEnabled) ImGui::BeginDisabled();
 		{
+			if (ImGui::IsKeyPressed(ImGuiKey_O, false))
+			{
+				m_UseOrbitCamera = !m_UseOrbitCamera;
+				UpdateCamera();
+			}
+
 			if (SlGui::ToggleButton(ICON_AM_ORBIT" Orbit", m_UseOrbitCamera))
 				UpdateCamera();
 			ImGui::ToolTip("Use orbit camera instead of free");
