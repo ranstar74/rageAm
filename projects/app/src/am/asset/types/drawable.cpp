@@ -307,6 +307,8 @@ rageam::List<rageam::asset::DrawableAsset::SplittedGeometry> rageam::asset::Draw
 	u32 totalVertexCount = sceneGeometry->GetVertexCount();
 	u32 totalIndexCount = sceneGeometry->GetIndexCount();
 
+	AM_DEBUGF("DrawableAsset::ConvertSceneGeometry -> %u vertices; %u indices", totalVertexCount, totalIndexCount);
+
 	// Pack scene geometry attributes into single vertex buffer
 	graphics::VertexBufferEditor sceneVertexBuffer(decl);
 	sceneVertexBuffer.Init(totalVertexCount);
@@ -398,6 +400,9 @@ rage::pgUPtr<rage::grmModel> rageam::asset::DrawableAsset::ConvertSceneModel(con
 	bool hasSkin = sceneMesh->HasSkin();
 
 	rage::grmModel* grmModel = new rage::grmModel();
+
+	AM_DEBUGF("DrawableAsset() -> Converting '%s' into grmModel, '%u' initial geometries to split",
+		sceneNode->GetName(), sceneMesh->GetGeometriesCount());
 
 	// Convert every scene geometry to grmGeometry and add them to grmModel geometries array
 	u32 geometryIndex = 0; // For setting material
@@ -1011,13 +1016,19 @@ bool rageam::asset::DrawableAsset::TryCompileToGame()
 	}
 
 	// We must generate skeleton first because we'll have to remap skinning blend indices
+	AM_DEBUGF("DrawableAsset() -> Creating skeleton");
 	if (!GenerateSkeleton())
 		return false;
 
+	AM_DEBUGF("DrawableAsset() -> Setting up lod models");
 	SetupLodModels();
+	AM_DEBUGF("DrawableAsset() -> Linking models to skeleton");
 	LinkModelsToSkeleton();
+	AM_DEBUGF("DrawableAsset() -> Creating materials");
 	CreateMaterials();
+	AM_DEBUGF("DrawableAsset() -> Creating collision bounds");
 	CreateAndSetCompositeBound();
+	AM_DEBUGF("DrawableAsset() -> Posing bounds from scene");
 	PoseModelBoundsFromScene();
 	CalculateLodExtents();
 	CreateLights();
