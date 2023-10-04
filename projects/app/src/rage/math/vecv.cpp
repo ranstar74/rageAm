@@ -85,9 +85,9 @@ rage::ScalarV rage::ScalarV::Lerp(const ScalarV& to, const ScalarV& t) const
 	return DirectX::XMVectorLerpV(M, to.M, t.M);
 }
 
-rage::Vec3V::Vec3V(const Vec4V& s)
+rage::Vec3V::Vec3V(const Vec4V& v)
 {
-	M = s.M;
+	M = v.M;
 }
 
 rage::Vec3V::Vec3V(const Vector3& v)
@@ -119,14 +119,19 @@ rage::Vec3V rage::Vec3V::Max(const Vec3V& other) const
 
 rage::Vec3V rage::Vec3V::Transform(const Mat44V& mtx) const
 {
-	Vec4V temp = XMVector3Transform(M, mtx);
+	Vec4V temp = XMVector3Transform(M, mtx.M);
 	temp /= temp.W();
 	return temp;
 }
 
 rage::Vec4V rage::Vec3V::Transform4(const Mat44V& mtx) const
 {
-	return XMVector3Transform(M, mtx);
+	return XMVector3Transform(M, mtx.M);
+}
+
+rage::Vec3V rage::Vec3V::Rotate(const Vec3V& axis, float angle) const
+{
+	return DirectX::XMVector3Rotate(M, DirectX::XMQuaternionRotationNormal(axis, angle));
 }
 
 bool rage::Vec3V::AlmostEqual(const Vec3V& other) const

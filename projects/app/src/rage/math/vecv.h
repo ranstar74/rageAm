@@ -73,6 +73,7 @@ namespace rage
 		ScalarV ReciprocalEstimate() const { return DirectX::XMVectorReciprocalEst(M); }
 		ScalarV ReciprocalSqrt() const { return DirectX::XMVectorReciprocalSqrt(M); }
 		ScalarV ReciprocalSqrtEstimate() const { return DirectX::XMVectorReciprocalSqrtEst(M); }
+		ScalarV Sqrt() const { return DirectX::XMVectorSqrt(M); }
 		ScalarV Abs() const { return DirectX::XMVectorAbs(M); }
 
 		ScalarV Min(const ScalarV& other) const;
@@ -105,8 +106,9 @@ namespace rage
 	struct Vec3V : VecV
 	{
 		Vec3V(float x, float y, float z) : VecV(x, y, z, x) {}
+		Vec3V(float x, float y) : Vec3V(x, y, 1.0f) {}
 		Vec3V(float v) : VecV(v) {}
-		Vec3V(const Vec4V& s);
+		Vec3V(const Vec4V& v);
 		Vec3V(const ScalarV& s) { M = s.M; }
 		Vec3V(const Vector3& v);
 		Vec3V(__m128 m) : VecV(m) {}
@@ -116,6 +118,10 @@ namespace rage
 		void SetW(float v) = delete;
 
 		// -- Common Operations --
+
+		ScalarV DistanceTo(const Vec3V& other) const { return (*this - other).Length(); }
+		ScalarV DistanceToEstimate(const Vec3V& other) const { return (*this - other).LengthEstimate(); }
+		ScalarV DistanceToSquared(const Vec3V& other) const { return (*this - other).LengthSquared(); }
 
 		ScalarV Length() const { return DirectX::XMVector3Length(M); }
 		ScalarV LengthSquared() const { return DirectX::XMVector3LengthSq(M); }
@@ -143,6 +149,8 @@ namespace rage
 
 		Vec3V Transform(const Mat44V& mtx) const;
 		Vec4V Transform4(const Mat44V& mtx) const;
+
+		Vec3V Rotate(const Vec3V& axis, float angle) const;
 
 		// -- Arithmetic Operators --
 
@@ -204,6 +212,7 @@ namespace rage
 	 */
 	struct Vec4V : VecV
 	{
+		Vec4V(const Vec3V& v, float w = 1.0f) : VecV(v.X(), v.Y(), v.Z(), w) {}
 		Vec4V(float x, float y, float z, float w) : VecV(x, y, z, w) {}
 		Vec4V(const ScalarV& s) : VecV(s.M) {}
 		Vec4V(__m128 m) : VecV(m) {}
