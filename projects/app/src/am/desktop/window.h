@@ -43,6 +43,9 @@ namespace rageam
 
 		virtual void Show();
 
+		// Gets mouse cursor position relative to this window
+		void GetMousePos(u32& x, u32& y) const;
+
 		// We need two events because in integration mode we have to destroy render target before
 		// game resizes back buffer, then game done his job we re-create render target
 		// In standalone mode end is called right after begin

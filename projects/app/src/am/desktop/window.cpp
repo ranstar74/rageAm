@@ -26,6 +26,18 @@ void rageam::Window::Show()
 	UpdateWindow(m_Handle);
 }
 
+void rageam::Window::GetMousePos(u32& x, u32& y) const
+{
+	x = y = 0;
+
+	POINT point;
+	GetCursorPos(&point);
+	ScreenToClient(m_Handle, &point);
+
+	x = static_cast<u32>(point.x);
+	y = static_cast<u32>(point.y);
+}
+
 void rageam::Window::GetSize(u32& width, u32& height) const
 {
 	RECT rect;
