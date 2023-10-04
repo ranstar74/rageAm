@@ -1,7 +1,14 @@
 #pragma once
 
 #include "am/integration/memory/address.h"
-#include "rage/math/vecv.h"
+#include "rage/math/vec.h"
+
+enum eLightType : u8
+{
+	LIGHT_POINT = 1,
+	LIGHT_SPOT = 2,
+	LIGHT_CAPSULE = 4,
+};
 
 struct CLightAttr
 {
@@ -15,10 +22,10 @@ struct CLightAttr
 	float Intensity;
 	u32 Flags;
 	u16 BoneTag;
-	u8 Type;
+	eLightType Type;
 	u8 GroupId;
 	u32 TimeFlags;
-	float Fallof;
+	float Falloff;
 	float FallofExponent;
 	rage::Vector3 CullingPlaneNormal;
 	float CullingPlaneOffset;
