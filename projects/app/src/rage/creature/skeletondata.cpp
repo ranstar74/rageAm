@@ -105,7 +105,24 @@ rage::crBoneData* rage::crSkeletonData::GetBone(u16 index)
 	return &m_Bones[index];
 }
 
-const rage::Mat44V& rage::crSkeletonData::GetBoneTransform(u16 index)
+const rage::Mat44V& rage::crSkeletonData::GetBoneWorldTransform(u16 index)
+{
+	crBoneData* bone = GetBone(index);
+
+	Mat44V world = GetBoneLocalTransform(index);
+
+	// Iterate parent hierarchy
+	s32 parentIndex = bone->GetParentIndex();
+	while (parentIndex != -1)
+	{
+		world *= GetBoneLocalTransform(parentIndex);
+		parentIndex = GetBone(parentIndex)->GetParentIndex();
+	}
+
+	return world;
+}
+
+const rage::Mat44V& rage::crSkeletonData::GetBoneLocalTransform(u16 index)
 {
 	AM_ASSERT(index < m_NumBones, "crSkeletonData::GetBoneTransform() -> Index is out of bounds.");
 	return m_DefaultTransforms[index];
@@ -149,6 +166,15 @@ bool rage::crSkeletonData::GetBoneIndexFromTag(u16 tag, s32& outIndex) const
 	}
 	outIndex = -1;
 	return false;
+}
+
+rage::crBoneData* rage::crSkeletonData::GetBoneFromTag(u16 tag)
+{
+	s32 index;
+	GetBoneIndexFromTag(tag, index);
+	if (index == -1)
+		return nullptr;
+	return GetBone(index);
 }
 
 void rage::crSkeletonData::Init(u16 numBones)

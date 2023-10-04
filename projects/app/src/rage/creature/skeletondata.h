@@ -59,7 +59,10 @@ namespace rage
 		u16 GetBoneCount() const { return m_NumBones; }
 		crBoneData* GetBone(u16 index);
 
-		const Mat44V& GetBoneTransform(u16 index);
+		const Mat44V& GetBoneWorldTransform(u16 index);
+		const Mat44V& GetBoneLocalTransform(u16 index);
+		const Mat44V& GetBoneLocalTransform(const crBoneData* bone) { return GetBoneLocalTransform(bone->GetIndex()); }
+		const Mat44V& GetBoneWorldTransform(const crBoneData* bone) { return GetBoneWorldTransform(bone->GetIndex()); }
 
 		// Performs linear search for bone with given name
 		// Use GetBoneIndexFromTag & pre-computed bone tag if possible
@@ -69,6 +72,7 @@ namespace rage
 
 		// Looks up bone index in map and returns whether bone exists
 		bool GetBoneIndexFromTag(u16 tag, s32& outIndex) const;
+		crBoneData* GetBoneFromTag(u16 tag);
 
 		// Allocates skeleton for given number of bones
 		// Once work with skeleton data is done, Finalize function must be called
