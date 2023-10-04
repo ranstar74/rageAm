@@ -214,6 +214,12 @@ namespace rageam::graphics
 
 		// Those are non-thread safe functions, exposed interface that calls them must use mutex
 
+		void DrawLine_Unsafe(const rage::Vec3V& p1, const rage::Vec3V& p2, ColorU32 col1, ColorU32 col2)
+		{
+			m_LineBuffer[m_LineVertexCount++] = VertexUnlit(p1, col1.ToVec4());
+			m_LineBuffer[m_LineVertexCount++] = VertexUnlit(p2, col2.ToVec4());
+		}
+
 		void DrawLine_Unsafe(const rage::Vec3V& p1, const rage::Vec3V& p2, const rage::Mat44V& mtx, ColorU32 col1, ColorU32 col2)
 		{
 			rage::Vec3V pt1 = p1.Transform(mtx);
@@ -249,6 +255,17 @@ namespace rageam::graphics
 		void DrawLine(const rage::Vec3V& p1, const rage::Vec3V& p2, const rage::Mat44V& mtx, ColorU32 col)
 		{
 			DrawLine(p1, p2, mtx, col, col);
+		}
+
+		void DrawLine(const rage::Vec3V& p1, const rage::Vec3V& p2, ColorU32 col1, ColorU32 col2)
+		{
+			std::unique_lock lock(m_Mutex);
+			DrawLine_Unsafe(p1, p2, col1, col2);
+		}
+
+		void DrawLine(const rage::Vec3V& p1, const rage::Vec3V& p2, ColorU32 col)
+		{
+			DrawLine(p1, p2, col, col);
 		}
 
 		void DrawAABB(const rage::spdAABB& bb, const rage::Mat44V& mtx, ColorU32 col)
