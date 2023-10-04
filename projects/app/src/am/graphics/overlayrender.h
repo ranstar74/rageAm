@@ -288,7 +288,52 @@ namespace rageam::graphics
 			DrawLine_Unsafe(bb.BBR(), bb.TBR(), mtx, col);
 		}
 
-		void DrawSphere() {}
+		// Normal & tangent define the plane the circle lines in,
+		// Tangent also defines start of the circle, first half
+		// is draw with col1 and second half is using col2
+		// This is mostly used on light sphere back side is culled / draw gray
+		// https://imgur.com/iQG2PMS
+		void DrawCricle(
+			const rage::Vec3V& pos,
+			const rage::Vec3V& normal,
+			const rage::Vec3V& tangent,
+			const rage::ScalarV& radius,
+			const rage::Mat44V& mtx,
+			const ColorU32 col1,
+			const ColorU32 col2)
+		{
+			static constexpr int NUM_SEGMENTS = 48;
+			static constexpr float SEGMENT_STEP = rage::PI2 / NUM_SEGMENTS;
+
+			// We need tangent and binormal for orientation of the circle
+			rage::Vec3V biNormal = normal.Cross(tangent);
+			rage::Vec3V prevPoint;
+			// We drawing + 1 more segment to connect last & first point
+			for (int i = 0; i < NUM_SEGMENTS + 1; i++)
+			{
+				float theta = SEGMENT_STEP * static_cast<float>(i);
+				float cos = cosf(theta);
+				float sin = sinf(theta);
+
+				// Transform coordinate on circle plane
+				rage::Vec3V point = pos + tangent * cos * radius + biNormal * sin * radius;
+
+				// Draw second half with different color
+				ColorU32 col = i > (NUM_SEGMENTS / 2) ? col2 : col1;
+
+				if (i != 0) DrawLine(prevPoint, point, mtx, col);
+				prevPoint = point;
+			}
+		}
+
+		// Draws sphere using 3 axes
+		void DrawSphere(const rage::Mat44V& mtx, ColorU32 color, float radius)
+		{
+			DrawCricle(rage::S_ZERO, rage::VEC_FORWARD, rage::VEC_UP, radius, mtx, color, color);
+			DrawCricle(rage::S_ZERO, rage::VEC_RIGHT, rage::VEC_UP, radius, mtx, color, color);
+			DrawCricle(rage::S_ZERO, rage::VEC_UP, rage::VEC_FORWARD, radius, mtx, color, color);
+		}
+
 		void DrawCapsule() {}
 
 		void UpdateMatrices() const
