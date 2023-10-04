@@ -668,51 +668,51 @@ namespace rageam::ui
 
 			// TODO: Better scene debugger
 
-			static amPtr<Scene> myScene;
-			if (ImGui::Button("Skinning"))
-			{
-				amPtr<Scene> skinScene = SceneFactory::LoadFrom(L"C:/Users/falco/Desktop/collider.idr/mesh.gltf");
+			//static amPtr<Scene> myScene;
+			//if (ImGui::Button("Skinning"))
+			//{
+			//	amPtr<Scene> skinScene = SceneFactory::LoadFrom(L"C:/Users/falco/Desktop/collider.idr/mesh.gltf");
 
-				//SceneData blendIndices;
-				//skinScene->GetNode(1)->GetMesh()->GetGeometry(0)->GetAttribute(blendIndices, BLENDINDICES, 0);
+			//	//SceneData blendIndices;
+			//	//skinScene->GetNode(1)->GetMesh()->GetGeometry(0)->GetAttribute(blendIndices, BLENDINDICES, 0);
 
-				//SceneData blendWeights;
-				//skinScene->GetNode(1)->GetMesh()->GetGeometry(0)->GetAttribute(blendWeights, BLENDWEIGHT, 0);
+			//	//SceneData blendWeights;
+			//	//skinScene->GetNode(1)->GetMesh()->GetGeometry(0)->GetAttribute(blendWeights, BLENDWEIGHT, 0);
 
-				//struct BlendIndices { u8 x, y, z, w; };
-				//BlendIndices* bi = blendIndices.GetBufferAs<BlendIndices>();
+			//	//struct BlendIndices { u8 x, y, z, w; };
+			//	//BlendIndices* bi = blendIndices.GetBufferAs<BlendIndices>();
 
-				SceneNode* skinnedNode = skinScene->GetNode(1);
-				//DirectX::XMMATRIX inverseBind = skinnedNode->GetInverseBoneMatrix(0);
-				//DirectX::XMMATRIX nodeForm = skinnedNode->GetWorldTransform();
+			//	SceneNode* skinnedNode = skinScene->GetNode(1);
+			//	//DirectX::XMMATRIX inverseBind = skinnedNode->GetInverseBoneMatrix(0);
+			//	//DirectX::XMMATRIX nodeForm = skinnedNode->GetWorldTransform();
 
-				//DirectX::XMMATRIX boneForm = XMMatrixMultiply(nodeForm, inverseBind);
+			//	//DirectX::XMMATRIX boneForm = XMMatrixMultiply(nodeForm, inverseBind);
 
-				DirectX::XMMATRIX boneMatrix = skinnedNode->GetBone(1)->GetLocalTransform();
-				/*DirectX::XMMATRIX yzSwap = DirectX::XMMatrixSet
-				(
-					1, 0, 0, 0,
-					0, 0, 1, 0,
-					0, -1, 0, 0,
-					0, 0, 0, 1
-				);*/
-				/*static const auto yzSwap = DirectX::XMMatrixRotationAxis(VEC_X, Math::DegToRad(-90));
-				boneMatrix = XMMatrixMultiply(yzSwap, boneMatrix);*/
-				boneMatrix.r[0] = rage::Vec3V(boneMatrix.r[0]).XZY();
-				boneMatrix.r[1] = rage::Vec3V(boneMatrix.r[1]).XZY();
-				boneMatrix.r[2] = rage::Vec3V(boneMatrix.r[2]).XZY();
-				boneMatrix.r[3] = rage::Vec3V(boneMatrix.r[3]).XZY();
+			//	DirectX::XMMATRIX boneMatrix = skinnedNode->GetBone(1)->GetLocalTransform();
+			//	/*DirectX::XMMATRIX yzSwap = DirectX::XMMatrixSet
+			//	(
+			//		1, 0, 0, 0,
+			//		0, 0, 1, 0,
+			//		0, -1, 0, 0,
+			//		0, 0, 0, 1
+			//	);*/
+			//	/*static const auto yzSwap = DirectX::XMMatrixRotationAxis(VEC_X, Math::DegToRad(-90));
+			//	boneMatrix = XMMatrixMultiply(yzSwap, boneMatrix);*/
+			//	boneMatrix.r[0] = rage::Vec3V(boneMatrix.r[0]).XZY();
+			//	boneMatrix.r[1] = rage::Vec3V(boneMatrix.r[1]).XZY();
+			//	boneMatrix.r[2] = rage::Vec3V(boneMatrix.r[2]).XZY();
+			//	boneMatrix.r[3] = rage::Vec3V(boneMatrix.r[3]).XZY();
 
-				/*		DirectX::XMVECTOR scale, rot, trans;
-						XMMatrixDecompose(&scale, &rot, &trans, boneMatrix);*/
-				rage::QuatV			m_DefaultRotation;
-				rage::Vec3V			m_DefaultTranslation;
-				rage::Vec3V			m_DefaultScale;
-				rage::Mat44V(boneMatrix).Decompose(&m_DefaultTranslation, &m_DefaultScale, &m_DefaultRotation);
-				//skinnedNode->GetWorldBoneTransform(1);
+			//	/*		DirectX::XMVECTOR scale, rot, trans;
+			//			XMMatrixDecompose(&scale, &rot, &trans, boneMatrix);*/
+			//	rage::QuatV			m_DefaultRotation;
+			//	rage::Vec3V			m_DefaultTranslation;
+			//	rage::Vec3V			m_DefaultScale;
+			//	rage::Mat44V(boneMatrix).Decompose(&m_DefaultTranslation, &m_DefaultScale, &m_DefaultRotation);
+			//	//skinnedNode->GetWorldBoneTransform(1);
 
-				AM_TRACEF("");
-			}
+			//	AM_TRACEF("");
+			//}
 
 			if (ImGui::Button("ITD"))
 			{
@@ -722,45 +722,45 @@ namespace rageam::ui
 				txd->CompileToFile(L"C:/Users/falco/Desktop/textures.ytd");
 			}
 
-			if (myScene)
-			{
-				if (myScene->GetNodeCount() != 1)
-					ImGui::Text("Scene has no root node");
-				else
-					ImGui::Text("Scene has root node");
+			//if (myScene)
+			//{
+			//	if (myScene->GetNodeCount() != 1)
+			//		ImGui::Text("Scene has no root node");
+			//	else
+			//		ImGui::Text("Scene has root node");
 
-				// Print node, all siblings and it's children
-				std::function<void(SceneNode*)> recurseNode;
-				recurseNode = [&](const SceneNode* node)
-					{
-						ImGui::Indent();
-						while (node)
-						{
-							ImGui::BulletText(node->GetName());
+			//	// Print node, all siblings and it's children
+			//	std::function<void(SceneNode*)> recurseNode;
+			//	recurseNode = [&](const SceneNode* node)
+			//		{
+			//			ImGui::Indent();
+			//			while (node)
+			//			{
+			//				ImGui::BulletText(node->GetName());
 
-							ImGui::SameLine();
-							auto next = node->GetNextSibling();
-							ImGui::Text("Next: %s", next ? next->GetName() : "-");
+			//				ImGui::SameLine();
+			//				auto next = node->GetNextSibling();
+			//				ImGui::Text("Next: %s", next ? next->GetName() : "-");
 
-							ImGui::SameLine();
-							auto child = node->GetFirstChild();
-							ImGui::Text("Child: %s", child ? child->GetName() : "-");
+			//				ImGui::SameLine();
+			//				auto child = node->GetFirstChild();
+			//				ImGui::Text("Child: %s", child ? child->GetName() : "-");
 
-							if (!node->HasMesh())
-							{
-								ImGui::SameLine();
-								ImGui::TextColored(ImVec4(1, 0, 0, 1), "No Mesh");
-							}
+			//				if (!node->HasMesh())
+			//				{
+			//					ImGui::SameLine();
+			//					ImGui::TextColored(ImVec4(1, 0, 0, 1), "No Mesh");
+			//				}
 
-							// Print all children
-							recurseNode(node->GetFirstChild());
+			//				// Print all children
+			//				recurseNode(node->GetFirstChild());
 
-							node = node->GetNextSibling();
-						}
-						ImGui::Unindent();
-					};
-				recurseNode(myScene->GetFirstNode());
-			}
+			//				node = node->GetNextSibling();
+			//			}
+			//			ImGui::Unindent();
+			//		};
+			//	recurseNode(myScene->GetFirstNode());
+			//}
 
 
 
