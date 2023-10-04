@@ -41,6 +41,7 @@ namespace rageam::graphics
 		static constexpr u32 LINE_BUFFER_MAX = 0x10000;
 
 		//amComPtr<ID3D11RenderTargetView>	m_BackBufferRt;
+		amComPtr<ID3D11BlendState>			m_BlendState;
 		amComPtr<ID3D11Buffer>				m_UnlitConstantBuffer;
 		amComPtr<ID3DBlob>					m_UnlitVSBlob;
 		amComPtr<ID3D11InputLayout>			m_UnlitLayoutVS;
@@ -93,6 +94,28 @@ namespace rageam::graphics
 			AM_ASSERT_D3D(context->Map(buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped));
 			memcpy(mapped.pData, data, dataSize);
 			context->Unmap(buffer.Get(), 0);
+		}
+
+		void CreateBlendState()
+		{
+			ID3D11Device* device = render::GetDevice();
+
+			D3D11_BLEND_DESC desc = {};
+			desc.RenderTarget[0].BlendEnable = TRUE;
+			desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+			desc.RenderTarget[0].DestBlend = D3D11_BLEND_SRC_ALPHA;
+			desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+			desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_SRC_ALPHA;
+			desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_SRC_ALPHA;
+			desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+			desc.RenderTarget[0].RenderTargetWriteMask = 0xF;
+			desc.AlphaToCoverageEnable = FALSE;
+			desc.IndependentBlendEnable = TRUE;
+
+			ID3D11BlendState* blendState;
+			AM_ASSERT_D3D(device->CreateBlendState(&desc, &blendState));
+
+			m_BlendState = blendState;
 		}
 
 		void CreateBackBuffer()
@@ -214,6 +237,7 @@ namespace rageam::graphics
 			CreateRasterizer();
 			CreateUnlitShader();
 			CreateConstantBuffer();
+			CreateBlendState();
 		}
 
 		void DrawLine(const rage::Vec3V& p1, const rage::Vec3V& p2, const rage::Mat44V& mtx, ColorU32 col1, ColorU32 col2)
@@ -311,8 +335,8 @@ namespace rageam::graphics
 			context->IAGetVertexBuffers(0, 1, &oldState.VertexBuffer, &oldState.VertexBufferStride, &oldState.VertexBufferOffset);
 
 			// Setup state
-			static float blendFactor[] = { 1, 1, 1, 1 };
-			context->OMSetBlendState(NULL, blendFactor, 0xffffffff);
+			static float blendFactor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+			context->OMSetBlendState(m_BlendState.Get(), blendFactor, 0xffffffff);
 			context->OMSetDepthStencilState(NULL, 0);
 			D3D11_VIEWPORT vp = {};
 			vp.Width = (float)m_Width;
