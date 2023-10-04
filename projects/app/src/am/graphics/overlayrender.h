@@ -12,6 +12,7 @@
 #include "am/system/datamgr.h"
 #include "am/system/ptr.h"
 #include "game/viewport.h"
+#include "rage/math/math.h"
 #include "render/engine.h"
 
 namespace rageam::graphics
