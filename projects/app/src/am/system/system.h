@@ -48,16 +48,11 @@ namespace rageam
 				rage::grcVertexDeclaration::CleanUpCache();
 			}
 
-			if (m_UseWindowRender)
-			{
-				WindowFactory::DestroyRenderWindow();
-			}
-
 			if (m_RenderEngine)
 				m_RenderEngine->SetRenderFunction(nullptr);
 
 			DestroyUIContext();
-	
+
 #ifdef AM_INTEGRATED
 			DestroyIntegrationContext();
 #endif
@@ -66,6 +61,11 @@ namespace rageam
 
 			m_RenderEngine.reset();
 			render::Engine::SetInstance(nullptr);
+
+			if (m_UseWindowRender)
+			{
+				WindowFactory::DestroyRenderWindow();
+			}
 
 			// This must be called after all hook-dependent things are released
 			// - render::Engine hooks game render thread
