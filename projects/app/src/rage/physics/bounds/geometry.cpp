@@ -1,8 +1,8 @@
 #include "geometry.h"
 
 #include "am/graphics/buffereditor.h"
+#include "am/graphics/shapetest.h"
 #include "am/integration/memory/address.h"
-#include "rage/physics/intersection.h"
 #include "rage/atl/string.h"
 #include "rage/math/math.h"
 #include "rage/math/mathv.h"
@@ -614,7 +614,7 @@ bool rage::phBoundGeometry::TryShrinkByMargin(float margin, float t, Vec3V* outS
 		auto intersectTest = [&](const Vec3V& v1, const Vec3V& v2, const Vec3V& v3)
 			{
 				float distance;
-				if (!RayIntersectsTriangle(segmentPos, segmentDir, v1, v2, v3, distance))
+				if (!rageam::graphics::ShapeTest::RayIntersectsTriangle(segmentPos, segmentDir, v1, v2, v3, distance))
 					return false;
 
 				return distance <= maxDistance;
