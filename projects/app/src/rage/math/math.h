@@ -12,6 +12,7 @@
 namespace rage
 {
 	static constexpr float PI = 3.14159265358979323846f;
+	static constexpr float PI2 = PI * 2.0f;
 
 	class Math
 	{
@@ -33,6 +34,15 @@ namespace rage
 			return value;
 		}
 
+		// Remaps given value from one range to another
+		static constexpr float Remap(float value, float fromMin, float fromMax, float toMin, float toMax)
+		{
+			float a = value - fromMin;
+			float b = a / (fromMax - fromMin);
+			float c = b * (toMax - toMin);
+			return toMin + c;
+		}
+
 		static constexpr float DegToRad(float deg)
 		{
 			return deg / 180.0f * PI;
@@ -42,6 +52,5 @@ namespace rage
 		{
 			return rad / PI * 180.0f;
 		}
-
 	};
 }
