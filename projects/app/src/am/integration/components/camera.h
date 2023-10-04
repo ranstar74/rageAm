@@ -15,6 +15,9 @@ namespace rageam::integration
 
 	public:
 
+		virtual const rage::Vec3V& GetFront() const = 0;
+		virtual const rage::Vec3V& GetRight() const = 0;
+		virtual const rage::Vec3V& GetUp() const = 0;
 		virtual const rage::Vec3V& GetPosition() const = 0;
 		virtual const rage::Vec3V& GetVelocity() = 0;
 		virtual const rage::Mat44V& GetMatrix() const = 0;
@@ -59,6 +62,9 @@ namespace rageam::integration
 
 		void SetActive(bool active) override;
 
+		const rage::Vec3V& GetFront() const override { return m_Front; }
+		const rage::Vec3V& GetRight() const override { return m_Right; }
+		const rage::Vec3V& GetUp() const override { return m_Up; }
 		const rage::Vec3V& GetPosition() const override;
 		const rage::Vec3V& GetVelocity() override;
 		const rage::Mat44V& GetMatrix() const override;

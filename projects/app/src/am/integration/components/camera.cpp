@@ -181,20 +181,20 @@ const rage::Vec3V& rageam::integration::CameraComponentBase::GetPosition() const
 
 void rageam::integration::CameraComponentBase::SetMatrix(const rage::Mat44V& mtx)
 {
-	m_Right = mtx.r[0];
-	m_Front = mtx.r[1];
-	m_Up = mtx.r[2];
-	m_Pos = mtx.r[3];
+	m_Right = mtx.Right;
+	m_Front = mtx.Front;
+	m_Up = mtx.Up;
+	m_Pos = mtx.Pos;
 }
 
 const rage::Mat44V& rageam::integration::CameraComponentBase::GetMatrix() const
 {
-	rage::Mat44V mtx;
-	mtx.r[0] = m_Right;
-	mtx.r[1] = m_Front;
-	mtx.r[2] = m_Up;
-	mtx.r[3] = m_Pos;
-	return mtx;
+	rage::Mat34V mtx;
+	mtx.Right = m_Right;
+	mtx.Front = m_Front;
+	mtx.Up = m_Up;
+	mtx.Pos = m_Pos;
+	return mtx.To44();
 }
 
 const rage::Vec3V& rageam::integration::CameraComponentBase::GetVelocity()
