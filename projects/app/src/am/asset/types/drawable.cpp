@@ -667,10 +667,17 @@ bool rageam::asset::DrawableAsset::CanBecameBone(const graphics::SceneNode* scen
 	if (IsCollisionNode(sceneNode))
 		return false;
 
+	if (sceneNode->HasLight())
+		return false;
+
 	if (sceneNode->HasSkin())
 		return true;
 
 	if (sceneNode->HasTransform())
+		return true;
+
+	// If any child node is a bone, this node becomes a bone too
+	if (sceneNode->HasTransformedChild())
 		return true;
 
 	if (m_DrawableTune.ForceGenerateSkeleton)
@@ -979,32 +986,57 @@ void rageam::asset::DrawableAsset::GeneratePaletteTexture()
 
 void rageam::asset::DrawableAsset::CreateLights() const
 {
-	CLightAttr& light = m_Drawable->m_Lights.Construct();;
-	light.FixupVft();
-	light.Type = 1; // Point
-	light.Position = { 0,0,3 };
-	light.ColorR = 255;
-	light.ColorG = 255;
-	light.ColorB = 255;
-	light.Direction = { 0, 0, -1 };
-	light.Tangent = { 1, 0, 0 };
-	light.Intensity = 75;
-	light.Flags = 65536;
-	light.TimeFlags = 16777215;
-	light.Fallof = 2.5;
-	light.FallofExponent = 32;
-	light.ConeInnerAngle = 8;
-	light.ConeOuterAngle = 50;
-	light.Extent = { 1, 1 ,1 };
-	light.CoronaZBias = 0.1;
-	light.ProjectedTexture = 0;
-	light.VolumeOuterColorR = 255;
-	light.VolumeOuterColorG = 255;
-	light.VolumeOuterColorB = 255;
-	light.VolumeOuterExponent = 1;
-	light.ShadowNearClip = 0.01;
-	light.CullingPlaneNormal = { 0, 0, -1 };
-	light.CullingPlaneOffset = 1;
+	for (u16 i = 0; i < m_Scene->GetNodeCount(); i++)
+	{
+		graphics::SceneNode* sceneNode = m_Scene->GetNode(i);
+		if (!sceneNode->HasLight())
+			continue;
+
+		graphics::SceneLight* sceneLight = sceneNode->GetLight();
+		graphics::ColorU32 sceneLightColor = sceneLight->GetColor();
+
+		CLightAttr& light = m_Drawable->m_Lights.Construct();;
+		light.FixupVft();
+		light.Type = LIGHT_POINT;
+		light.Position = rage::Vec3V(sceneNode->GetLocalTransform().Pos);
+		light.ColorR = sceneLightColor.R;
+		light.ColorG = sceneLightColor.G;
+		light.ColorB = sceneLightColor.B;
+		light.Direction = { 0, 0, -1 };
+		light.Tangent = { 1, 0, 0 };
+		light.Intensity = 75;
+		light.Flags = 65536;
+		light.TimeFlags = 16777215;
+		light.Falloff = 2.5;
+		light.FallofExponent = 32;
+		light.ConeInnerAngle = 8;
+		light.ConeOuterAngle = 50;
+		light.Extent = { 1, 1 ,1 };
+		light.CoronaZBias = 0.1;
+		light.ProjectedTexture = 0;
+		light.VolumeOuterColorR = 255;
+		light.VolumeOuterColorG = 255;
+		light.VolumeOuterColorB = 255;
+		light.VolumeOuterExponent = 1;
+		light.ShadowNearClip = 0.01;
+		light.CullingPlaneNormal = { 0, 0, -1 };
+		light.CullingPlaneOffset = 1;
+
+		light.BoneTag = 0;
+		// Locate first parent bone and link it with light
+		graphics::SceneNode* boneNode = sceneNode;
+		while (boneNode)
+		{
+			rage::crBoneData* bone = m_NodeToBone[boneNode->GetIndex()];
+			if (bone)
+			{
+				light.BoneTag = bone->GetBoneTag();
+				break;
+			}
+			boneNode = boneNode->GetParent();
+		}
+	}
+	AM_DEBUGF("DrawableAsset::CreateLights() -> Created %u lights.", m_Drawable->m_Lights.GetSize());
 }
 
 bool rageam::asset::DrawableAsset::TryCompileToGame()
@@ -1128,6 +1160,9 @@ void rageam::asset::DrawableAsset::Refresh()
 
 	m_Scene = graphics::SceneFactory::LoadFrom(modelPath);
 	m_ScenePath = modelPath;
+
+	if (!m_Scene) // Failed to load model file
+		return;
 
 	CreateMaterialTuneGroupFromScene();
 	InitializeEmbedDict();

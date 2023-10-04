@@ -305,6 +305,7 @@ namespace rageam::asset
 		void GeneratePaletteTexture();
 		file::WPath GetPaletteTexturePath() const { return m_EmbedDictPath / PALETTE_TEXTURE_NAME; }
 
+		// Creates light attributes from scene lights
 		void CreateLights() const;
 
 		bool TryCompileToGame();
