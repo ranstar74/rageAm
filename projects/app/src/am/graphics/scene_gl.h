@@ -100,10 +100,20 @@ namespace rageam::graphics
 		rage::atArray<amPtr<SceneGeometryGl>> m_Geometries;
 
 	public:
-		SceneMeshGl(Scene* scene, SceneNode* parent, cgltf_mesh* mesh, const cgltf_data* data);
+		SceneMeshGl(Scene* scene, SceneNode* parent, const cgltf_mesh* mesh, const cgltf_data* data);
 
 		u16 GetGeometriesCount() const override;
 		SceneGeometry* GetGeometry(u16 index) const override;
+	};
+
+	class SceneLightGl : public SceneLight
+	{
+		ColorU32 m_Color;
+
+	public:
+		SceneLightGl(Scene* scene, SceneNode* parent, const cgltf_light* light);
+
+		ColorU32 GetColor() override { return m_Color; }
 	};
 
 	class SceneNodeGl : public SceneNode
@@ -114,6 +124,7 @@ namespace rageam::graphics
 		cgltf_node* m_Node;
 		SceneNodeGl* m_Parent;
 		amUniquePtr<SceneMeshGl> m_Mesh;
+		amUniquePtr<SceneLightGl> m_Light;
 
 		// Copied from skin->inverse_bind_matrices, gl ones are unaligned and cause access violation
 		//rage::atArray<rage::Mat44V> m_InverseBindMatrices;
@@ -126,6 +137,7 @@ namespace rageam::graphics
 
 		ConstString GetName() const override { return m_Name; }
 		SceneMesh* GetMesh() const override { return m_Mesh.get(); }
+		SceneLight* GetLight() const override { return m_Light.get(); }
 
 		bool HasSkin() const override { return m_Node->skin != nullptr; }
 		u16 GetBoneCount() const override;

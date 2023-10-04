@@ -7,6 +7,7 @@
 //
 #pragma once
 
+#include "color.h"
 #include "vertexdeclaration.h"
 #include "am/system/ptr.h"
 #include "rage/atl/string.h"
@@ -136,6 +137,26 @@ namespace rageam::graphics
 	};
 
 	/**
+	 * \brief Represents a light (spot / directional etc) in the scene.
+	 */
+	class SceneLight
+	{
+		Scene* m_Scene;
+		SceneNode* m_Parent;
+
+	public:
+		SceneLight(Scene* scene, SceneNode* parent)
+		{
+			m_Scene = scene;
+			m_Parent = parent;
+		}
+
+		virtual ~SceneLight() = default;
+
+		virtual ColorU32 GetColor() = 0;
+	};
+
+	/**
 	 * \brief Represents single element (node) in scene. Node has name and optionally transform.
 	 */
 	class SceneNode : public SceneHandle
@@ -166,6 +187,9 @@ namespace rageam::graphics
 
 		virtual ConstString GetName() const = 0;
 		virtual SceneMesh* GetMesh() const = 0;
+		virtual SceneLight* GetLight() const = 0;
+
+		bool HasLight() const { return GetLight() != nullptr; }
 
 		virtual bool HasSkin() const = 0;
 		// Number of skinned bones (or joints)
@@ -197,6 +221,7 @@ namespace rageam::graphics
 		const rage::Mat44V& GetWorldTransform() const { return m_WorldMatrix; }
 
 		bool HasTransform() const { return HasTranslation() || HasRotation() || HasScale(); }
+		bool HasTransformedChild() const;
 
 		// Navigation
 

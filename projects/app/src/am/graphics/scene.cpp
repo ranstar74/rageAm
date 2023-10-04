@@ -23,14 +23,32 @@ void rageam::graphics::SceneNode::ComputeMatrices()
 {
 	m_LocalMatrix = rage::Mat44V::Transform(GetScale(), GetRotation(), GetTranslation());
 
-	DirectX::XMMATRIX world = GetLocalTransform();
+	rage::Mat44V world = GetLocalTransform();
 	SceneNode* parent = GetParent();
 	while (parent)
 	{
-		world = XMMatrixMultiply(parent->GetLocalTransform(), world);
+		world = parent->GetLocalTransform() * world;
 		parent = parent->GetParent();
 	}
 	m_WorldMatrix = rage::Mat44V(world);
+}
+
+bool rageam::graphics::SceneNode::HasTransformedChild() const
+{
+	SceneNode* child = GetFirstChild();
+	while (child)
+	{
+		if (child->HasTransform())
+			return true;
+
+		// Scan child tree
+		SceneNode* childChild = child->GetFirstChild();
+		if (childChild && childChild->HasTransformedChild())
+			return true;
+
+		child = child->GetNextSibling();
+	}
+	return false;
 }
 
 void rageam::graphics::Scene::FindSkinnedNodes()

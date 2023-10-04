@@ -244,7 +244,7 @@ bool rageam::graphics::SceneGeometryGl::GetAttribute(SceneData& data, VertexSema
 	return true;
 }
 
-rageam::graphics::SceneMeshGl::SceneMeshGl(Scene* scene, SceneNode* parent, cgltf_mesh* mesh, const cgltf_data* data) : SceneMesh(scene, parent)
+rageam::graphics::SceneMeshGl::SceneMeshGl(Scene* scene, SceneNode* parent, const cgltf_mesh* mesh, const cgltf_data* data) : SceneMesh(scene, parent)
 {
 	m_Geometries.Reserve(static_cast<u16>(mesh->primitives_count));
 	for (cgltf_size i = 0; i < mesh->primitives_count; i++)
@@ -266,6 +266,11 @@ rageam::graphics::SceneGeometry* rageam::graphics::SceneMeshGl::GetGeometry(u16 
 	return m_Geometries[index].get();
 }
 
+rageam::graphics::SceneLightGl::SceneLightGl(Scene* scene, SceneNode* parent, const cgltf_light* light) : SceneLight(scene, parent)
+{
+	m_Color = ColorU32::FromFloat3(light->color);
+}
+
 rageam::graphics::SceneNodeGl::SceneNodeGl(SceneGl* scene, u16 index, SceneNodeGl* parent, cgltf_node* glNode, const cgltf_data* glData)
 	: SceneNode(scene, parent, index)
 {
@@ -276,6 +281,9 @@ rageam::graphics::SceneNodeGl::SceneNodeGl(SceneGl* scene, u16 index, SceneNodeG
 
 	if (glNode->mesh)
 		m_Mesh = std::make_unique<SceneMeshGl>(scene, this, glNode->mesh, glData);
+
+	if(glNode->light)
+		m_Light = std::make_unique<SceneLightGl>(scene, this, glNode->light);
 
 	if (glNode->skin)
 	{
@@ -351,7 +359,7 @@ const rage::Mat44V& rageam::graphics::SceneNodeGl::GetWorldBoneTransform(u16 bon
 	//);
 
 
-	DirectX::XMMATRIX boneMatrix = GetBone(boneIndex)->GetLocalTransform();
+	rage::Mat44V boneMatrix = GetBone(boneIndex)->GetLocalTransform();
 	//	DirectX::XMMATRIX boneMatrix = GetBone(boneIndex)->GetWorldTransform();
 
 
@@ -373,7 +381,7 @@ const rage::Mat44V& rageam::graphics::SceneNodeGl::GetWorldBoneTransform(u16 bon
 
 		//return rage::Mat44V::Identity();
 
-	return rage::Mat44V(boneMatrix);
+	return boneMatrix;
 }
 
 const rage::spdAABB& rageam::graphics::SceneGeometryGl::GetAABB() const
