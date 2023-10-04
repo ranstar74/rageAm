@@ -149,7 +149,7 @@ namespace rageam::graphics
 
 		void DispatchPrimitive(rage::phBound* bound, const rage::Mat44V& mtx)
 		{
-			rage::grcDevice::SetWorldMtx(mtx);
+			rage::grcDevice::SetWorldMtx(*(rage::Mat34V*) & mtx);
 
 			switch (bound->GetShapeType())
 			{
@@ -160,8 +160,8 @@ namespace rageam::graphics
 				u16 numBounds = composite->GetNumBounds();
 				for (u16 i = 0; i < numBounds; i++)
 				{
-					rage::Mat44V boundMat(XMMatrixMultiply(composite->GetMatrix(i), mtx));
-					DispatchPrimitive(composite->GetBound(i).Get(), boundMat);
+					rage::Mat44V boundWorld = composite->GetMatrix(i) * mtx;
+					DispatchPrimitive(composite->GetBound(i).Get(), boundWorld);
 				}
 
 				break;
@@ -207,7 +207,7 @@ namespace rageam::graphics
 			// ImGui::Image(m_RenderTextureView.Get(), /*ImVec2(width, height)*/ ImVec2(128, 128));
 		}
 
-		void Render(rage::crSkeletonData* skel, const rage::Mat44V& mtx)
+		void Render(rage::crSkeletonData* skel, const rage::Mat34V& mtx)
 		{
 			if (!skel)
 				return;
@@ -231,7 +231,7 @@ namespace rageam::graphics
 			m_Shader->EndDraw();
 		}
 
-		void Render(const rage::spdAABB& bb, const rage::Mat44V& mtx, u32 col)
+		void Render(const rage::spdAABB& bb, const rage::Mat34V& mtx, u32 col)
 		{
 			//SetRT();
 			rage::grcDevice::SetWorldMtx(mtx);
@@ -263,7 +263,7 @@ namespace rageam::graphics
 			//UnsetRT();
 		}
 
-		void Render(rage::phBound* bound, const rage::Mat44V& mtx)
+		void Render(rage::phBound* bound, const rage::Mat34V& mtx)
 		{
 			if (!bound)
 				return;
@@ -277,7 +277,7 @@ namespace rageam::graphics
 			for (u16 i = 0; i < passCount; i++)
 			{
 				m_Shader->BeginPass(i);
-				DispatchPrimitive(bound, mtx);
+				DispatchPrimitive(bound, mtx.To44());
 				m_Shader->EndPass();
 			}
 			m_Shader->EndDraw();
