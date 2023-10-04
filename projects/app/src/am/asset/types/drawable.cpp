@@ -307,7 +307,7 @@ rageam::List<rageam::asset::DrawableAsset::SplittedGeometry> rageam::asset::Draw
 	u32 totalVertexCount = sceneGeometry->GetVertexCount();
 	u32 totalIndexCount = sceneGeometry->GetIndexCount();
 
-	AM_DEBUGF("DrawableAsset::ConvertSceneGeometry -> %u vertices; %u indices", totalVertexCount, totalIndexCount);
+	// AM_DEBUGF("DrawableAsset::ConvertSceneGeometry -> %u vertices; %u indices", totalVertexCount, totalIndexCount);
 
 	// Pack scene geometry attributes into single vertex buffer
 	graphics::VertexBufferEditor sceneVertexBuffer(decl);

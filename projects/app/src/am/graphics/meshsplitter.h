@@ -91,8 +91,9 @@ namespace rageam::graphics
 					amUniquePtr<u16>(chunkIndices.MoveBuffer()),
 					chunkVerticesCount, chunkIndexCount);
 				chunks.Emplace(std::move(chunk));
-				AM_DEBUGF("MeshSplitter::Split -> Packed chunk with %u vertices; %u indices; %u indices left",
-					chunkVerticesCount, chunkIndexCount, idxCount - totalIndex);
+
+				//AM_DEBUGF("MeshSplitter::Split -> Packed chunk with %u vertices; %u indices; %u indices left",
+				//	chunkVerticesCount, chunkIndexCount, idxCount - totalIndex);
 			}
 
 			return chunks;
