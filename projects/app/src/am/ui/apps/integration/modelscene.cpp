@@ -1,5 +1,8 @@
 #include "modelscene.h"
 
+#include "ImGuizmo.h"
+#include "am/graphics/shapetest.h"
+
 #ifdef AM_INTEGRATED
 
 #include "am/ui/font_icons/icons_am.h"
@@ -18,16 +21,21 @@ void rageam::ModelScene::CreateEntity(const rage::Vec3V& coors)
 	DeleteEntity();
 
 	m_EntityPos = coors;
-	m_Entity = SHV::OBJECT::CREATE_OBJECT_NO_OFFSET(
+	m_EntityHandle = SHV::OBJECT::CREATE_OBJECT_NO_OFFSET(
 		RAGEAM_HASH, m_EntityPos.X(), m_EntityPos.Y(), m_EntityPos.Z(), FALSE, TRUE, FALSE);
+
+	static auto getEntity = gmAddress::Scan("E8 ?? ?? ?? ?? 90 EB 4B").GetCall().ToFunc<u64(u32)>();
+	m_Entity = getEntity(m_EntityHandle);
 }
 
 void rageam::ModelScene::DeleteEntity()
 {
-	if (m_Entity == 0)
+	if (m_EntityHandle == 0)
 		return;
-	SHV::ENTITY::SET_ENTITY_AS_MISSION_ENTITY(m_Entity, FALSE, TRUE);
-	SHV::OBJECT::DELETE_OBJECT(&m_Entity);
+
+	SHV::ENTITY::SET_ENTITY_AS_MISSION_ENTITY(m_EntityHandle, FALSE, TRUE);
+	SHV::OBJECT::DELETE_OBJECT(&m_EntityHandle);
+	m_Entity = 0;
 }
 
 void rageam::ModelScene::LoadAndCompileDrawableAsync(ConstWString path)
@@ -243,7 +251,7 @@ void rageam::ModelScene::OnLateUpdate()
 
 		// Full entity unload takes more than one frame, we first delete
 		// entity and on the next frame we clean up the rest
-		if (m_Entity != 0) // First tick
+		if (m_EntityHandle != 0) // First tick
 		{
 			AM_DEBUGF("ModelScene -> Clean Up requested, removing entity...");
 			DeleteEntity();
@@ -280,12 +288,12 @@ void rageam::ModelScene::SetEntityPos(const rage::Vec3V& pos)
 	std::unique_lock lock(m_Mutex);
 	m_EntityPos = pos;
 
-	if (m_Entity != 0)
+	if (m_EntityHandle != 0)
 	{
 		scrInvoke([=]
 			{
 				SHV::ENTITY::SET_ENTITY_COORDS_NO_OFFSET(
-					m_Entity, pos.X(), pos.Y(), pos.Z(), FALSE, FALSE, TRUE);
+					m_EntityHandle, pos.X(), pos.Y(), pos.Z(), FALSE, FALSE, TRUE);
 			});
 	}
 }
@@ -309,6 +317,18 @@ bool rageam::ModelScene::IsLoading()
 	return m_LoadTask && !m_LoadTask->IsFinished();
 }
 
+bool rageam::ModelScene::IsEntitySpawned()
+{
+	std::unique_lock lock(m_Mutex);
+	return m_Entity != 0;
+}
+
+rage::Mat44V rageam::ModelScene::GetEntityMatrix() const
+{
+	rage::Mat34V mtx = *(rage::Mat34V*)(m_Entity + 0x60);
+	return mtx.To44();
+}
+
 rage::Vec3V rageam::ModelSceneApp::GetEntityScenePos() const
 {
 	return m_IsolatedSceneActive ? DEFAULT_ISOLATED_POS : DEFAULT_POS;
@@ -320,10 +340,13 @@ void rageam::ModelSceneApp::UpdateDrawableStats()
 	m_NumGeometries = 0;
 	m_VertexCount = 0;
 	m_TriCount = 0;
+	m_LightCount = 0;
 
 	gtaDrawable* drawable = m_ModelScene->GetDrawable();
 	if (!drawable)
 		return;
+
+	m_LightCount = drawable->m_Lights.GetSize();
 
 	rage::rmcLodGroup& lodGroup = drawable->GetLodGroup();
 	const rage::spdAABB& boundingBox = lodGroup.GetBoundingBox();
@@ -400,66 +423,14 @@ void rageam::ModelSceneApp::UpdateCamera()
 	}
 }
 
-void rageam::ModelSceneApp::DrawLightEditor(gtaDrawable* drawable) const
+void rageam::ModelSceneApp::DrawDrawableUi(gtaDrawable* drawable)
 {
-	static auto getEntity = gmAddress::Scan("E8 ?? ?? ?? ?? 90 EB 4B").GetCall().ToFunc<u64(u32)>();
-	u64 entity = getEntity(m_ModelScene->GetEntityHandle());
-	rage::Mat44V entityMtx = rage::Mat44V::Identity();;
-	if (entity)
-	{
-		entityMtx = *(rage::Mat44V*)(entity + 0x60); //3x4
-		entityMtx.r[0].m128_f32[3] = 0.0f;
-		entityMtx.r[1].m128_f32[3] = 0.0f;
-		entityMtx.r[2].m128_f32[3] = 0.0f;
-		entityMtx.r[3].m128_f32[3] = 1.0f;
-	}
-
-	CLightAttr& light = drawable->m_Lights[0];
-	rage::Mat44V lightWorld(XMMatrixMultiply(
-		DirectX::XMMatrixTranslation(light.Position.X, light.Position.Y, light.Position.Z),
-		entityMtx));
-	if (Im3D::GizmoTrans(lightWorld))
-	{
-		rage::Mat44V lightLocal(XMMatrixMultiply(
-			lightWorld,
-			XMMatrixInverse(nullptr, entityMtx)));
-		light.Position = *(rage::Vec3V*)&lightLocal.r[3];
-	}
-	Im3D::TextBgColored(*(rage::Vec3V*)&lightWorld.r[3], graphics::COLOR_ORANGE, "Point Light #%u", 0);
-
-	ImGui::Begin("Light Editor");
-
-	ImVec4 colorV4 = ImGui::ColorConvertU32ToFloat4(
-		IM_COL32(light.ColorR, light.ColorG, light.ColorB, 255));
-	if (ImGui::ColorPicker3("Color", (float*)&colorV4))
-	{
-		u32 colorU32 = ImGui::ColorConvertFloat4ToU32(colorV4);
-		light.ColorR = colorU32 >> IM_COL32_R_SHIFT & 0xFF;
-		light.ColorG = colorU32 >> IM_COL32_G_SHIFT & 0xFF;
-		light.ColorB = colorU32 >> IM_COL32_B_SHIFT & 0xFF;
-	}
-
-	ImGui::End();
-}
-
-void rageam::ModelSceneApp::DrawDrawableUi(gtaDrawable* drawable) const
-{
-	if (!drawable)
+	if (!(m_ModelScene->IsEntitySpawned() && drawable))
 		return;
 
-	DrawLightEditor(drawable);
+	rage::Mat44V entityMtx = m_ModelScene->GetEntityMatrix();
 
-	static auto getEntity = gmAddress::Scan("E8 ?? ?? ?? ?? 90 EB 4B").GetCall().ToFunc<u64(u32)>();
-	u64 entity = getEntity(m_ModelScene->GetEntityHandle());
-	rage::Mat44V entityMtx = rage::Mat44V::Identity();;
-	if (entity)
-	{
-		entityMtx = *(rage::Mat44V*)(entity + 0x60); //3x4
-		entityMtx.r[0].m128_f32[3] = 0.0f;
-		entityMtx.r[1].m128_f32[3] = 0.0f;
-		entityMtx.r[2].m128_f32[3] = 0.0f;
-		entityMtx.r[3].m128_f32[3] = 1.0f;
-	}
+	m_LightEditor.Render(drawable, entityMtx);
 
 	if (ImGui::CollapsingHeader("Render Options"))
 	{
@@ -481,6 +452,7 @@ void rageam::ModelSceneApp::DrawDrawableUi(gtaDrawable* drawable) const
 		ImGui::Text("Geometries: %u", m_NumGeometries);
 		ImGui::Text("Vertices: %u", m_VertexCount);
 		ImGui::Text("Triangles: %u", m_TriCount);
+		ImGui::Text("Lights: %u", m_LightCount);
 	}
 
 	//if (ImGui::CollapsingHeader("Skeleton", ImGuiTreeNodeFlags_DefaultOpen))
@@ -540,8 +512,9 @@ void rageam::ModelSceneApp::DrawDrawableUi(gtaDrawable* drawable) const
 
 						if (GRenderContext->DebugRender.bRenderSkeleton)
 						{
-							rage::Vec3V boneWorld = bone->GetTranslation().Transform(entityMtx);
-							Im3D::TextBg(boneWorld, "<%s; Tag: %u>", bone->GetName(), bone->GetBoneTag());
+							rage::Mat44V boneWorld = skeleton->GetBoneWorldTransform(bone) * entityMtx;
+							Im3D::CenterNext();
+							Im3D::TextBg(boneWorld.Pos, "<%s; Tag: %u>", bone->GetName(), bone->GetBoneTag());
 						}
 
 						ImGui::SameLine();
@@ -577,7 +550,7 @@ void rageam::ModelSceneApp::OnRender()
 		UpdateCamera();
 	}
 
-	if (SlGui::BeginToolWindow("Scene Toolbar"))
+	if (SlGui::BeginToolWindow(ICON_AM_STAR" CameraStar")) // Scene Toolbar
 	{
 		if (SlGui::ToggleButton(ICON_AM_CAMERA_GIZMO" Camera", m_CameraEnabled))
 			UpdateCamera();

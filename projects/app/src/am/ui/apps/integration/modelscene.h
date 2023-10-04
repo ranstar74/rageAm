@@ -1,4 +1,5 @@
 #pragma once
+#include "lighteditor.h"
 #ifdef AM_INTEGRATED
 
 #include "am/types.h"
@@ -31,7 +32,8 @@ namespace rageam
 		};
 
 		rage::Vec3V					m_EntityPos;
-		SHV::Object					m_Entity = 0;
+		u64							m_Entity = 0; // fwEntity*
+		SHV::Object					m_EntityHandle = 0;
 		rage::strLocalIndex			m_DrawableSlot = rage::INVALID_STR_INDEX;
 		ModelInfo					m_Archetype = nullptr;
 		ModelInfo					m_ArchetypeOld = nullptr;
@@ -44,7 +46,7 @@ namespace rageam
 		bool						m_CleanUpRequested = false;
 		rage::fiDirectoryWatcher	m_FileWatcher;
 		amPtr<BackgroundTask>		m_LoadTask;
-
+		
 		void CreateEntity(const rage::Vec3V& coors);
 		void DeleteEntity();
 		void LoadAndCompileDrawableAsync(ConstWString path);
@@ -68,10 +70,13 @@ namespace rageam
 
 		gtaDrawable* GetDrawable();
 		void SetDrawable(gtaDrawable* drawable);
-		u32 GetEntityHandle() const { return m_Entity; }
+		u32 GetEntityHandle() const { return m_EntityHandle; }
 
 		// Is drawable being currently loaded in background thread
 		bool IsLoading();
+
+		bool IsEntitySpawned();
+		rage::Mat44V GetEntityMatrix() const;
 
 		std::function<void()> LoadCallback;
 	};
@@ -85,25 +90,26 @@ namespace rageam
 		static inline const rage::Vec3V DEFAULT_POS = { -676, 167, 73.55f };
 		static constexpr u32 RAGEAM_HASH = Hash("RAGEAM_TESTBED_ARCHETYPE");
 
-		file::WPath			m_AssetPath; // User/Desktop/rageAm.idr
-		rage::Vector3		m_Dimensions;
-		u32					m_NumLods = 0;
-		u32					m_NumModels = 0;
-		u32					m_NumGeometries = 0;
-		u32					m_VertexCount = 0;
-		u32					m_TriCount = 0;
-		ModelSceneOwner		m_ModelScene;
-		CameraOwner			m_Camera;
-		bool				m_IsolatedSceneActive = false;
-		bool				m_CameraEnabled = false;
-		bool				m_UseOrbitCamera = true;
+		file::WPath					m_AssetPath; // User/Desktop/rageAm.idr
+		rage::Vector3				m_Dimensions;
+		u32							m_NumLods = 0;
+		u32							m_NumModels = 0;
+		u32							m_NumGeometries = 0;
+		u32							m_VertexCount = 0;
+		u32							m_TriCount = 0;
+		u32							m_LightCount = 0;
+		ModelSceneOwner				m_ModelScene;
+		CameraOwner					m_Camera;
+		bool						m_IsolatedSceneActive = false;
+		bool						m_CameraEnabled = false;
+		bool						m_UseOrbitCamera = true;
+		integration::LightEditor	m_LightEditor;
 
 		rage::Vec3V GetEntityScenePos() const;
 		void UpdateDrawableStats();
 		void ResetCameraPosition();
 		void UpdateCamera();
-		void DrawLightEditor(gtaDrawable* drawable) const;
-		void DrawDrawableUi(gtaDrawable* drawable) const;
+		void DrawDrawableUi(gtaDrawable* drawable);
 		void OnRender() override;
 
 	public:
