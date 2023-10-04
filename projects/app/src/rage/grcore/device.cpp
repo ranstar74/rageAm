@@ -80,7 +80,7 @@ void rage::grcDevice::DrawIndexedPrimitive(
 	fn(drawMode, vtxDeclaration, vtxBuffer, idxBuffer, idxCount);
 }
 
-void rage::grcDevice::SetWorldMtx(const Mat44V& mtx)
+void rage::grcDevice::SetWorldMtx(const Mat34V& mtx)
 {
 	static auto fn = gmAddress::Scan("E8 ?? ?? ?? ?? 40 B5 01 8B D3")
 		.GetCall()

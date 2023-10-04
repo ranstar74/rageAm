@@ -46,8 +46,8 @@ namespace rage
 
 		virtual void Delete();
 
-		virtual void Draw(const Mat44V& mtx, grcDrawBucketMask mask, eDrawableLod lod);
-		virtual void DrawSkinned(const Mat44V& mtx, u64 mtxSet, grcDrawBucketMask mask, eDrawableLod lod);
+		virtual void Draw(const Mat34V& mtx, grcDrawBucketMask mask, eDrawableLod lod);
+		virtual void DrawSkinned(const Mat34V& mtx, u64 mtxSet, grcDrawBucketMask mask, eDrawableLod lod);
 		virtual void DrawNoShaders() {}
 		virtual void DrawSkinnedNoShaders() {}
 		virtual void IsVisible34() {}

@@ -93,7 +93,7 @@ namespace rage
 			return *i & 0xFFFEFFFF;
 		}
 
-		void DrawSingle(const grmShaderGroup* shaderGroup, const Mat44V& mtx, grcDrawBucketMask mask, eDrawableLod lod) const
+		void DrawSingle(const grmShaderGroup* shaderGroup, const Mat34V& mtx, grcDrawBucketMask mask, eDrawableLod lod) const
 		{
 			//if (!mask.DoTest(m_LodBucketMasks[lod]))
 			//	return;

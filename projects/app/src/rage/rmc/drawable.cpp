@@ -97,12 +97,12 @@ void rage::rmcDrawable::Delete()
 	delete this;
 }
 
-void rage::rmcDrawable::Draw(const Mat44V& mtx, grcDrawBucketMask mask, eDrawableLod lod)
+void rage::rmcDrawable::Draw(const Mat34V& mtx, grcDrawBucketMask mask, eDrawableLod lod)
 {
 	m_LodGroup.DrawSingle(m_ShaderGroup.Get(), mtx, mask, lod);
 }
 
-void rage::rmcDrawable::DrawSkinned(const Mat44V& mtx, u64 mtxSet, grcDrawBucketMask mask, eDrawableLod lod)
+void rage::rmcDrawable::DrawSkinned(const Mat34V& mtx, u64 mtxSet, grcDrawBucketMask mask, eDrawableLod lod)
 {
 	struct grmMatrixSet
 	{
@@ -116,7 +116,7 @@ void rage::rmcDrawable::DrawSkinned(const Mat44V& mtx, u64 mtxSet, grcDrawBucket
 	grmMatrixSet* set = (grmMatrixSet*)mtxSet;
 
 	static auto rmcLodGroup_DrawMulti = gmAddress::Scan("48 8B C4 48 89 58 08 48 89 68 10 48 89 70 20 4C 89 40 18 57 41 54 41 55 41 56 41 57 48 83 EC 70 48")
-		.ToFunc<void(rmcLodGroup*, grmShaderGroup*, const Mat44V&, u64, grcDrawBucketMask, eDrawableLod)>();
+		.ToFunc<void(rmcLodGroup*, grmShaderGroup*, const Mat34V&, u64, grcDrawBucketMask, eDrawableLod)>();
 	rmcLodGroup_DrawMulti(&m_LodGroup, m_ShaderGroup.Get(), mtx, mtxSet, mask, lod);
 }
 
