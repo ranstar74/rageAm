@@ -4,6 +4,7 @@
 #include "common/logger.h"
 #include "font_icons/icons_awesome.h"
 #include "misc/freetype/imgui_freetype.h"
+#include "rage/math/vecv.h"
 #include "styled/slgui.h"
 #include "styled/slwidgets.h"
 
@@ -909,4 +910,9 @@ bool ImGui::BeginDragDropSource2(ImGuiDragDropFlags flags)
 		return true;
 	}
 	return false;
+}
+
+float ImGui::Distance(const ImVec2& a, const ImVec2& b)
+{
+	return rage::Vec3V(a.x, a.y).DistanceTo(rage::Vec3V(b.x, b.y)).Get();
 }

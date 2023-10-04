@@ -147,6 +147,8 @@ namespace ImGui
 
 	// Allows to use with buttons (original function breaks such functionality)
 	bool BeginDragDropSource2(ImGuiDragDropFlags flags);
+
+	float Distance(const ImVec2& a, const ImVec2& b);
 }
 
 namespace ImPlot
