@@ -1018,6 +1018,7 @@ void rageam::asset::DrawableAsset::CreateLights() const
 		light.VolumeOuterColorG = 255;
 		light.VolumeOuterColorB = 255;
 		light.VolumeOuterExponent = 1;
+		light.VolumeSizeScale = 1.0f;
 		light.ShadowNearClip = 0.01;
 		light.CullingPlaneNormal = { 0, 0, -1 };
 		light.CullingPlaneOffset = 1;
