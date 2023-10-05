@@ -12,12 +12,12 @@ u64 GetGameViewport()
 	return viewportGame_Addr + 0x10; // CViewportGame::m_Viewport -> rage::grcViewport
 }
 
-void CViewport::GetCamera(rage::Vec3V& front, rage::Vec3V& right, rage::Vec3V& up)
+void CViewport::GetCamera(rage::Vec3V* front, rage::Vec3V* right, rage::Vec3V* up)
 {
 	rage::Mat44V viewInverse = GetViewMatrix().Inverse();
-	front = viewInverse.R[2];
-	right = viewInverse.R[0];
-	up = viewInverse.R[1];
+	if(front) *front = viewInverse.R[2];
+	if(right) *right = viewInverse.R[0];
+	if(up) *up = viewInverse.R[1];
 }
 
 const rage::Mat44V& CViewport::GetViewMatrix()

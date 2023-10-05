@@ -12,7 +12,7 @@
 class CViewport
 {
 public:
-	static void GetCamera(rage::Vec3V& front, rage::Vec3V& right, rage::Vec3V& up);
+	static void GetCamera(rage::Vec3V* front, rage::Vec3V* right, rage::Vec3V* up);
 	static const rage::Mat44V& GetViewMatrix();
 	static const rage::Mat44V& GetViewProjectionMatrix();
 	static const rage::Mat44V& GetProjectionMatrix();
