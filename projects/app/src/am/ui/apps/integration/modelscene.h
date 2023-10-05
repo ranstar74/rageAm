@@ -35,6 +35,7 @@ namespace rageam
 		u64							m_Entity = 0; // fwEntity*
 		SHV::Object					m_EntityHandle = 0;
 		rage::strLocalIndex			m_DrawableSlot = rage::INVALID_STR_INDEX;
+		rage::strLocalIndex			m_DictSlot = rage::INVALID_STR_INDEX;
 		ModelInfo					m_Archetype = nullptr;
 		ModelInfo					m_ArchetypeOld = nullptr;
 		amUniquePtr<gtaDrawable>	m_Drawable;
@@ -46,7 +47,7 @@ namespace rageam
 		bool						m_CleanUpRequested = false;
 		rage::fiDirectoryWatcher	m_FileWatcher;
 		amPtr<BackgroundTask>		m_LoadTask;
-		
+
 		void CreateEntity(const rage::Vec3V& coors);
 		void DeleteEntity();
 		void LoadAndCompileDrawableAsync(ConstWString path);

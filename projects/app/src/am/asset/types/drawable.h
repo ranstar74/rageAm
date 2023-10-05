@@ -20,7 +20,7 @@ namespace rageam::asset
 {
 	// Version History:
 	// 0: Initial
-	
+
 	// TODO:
 	// Auto color-texture map generation for models that don't have texture
 	// but only single color, to make life easier
@@ -191,6 +191,18 @@ namespace rageam::asset
 
 		void Serialize(XmlHandle& node) const override;
 		void Deserialize(const XmlHandle& node) override;
+	};
+
+	/**
+	 * \brief Maps 3D scene data to compiled gta drawable.
+	 */
+	struct DrawableAssetMap
+	{
+		// TODO:
+		// Models		// SceneNode -> grmModel
+		// Bones		// SceneNode -> crBoneData
+		// Materials	// SceneMaterial -> grmShader
+		// Lights		// SceneLight -> CLightAttr
 	};
 
 	class DrawableAsset : public GameRscAsset<gtaDrawable>

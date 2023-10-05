@@ -294,7 +294,7 @@ namespace rageam::graphics
 		// is draw with col1 and second half is using col2
 		// This is mostly used on light sphere back side is culled / draw gray
 		// https://imgur.com/iQG2PMS
-		void DrawCricle(
+		void DrawCircle(
 			const rage::Vec3V& pos,
 			const rage::Vec3V& normal,
 			const rage::Vec3V& tangent,
@@ -330,9 +330,9 @@ namespace rageam::graphics
 		// Draws sphere using 3 axes
 		void DrawSphere(const rage::Mat44V& mtx, ColorU32 color, float radius)
 		{
-			DrawCricle(rage::S_ZERO, rage::VEC_FORWARD, rage::VEC_UP, radius, mtx, color, color);
-			DrawCricle(rage::S_ZERO, rage::VEC_RIGHT, rage::VEC_UP, radius, mtx, color, color);
-			DrawCricle(rage::S_ZERO, rage::VEC_UP, rage::VEC_FORWARD, radius, mtx, color, color);
+			DrawCircle(rage::S_ZERO, rage::VEC_FORWARD, rage::VEC_UP, radius, mtx, color, color);
+			DrawCircle(rage::S_ZERO, rage::VEC_RIGHT, rage::VEC_UP, radius, mtx, color, color);
+			DrawCircle(rage::S_ZERO, rage::VEC_UP, rage::VEC_FORWARD, radius, mtx, color, color);
 		}
 
 		void DrawCapsule() {}

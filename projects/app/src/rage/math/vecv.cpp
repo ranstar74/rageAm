@@ -134,6 +134,11 @@ rage::Vec3V rage::Vec3V::Rotate(const Vec3V& axis, float angle) const
 	return DirectX::XMVector3Rotate(M, DirectX::XMQuaternionRotationNormal(axis, angle));
 }
 
+rage::Vec3V rage::Vec3V::Rotate(const QuatV& rotation) const
+{
+	return DirectX::XMVector3Rotate(M, rotation.M);
+}
+
 bool rage::Vec3V::AlmostEqual(const Vec3V& other) const
 {
 	__m128 diff = DirectX::XMVectorSubtract(M, other.M);

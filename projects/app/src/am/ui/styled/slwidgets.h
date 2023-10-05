@@ -131,7 +131,7 @@ namespace SlGui
 
 	// Those are slightly edited standard ones
 
-	bool CollapsingHeader(const char* label, ImGuiTreeNodeFlags flags);
+	bool CollapsingHeader(const char* label, ImGuiTreeNodeFlags flags = 0);
 	bool TreeNodeBehavior(ImGuiID id, ImGuiTreeNodeFlags flags, const char* label, const char* label_end);
 	bool BeginCombo(const char* label, const char* preview_value, ImGuiComboFlags flags);
 	bool Combo(const char* label, int* current_item, bool (*items_getter)(void*, int, const char**), void* data, int items_count, int popup_max_height_in_items);

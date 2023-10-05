@@ -101,7 +101,7 @@ void rageam::ModelScene::RegisterArchetype()
 	modelDef.m_LodDist = drBs.GetRadius().Get() + 100.0f; // Temporary solution for large models
 	modelDef.m_PhysicsDictionary = RAGEAM_HASH;
 	modelDef.m_Flags = rage::ADF_STATIC | rage::ADF_BONE_ANIMS;
-	//modelDef.m_TextureDictionary = rage::joaat("adder");
+	modelDef.m_TextureDictionary = RAGEAM_HASH;
 
 	initArchetypeFromDef(modelInfo, 0, &modelDef, /*false*/ true);
 
@@ -146,6 +146,18 @@ void rageam::ModelScene::RegisterDrawable()
 	if (m_DrawableSlot == rage::INVALID_STR_INDEX)
 		drawableStore->AddSlot(m_DrawableSlot, RAGEAM_HASH);
 	drawableStore->Set(m_DrawableSlot, m_Drawable.get());
+
+	//rage::grcTextureDictionary* dict = m_Drawable->GetShaderGroup()->GetEmbedTextureDictionary();
+	//if (dict)
+	//{
+	//	rage::strStreamingModule* txdStore = hooks::Streaming::GetModule("ytd");
+	//	if (m_DictSlot == rage::INVALID_STR_INDEX)
+	//	{
+	//		txdStore->AddSlot(m_DictSlot, RAGEAM_HASH);
+	//		dict->AddRef();
+	//	}
+	//	txdStore->Set(m_DictSlot, m_Drawable->GetShaderGroup()->GetEmbedTextureDictionary());
+	//}
 }
 
 void rageam::ModelScene::UnregisterDrawable()
@@ -157,6 +169,15 @@ void rageam::ModelScene::UnregisterDrawable()
 		drawableStore->RemoveSlot(m_DrawableSlot);
 		m_DrawableSlot = rage::INVALID_STR_INDEX;
 	}
+
+	//rage::strStreamingModule* txdStore = hooks::Streaming::GetModule("ytd");
+	//if (m_DictSlot != rage::INVALID_STR_INDEX)
+	//{
+	//	m_Drawable->GetShaderGroup()->GetEmbedTextureDictionary()->Release();
+	//	txdStore->Set(m_DictSlot, nullptr);
+	//	txdStore->RemoveSlot(m_DictSlot);
+	//	m_DictSlot = rage::INVALID_STR_INDEX;
+	//}
 }
 
 void rageam::ModelScene::RequestReload()

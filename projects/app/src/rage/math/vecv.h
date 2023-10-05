@@ -12,6 +12,7 @@
 
 namespace rage
 {
+	struct QuatV;
 	struct Mat44V;
 	struct Vector3;
 	struct Vec3V;
@@ -151,6 +152,7 @@ namespace rage
 		Vec4V Transform4(const Mat44V& mtx) const;
 
 		Vec3V Rotate(const Vec3V& axis, float angle) const;
+		Vec3V Rotate(const QuatV& rotation) const;
 
 		// -- Arithmetic Operators --
 
