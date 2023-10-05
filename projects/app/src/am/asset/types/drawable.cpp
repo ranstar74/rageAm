@@ -997,20 +997,29 @@ void rageam::asset::DrawableAsset::CreateLights() const
 
 		CLightAttr& light = m_Drawable->m_Lights.Construct();;
 		light.FixupVft();
-		light.Type = LIGHT_POINT;
-		light.Position = rage::Vec3V(sceneNode->GetLocalTransform().Pos);
+
+		light.SetMatrix(sceneNode->GetLocalTransform());
+
+		switch (sceneLight->GetType())
+		{
+		case graphics::SceneLight_Point:	light.Type = LIGHT_POINT;	break;
+		case graphics::SceneLight_Spot:		light.Type = LIGHT_SPOT;	break;
+		}
+
+		light.Falloff = 2.5;
+		light.FallofExponent = 32;
+		if (light.Type == LIGHT_SPOT)
+			light.Falloff = 8.0f;
+
+		light.ConeOuterAngle = rage::Math::RadToDeg(sceneLight->GetOuterConeAngle());
+		light.ConeInnerAngle = rage::Math::RadToDeg(sceneLight->GetInnerConeAngle());
+
 		light.ColorR = sceneLightColor.R;
 		light.ColorG = sceneLightColor.G;
 		light.ColorB = sceneLightColor.B;
-		light.Direction = { 0, 0, -1 };
-		light.Tangent = { 1, 0, 0 };
 		light.Intensity = 75;
 		light.Flags = 65536;
 		light.TimeFlags = 16777215;
-		light.Falloff = 2.5;
-		light.FallofExponent = 32;
-		light.ConeInnerAngle = 8;
-		light.ConeOuterAngle = 50;
 		light.Extent = { 1, 1 ,1 };
 		light.CoronaZBias = 0.1;
 		light.ProjectedTexture = 0;

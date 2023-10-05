@@ -916,3 +916,9 @@ float ImGui::Distance(const ImVec2& a, const ImVec2& b)
 {
 	return rage::Vec3V(a.x, a.y).DistanceTo(rage::Vec3V(b.x, b.y)).Get();
 }
+
+bool ImGui::DragU8(const char* label, u8* value, u8 speed, u8 min, u8 max, ConstString format, ImGuiSliderFlags flags)
+{
+	float speedF = speed;
+	return DragScalar(label, ImGuiDataType_U8, value, speedF, &min, &max, format, flags);
+}

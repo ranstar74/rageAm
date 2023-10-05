@@ -109,11 +109,16 @@ namespace rageam::graphics
 	class SceneLightGl : public SceneLight
 	{
 		ColorU32 m_Color;
+		eSceneLightType m_Type;
+		const cgltf_light* m_LightGl;
 
 	public:
 		SceneLightGl(Scene* scene, SceneNode* parent, const cgltf_light* light);
 
 		ColorU32 GetColor() override { return m_Color; }
+		eSceneLightType GetType() override { return m_Type; }
+		float GetOuterConeAngle() override;
+		float GetInnerConeAngle() override;
 	};
 
 	class SceneNodeGl : public SceneNode

@@ -37,3 +37,4 @@
 #define ICON_AM_SKELETON U8("\xf91d")
 #define ICON_AM_SPOT_LIGHT U8("\xf91e")
 #define ICON_AM_STAR U8("\xf91f")
+#define ICON_AM_VISIBILITY U8("\xf920")

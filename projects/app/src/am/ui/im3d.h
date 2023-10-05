@@ -28,8 +28,11 @@ namespace Im3D
 	void TextBgV(const ImVec3V& pos, ConstString fmt, va_list args);
 	void TextBgColored(const ImVec3V& pos, u32 col, ConstString fmt, ...);
 
+	void SetGizmoUseWorld(bool world);
+	bool GetGizmoUseWorld();
+
 	bool GizmoTrans(ImMat44V& mtx);
-	bool Gizmo(const ImMat44V& mtx, ImMat44V& delta, ImGuizmo::OPERATION op = ImGuizmo::TRANSLATE);
+	bool Gizmo(ImMat44V& mtx, ImMat44V& delta, ImGuizmo::OPERATION op = ImGuizmo::TRANSLATE);
 	bool GizmoTrans(ImVec3V& translation);
 	bool GizmoTrans(ImVec3& translation);
 

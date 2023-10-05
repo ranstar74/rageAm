@@ -167,29 +167,31 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner(const 
 	return shapeHit;
 }
 
-rage::Mat44V rageam::integration::LightEditor::ComputeLightWorldMatrix(gtaDrawable* drawable, const rage::Mat44V& entityMtx, u16 lightIndex) const
+void rageam::integration::LightEditor::ComputeLightWorldMatrix(
+	gtaDrawable* drawable, const rage::Mat44V& entityMtx, u16 lightIndex,
+	rage::Mat44V& lightWorld, rage::Mat44V& lightBind) const
 {
 	CLightAttr* light = drawable->GetLight(lightIndex);
-	rage::crSkeletonData* skeleton = drawable->GetSkeletonData();
 
+	// Create orientation matrix
+	rage::Mat44V lightLocal = light->GetMatrix();
+
+	lightBind = rage::Mat44V::Identity();
 	// If there's no skeleton, light transform is defined by CLightAttr.Position * EntityMatrix
-	rage::Mat44V lightModel;
-	/*rage::Vec3V lightUp = light->Direction;
-	rage::Vec3V lightFront = lightUp.Cross(rage::VEC_RIGHT);
-	lightModel.Up = lightUp.Cross(lightUp);
-	lightModel.Front = lightFront;
-	lightModel.Right = lightFront.Cross(lightUp);*/
-	lightModel.Pos = rage::Vec3V(light->Position);
+	rage::crSkeletonData* skeleton = drawable->GetSkeletonData();
 	if (skeleton)
 	{
 		// Parent light to bone
 		rage::crBoneData* bone = skeleton->GetBoneFromTag(light->BoneTag);
 		rage::Mat44V lightBoneMtx = skeleton->GetBoneWorldTransform(bone);
-		lightModel *= lightBoneMtx;
+		lightBind *= lightBoneMtx;
 	}
 
+	lightBind *= entityMtx;
 	// Transform to light world space
-	return lightModel * entityMtx;
+	lightWorld = lightLocal * lightBind;
+	// Inverse bind matrix after we used it to transform local light to world
+	lightBind = lightBind.Inverse();
 }
 
 void rageam::integration::LightEditor::RenderLightUI(CLightAttr* light) const
@@ -220,7 +222,30 @@ void rageam::integration::LightEditor::RenderLightUI(CLightAttr* light) const
 		}
 
 		ImGui::DragFloat("Falloff", &light->Falloff, 0.1f, 0, 25, "%.1f");
-		ImGui::DragFloat("Falloff Exponent", &light->FallofExponent, 1.0f, 0, 500, "%.1f");
+		ImGui::DragFloat("Falloff Exponent", &light->FallofExponent, 1.0f, 0, 500, "%.2f", ImGuiSliderFlags_Logarithmic);
+
+		// ImGui::DragU8("Flashiness", &light->Flashiness, 1, 0, 255);
+
+		struct Flashiness
+		{
+			float TimeOn, TimeOff, FadeInTime, FadeOutTime;
+		};
+
+		// TODO: Better blink picker. Can we simulate blinking pattern in UI itself for preview?
+		ImGui::Text("Flashiness (blinking)");
+		ImGui::DragU8("###FLASHINESS", &light->Flashiness, 1, 0, 20);
+		bool noInc = light->Flashiness == 20;
+		bool noSub = light->Flashiness == 0;
+		ImGui::SameLine();
+		ImGui::BeginDisabled(noSub);
+		if (ImGui::Button("<")) light->Flashiness--;
+		ImGui::EndDisabled();
+		ImGui::BeginDisabled(noInc);
+		ImGui::SameLine();
+		if (ImGui::Button(">")) light->Flashiness++;
+		ImGui::EndDisabled();
+
+		ImGui::DragFloat("Intensity###LIGHT_INTENSITY", &light->Intensity, 1.0f, 0.0f, 1000, "%.1f");
 		if (light->Type == LIGHT_SPOT)
 		{
 			bool snapInnerAngle = rage::Math::AlmostEquals(light->ConeOuterAngle, light->ConeInnerAngle);
@@ -237,9 +262,12 @@ void rageam::integration::LightEditor::RenderLightUI(CLightAttr* light) const
 
 			if (SlGui::CollapsingHeader(ICON_AM_SPOT_LIGHT" Volume"))
 			{
+				ImGui::DragFloat("Intensity###VOLUME_INTENSITY", &light->VolumeIntensity, 0.005f, 0.0f, 1.0f, "%.3f");
+				ImGui::DragFloat("Size Scale", &light->VolumeSizeScale, 0.01f, 0.0f, 1.0f, "%.2f");
+
 				graphics::ColorU32 volumeColor(light->VolumeOuterColorR, light->VolumeOuterColorG, light->VolumeOuterColorB);
 				rage::Vector4 volumeColorF = volumeColor.ToVec4();
-				if (SlGui::CollapsingHeader(ICON_AM_PICKER" Color###VOLUME_COLOR"))
+				if (SlGui::CollapsingHeader(ICON_AM_PICKER" Outer Color###VOLUME_COLOR"))
 				{
 					if (ImGui::ColorPicker3("Outer Color", (float*)&volumeColorF))
 					{
@@ -249,20 +277,30 @@ void rageam::integration::LightEditor::RenderLightUI(CLightAttr* light) const
 						light->VolumeOuterColorB = volumeColor.B;
 					}
 				}
+				ImGui::DragFloat("Outer Exponent", &light->VolumeOuterExponent, 1.0f, 0, 500, "%.2f", ImGuiSliderFlags_Logarithmic);
+				ImGui::DragFloat("Outer Intensity", &light->VolumeOuterIntensity, 0.005f, 0.0f, 1.0f, "%.3f");
 
-				ImGui::DragFloat("Intensity", &light->VolumeIntensity, 0.005f, 0.0f, 1.0f, "%.3f");
-				ImGui::DragFloat("Size Scale", &light->VolumeSizeScale, 0.01f, 0.0f, 1.0f, "%.2f");
+				// Fade distance 0 - disabled, handle this with checkbox
+				bool fadeEnabled = light->VolumetricFadeDistance > 0;
+				if (ImGui::Checkbox("Fade", &fadeEnabled))
+				{
+					if (fadeEnabled)	light->VolumetricFadeDistance = 255;
+					else				light->VolumetricFadeDistance = 0;
+				}
+				if (fadeEnabled)
+				{
+					ImGui::DragU8("Fade Distance", &light->VolumetricFadeDistance, 1, 1, 255);
+				}
 			}
 		}
 	}
 	ImGui::End();
 }
 
-void rageam::integration::LightEditor::RenderLightTransformGizmo(CLightAttr* light, const rage::Mat44V& lightWorld) const
+void rageam::integration::LightEditor::RenderLightTransformGizmo(CLightAttr* light, const rage::Mat44V& lightWorld, const rage::Mat44V& lightBind) const
 {
 	if (m_GizmoMode != GIZMO_None)
 	{
-		rage::Mat44V delta;
 		ImGuizmo::OPERATION op;
 		switch (m_GizmoMode)
 		{
@@ -271,25 +309,12 @@ void rageam::integration::LightEditor::RenderLightTransformGizmo(CLightAttr* lig
 		default: break;
 		}
 
-		if (Im3D::Gizmo(lightWorld, delta, op))
+		rage::Mat44V editDelta;
+		rage::Mat44V editedLightWorld = lightWorld;
+		if (Im3D::Gizmo(editedLightWorld, editDelta, op))
 		{
-			// Accept gizmo delta
-			switch (m_GizmoMode)
-			{
-			case GIZMO_Translate:
-			{
-				light->Position += rage::Vec3V(delta.Pos);
-				break;
-			}
-			//case GIZMO_Rotate:
-			//{
-			//	rage::QuatV deltaRot;
-			//	delta.Decompose(0, 0, &deltaRot);
-			//	light->Direction = rage::Vec3V(light->Direction).Rotate(deltaRot);
-			//	break;
-			//}
-			default: break;
-			}
+			rage::Mat44V local = editedLightWorld * lightBind;
+			light->SetMatrix(local);
 		}
 	}
 }
@@ -334,19 +359,25 @@ void rageam::integration::LightEditor::Render(gtaDrawable* drawable, const rage:
 	CViewport::GetWorldMouseRay(drawContext.WorldMouseRay.Pos, drawContext.WorldMouseRay.Dir);
 
 	rage::Mat44V selectedLightWorld;
+	rage::Mat44V selectedLightBind;
 
 	auto hoveredLightDistance = rage::S_MAX;
 	s32 hoveredLightIndex = -1;
 	for (u16 i = 0; i < drawable->GetLightCount(); i++)
 	{
-		const auto light = drawable->GetLight(i);
-		const auto lightWorld = ComputeLightWorldMatrix(drawable, entityMtx, i);
+		CLightAttr* light = drawable->GetLight(i);
+		rage::Mat44V lightWorld;
+		rage::Mat44V lightBind;
+		ComputeLightWorldMatrix(drawable, entityMtx, i, lightWorld, lightBind);
 
 		bool isSelected = m_SelectedLight == i;
 		bool isHovered = m_HoveredLight == i;
 
 		if (isSelected)
+		{
 			selectedLightWorld = lightWorld;
+			selectedLightBind = lightBind;
+		}
 
 		drawContext.LightWorld = lightWorld;
 		drawContext.IsSelected = m_SelectedLight == i;
@@ -478,7 +509,7 @@ void rageam::integration::LightEditor::Render(gtaDrawable* drawable, const rage:
 	{
 		CLightAttr* light = drawable->GetLight(m_SelectedLight);
 
-		RenderLightTransformGizmo(light, selectedLightWorld);
+		RenderLightTransformGizmo(light, selectedLightWorld, selectedLightBind);
 		RenderLightUI(light);
 	}
 }

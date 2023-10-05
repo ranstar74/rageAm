@@ -136,6 +136,12 @@ namespace rageam::graphics
 		SceneNode* GetParentNode() const { return m_Parent; }
 	};
 
+	enum eSceneLightType
+	{
+		SceneLight_Point,
+		SceneLight_Spot,
+	};
+
 	/**
 	 * \brief Represents a light (spot / directional etc) in the scene.
 	 */
@@ -154,6 +160,12 @@ namespace rageam::graphics
 		virtual ~SceneLight() = default;
 
 		virtual ColorU32 GetColor() = 0;
+		virtual eSceneLightType GetType() = 0;
+
+		// -- Type: Spot --
+
+		virtual float GetOuterConeAngle() = 0;
+		virtual float GetInnerConeAngle() = 0;
 	};
 
 	/**

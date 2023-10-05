@@ -577,7 +577,7 @@ void rageam::ModelSceneApp::OnRender()
 		UpdateCamera();
 	}
 
-	if (SlGui::BeginToolWindow(ICON_AM_STAR" CameraStar")) // Scene Toolbar
+	if (SlGui::BeginToolWindow(ICON_AM_STAR" StarBar")) // Scene Toolbar / CameraStar
 	{
 		if (SlGui::ToggleButton(ICON_AM_CAMERA_GIZMO" Camera", m_CameraEnabled))
 			UpdateCamera();
@@ -634,6 +634,29 @@ void rageam::ModelSceneApp::OnRender()
 
 		if (!m_CameraEnabled) ImGui::EndDisabled();
 		ImGui::PopStyleVar(1); // DisabledAlpha
+
+		ImGui::Separator();
+		bool useWorld = Im3D::GetGizmoUseWorld();
+		if (SlGui::ToggleButton(ICON_AM_OBJECT" World", useWorld))
+			Im3D::SetGizmoUseWorld(useWorld);
+		ImGui::ToolTip("Show edit gizmos in world or local space.");
+		ImGui::Separator();
+
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1);
+		if (ImGui::BeginMenu(ICON_AM_VISIBILITY" Overlay"))
+		{
+			SlGui::Checkbox("Light Outlines", &m_LightEditor.ShowLightOutlines);
+			ImGui::SameLine();
+			SlGui::Checkbox("Only Selected", &m_LightEditor.ShowOnlySelectedLightOutline);
+			bool dummy;
+			SlGui::Checkbox("Drawable Bound Box", &dummy);
+			SlGui::Checkbox("Collision Mesh", &dummy);
+			SlGui::Checkbox("Skeleton Bones", &dummy);
+
+			ImGui::EndMenu();
+		}
+		ImGui::PopStyleVar(2); // WindowPadding, WindowBorderSize
 	}
 	SlGui::EndToolWindow();
 
@@ -694,9 +717,8 @@ void rageam::ModelSceneApp::OnRender()
 			int type = (int)(ImGui::GetTime() * 5) % 3;
 			ImGui::Text("Loading%s", type == 0 ? "." : type == 1 ? ".." : "...");
 		}
-
-		DrawDrawableUi(m_ModelScene->GetDrawable());
 	}
+	DrawDrawableUi(m_ModelScene->GetDrawable());
 	ImGui::End();
 }
 

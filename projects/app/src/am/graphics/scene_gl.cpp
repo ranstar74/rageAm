@@ -269,6 +269,30 @@ rageam::graphics::SceneGeometry* rageam::graphics::SceneMeshGl::GetGeometry(u16 
 rageam::graphics::SceneLightGl::SceneLightGl(Scene* scene, SceneNode* parent, const cgltf_light* light) : SceneLight(scene, parent)
 {
 	m_Color = ColorU32::FromFloat3(light->color);
+
+	switch (light->type)
+	{
+	case cgltf_light_type_spot:
+		m_Type = SceneLight_Spot;
+		break;
+
+	case cgltf_light_type_point:
+	default:
+		m_Type = SceneLight_Point;
+		break;
+	}
+
+	m_LightGl = light;
+}
+
+float rageam::graphics::SceneLightGl::GetOuterConeAngle()
+{
+	return m_LightGl->spot_outer_cone_angle;
+}
+
+float rageam::graphics::SceneLightGl::GetInnerConeAngle()
+{
+	return m_LightGl->spot_inner_cone_angle;
 }
 
 rageam::graphics::SceneNodeGl::SceneNodeGl(SceneGl* scene, u16 index, SceneNodeGl* parent, cgltf_node* glNode, const cgltf_data* glData)
@@ -282,7 +306,7 @@ rageam::graphics::SceneNodeGl::SceneNodeGl(SceneGl* scene, u16 index, SceneNodeG
 	if (glNode->mesh)
 		m_Mesh = std::make_unique<SceneMeshGl>(scene, this, glNode->mesh, glData);
 
-	if(glNode->light)
+	if (glNode->light)
 		m_Light = std::make_unique<SceneLightGl>(scene, this, glNode->light);
 
 	if (glNode->skin)

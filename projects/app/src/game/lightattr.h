@@ -3,6 +3,7 @@
 #include "am/integration/memory/address.h"
 #include "rage/math/vec.h"
 #include "am/system/asserts.h"
+#include "rage/math/mtxv.h"
 
 enum eLightType : u8
 {
@@ -79,6 +80,26 @@ struct CLightAttr
 		static gmAddress addr = gmAddress::Scan("E8 ?? ?? ?? ?? 0F B7 83 B8 00 00 00").GetCall();
 		addr.To<void(*)(CLightAttr*)>()(this);
 #endif
+	}
+
+	void SetMatrix(const rage::Mat44V& localMatrix)
+	{
+		Position = rage::Vec3V(localMatrix.Pos);
+		Direction = -rage::Vec3V(localMatrix.Up);
+		Tangent = rage::Vector3(localMatrix.Right);
+	}
+
+	rage::Mat44V GetMatrix() const
+	{
+		rage::Vec3V down = Direction;
+		rage::Vec3V right = Tangent;
+
+		rage::Mat34V local;
+		local.Up = -down;
+		local.Right = right;
+		local.Front = right.Cross(down);
+		local.Pos = Position;
+		return local.To44();
 	}
 };
 static_assert(sizeof(CLightAttr) == 0xA8);

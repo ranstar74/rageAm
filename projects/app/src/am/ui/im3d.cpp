@@ -11,6 +11,7 @@
 constexpr ImU32 bgColor = IM_COL32(0, 0, 0, 140);
 
 static inline bool s_CenterNext = false;
+static inline bool s_WorldGizmoMode = true;
 
 static auto GetDrawList()
 {
@@ -109,6 +110,16 @@ void Im3D::TextBgColored(const ImVec3V& pos, u32 col, ConstString fmt, ...)
 	va_end(args);
 }
 
+void Im3D::SetGizmoUseWorld(bool world)
+{
+	s_WorldGizmoMode = world;
+}
+
+bool Im3D::GetGizmoUseWorld()
+{
+	return s_WorldGizmoMode;
+}
+
 bool Im3D::GizmoTrans(ImMat44V& mtx)
 {
 	return Manipulate(
@@ -119,13 +130,13 @@ bool Im3D::GizmoTrans(ImMat44V& mtx)
 		GUIZMO_MTX(mtx));
 }
 
-bool Im3D::Gizmo(const ImMat44V& mtx, ImMat44V& delta, ImGuizmo::OPERATION op)
+bool Im3D::Gizmo(ImMat44V& mtx, ImMat44V& delta, ImGuizmo::OPERATION op)
 {
 	return Manipulate(
 		GUIZMO_MTX(CViewport::GetViewMatrix()),
 		GUIZMO_MTX(CViewport::GetProjectionMatrix()),
 		op,
-		ImGuizmo::WORLD,
+		s_WorldGizmoMode ? ImGuizmo::WORLD : ImGuizmo::LOCAL,
 		GUIZMO_MTX(mtx),
 		GUIZMO_MTX(delta));
 }

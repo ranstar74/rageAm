@@ -151,6 +151,8 @@ namespace ImGui
 	float Distance(const ImVec2& a, const ImVec2& b);
 
 	inline bool IsAnyWindowHovered() { return GImGui->HoveredWindow != nullptr; }
+
+	bool DragU8(const char* label, u8* value, u8 speed, u8 min, u8 max, ConstString format = "%u", ImGuiSliderFlags flags = 0);
 }
 
 namespace ImPlot
@@ -170,7 +172,7 @@ namespace ImPlot
 		{
 			if (Data.size() < MaxSize)
 				Data.push_back(ImVec2(x, y));
-			else 
+			else
 			{
 				Data[Offset] = ImVec2(x, y);
 				Offset = (Offset + 1) % MaxSize;
@@ -178,7 +180,7 @@ namespace ImPlot
 		}
 		void Erase()
 		{
-			if (Data.size() > 0) 
+			if (Data.size() > 0)
 			{
 				Data.shrink(0);
 				Offset = 0;

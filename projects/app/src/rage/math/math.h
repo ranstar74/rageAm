@@ -25,7 +25,8 @@ namespace rage
 		template<typename T>
 		static const T& Min(const T& left, const T& right) { return left <= right ? left : right; }
 
-		static constexpr float Clamp(float value, float min, float max)
+		template<typename T>
+		static constexpr float Clamp(T value, T min, T max)
 		{
 			if (value < min)
 				return min;
