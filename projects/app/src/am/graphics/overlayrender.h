@@ -55,6 +55,7 @@ namespace rageam::graphics
 		std::recursive_mutex				m_Mutex;
 		u32									m_Width = 0;
 		u32									m_Height = 0;
+		rage::Mat44V						m_CurrentMatrix = rage::Mat44V::Identity();
 
 		void CreateConstantBuffer()
 		{
@@ -215,12 +216,6 @@ namespace rageam::graphics
 
 		// Those are non-thread safe functions, exposed interface that calls them must use mutex
 
-		void DrawLine_Unsafe(const rage::Vec3V& p1, const rage::Vec3V& p2, ColorU32 col1, ColorU32 col2)
-		{
-			m_LineBuffer[m_LineVertexCount++] = VertexUnlit(p1, col1.ToVec4());
-			m_LineBuffer[m_LineVertexCount++] = VertexUnlit(p2, col2.ToVec4());
-		}
-
 		void DrawLine_Unsafe(const rage::Vec3V& p1, const rage::Vec3V& p2, const rage::Mat44V& mtx, ColorU32 col1, ColorU32 col2)
 		{
 			rage::Vec3V pt1 = p1.Transform(mtx);
@@ -247,6 +242,17 @@ namespace rageam::graphics
 			CreateBlendState();
 		}
 
+		// Used on draw functions that have no matrix argument
+		void SetCurrentMatrix(const rage::Mat44V& mtx)
+		{
+			m_CurrentMatrix = mtx;
+		}
+
+		void ResetCurrentMatrix()
+		{
+			m_CurrentMatrix = rage::Mat44V::Identity();
+		}
+
 		void DrawLine(const rage::Vec3V& p1, const rage::Vec3V& p2, const rage::Mat44V& mtx, ColorU32 col1, ColorU32 col2)
 		{
 			std::unique_lock lock(m_Mutex);
@@ -261,12 +267,12 @@ namespace rageam::graphics
 		void DrawLine(const rage::Vec3V& p1, const rage::Vec3V& p2, ColorU32 col1, ColorU32 col2)
 		{
 			std::unique_lock lock(m_Mutex);
-			DrawLine_Unsafe(p1, p2, col1, col2);
+			DrawLine_Unsafe(p1, p2, m_CurrentMatrix, col1, col2);
 		}
 
 		void DrawLine(const rage::Vec3V& p1, const rage::Vec3V& p2, ColorU32 col)
 		{
-			DrawLine(p1, p2, col, col);
+			DrawLine(p1, p2, m_CurrentMatrix, col, col);
 		}
 
 		void DrawAABB(const rage::spdAABB& bb, const rage::Mat44V& mtx, ColorU32 col)
@@ -327,12 +333,40 @@ namespace rageam::graphics
 			}
 		}
 
+		void DrawCircle(
+			const rage::Vec3V& pos,
+			const rage::Vec3V& normal,
+			const rage::Vec3V& tangent,
+			const rage::ScalarV& radius,
+			const ColorU32 col1,
+			const ColorU32 col2)
+		{
+			DrawCircle(pos, normal, tangent, radius, m_CurrentMatrix, col1, col2);
+		}
+
+		void DrawCircle(
+			const rage::Vec3V& pos,
+			const rage::Vec3V& normal,
+			const rage::Vec3V& tangent,
+			const rage::ScalarV& radius,
+			const ColorU32 col)
+		{
+			DrawCircle(pos, normal, tangent, radius, m_CurrentMatrix, col, col);
+		}
+
 		// Draws sphere using 3 axes
 		void DrawSphere(const rage::Mat44V& mtx, ColorU32 color, float radius)
 		{
 			DrawCircle(rage::S_ZERO, rage::VEC_FORWARD, rage::VEC_UP, radius, mtx, color, color);
 			DrawCircle(rage::S_ZERO, rage::VEC_RIGHT, rage::VEC_UP, radius, mtx, color, color);
 			DrawCircle(rage::S_ZERO, rage::VEC_UP, rage::VEC_FORWARD, radius, mtx, color, color);
+		}
+
+		void DrawSphere(ColorU32 color, float radius)
+		{
+			DrawCircle(rage::S_ZERO, rage::VEC_FORWARD, rage::VEC_UP, radius, m_CurrentMatrix, color, color);
+			DrawCircle(rage::S_ZERO, rage::VEC_RIGHT, rage::VEC_UP, radius, m_CurrentMatrix, color, color);
+			DrawCircle(rage::S_ZERO, rage::VEC_UP, rage::VEC_FORWARD, radius, m_CurrentMatrix, color, color);
 		}
 
 		void DrawCapsule() {}
