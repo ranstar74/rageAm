@@ -6,269 +6,196 @@
 #include "am/ui/font_icons/icons_am.h"
 #include "am/ui/styled/slwidgets.h"
 
-void rageam::integration::LightEditor::Render(gtaDrawable* drawable, const rage::Mat44V& entityMtx)
+u32 rageam::integration::LightEditor::GetOutlinerColor(bool isSelected, bool isHovered, bool isPrimary) const
 {
-	static bool s_EditingFallof = false;
+	graphics::ColorU32 col = isPrimary ? graphics::COLOR_YELLOW : graphics::ColorU32(0, 160, 255);
+	if (!isSelected) col.A -= 50;
+	if (!isHovered) col.A -= 50;
+	return col;
+}
 
-	u16 lightCount = drawable->GetLightCount();
+rageam::graphics::ShapeHit rageam::integration::LightEditor::ProbeLightSphere(const LightDrawContext& ctx) const
+{
+	graphics::ShapeHit shapeHit;
+	shapeHit.DidHit = graphics::ShapeTest::RayIntersectsSphere(
+		ctx.WorldMouseRay.Pos, ctx.WorldMouseRay.Dir, ctx.LightWorld.Pos, ctx.Light->Falloff, &shapeHit.Distance);
+	return shapeHit;
+}
 
-	m_LightWorldMatrices.Clear();
-	m_LightWorldMatrices.Resize(lightCount);
+rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner_Point(const LightDrawContext& ctx) const
+{
+	// 3 Axis sphere
+	GRenderContext->OverlayRender.DrawSphere(ctx.PrimaryColor, ctx.Light->Falloff);
 
-	// Compute light matrices
-	for (u16 i = 0; i < lightCount; i++)
-	{
-		CLightAttr* light = drawable->GetLight(i);
-		rage::crSkeletonData* skeleton = drawable->GetSkeletonData();
+	// Outer ring for falloff drag resizing, aligned to camera
+	GRenderContext->OverlayRender.DrawCircle(
+		rage::VEC_ORIGIN, ctx.CamFront, ctx.CamRight, ctx.Light->Falloff, ctx.SecondaryColor);
 
-		// If there's no skeleton, light transform is defined by CLightAttr.Position * EntityMatrix
-		rage::Mat44V lightModel;
-		/*rage::Vec3V lightUp = light->Direction;
-		rage::Vec3V lightFront = lightUp.Cross(rage::VEC_RIGHT);
-		lightModel.Up = lightUp.Cross(lightUp);
-		lightModel.Front = lightFront;
-		lightModel.Right = lightFront.Cross(lightUp);*/
-		lightModel.Pos = rage::Vec3V(light->Position);
-		if (skeleton)
+	return ProbeLightSphere(ctx);
+}
+
+rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner_Spot(const LightDrawContext& ctx) const
+{
+	// Hit Test:
+	// Spot light outline is a little bit complex, first do cheap bounding sphere test
+	graphics::ShapeHit shapeHit = ProbeLightSphere(ctx);
+	bool anyHit = false; // Fact of hitting bounding sphere doesn't guarantee that we're going to hit any other test
+
+	// Advanced outline hit test:
+	// Outline is composed of 3 parts - base cone triangle, a circle defining top of half sphere and half sphere arc
+	// All parts are shown on this diagram: https://i.imgur.com/43qoAg2.png ( note that this is side view but not orthographic )
+	auto testTriangle = [&](const rage::Vec3V& v1, const rage::Vec3V& v2, const rage::Vec3V& v3)
 		{
-			// Parent light to bone
-			rage::crBoneData* bone = skeleton->GetBoneFromTag(light->BoneTag);
-			rage::Mat44V lightBoneMtx = skeleton->GetBoneWorldTransform(bone);
-			lightModel *= lightBoneMtx;
-		}
+			// Don't continue hit testing if previous test failed
+			if (!shapeHit.DidHit)
+				return;
 
-		// Transform to light world space
-		m_LightWorldMatrices[i] = lightModel * entityMtx;
+			// We got hit already, next can be skipped
+			if (anyHit)
+				return;
+
+			float hitDistance; // We just use distance from sphere bound instead
+			if (graphics::ShapeTest::RayIntersectsTriangle(
+				ctx.WorldMouseRay.Pos, ctx.WorldMouseRay.Dir, v1, v2, v3, hitDistance))
+			{
+				anyHit = true;
+			}
+		};
+
+	// Spot light shape is a little bit different from regular cone light in blender,
+	// the difference is that instead of straight bottom there's a half sphere (or arc if looking from side)
+	// Side view diagram available here: https://i.imgur.com/cBYN3gJ.png
+
+	// Maximum extent of light in light direction ( world down is aligned with light direction in light world matrix )
+	const rage::Vec3V coneLine = rage::VEC_DOWN * ctx.Light->Falloff;
+
+	// Outline must always face camera
+	rage::Vec3V frontNormal = ctx.CamRight.Cross(rage::VEC_UP);
+
+	// Rotates 2 lines with falloff length to -coneAngle and +coneAngle
+	auto getLeftRight = [&](float theta, rage::Vec3V& coneLeft, rage::Vec3V& coneRight)
+		{
+			coneLeft = coneLine.Rotate(frontNormal, -theta);
+			coneRight = coneLine.Rotate(frontNormal, theta);
+		};
+
+	// Outer & Inner edges
+	float outerAngle = rage::Math::DegToRad(ctx.Light->ConeOuterAngle);
+	float innerAngle = rage::Math::DegToRad(ctx.Light->ConeInnerAngle);
+	rage::Vec3V coneOuterLeft, coneOuterRight, coneInnerLeft, coneInnerRight;
+	getLeftRight(outerAngle, coneOuterLeft, coneOuterRight);
+	getLeftRight(innerAngle, coneInnerLeft, coneInnerRight);
+	GRenderContext->OverlayRender.DrawLine(rage::VEC_ORIGIN, coneOuterLeft, ctx.PrimaryColor);
+	GRenderContext->OverlayRender.DrawLine(rage::VEC_ORIGIN, coneOuterRight, ctx.PrimaryColor);
+	GRenderContext->OverlayRender.DrawLine(rage::VEC_ORIGIN, coneInnerLeft, ctx.SecondaryColor);
+	GRenderContext->OverlayRender.DrawLine(rage::VEC_ORIGIN, coneInnerRight, ctx.SecondaryColor);
+
+	// Test #1: Base cone triangle
+	rage::Vec3V coneOuterLeftWorld = coneOuterLeft.Transform(ctx.LightWorld);
+	rage::Vec3V coneOuterRightWorld = coneOuterRight.Transform(ctx.LightWorld);
+	// The first vertex is located at light position ( emitting position ), which is basically top of the cone
+	testTriangle(ctx.LightWorld.Pos, coneOuterLeftWorld, coneOuterRightWorld);
+
+	// Half sphere top circle
+	rage::Vec3V circleCenter = (coneOuterLeft + coneOuterRight) * rage::S_HALF;
+	rage::ScalarV circleRadius = circleCenter.DistanceTo(coneOuterLeft); // TODO: Is there better way to compute this?
+	GRenderContext->OverlayRender.DrawCircle(circleCenter, rage::VEC_UP, ctx.CamRight, circleRadius, ctx.PrimaryColor);
+
+	// Test #2: Top of half sphere
+	if (shapeHit.DidHit && !anyHit)
+	{
+		rage::Vec3V circleCenterWorld = circleCenter.Transform(ctx.LightWorld);
+		if (graphics::ShapeTest::RayIntersectsCircle(
+			ctx.WorldMouseRay.Pos, ctx.WorldMouseRay.Dir, circleCenterWorld, rage::VEC_UP, circleRadius))
+		{
+			anyHit = true;
+		}
 	}
 
-	// Picking light using cursor
-	s32 hoverLightIndex = -1;
-	if (!s_EditingFallof)
-	{
-		// Get world mouse ray for picking lights
-		rage::Vec3V mousePos, mouseDir;
-		CViewport::GetWorldMouseRay(mousePos, mouseDir);
-
-		// Find the closest hovered light to the camera
-		rage::ScalarV hoverLightDist = rage::S_MAX;
-		for (u16 i = 0; i < drawable->m_Lights.GetSize(); i++)
+	// Draw bottom arc for outer angle
+	auto drawArc = [&](const rage::Vec3V& normal)
 		{
-			CLightAttr& light = drawable->m_Lights[i];
-			const rage::Mat44V& lightWorld = m_LightWorldMatrices[i];
-
-			rage::ScalarV hitDistance;
-			bool didHit = false;
-
-			// Point light
-			if (graphics::ShapeTest::RayIntersectsSphere(mousePos, mouseDir, lightWorld.Pos, light.Falloff, &hitDistance))
-				didHit = true;
-
-			// New closest light found
-			if (didHit && hitDistance < hoverLightDist)
-			{
-				hoverLightDist = hitDistance.Get();
-				hoverLightIndex = i;
-			}
-		}
-
-		// Not hovering any ImGui window or gizmo
-		bool canSelectLight = GImGui->HoveredWindow == nullptr && !ImGuizmo::IsOver();
-		// Handle light selection using mouse
-		if (canSelectLight && ImGui::IsKeyPressed(ImGuiKey_MouseLeft, false))
-		{
-			m_SelectedLight = hoverLightIndex;
-
-			// Clicked outside any light, reset gizmo mode
-			if (hoverLightIndex == -1)
-				m_GizmoMode = GIZMO_None;
-		}
-	}
-
-	// Handle gizmo mode selection
-	if (m_SelectedLight != -1)
-	{
-		// TODO: Toggling will break switching between gizmos
-		if (ImGui::IsKeyPressed(ImGuiKey_G, false)) m_GizmoMode ^= GIZMO_Translate;
-		//// Rotation is only supported on spot light
-		//if (drawable->GetLight(m_SelectedLight)->Type == LIGHT_SPOT)
-		//	if (ImGui::IsKeyPressed(ImGuiKey_R, false)) m_GizmoMode ^= GIZMO_Rotate;
-	}
-
-	if (m_SelectedLight == -1)
-		s_EditingFallof = false;
-
-	rage::Vec3V camFront, camRight, camUp;
-	CViewport::GetCamera(camFront, camRight, camUp);
-
-	// Draw light gizmos
-	for (u16 i = 0; i < drawable->GetLightCount(); i++)
-	{
-		CLightAttr* light = drawable->GetLight(i);
-		const rage::Mat44V& lightWorld = m_LightWorldMatrices[i];
-
-		// Draw edit gizmos only for selected light
-		if (m_SelectedLight == i)
-		{
-			// We support falloff drag editing only for point light
-			if (light->Type == LIGHT_POINT)
-			{
-				// Try to start editing falloff
-				bool canStartFalloffEdit = false;
-				if (!s_EditingFallof)
-				{
-					// We compute radius of point light sphere in screen units & distance to sphere center from mouse cursor
-					// If its almost equal then we're hovering sphere edge
-					rage::Vec3V sphereEdge = lightWorld.Pos + camRight * light->Falloff;
-					ImVec2 screenSphereCenter;
-					ImVec2 screenSphereEdge;
-					if (Im3D::WorldToScreen(lightWorld.Pos, screenSphereCenter) &&
-						Im3D::WorldToScreen(sphereEdge, screenSphereEdge))
-					{
-						float screenSphereRadius = ImGui::Distance(screenSphereCenter, screenSphereEdge);
-						float distanceToSphere = ImGui::Distance(screenSphereCenter, ImGui::GetMousePos());
-
-						// Check if mouse cursor is on the edge of sphere
-						constexpr float edgeWidth = 5.0f;
-						float distanceFromEdge = abs(screenSphereRadius - distanceToSphere);
-						if (distanceFromEdge < edgeWidth)
-						{
-							canStartFalloffEdit = true;
-						}
-					}
-				}
-
-				// Update editing falloff
-				if (s_EditingFallof || canStartFalloffEdit)
-				{
-					ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-
-					rage::Vec3V dragDelta, startDragPos, dragPos;
-					rage::Vec3V spherePlaneNormal = camFront; // We are editing falloff on camera plane
-					bool isDragging;
-					bool dragFinished = Im3D::GizmoBehaviour(isDragging, lightWorld.Pos, spherePlaneNormal, dragDelta, startDragPos, dragPos);
-
-					// Compute new falloff radius
-					if (isDragging)
-					{
-						float fallofEditRadius = dragPos.DistanceTo(lightWorld.Pos).Get();
-						light->Falloff = fallofEditRadius;
-
-						Im3D::TextBg(dragPos + rage::VEC_UP * 0.25f, "%.02f", dragDelta.Length().Get());
-
-						// GRenderContext->OverlayRender.DrawLine(startDragPos, dragPos, graphics::ColorU32(140, 140, 140, 140));
-					}
-
-					if (dragFinished)
-					{
-						// TODO: ...
-					}
-
-					s_EditingFallof = isDragging;
-				}
-			}
-
-			// Move light position using regular gizmo
-			if (!s_EditingFallof && m_GizmoMode != GIZMO_None)
-			{
-				rage::Mat44V delta;
-				ImGuizmo::OPERATION op;
-				switch (m_GizmoMode)
-				{
-				case GIZMO_Translate:	op = ImGuizmo::TRANSLATE;	break;
-				case GIZMO_Rotate:		op = ImGuizmo::ROTATE;		break;
-				default: break;
-				}
-
-				if (Im3D::Gizmo(lightWorld, delta, op))
-				{
-					// Accept gizmo delta
-					switch (m_GizmoMode)
-					{
-					case GIZMO_Translate:
-					{
-						light->Position += rage::Vec3V(delta.Pos);
-						break;
-					}
-					//case GIZMO_Rotate:
-					//{
-					//	rage::QuatV deltaRot;
-					//	delta.Decompose(0, 0, &deltaRot);
-					//	light->Direction = rage::Vec3V(light->Direction).Rotate(deltaRot);
-					//	break;
-					//}
-					default: break;
-					}
-				}
-			}
-		}
-
-		bool highlightGizmo = i == hoverLightIndex || i == m_SelectedLight;
-		graphics::ColorU32 lightGizmoColor = highlightGizmo ? graphics::COLOR_YELLOW : graphics::COLOR_ORANGE;
-		graphics::ColorU32 lightGizmoSecondaryColor = highlightGizmo ? graphics::COLOR_YELLOW : graphics::COLOR_ORANGE;
-		lightGizmoColor.A = m_SelectedLight == i ? 210 : 145;
-		lightGizmoSecondaryColor.A = m_SelectedLight == i ? 180 : 125;
-
-		// Draw light shape gizmos
-		switch (light->Type)
-		{
-		case LIGHT_POINT:
-		{
-			GRenderContext->OverlayRender.DrawSphere(lightWorld, lightGizmoColor, light->Falloff);
-			// Outer ring
-			graphics::ColorU32 lightBorderColor = graphics::ColorU32(0, 157, 255);
-			GRenderContext->OverlayRender.DrawCircle(
-				lightWorld.Pos, camFront, camRight,
-				light->Falloff, rage::Mat44V::Identity(), lightBorderColor, lightBorderColor);
-			break;
-		}
-		case LIGHT_SPOT:
-		{
-			// Spot light is in fact half sphere
-			// Draw outer edges
-			float outRads = rage::Math::DegToRad(light->ConeOuterAngle);
-			rage::Vec3V rotationNormal = camRight.Cross(rage::VEC_UP);
-			const rage::Vec3V coneLine = rage::VEC_DOWN * light->Falloff;
-			rage::Vec3V coneLeft = coneLine.Rotate(rotationNormal, -outRads);
-			rage::Vec3V coneRight = coneLine.Rotate(rotationNormal, outRads);
-			GRenderContext->OverlayRender.DrawLine(rage::VEC_ORIGIN, coneLeft, lightWorld, lightGizmoColor);
-			GRenderContext->OverlayRender.DrawLine(rage::VEC_ORIGIN, coneRight, lightWorld, lightGizmoColor);
-			// Inner edges
-			rage::Vec3V coneInnerLeft = coneLine.Rotate(rotationNormal, rage::Math::DegToRad(-light->ConeInnerAngle));
-			rage::Vec3V coneInnerRight = coneLine.Rotate(rotationNormal, rage::Math::DegToRad(light->ConeInnerAngle));
-			GRenderContext->OverlayRender.DrawLine(rage::VEC_ORIGIN, coneInnerLeft, lightWorld, lightGizmoSecondaryColor);
-			GRenderContext->OverlayRender.DrawLine(rage::VEC_ORIGIN, coneInnerRight, lightWorld, lightGizmoSecondaryColor);
-			// Draw bottom arc
-			constexpr int stepCount = 16;
-			float step = outRads * 2 / stepCount;
+			constexpr int arcSegmentCount = 16;
+			float arcStep = outerAngle * 2 / arcSegmentCount;
 			rage::Vec3V prevSegmentPos;
-			for (int k = 0; k < stepCount + 1; k++)
+			rage::Vec3V prevSegmentPosWorld;
+			for (int i = 0; i < arcSegmentCount + 1; i++)
 			{
-				float theta = -outRads + static_cast<float>(k) * step;
-				rage::Vec3V segmentPos = coneLine.Rotate(rotationNormal, theta);
-				if (k != 0) GRenderContext->OverlayRender.DrawLine(prevSegmentPos, segmentPos, lightWorld, lightGizmoColor);
-				prevSegmentPos = segmentPos;
-			}
-			// Half sphere
-			rage::Vec3V circleCenter = (coneLeft + coneRight) * rage::S_HALF;
-			GRenderContext->OverlayRender.DrawCircle(
-				circleCenter, rage::VEC_UP, rage::VEC_RIGHT, circleCenter.DistanceTo(coneLeft), lightWorld, lightGizmoColor, lightGizmoColor);
-			break;
-		}
-		default: break;
-		}
+				// From -angle to +angle
+				float arcTheta = -outerAngle + static_cast<float>(i) * arcStep;
+				rage::Vec3V segmentPos = coneLine.Rotate(normal, arcTheta);
+				rage::Vec3V segmentPosWorld;
+				if (!anyHit) // There was hit already... skip
+					segmentPosWorld = segmentPos.Transform(ctx.LightWorld);
+				if (i != 0)
+				{
+					GRenderContext->OverlayRender.DrawLine(prevSegmentPos, segmentPos, ctx.PrimaryColor);
 
-		Im3D::CenterNext();
-		Im3D::TextBgColored(lightWorld.Pos, graphics::COLOR_YELLOW, "%s Light #%u", GetLightTypeName(light->Type), i);
+					// Test #3: Half sphere arc
+					testTriangle(prevSegmentPosWorld, segmentPosWorld, coneOuterLeftWorld);
+				}
+				prevSegmentPos = segmentPos;
+				prevSegmentPosWorld = segmentPosWorld;
+			}
+		};
+
+	// World aligned
+	//drawArc(rage::VEC_FORWARD);
+	//drawArc(rage::VEC_RIGHT);
+	drawArc(frontNormal);
+
+	if (!anyHit)
+		shapeHit.DidHit = false;
+
+	return shapeHit;
+}
+
+rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner(const LightDrawContext& ctx) const
+{
+	GRenderContext->OverlayRender.SetCurrentMatrix(ctx.LightWorld);
+
+	graphics::ShapeHit shapeHit = {};
+	switch (ctx.Light->Type)
+	{
+	case LIGHT_POINT:	shapeHit = DrawOutliner_Point(ctx); break;
+	case LIGHT_SPOT:	shapeHit = DrawOutliner_Spot(ctx); break;
+	default: break;
 	}
 
-	// Draw editor for selected light
-	if (m_SelectedLight == -1)
-		return;
+	GRenderContext->OverlayRender.ResetCurrentMatrix();
 
-	ImGui::Begin(ICON_AM_LIGHT" Light Editor");
+	return shapeHit;
+}
+
+rage::Mat44V rageam::integration::LightEditor::ComputeLightWorldMatrix(gtaDrawable* drawable, const rage::Mat44V& entityMtx, u16 lightIndex) const
+{
+	CLightAttr* light = drawable->GetLight(lightIndex);
+	rage::crSkeletonData* skeleton = drawable->GetSkeletonData();
+
+	// If there's no skeleton, light transform is defined by CLightAttr.Position * EntityMatrix
+	rage::Mat44V lightModel;
+	/*rage::Vec3V lightUp = light->Direction;
+	rage::Vec3V lightFront = lightUp.Cross(rage::VEC_RIGHT);
+	lightModel.Up = lightUp.Cross(lightUp);
+	lightModel.Front = lightFront;
+	lightModel.Right = lightFront.Cross(lightUp);*/
+	lightModel.Pos = rage::Vec3V(light->Position);
+	if (skeleton)
 	{
-		CLightAttr* light = drawable->GetLight(m_SelectedLight);
+		// Parent light to bone
+		rage::crBoneData* bone = skeleton->GetBoneFromTag(light->BoneTag);
+		rage::Mat44V lightBoneMtx = skeleton->GetBoneWorldTransform(bone);
+		lightModel *= lightBoneMtx;
+	}
 
+	// Transform to light world space
+	return lightModel * entityMtx;
+}
+
+void rageam::integration::LightEditor::RenderLightUI(CLightAttr* light) const
+{
+	if (ImGui::Begin(ICON_AM_LIGHT" Light Editor"))
+	{
 		ImGui::Text("Light #%i", m_SelectedLight);
 
 		// Type picker
@@ -323,10 +250,235 @@ void rageam::integration::LightEditor::Render(gtaDrawable* drawable, const rage:
 					}
 				}
 
-				ImGui::DragFloat("Intensity", &light->VolumeIntensity, 0.1f, 0.0f, 1.0f, "%.1f");
-				ImGui::DragFloat("Size Scale", &light->VolumeSizeScale, 0.1f, 0.0f, 1.0f, "%.1f");
+				ImGui::DragFloat("Intensity", &light->VolumeIntensity, 0.005f, 0.0f, 1.0f, "%.3f");
+				ImGui::DragFloat("Size Scale", &light->VolumeSizeScale, 0.01f, 0.0f, 1.0f, "%.2f");
 			}
 		}
 	}
 	ImGui::End();
+}
+
+void rageam::integration::LightEditor::RenderLightTransformGizmo(CLightAttr* light, const rage::Mat44V& lightWorld) const
+{
+	if (m_GizmoMode != GIZMO_None)
+	{
+		rage::Mat44V delta;
+		ImGuizmo::OPERATION op;
+		switch (m_GizmoMode)
+		{
+		case GIZMO_Translate:	op = ImGuizmo::TRANSLATE;	break;
+		case GIZMO_Rotate:		op = ImGuizmo::ROTATE;		break;
+		default: break;
+		}
+
+		if (Im3D::Gizmo(lightWorld, delta, op))
+		{
+			// Accept gizmo delta
+			switch (m_GizmoMode)
+			{
+			case GIZMO_Translate:
+			{
+				light->Position += rage::Vec3V(delta.Pos);
+				break;
+			}
+			//case GIZMO_Rotate:
+			//{
+			//	rage::QuatV deltaRot;
+			//	delta.Decompose(0, 0, &deltaRot);
+			//	light->Direction = rage::Vec3V(light->Direction).Rotate(deltaRot);
+			//	break;
+			//}
+			default: break;
+			}
+		}
+	}
+}
+
+void rageam::integration::LightEditor::SelectGizmoMode(gtaDrawable* drawable)
+{
+	if (m_SelectedLight == -1)
+		return;
+
+	// Handle gizmo mode toggling
+	// G - Translation
+	// R - Rotation
+	int newModeMask = 0;
+
+	if (ImGui::IsKeyPressed(ImGuiKey_G, false)) newModeMask = GIZMO_Translate;
+	// Rotation is only supported on spot light
+	if (drawable->GetLight(m_SelectedLight)->Type == LIGHT_SPOT)
+		if (ImGui::IsKeyPressed(ImGuiKey_R, false)) newModeMask = GIZMO_Rotate;
+
+	if (newModeMask != 0) // Some Mode was toggled
+	{
+		m_GizmoMode &= newModeMask; // Clear other modes
+		m_GizmoMode ^= newModeMask; // Toggle pressed mode
+	}
+}
+
+void rageam::integration::LightEditor::Render(gtaDrawable* drawable, const rage::Mat44V& entityMtx)
+{
+	u16 lightCount = drawable->GetLightCount();
+	if (lightCount == 0)
+		return;
+
+	SelectGizmoMode(drawable);
+
+	static bool s_EditingFallof = false;
+	if (m_SelectedLight == -1)
+		s_EditingFallof = false;
+
+	// Prepare context for drawing lights
+	LightDrawContext drawContext;
+	CViewport::GetCamera(&drawContext.CamFront, &drawContext.CamRight, &drawContext.CamUp);
+	CViewport::GetWorldMouseRay(drawContext.WorldMouseRay.Pos, drawContext.WorldMouseRay.Dir);
+
+	rage::Mat44V selectedLightWorld;
+
+	auto hoveredLightDistance = rage::S_MAX;
+	s32 hoveredLightIndex = -1;
+	for (u16 i = 0; i < drawable->GetLightCount(); i++)
+	{
+		const auto light = drawable->GetLight(i);
+		const auto lightWorld = ComputeLightWorldMatrix(drawable, entityMtx, i);
+
+		bool isSelected = m_SelectedLight == i;
+		bool isHovered = m_HoveredLight == i;
+
+		if (isSelected)
+			selectedLightWorld = lightWorld;
+
+		drawContext.LightWorld = lightWorld;
+		drawContext.IsSelected = m_SelectedLight == i;
+		drawContext.Light = light;
+		drawContext.PrimaryColor = GetOutlinerColor(isSelected, isHovered, true);
+		drawContext.SecondaryColor = GetOutlinerColor(isSelected, isHovered, false);
+		drawContext.CulledColor = graphics::ColorU32(140, 140, 140, 140);
+
+		//// Draw edit gizmos only for selected light
+		//if (isSelected)
+		//{
+		//	// We support falloff drag editing only for point light
+		//	if (light->Type == LIGHT_POINT)
+		//	{
+		//		// Try to start editing falloff
+		//		bool canStartFalloffEdit = false;
+		//		if (!s_EditingFallof)
+		//		{
+		//			// We compute radius of point light sphere in screen units & distance to sphere center from mouse cursor
+		//			// If its almost equal then we're hovering sphere edge
+		//			rage::Vec3V sphereEdge = lightWorld.Pos + camRight * light->Falloff;
+		//			ImVec2 screenSphereCenter;
+		//			ImVec2 screenSphereEdge;
+		//			if (Im3D::WorldToScreen(lightWorld.Pos, screenSphereCenter) &&
+		//				Im3D::WorldToScreen(sphereEdge, screenSphereEdge))
+		//			{
+		//				float screenSphereRadius = ImGui::Distance(screenSphereCenter, screenSphereEdge);
+		//				float distanceToSphere = ImGui::Distance(screenSphereCenter, ImGui::GetMousePos());
+
+		//				// Check if mouse cursor is on the edge of sphere
+		//				constexpr float edgeWidth = 5.0f;
+		//				float distanceFromEdge = abs(screenSphereRadius - distanceToSphere);
+		//				if (distanceFromEdge < edgeWidth)
+		//				{
+		//					canStartFalloffEdit = true;
+		//				}
+		//			}
+		//		}
+
+		//		// Update editing falloff
+		//		if (s_EditingFallof || canStartFalloffEdit)
+		//		{
+		//			ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+
+		//			rage::Vec3V dragDelta, startDragPos, dragPos;
+		//			rage::Vec3V spherePlaneNormal = camFront; // We are editing falloff on camera plane
+		//			bool isDragging;
+		//			bool dragFinished = Im3D::GizmoBehaviour(isDragging, lightWorld.Pos, spherePlaneNormal, dragDelta, startDragPos, dragPos);
+
+		//			// Compute new falloff radius
+		//			if (isDragging)
+		//			{
+		//				float fallofEditRadius = dragPos.DistanceTo(lightWorld.Pos).Get();
+		//				light->Falloff = fallofEditRadius;
+
+		//				Im3D::TextBg(dragPos + rage::VEC_UP * 0.25f, "%.02f", dragDelta.Length().Get());
+
+		//				// GRenderContext->OverlayRender.DrawLine(startDragPos, dragPos, graphics::ColorU32(140, 140, 140, 140));
+		//			}
+
+		//			if (dragFinished)
+		//			{
+		//				// TODO: ...
+		//			}
+
+		//			s_EditingFallof = isDragging;
+		//		}
+		//	}
+
+		//	// Move light position using regular gizmo
+		//	if (!s_EditingFallof && m_GizmoMode != GIZMO_None)
+		//	{
+		//		rage::Mat44V delta;
+		//		ImGuizmo::OPERATION op;
+		//		switch (m_GizmoMode)
+		//		{
+		//		case GIZMO_Translate:	op = ImGuizmo::TRANSLATE;	break;
+		//		case GIZMO_Rotate:		op = ImGuizmo::ROTATE;		break;
+		//		default: break;
+		//		}
+
+		//		if (Im3D::Gizmo(lightWorld, delta, op))
+		//		{
+		//			// Accept gizmo delta
+		//			switch (m_GizmoMode)
+		//			{
+		//			case GIZMO_Translate:
+		//			{
+		//				light->Position += rage::Vec3V(delta.Pos);
+		//				break;
+		//			}
+		//			//case GIZMO_Rotate:
+		//			//{
+		//			//	rage::QuatV deltaRot;
+		//			//	delta.Decompose(0, 0, &deltaRot);
+		//			//	light->Direction = rage::Vec3V(light->Direction).Rotate(deltaRot);
+		//			//	break;
+		//			//}
+		//			default: break;
+		//			}
+		//		}
+		//	}
+		//}
+		//
+
+		// Render light outlines and find the closest one to the camera
+		graphics::ShapeHit shapeHit = DrawOutliner(drawContext);
+		if (shapeHit.DidHit && shapeHit.Distance < hoveredLightDistance)
+		{
+			hoveredLightDistance = shapeHit.Distance;
+			hoveredLightIndex = i;
+		}
+
+		// Light name in 3D
+		// TODO: Use name from DrawableAssetMap
+		Im3D::CenterNext();
+		Im3D::TextBgColored(lightWorld.Pos, graphics::COLOR_YELLOW, "%s Light #%u", GetLightTypeName(light->Type), i);
+	}
+
+	m_HoveredLight = hoveredLightIndex;
+
+	// Select light if covered & left clicked
+	bool canSelectLights = !ImGuizmo::IsOver() && !ImGui::IsAnyWindowHovered();
+	if (canSelectLights && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+		m_SelectedLight = m_HoveredLight;
+
+	// Draw editor for selected light
+	if (m_SelectedLight != -1)
+	{
+		CLightAttr* light = drawable->GetLight(m_SelectedLight);
+
+		RenderLightTransformGizmo(light, selectedLightWorld);
+		RenderLightUI(light);
+	}
 }
