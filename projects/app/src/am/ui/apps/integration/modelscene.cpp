@@ -565,6 +565,12 @@ void rageam::ModelSceneApp::DrawDrawableUi(gtaDrawable* drawable)
 
 void rageam::ModelSceneApp::OnRender()
 {
+	// We don't want camera controls interference imgui
+	if (m_Camera)
+	{
+		m_Camera->DisableControls(GImGui->HoveredWindow != nullptr);
+	}
+
 	if (ImGui::IsKeyPressed(ImGuiKey_RightBracket))
 	{
 		m_CameraEnabled = !m_CameraEnabled;

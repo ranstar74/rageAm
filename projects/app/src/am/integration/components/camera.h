@@ -25,6 +25,8 @@ namespace rageam::integration
 		virtual void SetPosition(const rage::Vec3V& position) = 0;
 		virtual void LookAt(const rage::Vec3V& point) = 0;
 
+		virtual void DisableControls(bool) = 0;
+
 		virtual void SetActive(bool active);
 		bool IsActive() const { return sm_Active == this; }
 
@@ -44,6 +46,7 @@ namespace rageam::integration
 		int					m_CameraHandle = -1;
 		int					m_BlipHandle = 0;
 		pVoid				m_Camera = nullptr;
+		std::atomic_bool	m_DisableControls = false;
 
 		static void EnableCameraAsync(int camera);
 		static void DisableCameraAsync(int camera);
@@ -70,6 +73,8 @@ namespace rageam::integration
 		const rage::Mat44V& GetMatrix() const override;
 		void SetMatrix(const rage::Mat44V& mtx) override;
 		void LookAt(const rage::Vec3V& point) override;
+
+		void DisableControls(bool value) override { m_DisableControls = value; }
 	};
 
 	class FreeCamera : public CameraComponentBase

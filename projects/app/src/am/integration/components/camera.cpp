@@ -216,6 +216,9 @@ void rageam::integration::FreeCamera::OnEarlyUpdate()
 
 	CameraComponentBase::OnEarlyUpdate();
 
+	if (m_DisableControls)
+		return;
+
 	// Speed edit by zooming
 	rage::ScalarV scrollWheel = ImGui::GetKeyData(ImGuiKey_MouseWheelY)->AnalogValue;
 	if (!scrollWheel.AlmostEqual(rage::S_EPSION))
@@ -295,6 +298,9 @@ void rageam::integration::OrbitCamera::OnEarlyUpdate()
 		return;
 
 	CameraComponentBase::OnEarlyUpdate();
+
+	if (m_DisableControls)
+		return;
 
 	// Shifting / zooming distance must scale with distance from origin
 	rage::ScalarV panFactor = m_Radius * m_ShiftFactor;
