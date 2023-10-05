@@ -149,6 +149,8 @@ namespace ImGui
 	bool BeginDragDropSource2(ImGuiDragDropFlags flags);
 
 	float Distance(const ImVec2& a, const ImVec2& b);
+
+	inline bool IsAnyWindowHovered() { return GImGui->HoveredWindow != nullptr; }
 }
 
 namespace ImPlot
