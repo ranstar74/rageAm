@@ -140,3 +140,24 @@ bool rageam::graphics::ShapeTest::RayIntersectsPlane(
 	outPoint = rayPos + rayDir * hitDistance;
 	return true;
 }
+
+bool rageam::graphics::ShapeTest::RayIntersectsCircle(
+	const rage::Vec3V& rayPos, const rage::Vec3V& rayDir,
+	const rage::Vec3V& circlePos, const rage::Vec3V& circleNormal,
+	const rage::ScalarV& circleRadius,
+	rage::ScalarV* outDistance, rage::Vec3V* outPoint)
+{
+	rage::ScalarV distance;
+	if (!RayIntersectsPlane(rayPos, rayDir, circlePos, circleNormal, &distance))
+		return false;
+
+	rage::Vec3V point = rayPos + rayDir * distance;
+	rage::ScalarV radiusSq = circleRadius * circleRadius;
+	if (point.DistanceToSquared(circlePos) > radiusSq)
+		return false;
+
+	if (outDistance) *outDistance = distance;
+	if (outPoint) *outPoint = point;
+
+	return true;
+}

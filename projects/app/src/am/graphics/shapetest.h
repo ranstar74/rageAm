@@ -13,6 +13,12 @@
 
 namespace rageam::graphics
 {
+	struct ShapeHit
+	{
+		rage::ScalarV	Distance;
+		bool			DidHit;
+	};
+
 	class ShapeTest
 	{
 	public:
@@ -42,5 +48,11 @@ namespace rageam::graphics
 			const rage::Vec3V& rayPos, const rage::Vec3V& rayDir,
 			const rage::Vec3V& planePos, const rage::Vec3V& planeNormal,
 			rage::Vec3V& outPoint);
+
+		static bool RayIntersectsCircle(
+			const rage::Vec3V& rayPos, const rage::Vec3V& rayDir,
+			const rage::Vec3V& circlePos, const rage::Vec3V& circleNormal,
+			const rage::ScalarV& circleRadius,
+			rage::ScalarV* outDistance = nullptr, rage::Vec3V* outPoint = nullptr);
 	};
 }
