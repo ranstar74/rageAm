@@ -56,14 +56,14 @@ bool rageam::ui::Apps::UpdateAll()
 #endif
 
 	if (disabled) ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+#ifdef AM_STANDALONE
 
 	static ConstString ABOUT_POPUP_ID = "About##ABOUT_POPUP_ID";
 	bool openAbout = false;
 
 	// Dock space in integration mode will cover all game viewport, we don't want that
-#ifdef AM_STANDALONE
 	ImGui::BeginDockSpace(); // TODO: In integration mode this creates debug window...
-#endif
+
 	if (ImGui::BeginMenuBar())
 	{
 		static WindowManager* windowMgr = FindAppByType<WindowManager>();
@@ -124,6 +124,7 @@ bool rageam::ui::Apps::UpdateAll()
 
 		ImGui::EndPopup();
 	}
+#endif
 
 	// Update apps
 	{
