@@ -375,6 +375,14 @@ void rageam::integration::LightEditor::DrawLightUI(CLightAttr* light, const rage
 				if (ImGui::Button(">")) light->Flashiness++;
 				ImGui::EndDisabled();
 
+				if (light->Type == LIGHT_CAPSULE)
+				{
+					SlGui::CategoryText("Capsule");
+					ImGui::Indent();
+					ImGui::DragFloat("Length", &light->Extent.X, 0.1f, 0.0f, 25.0f, " %.1f");
+					ImGui::Unindent();
+				}
+
 				SlGui::CategoryText("Corona");
 				ImGui::Indent();
 				ImGui::DragFloat("Intensity###CORONA_INTENSITY", &light->CoronaIntensity, 0.05f, 0.0f, 100, "%.4f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
@@ -480,15 +488,6 @@ void rageam::integration::LightEditor::DrawLightUI(CLightAttr* light, const rage
 						ImGui::Unindent();
 					}
 
-					ImGui::EndTabItem();
-				}
-			}
-
-			if (light->Type == LIGHT_CAPSULE)
-			{
-				if (ImGui::BeginTabItem("Capsule"))
-				{
-					ImGui::DragFloat("Height / Length", &light->Extent.X, 0.1f, 0.0f, 25.0f, "%.1f");
 					ImGui::EndTabItem();
 				}
 			}
