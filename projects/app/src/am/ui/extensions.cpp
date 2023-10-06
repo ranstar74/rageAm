@@ -577,12 +577,9 @@ void ImGui::ToolTip(ConstString text)
 {
 	PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6, 6));
 
-	if (IsItemHovered(ImGuiHoveredFlags_DelayShort) && BeginTooltip())
+	if (IsItemHovered(ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_ForTooltip))
 	{
-		PushTextWrapPos(GetFontSize() * 35.0f);
-		TextUnformatted(text);
-		PopTextWrapPos();
-		EndTooltip();
+		SetTooltip(text);
 	}
 
 	PopStyleVar();

@@ -151,6 +151,7 @@ namespace ImGui
 	float Distance(const ImVec2& a, const ImVec2& b);
 
 	inline bool IsAnyWindowHovered() { return GImGui->HoveredWindow != nullptr; }
+	inline bool IsAnyPopUpOpen() { return IsPopupOpen("", ImGuiPopupFlags_AnyPopupId); }
 
 	bool DragU8(const char* label, u8* value, u8 speed, u8 min, u8 max, ConstString format = "%u", ImGuiSliderFlags flags = 0);
 }
