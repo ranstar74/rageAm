@@ -310,10 +310,11 @@ namespace rageam::graphics
 			const rage::ScalarV& radius,
 			const rage::Mat44V& mtx,
 			const ColorU32 col1,
-			const ColorU32 col2)
+			const ColorU32 col2,
+			float startAngle = 0.0f, float angle = rage::PI2)
 		{
 			static constexpr int NUM_SEGMENTS = 48;
-			static constexpr float SEGMENT_STEP = rage::PI2 / NUM_SEGMENTS;
+			float SEGMENT_STEP = angle / NUM_SEGMENTS;
 
 			// We need tangent and binormal for orientation of the circle
 			rage::Vec3V biNormal = normal.Cross(tangent);
@@ -321,7 +322,7 @@ namespace rageam::graphics
 			// We drawing + 1 more segment to connect last & first point
 			for (int i = 0; i < NUM_SEGMENTS + 1; i++)
 			{
-				float theta = SEGMENT_STEP * static_cast<float>(i);
+				float theta = startAngle + SEGMENT_STEP * static_cast<float>(i);
 				float cos = cosf(theta);
 				float sin = sinf(theta);
 
@@ -342,9 +343,10 @@ namespace rageam::graphics
 			const rage::Vec3V& tangent,
 			const rage::ScalarV& radius,
 			const ColorU32 col1,
-			const ColorU32 col2)
+			const ColorU32 col2,
+			float startAngle = 0.0f, float angle = rage::PI2)
 		{
-			DrawCircle(pos, normal, tangent, radius, m_CurrentMatrix, col1, col2);
+			DrawCircle(pos, normal, tangent, radius, m_CurrentMatrix, col1, col2, startAngle, angle);
 		}
 
 		void DrawCircle(
@@ -352,9 +354,10 @@ namespace rageam::graphics
 			const rage::Vec3V& normal,
 			const rage::Vec3V& tangent,
 			const rage::ScalarV& radius,
-			const ColorU32 col)
+			const ColorU32 col,
+			float startAngle = 0.0f, float angle = rage::PI2)
 		{
-			DrawCircle(pos, normal, tangent, radius, m_CurrentMatrix, col, col);
+			DrawCircle(pos, normal, tangent, radius, m_CurrentMatrix, col, col, startAngle, angle);
 		}
 
 		// Draws sphere using 3 axes
