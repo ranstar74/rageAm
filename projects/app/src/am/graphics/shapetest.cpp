@@ -161,3 +161,46 @@ bool rageam::graphics::ShapeTest::RayIntersectsCircle(
 
 	return true;
 }
+
+bool rageam::graphics::ShapeTest::RayIntersectsCapsule(
+	const rage::Vec3V& rayPos, const rage::Vec3V& rayDir,
+	const rage::Vec3V& extentFrom, const rage::Vec3V& extentTo, 
+	const rage::ScalarV& radius, 
+	rage::ScalarV* outDistance)
+{
+	if (outDistance) *outDistance = rage::S_ZERO;
+
+	rage::Vec3V ba = extentTo - extentFrom;
+	rage::Vec3V oa = rayPos - extentFrom;
+	rage::ScalarV baba = ba.Dot(ba);
+	rage::ScalarV bard = ba.Dot(rayDir);
+	rage::ScalarV baoa = ba.Dot(oa);
+	rage::ScalarV rdoa = rayDir.Dot(oa);
+	rage::ScalarV oaoa = oa.Dot(oa);
+	rage::ScalarV a = baba - bard * bard;
+	rage::ScalarV b = baba * rdoa - baoa * bard;
+	rage::ScalarV c = baba * oaoa - baoa * baoa - radius * radius * baba;
+	rage::ScalarV h = b * b - a * c;
+	if (h >= 0.0)
+	{
+		rage::ScalarV t = (-b - h.Sqrt()) / a;
+		rage::ScalarV y = baoa + t * bard;
+		// body
+		if (y > 0.0 && y < baba)
+		{
+			if (outDistance) *outDistance = t;
+			return true;
+		}
+		// caps
+		rage::Vec3V oc = (y <= 0.0) ? oa : rayPos - extentTo;
+		b = rayDir.Dot(oc);
+		c = oc.Dot(oc) - radius * radius;
+		h = b * b - c;
+		if (h > 0.0)
+		{
+			if (outDistance) *outDistance = -b - h.Sqrt();
+			return true;
+		}
+	}
+	return false;
+}

@@ -10,6 +10,7 @@
 #include "rage/math/vecv.h"
 
 // https://github.com/sharpdx/SharpDX/blob/master/Source/SharpDX.Mathematics/Collision.cs
+// https://iquilezles.org/articles/intersectors
 
 namespace rageam::graphics
 {
@@ -49,10 +50,17 @@ namespace rageam::graphics
 			const rage::Vec3V& planePos, const rage::Vec3V& planeNormal,
 			rage::Vec3V& outPoint);
 
+		// RayIntersectsDisk
 		static bool RayIntersectsCircle(
 			const rage::Vec3V& rayPos, const rage::Vec3V& rayDir,
 			const rage::Vec3V& circlePos, const rage::Vec3V& circleNormal,
 			const rage::ScalarV& circleRadius,
 			rage::ScalarV* outDistance = nullptr, rage::Vec3V* outPoint = nullptr);
+
+		static bool RayIntersectsCapsule(
+			const rage::Vec3V& rayPos, const rage::Vec3V& rayDir,
+			const rage::Vec3V& extentFrom, const rage::Vec3V& extentTo,
+			const rage::ScalarV& radius,
+			rage::ScalarV* outDistance = nullptr);
 	};
 }
