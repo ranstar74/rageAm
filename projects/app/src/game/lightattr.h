@@ -12,6 +12,22 @@ enum eLightType : u8
 	LIGHT_CAPSULE = 4,
 };
 
+enum eLightFlags : u32
+{
+	// https://github.com/alexguirre/Spotlight/blob/master/Source/Core/Memory/GameStructs.cs#L292
+
+	LF_NONE = 0,
+	LF_RENDER_UNDERGROUND = 1 << 3,							// Draw light in tunnels
+	LF_IGNORE_ARTIFICIAL_LIGHT_STATE = 1 << 4,				// Light will ignore SET_ARTIFICIAL_LIGHTS_STATE(FALSE) and keep rendering
+	LF_ENABLE_SHADOWS = 0x40 | 0x80 | 0x100 | 0x4000000,
+	LF_IGNORE_TIME = 1 << 9,								// Don't use light intensity based on game time (brighter at night, dimmer at day)
+	LF_ENABLE_VOLUME = 1 << 12,								// Force enable volume ignoring timecycle
+	LF_NO_REFLECTION = 1 << 13,								// Don't reflect light in surfaces (contribute specular)
+	LF_ENABLE_VOLUME_OUTER_COLOR = 1 << 19,
+	LF_IGNORE_GLASS = 1 << 23,								// Light won't affect glass
+	LF_DISABLE_LIGHT = 1 << 30,								// Only volume will be rendered
+};
+
 inline ConstString GetLightTypeName(eLightType type)
 {
 	switch (type)
