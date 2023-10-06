@@ -635,9 +635,12 @@ void rageam::ModelSceneApp::OnRender()
 		if (!m_CameraEnabled) ImGui::EndDisabled();
 		ImGui::PopStyleVar(1); // DisabledAlpha
 
+		// World / Local gizmo switch
 		ImGui::Separator();
 		bool useWorld = Im3D::GetGizmoUseWorld();
-		if (SlGui::ToggleButton(ICON_AM_OBJECT" World", useWorld))
+		ConstString worldStr = ICON_AM_WORLD" World";
+		ConstString localStr = ICON_AM_LOCAL" World";
+		if (SlGui::ToggleButton(useWorld ? worldStr : localStr, useWorld))
 			Im3D::SetGizmoUseWorld(useWorld);
 		ImGui::ToolTip("Show edit gizmos in world or local space.");
 		ImGui::Separator();
