@@ -15,9 +15,11 @@ u64 GetGameViewport()
 void CViewport::GetCamera(rage::Vec3V* front, rage::Vec3V* right, rage::Vec3V* up)
 {
 	rage::Mat44V viewInverse = GetViewMatrix().Inverse();
-	if(front) *front = viewInverse.R[2];
-	if(right) *right = viewInverse.R[0];
-	if(up) *up = viewInverse.R[1];
+	// Remember that view matrix reorders components in order to output projected screen coordinate
+	// Camera front is Z (depth), right is X and up is Y
+	if (front) *front = viewInverse.R[2];
+	if (right) *right = viewInverse.R[0];
+	if (up) *up = viewInverse.R[1];
 }
 
 const rage::Mat44V& CViewport::GetViewMatrix()
