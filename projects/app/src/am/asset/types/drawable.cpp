@@ -1006,34 +1006,39 @@ void rageam::asset::DrawableAsset::CreateLights() const
 		case graphics::SceneLight_Spot:		light.Type = LIGHT_SPOT;	break;
 		}
 
+		light.ColorR = sceneLightColor.R;
+		light.ColorG = sceneLightColor.G;
+		light.ColorB = sceneLightColor.B;
+
 		light.Falloff = 2.5;
 		light.FallofExponent = 32;
 		if (light.Type == LIGHT_SPOT)
-			light.Falloff = 8.0f;
+			light.Falloff = 8.0f; // Make light longer if spot light is chosen
 
 		light.ConeOuterAngle = rage::Math::RadToDeg(sceneLight->GetOuterConeAngle());
 		light.ConeInnerAngle = rage::Math::RadToDeg(sceneLight->GetInnerConeAngle());
 
-		light.ColorR = sceneLightColor.R;
-		light.ColorG = sceneLightColor.G;
-		light.ColorB = sceneLightColor.B;
+		light.Flags = LF_ENABLE_SHADOWS;
+
+		light.CoronaZBias = 0.1;
+		light.CoronaSize = 5.0f;
+
 		light.Intensity = 75;
-		light.Flags = 65536;
 		light.TimeFlags = 16777215;
 		light.Extent = { 1, 1 ,1 };
-		light.CoronaZBias = 0.1;
 		light.ProjectedTexture = 0;
+		light.ShadowNearClip = 0.01;
+		light.CullingPlaneNormal = { 0, 0, -1 };
+		light.CullingPlaneOffset = 1;
+
 		light.VolumeOuterColorR = 255;
 		light.VolumeOuterColorG = 255;
 		light.VolumeOuterColorB = 255;
 		light.VolumeOuterExponent = 1;
 		light.VolumeSizeScale = 1.0f;
-		light.ShadowNearClip = 0.01;
-		light.CullingPlaneNormal = { 0, 0, -1 };
-		light.CullingPlaneOffset = 1;
 
-		light.BoneTag = 0;
 		// Locate first parent bone and link it with light
+		light.BoneTag = 0;
 		graphics::SceneNode* boneNode = sceneNode;
 		while (boneNode)
 		{
