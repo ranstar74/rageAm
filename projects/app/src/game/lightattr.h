@@ -1,9 +1,22 @@
+//
+// File: lightattr.h
+//
+// Copyright (C) 2023 ranstar74. All rights violated.
+//
+// Part of "Rage Am" Research Project.
+//
 #pragma once
 
 #include "am/integration/memory/address.h"
 #include "rage/math/vec.h"
 #include "am/system/asserts.h"
 #include "rage/math/mtxv.h"
+
+// see CLightAttr::TimeFlags
+
+static constexpr u32 LIGHT_TIME_NIGHT_MASK = (1 << 12) - 1;
+static constexpr u32 LIGHT_TIME_DAY_MASK = ((1 << 24) - 1) ^ LIGHT_TIME_NIGHT_MASK;
+static constexpr u32 LIGHT_TIME_ALWAYS_MASK = LIGHT_TIME_NIGHT_MASK | LIGHT_TIME_DAY_MASK;
 
 enum eLightType : u8
 {
@@ -60,6 +73,9 @@ struct CLightAttr
 	u16				BoneTag;
 	eLightType		Type;
 	u8				GroupId;
+	// Flags for every hour in a day
+	// 1 << 0 - 00:00 to 01:00
+	// 1 << 23 - 23:00 - 00:00
 	u32				TimeFlags;
 	float			Falloff;
 	float			FallofExponent;

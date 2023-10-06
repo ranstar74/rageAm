@@ -228,9 +228,14 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner(const 
 
 bool rageam::integration::LightEditor::DrawPointLightFalloffGizmo(const LightDrawContext& ctx)
 {
+	bool canStartEdit =
+		!ImGuizmo::IsOver() &&
+		!ImGui::IsAnyWindowHovered() &&
+		!ImGui::IsAnyPopUpOpen();
+
 	bool canEdit = false;
 	// Try to start editing
-	if (!m_UsingPointFalloffGizmo)
+	if (!m_UsingPointFalloffGizmo && canStartEdit)
 	{
 		// We compute radius of point light sphere in screen units & distance to sphere center from mouse cursor
 		// If its almost equal then we're hovering sphere edge
@@ -377,10 +382,10 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 		ImGui::HelpMarker("In order to see current light, flag 'Ignore Artificial Light State' must be enabled.");
 
 		// Helper to edit fade distance (there are multiple ones for light, shadow, volume)
-		auto editFadeDistance = [&](u8& fadeDistance)
+		auto editFadeDistance = [&](ConstString name, u8& fadeDistance)
 			{
 				bool fadeEnabled = fadeDistance > 0;
-				if (ImGui::Checkbox("Fade", &fadeEnabled))
+				if (ImGui::Checkbox(name, &fadeEnabled))
 				{
 					if (fadeEnabled)	fadeDistance = 255;
 					else				fadeDistance = 0;
@@ -388,7 +393,7 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 				if (fadeEnabled)
 				{
 					ImGui::Indent();
-					ImGui::DragU8("Distance", &fadeDistance, 1, 1, 255);
+					ImGui::DragU8(ImGui::FormatTemp("Distance###%s", name), &fadeDistance, 1, 1, 255);
 					ImGui::Unindent();
 				}
 			};
@@ -409,53 +414,14 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 
 				ImGui::DragFloat("Falloff", &light->Falloff, 0.1f, 0, 25, "%.1f");
 				ImGui::DragFloat("Falloff Exponent", &light->FallofExponent, 1.0f, 0, 500, "%.2f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
-
 				ImGui::DragFloat("Intensity###LIGHT_INTENSITY", &light->Intensity, 1.0f, 0.0f, 1000, "%.1f");
-
-				// TODO: Better blink picker. Can we simulate blinking pattern in UI itself for preview?
-				ImGui::Text("Flashiness (blinking)");
-				ImGui::DragU8("###FLASHINESS", &light->Flashiness, 1, 0, 20);
-				bool noInc = light->Flashiness == 20;
-				bool noSub = light->Flashiness == 0;
-				ImGui::SameLine();
-				ImGui::BeginDisabled(noSub);
-				if (ImGui::Button("<")) light->Flashiness--;
-				ImGui::EndDisabled();
-				ImGui::BeginDisabled(noInc);
-				ImGui::SameLine();
-				if (ImGui::Button(">")) light->Flashiness++;
-				ImGui::EndDisabled();
-
-				SlGui::CategoryText("Cull Plane");
-				ImGui::CheckboxFlags("Enable", &light->Flags, LF_ENABLE_CULLING_PLANE);
-				ImGui::SameLine();
-				if (SlGui::ToggleButton("Edit Mode", m_EditingCullPlane))
-				{
-					// Froze selection while editing cull plane
-					if (m_EditingCullPlane)
-					{
-						m_SelectionWasFreezed = m_SelectionFreezed;
-						m_SelectionFreezed = true;
-						SetCullPlaneFromLight(ctx);
-					}
-					else
-					{
-						m_SelectionFreezed = m_SelectionWasFreezed;
-					}
-				}
-				ImGui::SameLine();
-				ImGui::HelpMarker("Cull (clip) plane allows to completely block light. Usually they are used to prevent light emitting through a wall.");
+				editFadeDistance("Fade", light->LightFadeDistance);
 
 				if (light->Type == LIGHT_CAPSULE)
 				{
-					SlGui::CategoryText("Capsule");
+					SlGui::CategoryText(ICON_AM_CAPSULE" Capsule");
 					ImGui::DragFloat("Length", &light->Extent.X, 0.1f, 0.0f, 25.0f, " %.1f");
 				}
-
-				SlGui::CategoryText("Corona");
-				ImGui::DragFloat("Intensity###CORONA_INTENSITY", &light->CoronaIntensity, 0.05f, 0.0f, 100, "%.4f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
-				ImGui::DragFloat("Size###CORONA_SIZE", &light->CoronaSize, 0.01, 0.0f, 10, "%.3f");
-				ImGui::DragFloat("ZBias###CORONA_ZBIAS", &light->CoronaZBias, 1.0f, 0.0f, 100, "%.1f");
 
 				ImGui::EndTabItem();
 			}
@@ -470,8 +436,6 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 
 				if (!s_ShowAllFlags)
 				{
-					ImGui::CheckboxFlags("Shadows", &light->Flags, LF_ENABLE_SHADOWS);
-
 					ImGui::CheckboxFlags("Disable Light", &light->Flags, LF_DISABLE_LIGHT);
 					ImGui::ToolTip("Only volume will be rendered");
 
@@ -503,11 +467,95 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 				ImGui::EndTabItem();
 			}
 
-			if (ImGui::BeginTabItem(ICON_AM_SHADOW" Shadows"))
+			if (ImGui::BeginTabItem("Misc"))
 			{
-				ImGui::DragU8("Blur", &light->ShadowBlur, 1, 0, 255);
-				editFadeDistance(light->ShadowFadeDistance);
-				ImGui::DragFloat("Near Clip", &light->ShadowNearClip, 0.1f, 0, 300, "%.1f");
+				// TODO: Better blink picker. Can we simulate blinking pattern in UI itself for preview?
+				ImGui::Text("Flashiness (blinking)");
+				ImGui::DragU8("###FLASHINESS", &light->Flashiness, 1, 0, 20);
+				bool noInc = light->Flashiness == 20;
+				bool noSub = light->Flashiness == 0;
+				ImGui::SameLine();
+				ImGui::BeginDisabled(noSub);
+				if (ImGui::Button("<")) light->Flashiness--;
+				ImGui::EndDisabled();
+				ImGui::BeginDisabled(noInc);
+				ImGui::SameLine();
+				if (ImGui::Button(">")) light->Flashiness++;
+				ImGui::EndDisabled();
+
+				editFadeDistance("Specular Fade", light->LightFadeDistance);
+
+				SlGui::CategoryText("Time Options - When light is on");
+				{
+					ImGui::CheckboxFlags("Always", &light->TimeFlags, LIGHT_TIME_ALWAYS_MASK);
+					ImGui::CheckboxFlags("Day (12:00 - 00:00)", &light->TimeFlags, LIGHT_TIME_DAY_MASK);
+					ImGui::CheckboxFlags("Night (00:00 - 12:00)", &light->TimeFlags, LIGHT_TIME_NIGHT_MASK);
+
+					if (SlGui::CollapsingHeader("Show All"))
+					{
+						ImGui::Indent();
+						if (ImGui::BeginTable("LIGHT_FLAGS_TABLE", 2, ImGuiTableFlags_BordersInnerV))
+						{
+							ImGui::TableSetupColumn("Night", ImGuiTableColumnFlags_WidthFixed);
+							ImGui::TableSetupColumn("Day", ImGuiTableColumnFlags_WidthFixed);
+
+							auto timeFlagsCheckBox = [&](int hour)
+								{
+									ConstString timeName = ImGui::FormatTemp("%02i:00 - %02i:00", hour, hour + 1);
+									ImGui::CheckboxFlags(timeName, &light->TimeFlags, 1 << hour);
+								};
+
+							for (int i = 0; i < 12; i++)
+							{
+								ImGui::TableNextRow();
+
+								ImGui::TableNextColumn();
+								timeFlagsCheckBox(i);		// Night
+								ImGui::TableNextColumn();
+								timeFlagsCheckBox(i + 12);	// Day
+							}
+
+							ImGui::EndTable();
+						}
+						ImGui::Unindent();
+					}
+				}
+
+				SlGui::CategoryText("Cull Plane");
+				ImGui::CheckboxFlags("Enable###ENABLE_CULL_PLANE", &light->Flags, LF_ENABLE_CULLING_PLANE);
+				ImGui::SameLine();
+				if (SlGui::ToggleButton("Edit Mode", m_EditingCullPlane))
+				{
+					// Froze selection while editing cull plane
+					if (m_EditingCullPlane)
+					{
+						m_SelectionWasFreezed = m_SelectionFreezed;
+						m_SelectionFreezed = true;
+						SetCullPlaneFromLight(ctx);
+					}
+					else
+					{
+						m_SelectionFreezed = m_SelectionWasFreezed;
+					}
+				}
+				ImGui::SameLine();
+				ImGui::HelpMarker("Cull (clip) plane allows to completely block light. Usually they are used to prevent light emitting through a wall.");
+
+				SlGui::CategoryText(ICON_AM_SHADOW" Shadows");
+				ImGui::CheckboxFlags("Enable###ENABLE_SHADOWS", &light->Flags, LF_ENABLE_SHADOWS);
+				bool shadowsEnabled = light->Flags & LF_ENABLE_SHADOWS;
+				if (!shadowsEnabled) ImGui::BeginDisabled();
+				{
+					ImGui::DragU8("Blur", &light->ShadowBlur, 1, 0, 255);
+					ImGui::DragFloat("Near Clip", &light->ShadowNearClip, 0.1f, 0, 300, "%.1f");
+					editFadeDistance("Fade", light->ShadowFadeDistance);
+				}
+				if (!shadowsEnabled) ImGui::EndDisabled();
+
+				SlGui::CategoryText(ICON_AM_CORONA" Corona");
+				ImGui::DragFloat("Intensity###CORONA_INTENSITY", &light->CoronaIntensity, 0.05f, 0.0f, 100, "%.4f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
+				ImGui::DragFloat("Size###CORONA_SIZE", &light->CoronaSize, 0.01, 0.0f, 10, "%.3f");
+				ImGui::DragFloat("ZBias###CORONA_ZBIAS", &light->CoronaZBias, 1.0f, 0.0f, 100, "%.1f");
 
 				ImGui::EndTabItem();
 			}
@@ -535,7 +583,7 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 					}
 					ImGui::DragFloat("Cone Inner Angle", &light->ConeInnerAngle, 1, SPOT_LIGHT_MIN_CONE_ANGLE, light->ConeOuterAngle, "%.1f");
 
-					editFadeDistance(light->VolumetricFadeDistance);
+					editFadeDistance("Fade", light->VolumetricFadeDistance);
 
 					ImGui::CheckboxFlags("Outer Color", &light->Flags, LF_ENABLE_VOLUME_OUTER_COLOR);
 					if (light->Flags & LF_ENABLE_VOLUME_OUTER_COLOR)
@@ -677,13 +725,13 @@ void rageam::integration::LightEditor::Render(gtaDrawable* drawable, const rage:
 
 	if (!m_SelectionFreezed)
 	{
-		// Select light if covered & left clicked
-		bool canSelectLights =
+		// Select light if hovered & left clicked
+		bool canUseGizmo =
 			!ImGuizmo::IsOver() &&
 			!ImGui::IsAnyWindowHovered() &&
 			!ImGui::IsAnyPopUpOpen();
 
-		if (canSelectLights && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+		if (canUseGizmo && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
 		{
 			m_SelectedLight = m_HoveredLight;
 

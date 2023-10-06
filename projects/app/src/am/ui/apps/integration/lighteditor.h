@@ -14,6 +14,10 @@
 namespace rageam::integration
 {
 	// TODO: Add color filling for light outlines so it's easier to see where light ends
+	// TODO: Bitmap hit detection
+	// TODO: Better widget for flashiness
+	// TODO: Culling plane is broken (mirrored) when normal not facing light
+	// TODO: We should add IsSphereVisible in viewport to quickly cull out outlines
 
 	enum eGimzoMode
 	{
@@ -65,8 +69,6 @@ namespace rageam::integration
 		// Tests if screen mouse cursor intersects with light bounding sphere
 		graphics::ShapeHit ProbeLightSphere(const LightDrawContext& ctx) const;
 
-		// TODO: We should add IsSphereVisible in viewport to quickly cull out outlines
-
 		graphics::ShapeHit DrawOutliner_Point(const LightDrawContext& ctx) const;
 		graphics::ShapeHit DrawOutliner_Spot(const LightDrawContext& ctx) const;
 		graphics::ShapeHit DrawOutliner_Capsule(const LightDrawContext& ctx) const;
@@ -78,7 +80,7 @@ namespace rageam::integration
 		// Light bind transforms world light position into local
 		void ComputeLightWorldMatrix(
 			gtaDrawable* drawable, const rage::Mat44V& entityMtx, u16 lightIndex,
-			rage::Mat44V& lightWorld, 
+			rage::Mat44V& lightWorld,
 			rage::Mat44V& lightBind,
 			rage::Mat44V& lightLocal,
 			rage::Mat44V& lightBoneWorld) const;

@@ -1024,7 +1024,7 @@ void rageam::asset::DrawableAsset::CreateLights() const
 		light.CoronaSize = 5.0f;
 
 		light.Intensity = 75;
-		light.TimeFlags = 16777215;
+		light.TimeFlags = LIGHT_TIME_ALWAYS_MASK;
 		light.Extent = { 1, 1 ,1 };
 		light.ProjectedTexture = 0;
 		light.ShadowNearClip = 0.01;
