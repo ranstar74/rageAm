@@ -18,6 +18,7 @@ namespace rageam::integration
 	// TODO: Better widget for flashiness
 	// TODO: Culling plane is broken (mirrored) when normal not facing light
 	// TODO: We should add IsSphereVisible in viewport to quickly cull out outlines
+	// TODO: Color filling for cull plane (different color on both sides)
 
 	enum eGimzoMode
 	{
@@ -54,7 +55,7 @@ namespace rageam::integration
 			rage::Mat44V	LightBind;
 			rage::Mat44V	LightLocal;
 			rage::Mat44V	LightBoneWorld;
-			CLightAttr*     Light;
+			CLightAttr* Light;
 			u16				LightIndex;
 			bool			IsSelected;
 			u32				PrimaryColor;

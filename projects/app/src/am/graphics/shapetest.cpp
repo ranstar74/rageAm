@@ -1,5 +1,24 @@
 #include "shapetest.h"
 
+void rageam::graphics::ShapeTest::ClosestPointOnPlane(
+	const rage::Vec3V& rayPos, const rage::Vec3V& rayDir,
+	const rage::Vec3V& planePos, const rage::Vec3V& planeNormal,
+	rage::ScalarV& outDistance)
+{
+	rage::ScalarV direction = planeNormal.Dot(rayDir);
+	if (direction.AlmostEqual(rage::S_ZERO))
+	{
+		outDistance = rage::S_ZERO;
+		return;
+	}
+
+	rage::ScalarV position = planeNormal.Dot(rayPos);
+	rage::ScalarV planeD = planeNormal.Dot(planePos);
+	rage::ScalarV distance = (planeD - position) / direction;
+
+	outDistance = distance;
+}
+
 bool rageam::graphics::ShapeTest::RayIntersectsSphere(
 	const rage::Vec3V& fromPos, const rage::Vec3V& dir,
 	const rage::Vec3V& spherePos, const rage::ScalarV& sphereRadius,
@@ -130,7 +149,7 @@ bool rageam::graphics::ShapeTest::RayIntersectsPlane(
 
 bool rageam::graphics::ShapeTest::RayIntersectsPlane(
 	const rage::Vec3V& rayPos, const rage::Vec3V& rayDir,
-	const rage::Vec3V& planePos, const rage::Vec3V& planeNormal, 
+	const rage::Vec3V& planePos, const rage::Vec3V& planeNormal,
 	rage::Vec3V& outPoint)
 {
 	rage::ScalarV hitDistance;
@@ -164,8 +183,8 @@ bool rageam::graphics::ShapeTest::RayIntersectsCircle(
 
 bool rageam::graphics::ShapeTest::RayIntersectsCapsule(
 	const rage::Vec3V& rayPos, const rage::Vec3V& rayDir,
-	const rage::Vec3V& extentFrom, const rage::Vec3V& extentTo, 
-	const rage::ScalarV& radius, 
+	const rage::Vec3V& extentFrom, const rage::Vec3V& extentTo,
+	const rage::ScalarV& radius,
 	rage::ScalarV* outDistance)
 {
 	if (outDistance) *outDistance = rage::S_ZERO;

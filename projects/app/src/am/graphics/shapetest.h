@@ -23,6 +23,11 @@ namespace rageam::graphics
 	class ShapeTest
 	{
 	public:
+		static void ClosestPointOnPlane(
+			const rage::Vec3V& rayPos, const rage::Vec3V& rayDir,
+			const rage::Vec3V& planePos, const rage::Vec3V& planeNormal,
+			rage::ScalarV& outDistance);
+
 		static bool RayIntersectsSphere(
 			const rage::Vec3V& fromPos, const rage::Vec3V& dir,
 			const rage::Vec3V& spherePos, const rage::ScalarV& sphereRadius,

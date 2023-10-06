@@ -9,9 +9,11 @@
 
 void rageam::integration::LightEditor::SetCullPlaneFromLight(const LightDrawContext& ctx)
 {
+	// See diagram: https://i.imgur.com/SyBQ591.png
 	rage::Vec3V planeNormal = ctx.Light->CullingPlaneNormal;
 	rage::ScalarV planeOffset = ctx.Light->CullingPlaneOffset;
-	rage::Vec3V planePos = -planeNormal * planeOffset;
+	rage::Vec3V cullingNormal = -planeNormal; // Everything behind the plane is culled
+	rage::Vec3V planePos = cullingNormal * planeOffset;
 	m_CullPlane = rage::Mat44V::FromNormalPos(planePos, planeNormal);
 }
 
@@ -286,22 +288,38 @@ bool rageam::integration::LightEditor::DrawPointLightFalloffGizmo(const LightDra
 
 void rageam::integration::LightEditor::DrawCullPlaneEditGizmo(const LightDrawContext& ctx)
 {
+	// See diagram: https://i.imgur.com/SyBQ591.png
+
 	rage::Vec4V lightPos(ctx.Light->Position, 0.0f);
 
 	rage::Mat44V delta;
 	rage::Mat44V planeWorld = m_CullPlane * ctx.LightBoneWorld;
-	planeWorld.Pos += lightPos; // Cull plane ignores light orientation
+	planeWorld.Pos += lightPos; // Cull plane ignores light orientation, use only position
 
-	GRenderContext->OverlayRender.DrawCircle(
-		planeWorld.Pos, planeWorld.Front, planeWorld.Right, rage::S_TWO, graphics::COLOR_WHITE);
+	GRenderContext->OverlayRender.DrawQuad(
+		planeWorld.Pos, planeWorld.Front, planeWorld.Right, rage::S_TWO, rage::S_ONE, graphics::COLOR_WHITE);
+
+	// Draw line that indicates culling area
+	GRenderContext->OverlayRender.DrawLine(
+		planeWorld.Pos, planeWorld.Pos - planeWorld.Front, graphics::COLOR_RED);
+
+	// Debug cull info
+	//Im3D::TextBg(planeWorld.Pos, "<Cull Plane> Normal: %.2f %.2f %.2f Offset: %.2f",
+	//	ctx.Light->CullingPlaneNormal.X, ctx.Light->CullingPlaneNormal.Y, ctx.Light->CullingPlaneNormal.Z,
+	//	ctx.Light->CullingPlaneOffset);
 
 	if (Im3D::Gizmo(planeWorld, delta, ImGuizmo::OPERATION(GetImGuizmoOperation())))
 	{
 		planeWorld.Pos -= lightPos;
 		m_CullPlane = planeWorld * ctx.LightBoneWorld.Inverse();
 
-		ctx.Light->CullingPlaneNormal = rage::Vec3V(m_CullPlane.Front);
-		ctx.Light->CullingPlaneOffset = rage::Vec3V(m_CullPlane.Pos).Length().Get();
+		rage::Vec3V pos = m_CullPlane.Pos;
+		rage::Vec3V normal = m_CullPlane.Front;
+		rage::ScalarV offset;
+		graphics::ShapeTest::ClosestPointOnPlane(rage::VEC_ORIGIN, -normal, pos, normal, offset);
+
+		ctx.Light->CullingPlaneNormal = normal;
+		ctx.Light->CullingPlaneOffset = offset.Get();
 	}
 }
 
@@ -488,7 +506,9 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 				SlGui::CategoryText("Time Options - When light is on");
 				{
 					ImGui::CheckboxFlags("Always", &light->TimeFlags, LIGHT_TIME_ALWAYS_MASK);
+					ImGui::SameLine();
 					ImGui::CheckboxFlags("Day (12:00 - 00:00)", &light->TimeFlags, LIGHT_TIME_DAY_MASK);
+					ImGui::SameLine();
 					ImGui::CheckboxFlags("Night (00:00 - 12:00)", &light->TimeFlags, LIGHT_TIME_NIGHT_MASK);
 
 					if (SlGui::CollapsingHeader("Show All"))

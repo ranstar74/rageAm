@@ -232,6 +232,20 @@ namespace rageam::graphics
 			DrawLine_Unsafe(p1, p2, mtx, col, col);
 		}
 
+		void DrawLine_Unsafe(const rage::Vec3V& p1, const rage::Vec3V& p2, ColorU32 col1, ColorU32 col2)
+		{
+			if (col1.A == 0 && col2.A == 0)
+				return;
+			
+			m_LineBuffer[m_LineVertexCount++] = VertexUnlit(p1, col1.ToVec4());
+			m_LineBuffer[m_LineVertexCount++] = VertexUnlit(p2, col2.ToVec4());
+		}
+
+		void DrawLine_Unsafe(const rage::Vec3V& p1, const rage::Vec3V& p2, ColorU32 col)
+		{
+			DrawLine_Unsafe(p1, p2, col, col);
+		}
+
 	public:
 		void Init()
 		{
@@ -296,6 +310,29 @@ namespace rageam::graphics
 			DrawLine_Unsafe(bb.BTR(), bb.TTR(), mtx, col);
 			DrawLine_Unsafe(bb.BBL(), bb.TBL(), mtx, col);
 			DrawLine_Unsafe(bb.BBR(), bb.TBR(), mtx, col);
+		}
+
+		void DrawQuad(
+			const rage::Vec3V& pos,
+			const rage::Vec3V& normal,
+			const rage::Vec3V& tangent,
+			const rage::ScalarV& extentX,
+			const rage::ScalarV& extentY,
+			ColorU32 col)
+		{
+			rage::Vec3V biNormal = normal.Cross(tangent);
+
+			// If looking at plane where tangent is right and binormal is top
+			rage::Vec3V tr = pos + tangent * extentX + biNormal * extentY;
+			rage::Vec3V tl = pos - tangent * extentX + biNormal * extentY;
+			rage::Vec3V bl = pos - tangent * extentX - biNormal * extentY;
+			rage::Vec3V br = pos + tangent * extentX - biNormal * extentY;
+
+			std::unique_lock lock(m_Mutex);
+			DrawLine_Unsafe(tr, tl, col);
+			DrawLine_Unsafe(tl, bl, col);
+			DrawLine_Unsafe(bl, br, col);
+			DrawLine_Unsafe(br, tr, col);
 		}
 
 		// Normal & tangent define the plane the circle lines in,
