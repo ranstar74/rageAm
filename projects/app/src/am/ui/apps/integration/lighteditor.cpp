@@ -2,6 +2,7 @@
 
 #include "ImGuizmo.h"
 #include "am/graphics/shapetest.h"
+#include "am/integration/shvthread.h"
 #include "am/ui/im3d.h"
 #include "am/ui/font_icons/icons_am.h"
 #include "am/ui/styled/slwidgets.h"
@@ -9,8 +10,8 @@
 u32 rageam::integration::LightEditor::GetOutlinerColor(bool isSelected, bool isHovered, bool isPrimary) const
 {
 	graphics::ColorU32 col = isPrimary ? graphics::COLOR_YELLOW : graphics::ColorU32(0, 160, 255);
-	if (!isSelected) col.A -= 50;
-	if (!isHovered) col.A -= 50;
+	if (!isSelected) col.A -= 65;
+	if (!isSelected && !isHovered) col.A -= 40;
 	return col;
 }
 
@@ -171,7 +172,66 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner(const 
 
 	GRenderContext->OverlayRender.ResetCurrentMatrix();
 
+	// Light name in 3D
+	// TODO: Use name from DrawableAssetMap
+	Im3D::CenterNext();
+	Im3D::TextBgColored(
+		ctx.LightWorld.Pos, ctx.PrimaryColor, "%s Light #%u", GetLightTypeName(ctx.Light->Type), ctx.LightIndex);
+
 	return shapeHit;
+}
+
+bool rageam::integration::LightEditor::DrawPointLightFalloffGizmo(const LightDrawContext& ctx)
+{
+	bool canEdit = false;
+	// Try to start editing
+	if (!m_UsingPointFalloffGizmo)
+	{
+		// We compute radius of point light sphere in screen units & distance to sphere center from mouse cursor
+		// If its almost equal then we're hovering sphere edge
+		rage::Vec3V sphereEdge = ctx.LightWorld.Pos + ctx.CamRight * ctx.Light->Falloff;
+		ImVec2 screenSphereCenter;
+		ImVec2 screenSphereEdge;
+		if (Im3D::WorldToScreen(ctx.LightWorld.Pos, screenSphereCenter) &&
+			Im3D::WorldToScreen(sphereEdge, screenSphereEdge))
+		{
+			float screenSphereRadius = ImGui::Distance(screenSphereCenter, screenSphereEdge);
+			float distanceToSphere = ImGui::Distance(screenSphereCenter, ImGui::GetMousePos());
+
+			// Check if mouse cursor is on the edge of sphere
+			constexpr float edgeWidth = 5.0f;
+			float distanceFromEdge = abs(screenSphereRadius - distanceToSphere);
+			if (distanceFromEdge < edgeWidth)
+			{
+				canEdit = true;
+			}
+		}
+	}
+
+	// Not editing & cant' start... Skip
+	if (!canEdit && !m_UsingPointFalloffGizmo)
+		return false;
+
+	// Update editing falloff
+	ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+
+	rage::Vec3V dragDelta, startDragPos, dragPos;
+	rage::Vec3V spherePlaneNormal = ctx.CamFront; // We are editing falloff on camera plane
+	bool isDragging;
+	bool dragFinished = Im3D::GizmoBehaviour(isDragging, ctx.LightWorld.Pos, spherePlaneNormal, dragDelta, startDragPos, dragPos);
+
+	// Compute new falloff radius
+	if (isDragging)
+	{
+		float fallofEditRadius = dragPos.DistanceTo(ctx.LightWorld.Pos).Get();
+		ctx.Light->Falloff = fallofEditRadius;
+
+		Im3D::TextBg(dragPos + rage::VEC_UP * 0.25f, "%.02f", dragDelta.Length().Get());
+	}
+
+	m_UsingPointFalloffGizmo = isDragging;
+
+	return true;
 }
 
 void rageam::integration::LightEditor::ComputeLightWorldMatrix(
@@ -201,12 +261,13 @@ void rageam::integration::LightEditor::ComputeLightWorldMatrix(
 	lightBind = lightBind.Inverse();
 }
 
-void rageam::integration::LightEditor::RenderLightUI(CLightAttr* light) const
+void rageam::integration::LightEditor::DrawLightUI(CLightAttr* light, const rage::Mat44V& lightWorld)
 {
-	if (ImGui::Begin(ICON_AM_LIGHT" Light Editor"))
-	{
-		ImGui::Text("Light #%i", m_SelectedLight);
+	ConstString windowName = ImGui::FormatTemp(ICON_AM_LIGHT" Light Editor (%s #%i)###LIGHT_EDITOR_WINDOW",
+		GetLightTypeName(light->Type), m_SelectedLight);
 
+	if (ImGui::Begin(windowName))
+	{
 		// Type picker
 		static ConstString s_LightNames[] = { "Point", "Spot (Cone)", "Capsule" };
 		static eLightType s_LightTypes[] = { LIGHT_POINT, LIGHT_SPOT, LIGHT_CAPSULE };
@@ -215,96 +276,185 @@ void rageam::integration::LightEditor::RenderLightUI(CLightAttr* light) const
 		if (ImGui::Combo("Type", &lightTypeIndex, s_LightNames, 3))
 			light->Type = s_LightTypes[lightTypeIndex];
 
-		if (SlGui::CollapsingHeader(ICON_AM_PICKER" Color###LIGHT_COLOR"))
+		ImGui::Checkbox("Freeze Selection", &m_SelectionFreezed);
+
+		static bool s_EnableArtificialLights = true;
+		if (ImGui::Checkbox("Enable world lights", &s_EnableArtificialLights))
 		{
-			graphics::ColorU32 color(light->ColorR, light->ColorG, light->ColorB);
-			rage::Vector4 colorF = color.ToVec4();
-			if (ImGui::ColorPicker3("Color", (float*)&colorF))
-			{
-				color = graphics::ColorU32::FromVec4(colorF);
-				light->ColorR = color.R;
-				light->ColorG = color.G;
-				light->ColorB = color.B;
-			}
-		}
-
-		ImGui::DragFloat("Falloff", &light->Falloff, 0.1f, 0, 25, "%.1f");
-		ImGui::DragFloat("Falloff Exponent", &light->FallofExponent, 1.0f, 0, 500, "%.2f", ImGuiSliderFlags_Logarithmic);
-
-		// ImGui::DragU8("Flashiness", &light->Flashiness, 1, 0, 255);
-
-		struct Flashiness
-		{
-			float TimeOn, TimeOff, FadeInTime, FadeOutTime;
-		};
-
-		// TODO: Better blink picker. Can we simulate blinking pattern in UI itself for preview?
-		ImGui::Text("Flashiness (blinking)");
-		ImGui::DragU8("###FLASHINESS", &light->Flashiness, 1, 0, 20);
-		bool noInc = light->Flashiness == 20;
-		bool noSub = light->Flashiness == 0;
-		ImGui::SameLine();
-		ImGui::BeginDisabled(noSub);
-		if (ImGui::Button("<")) light->Flashiness--;
-		ImGui::EndDisabled();
-		ImGui::BeginDisabled(noInc);
-		ImGui::SameLine();
-		if (ImGui::Button(">")) light->Flashiness++;
-		ImGui::EndDisabled();
-
-		ImGui::DragFloat("Intensity###LIGHT_INTENSITY", &light->Intensity, 1.0f, 0.0f, 1000, "%.1f");
-		if (light->Type == LIGHT_SPOT)
-		{
-			bool snapInnerAngle = rage::Math::AlmostEquals(light->ConeOuterAngle, light->ConeInnerAngle);
-			if (ImGui::DragFloat("Cone Outer Angle", &light->ConeOuterAngle, 1, SPOT_LIGHT_MIN_CONE_ANGLE, SPOT_LIGHT_MAX_CONE_ANGLE, "%.1f"))
-			{
-				// Make sure that inner angle is not bigger than outer after editing
-				if (light->ConeInnerAngle > light->ConeOuterAngle)
-					light->ConeInnerAngle = light->ConeOuterAngle;
-
-				if (snapInnerAngle)
-					light->ConeInnerAngle = light->ConeOuterAngle;
-			}
-			ImGui::DragFloat("Cone Inner Angle", &light->ConeInnerAngle, 1, SPOT_LIGHT_MIN_CONE_ANGLE, light->ConeOuterAngle, "%.1f");
-
-			if (SlGui::CollapsingHeader(ICON_AM_SPOT_LIGHT" Volume"))
-			{
-				ImGui::DragFloat("Intensity###VOLUME_INTENSITY", &light->VolumeIntensity, 0.005f, 0.0f, 1.0f, "%.3f");
-				ImGui::DragFloat("Size Scale", &light->VolumeSizeScale, 0.01f, 0.0f, 1.0f, "%.2f");
-
-				graphics::ColorU32 volumeColor(light->VolumeOuterColorR, light->VolumeOuterColorG, light->VolumeOuterColorB);
-				rage::Vector4 volumeColorF = volumeColor.ToVec4();
-				if (SlGui::CollapsingHeader(ICON_AM_PICKER" Outer Color###VOLUME_COLOR"))
+			scrInvoke([]
 				{
-					if (ImGui::ColorPicker3("Outer Color", (float*)&volumeColorF))
-					{
-						volumeColor = graphics::ColorU32::FromVec4(volumeColorF);
-						light->VolumeOuterColorR = volumeColor.R;
-						light->VolumeOuterColorG = volumeColor.G;
-						light->VolumeOuterColorB = volumeColor.B;
-					}
-				}
-				ImGui::DragFloat("Outer Exponent", &light->VolumeOuterExponent, 1.0f, 0, 500, "%.2f", ImGuiSliderFlags_Logarithmic);
-				ImGui::DragFloat("Outer Intensity", &light->VolumeOuterIntensity, 0.005f, 0.0f, 1.0f, "%.3f");
+					SHV::GRAPHICS::SET_ARTIFICIAL_LIGHTS_STATE(!s_EnableArtificialLights);
+				});
+		}
+		ImGui::SameLine();
+		ImGui::HelpMarker("In order to see current light, flag 'Ignore Artificial Light State' must be enabled.");
 
-				// Fade distance 0 - disabled, handle this with checkbox
-				bool fadeEnabled = light->VolumetricFadeDistance > 0;
+		// Helper to edit fade distance (there are multiple ones for light, shadow, volume)
+		auto editFadeDistance = [&](u8& fadeDistance)
+			{
+				bool fadeEnabled = fadeDistance > 0;
 				if (ImGui::Checkbox("Fade", &fadeEnabled))
 				{
-					if (fadeEnabled)	light->VolumetricFadeDistance = 255;
-					else				light->VolumetricFadeDistance = 0;
+					if (fadeEnabled)	fadeDistance = 255;
+					else				fadeDistance = 0;
 				}
 				if (fadeEnabled)
 				{
-					ImGui::DragU8("Fade Distance", &light->VolumetricFadeDistance, 1, 1, 255);
+					ImGui::Indent();
+					ImGui::DragU8("Distance", &fadeDistance, 1, 1, 255);
+					ImGui::Unindent();
+				}
+			};
+
+		if (ImGui::BeginTabBar("LIGHT_EDITOR_TAB_BAR"))
+		{
+			if (ImGui::BeginTabItem("General"))
+			{
+				graphics::ColorU32 color(light->ColorR, light->ColorG, light->ColorB);
+				rage::Vector4 colorF = color.ToVec4();
+				if (ImGui::ColorPicker3("Color", (float*)&colorF))
+				{
+					color = graphics::ColorU32::FromVec4(colorF);
+					light->ColorR = color.R;
+					light->ColorG = color.G;
+					light->ColorB = color.B;
+				}
+
+				ImGui::DragFloat("Falloff", &light->Falloff, 0.1f, 0, 25, "%.1f");
+				ImGui::DragFloat("Falloff Exponent", &light->FallofExponent, 1.0f, 0, 500, "%.2f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
+
+				ImGui::DragFloat("Intensity###LIGHT_INTENSITY", &light->Intensity, 1.0f, 0.0f, 1000, "%.1f");
+
+				// TODO: Better blink picker. Can we simulate blinking pattern in UI itself for preview?
+				ImGui::Text("Flashiness (blinking)");
+				ImGui::DragU8("###FLASHINESS", &light->Flashiness, 1, 0, 20);
+				bool noInc = light->Flashiness == 20;
+				bool noSub = light->Flashiness == 0;
+				ImGui::SameLine();
+				ImGui::BeginDisabled(noSub);
+				if (ImGui::Button("<")) light->Flashiness--;
+				ImGui::EndDisabled();
+				ImGui::BeginDisabled(noInc);
+				ImGui::SameLine();
+				if (ImGui::Button(">")) light->Flashiness++;
+				ImGui::EndDisabled();
+
+				SlGui::CategoryText("Corona");
+				ImGui::Indent();
+				ImGui::DragFloat("Intensity###CORONA_INTENSITY", &light->CoronaIntensity, 0.05f, 0.0f, 100, "%.4f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
+				ImGui::DragFloat("Size###CORONA_SIZE", &light->CoronaSize, 0.01, 0.0f, 10, "%.3f");
+				ImGui::DragFloat("ZBias###CORONA_ZBIAS", &light->CoronaZBias, 1.0f, 0.0f, 100, "%.1f");
+				ImGui::Unindent();
+
+				ImGui::EndTabItem();
+			}
+
+			if (ImGui::BeginTabItem(ICON_AM_FLAGS" Flags"))
+			{
+				static bool s_ShowAllFlags = false;
+				ImGui::Checkbox("Show All", &s_ShowAllFlags);
+				ImGui::SameLine();
+				ImGui::HelpMarker("Show all flags including unknown, for research purposes.");
+				ImGui::Separator();
+
+				if (!s_ShowAllFlags)
+				{
+					ImGui::CheckboxFlags("Shadows", &light->Flags, LF_ENABLE_SHADOWS);
+
+					ImGui::CheckboxFlags("Disable Light", &light->Flags, LF_DISABLE_LIGHT);
+					ImGui::ToolTip("Only volume will be rendered");
+
+					ImGui::CheckboxFlags("Ignore Time", &light->Flags, LF_IGNORE_TIME);
+					ImGui::ToolTip("Don't use light intensity based on game time (brighter at night, dimmer at day)");
+
+					ImGui::CheckboxFlags("Render Underground", &light->Flags, LF_RENDER_UNDERGROUND);
+					ImGui::ToolTip("Draw light under map (in tunnels)");
+
+					ImGui::CheckboxFlags("Ignore Artificial Light State", &light->Flags, LF_IGNORE_ARTIFICIAL_LIGHT_STATE);
+					ImGui::ToolTip("Light will ignore SET_ARTIFICIAL_LIGHTS_STATE(FALSE) and keep rendering");
+
+					ImGui::CheckboxFlags("No Reflection", &light->Flags, LF_NO_REFLECTION);
+					ImGui::CheckboxFlags("Ignore Glass", &light->Flags, LF_IGNORE_GLASS);
+					ImGui::ToolTip("Light won't affect glass");
+				}
+				else
+				{
+					for (int i = 0; i < 32; i++)
+					{
+						eLightFlags flag = eLightFlags(1 << i);
+						ConstString name = Enum::GetName(flag);
+						if (!name)
+							name = ImGui::FormatTemp("LF_UNKNOWN_%i", i);
+						ImGui::CheckboxFlags(name, &light->Flags, flag);
+					}
+				}
+
+				ImGui::EndTabItem();
+			}
+
+			if (ImGui::BeginTabItem(ICON_AM_SHADOW" Shadows"))
+			{
+				ImGui::DragU8("Blur", &light->ShadowBlur, 1, 0, 255);
+				editFadeDistance(light->ShadowFadeDistance);
+				ImGui::DragFloat("Near Clip", &light->ShadowNearClip, 0.1f, 0, 300, "%.1f");
+
+				ImGui::EndTabItem();
+			}
+
+			if (light->Type == LIGHT_SPOT)
+			{
+				if (ImGui::BeginTabItem(ICON_AM_SPOT_LIGHT" Volume"))
+				{
+					ImGui::CheckboxFlags("Draw volume always", &light->Flags, LF_ENABLE_VOLUME);
+					ImGui::SameLine();
+					ImGui::HelpMarker("Enables volume ignoring timecycle. By default volume is only visible in foggy weather.");
+
+					ImGui::DragFloat("Intensity###VOLUME_INTENSITY", &light->VolumeIntensity, 0.001f, 0.0f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
+					ImGui::DragFloat("Size Scale", &light->VolumeSizeScale, 0.01f, 0.0f, 1.0f, "%.2f");
+
+					bool snapInnerAngle = rage::Math::AlmostEquals(light->ConeOuterAngle, light->ConeInnerAngle);
+					if (ImGui::DragFloat("Cone Outer Angle", &light->ConeOuterAngle, 1, SPOT_LIGHT_MIN_CONE_ANGLE, SPOT_LIGHT_MAX_CONE_ANGLE, "%.1f"))
+					{
+						// Make sure that inner angle is not bigger than outer after editing
+						if (light->ConeInnerAngle > light->ConeOuterAngle)
+							light->ConeInnerAngle = light->ConeOuterAngle;
+
+						if (snapInnerAngle)
+							light->ConeInnerAngle = light->ConeOuterAngle;
+					}
+					ImGui::DragFloat("Cone Inner Angle", &light->ConeInnerAngle, 1, SPOT_LIGHT_MIN_CONE_ANGLE, light->ConeOuterAngle, "%.1f");
+
+					editFadeDistance(light->VolumetricFadeDistance);
+
+					ImGui::CheckboxFlags("Outer Color", &light->Flags, LF_ENABLE_VOLUME_OUTER_COLOR);
+					if (light->Flags & LF_ENABLE_VOLUME_OUTER_COLOR)
+					{
+						ImGui::Indent();
+						graphics::ColorU32 volumeColor(light->VolumeOuterColorR, light->VolumeOuterColorG, light->VolumeOuterColorB);
+						rage::Vector4 outerColor = volumeColor.ToVec4();
+						ImGui::DragFloat("Exponent###VOLUME_OUTER_EXPONENT", &light->VolumeOuterExponent, 1.0f, 0, 500, "%.2f", ImGuiSliderFlags_Logarithmic);
+						ImGui::DragFloat("Intensity###VOLUME_OUTER_INTENSITY", &light->VolumeOuterIntensity, 0.005f, 0.0f, 1.0f, "%.3f");
+						if (ImGui::ColorPicker3("Color###VOLUME_OUTER_COLOR", (float*)&outerColor))
+						{
+							volumeColor = graphics::ColorU32::FromVec4(outerColor);
+							light->VolumeOuterColorR = volumeColor.R;
+							light->VolumeOuterColorG = volumeColor.G;
+							light->VolumeOuterColorB = volumeColor.B;
+						}
+						ImGui::Unindent();
+					}
+
+					ImGui::EndTabItem();
 				}
 			}
+
+			ImGui::EndTabBar();
 		}
 	}
 	ImGui::End();
 }
 
-void rageam::integration::LightEditor::RenderLightTransformGizmo(CLightAttr* light, const rage::Mat44V& lightWorld, const rage::Mat44V& lightBind) const
+void rageam::integration::LightEditor::DrawLightTransformGizmo(CLightAttr* light, const rage::Mat44V& lightWorld, const rage::Mat44V& lightBind) const
 {
 	if (m_GizmoMode != GIZMO_None)
 	{
@@ -326,6 +476,14 @@ void rageam::integration::LightEditor::RenderLightTransformGizmo(CLightAttr* lig
 	}
 }
 
+void rageam::integration::LightEditor::DrawCustomGizmos(const LightDrawContext& ctx)
+{
+	if (ctx.Light->Type == LIGHT_POINT)
+	{
+		DrawPointLightFalloffGizmo(ctx);
+	}
+}
+
 void rageam::integration::LightEditor::SelectGizmoMode(gtaDrawable* drawable)
 {
 	if (m_SelectedLight == -1)
@@ -337,9 +495,8 @@ void rageam::integration::LightEditor::SelectGizmoMode(gtaDrawable* drawable)
 	int newModeMask = 0;
 
 	if (ImGui::IsKeyPressed(ImGuiKey_G, false)) newModeMask = GIZMO_Translate;
-	// Rotation is only supported on spot light
-	if (drawable->GetLight(m_SelectedLight)->Type == LIGHT_SPOT)
-		if (ImGui::IsKeyPressed(ImGuiKey_R, false)) newModeMask = GIZMO_Rotate;
+	// Rotation is pointless on point light but we still allow to enable to prevent user confusion
+	if (ImGui::IsKeyPressed(ImGuiKey_R, false)) newModeMask = GIZMO_Rotate;
 
 	if (newModeMask != 0) // Some Mode was toggled
 	{
@@ -389,106 +546,10 @@ void rageam::integration::LightEditor::Render(gtaDrawable* drawable, const rage:
 		drawContext.LightWorld = lightWorld;
 		drawContext.IsSelected = m_SelectedLight == i;
 		drawContext.Light = light;
+		drawContext.LightIndex = i;
 		drawContext.PrimaryColor = GetOutlinerColor(isSelected, isHovered, true);
 		drawContext.SecondaryColor = GetOutlinerColor(isSelected, isHovered, false);
 		drawContext.CulledColor = graphics::ColorU32(140, 140, 140, 140);
-
-		//// Draw edit gizmos only for selected light
-		//if (isSelected)
-		//{
-		//	// We support falloff drag editing only for point light
-		//	if (light->Type == LIGHT_POINT)
-		//	{
-		//		// Try to start editing falloff
-		//		bool canStartFalloffEdit = false;
-		//		if (!s_EditingFallof)
-		//		{
-		//			// We compute radius of point light sphere in screen units & distance to sphere center from mouse cursor
-		//			// If its almost equal then we're hovering sphere edge
-		//			rage::Vec3V sphereEdge = lightWorld.Pos + camRight * light->Falloff;
-		//			ImVec2 screenSphereCenter;
-		//			ImVec2 screenSphereEdge;
-		//			if (Im3D::WorldToScreen(lightWorld.Pos, screenSphereCenter) &&
-		//				Im3D::WorldToScreen(sphereEdge, screenSphereEdge))
-		//			{
-		//				float screenSphereRadius = ImGui::Distance(screenSphereCenter, screenSphereEdge);
-		//				float distanceToSphere = ImGui::Distance(screenSphereCenter, ImGui::GetMousePos());
-
-		//				// Check if mouse cursor is on the edge of sphere
-		//				constexpr float edgeWidth = 5.0f;
-		//				float distanceFromEdge = abs(screenSphereRadius - distanceToSphere);
-		//				if (distanceFromEdge < edgeWidth)
-		//				{
-		//					canStartFalloffEdit = true;
-		//				}
-		//			}
-		//		}
-
-		//		// Update editing falloff
-		//		if (s_EditingFallof || canStartFalloffEdit)
-		//		{
-		//			ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-
-		//			rage::Vec3V dragDelta, startDragPos, dragPos;
-		//			rage::Vec3V spherePlaneNormal = camFront; // We are editing falloff on camera plane
-		//			bool isDragging;
-		//			bool dragFinished = Im3D::GizmoBehaviour(isDragging, lightWorld.Pos, spherePlaneNormal, dragDelta, startDragPos, dragPos);
-
-		//			// Compute new falloff radius
-		//			if (isDragging)
-		//			{
-		//				float fallofEditRadius = dragPos.DistanceTo(lightWorld.Pos).Get();
-		//				light->Falloff = fallofEditRadius;
-
-		//				Im3D::TextBg(dragPos + rage::VEC_UP * 0.25f, "%.02f", dragDelta.Length().Get());
-
-		//				// GRenderContext->OverlayRender.DrawLine(startDragPos, dragPos, graphics::ColorU32(140, 140, 140, 140));
-		//			}
-
-		//			if (dragFinished)
-		//			{
-		//				// TODO: ...
-		//			}
-
-		//			s_EditingFallof = isDragging;
-		//		}
-		//	}
-
-		//	// Move light position using regular gizmo
-		//	if (!s_EditingFallof && m_GizmoMode != GIZMO_None)
-		//	{
-		//		rage::Mat44V delta;
-		//		ImGuizmo::OPERATION op;
-		//		switch (m_GizmoMode)
-		//		{
-		//		case GIZMO_Translate:	op = ImGuizmo::TRANSLATE;	break;
-		//		case GIZMO_Rotate:		op = ImGuizmo::ROTATE;		break;
-		//		default: break;
-		//		}
-
-		//		if (Im3D::Gizmo(lightWorld, delta, op))
-		//		{
-		//			// Accept gizmo delta
-		//			switch (m_GizmoMode)
-		//			{
-		//			case GIZMO_Translate:
-		//			{
-		//				light->Position += rage::Vec3V(delta.Pos);
-		//				break;
-		//			}
-		//			//case GIZMO_Rotate:
-		//			//{
-		//			//	rage::QuatV deltaRot;
-		//			//	delta.Decompose(0, 0, &deltaRot);
-		//			//	light->Direction = rage::Vec3V(light->Direction).Rotate(deltaRot);
-		//			//	break;
-		//			//}
-		//			default: break;
-		//			}
-		//		}
-		//	}
-		//}
-		//
 
 		// Render light outlines and find the closest one to the camera
 		graphics::ShapeHit shapeHit = DrawOutliner(drawContext);
@@ -498,25 +559,45 @@ void rageam::integration::LightEditor::Render(gtaDrawable* drawable, const rage:
 			hoveredLightIndex = i;
 		}
 
-		// Light name in 3D
-		// TODO: Use name from DrawableAssetMap
-		Im3D::CenterNext();
-		Im3D::TextBgColored(lightWorld.Pos, graphics::COLOR_YELLOW, "%s Light #%u", GetLightTypeName(light->Type), i);
+		if (isSelected)
+		{
+			DrawCustomGizmos(drawContext);
+		}
 	}
 
-	m_HoveredLight = hoveredLightIndex;
+	// Popup blocks whole screen so we block hovering too
+	if (!ImGui::IsAnyPopUpOpen())
+		m_HoveredLight = hoveredLightIndex;
 
-	// Select light if covered & left clicked
-	bool canSelectLights = !ImGuizmo::IsOver() && !ImGui::IsAnyWindowHovered();
-	if (canSelectLights && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
-		m_SelectedLight = m_HoveredLight;
+	if (!m_SelectionFreezed)
+	{
+		// Select light if covered & left clicked
+		bool canSelectLights =
+			!ImGuizmo::IsOver() &&
+			!ImGui::IsAnyWindowHovered() &&
+			!ImGui::IsAnyPopUpOpen();
+
+		if (canSelectLights && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+		{
+			m_SelectedLight = m_HoveredLight;
+
+			// Reset selection
+			if (m_HoveredLight == -1)
+			{
+				m_UsingPointFalloffGizmo = false;
+			}
+		}
+	}
 
 	// Draw editor for selected light
 	if (m_SelectedLight != -1)
 	{
 		CLightAttr* light = drawable->GetLight(m_SelectedLight);
 
-		RenderLightTransformGizmo(light, selectedLightWorld, selectedLightBind);
-		RenderLightUI(light);
+		if (!m_UsingPointFalloffGizmo)
+		{
+			DrawLightTransformGizmo(light, selectedLightWorld, selectedLightBind);
+		}
+		DrawLightUI(light, selectedLightWorld);
 	}
 }
