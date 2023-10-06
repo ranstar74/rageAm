@@ -276,6 +276,7 @@ namespace rage
 	static const Vec3V VEC_UP = { 0.0f, 0.0f, 1.0f };
 	static const Vec3V VEC_DOWN = { 0.0f, 0.0f, -1.0f };
 	static const Vec3V VEC_FORWARD = { 0.0f, 1.0f, 0.0f };
+	static const Vec3V VEC_FRONT = { 0.0f, 1.0f, 0.0f };
 	static const Vec3V VEC_BACK = { 0.0f, -1.0f, 0.0f };
 	static const Vec3V VEC_RIGHT = { 1.0f, 0.0f, 0.0f };
 	static const Vec3V VEC_LEFT = { -1.0f, 0.0f, 0.0f };
