@@ -64,6 +64,8 @@ namespace rage
 		static Mat44V FromNormalPos(const Vec3V& pos, const Vec3V& normal)
 		{
 			Vec3V right = normal.Cross(VEC_UP);
+			if (normal.Dot(VEC_UP) > 0.9995f) // Fix orientation when normal is aligned with up
+				right = VEC_RIGHT;
 			Vec3V up = right.Cross(normal).Normalized();
 			Mat44V m;
 			m.Front = Vec4V(normal, 0.0f);
