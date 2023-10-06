@@ -152,6 +152,13 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner_Spot(c
 
 rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner(const LightDrawContext& ctx) const
 {
+	if (!ShowLightOutlines)
+	{
+		bool drawThisLight = ShowOnlySelectedLightOutline && ctx.IsSelected;
+		if (!drawThisLight)
+			return graphics::ShapeHit(0, false);
+	}
+
 	GRenderContext->OverlayRender.SetCurrentMatrix(ctx.LightWorld);
 
 	graphics::ShapeHit shapeHit = {};
