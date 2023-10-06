@@ -644,6 +644,8 @@ void rageam::ModelSceneApp::OnRender()
 			Im3D::SetGizmoUseWorld(useWorld);
 		ImGui::ToolTip("Show edit gizmos in world or local space.");
 		ImGui::Separator();
+		if (ImGui::IsKeyPressed(ImGuiKey_Period, false)) // Hotkey switch
+			Im3D::SetGizmoUseWorld(!useWorld);
 
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1);

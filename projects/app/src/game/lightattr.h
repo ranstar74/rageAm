@@ -23,6 +23,7 @@ enum eLightFlags : u32
 	LF_IGNORE_TIME = 1 << 9,								// Don't use light intensity based on game time (brighter at night, dimmer at day)
 	LF_ENABLE_VOLUME = 1 << 12,								// Force enable volume ignoring timecycle
 	LF_NO_REFLECTION = 1 << 13,								// Don't reflect light in surfaces (contribute specular)
+	LF_ENABLE_CULLING_PLANE = 1 << 18,
 	LF_ENABLE_VOLUME_OUTER_COLOR = 1 << 19,
 	LF_IGNORE_GLASS = 1 << 23,								// Light won't affect glass
 	LF_DISABLE_LIGHT = 1 << 30,								// Only volume will be rendered

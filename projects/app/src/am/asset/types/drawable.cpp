@@ -1028,7 +1028,7 @@ void rageam::asset::DrawableAsset::CreateLights() const
 		light.Extent = { 1, 1 ,1 };
 		light.ProjectedTexture = 0;
 		light.ShadowNearClip = 0.01;
-		light.CullingPlaneNormal = { 0, 0, -1 };
+		light.CullingPlaneNormal = { 0, 1, 0 };
 		light.CullingPlaneOffset = 1;
 
 		light.VolumeOuterColorR = 255;

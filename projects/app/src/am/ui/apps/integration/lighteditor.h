@@ -24,10 +24,19 @@ namespace rageam::integration
 
 	class LightEditor
 	{
-		int		m_SelectedLight = -1;
-		int		m_HoveredLight = -1;
-		int		m_GizmoMode = GIZMO_None;
-		bool	m_SelectionFreezed = false;
+		int				m_SelectedLight = -1;
+		int				m_HoveredLight = -1;
+		int				m_GizmoMode = GIZMO_None;
+		bool			m_SelectionFreezed = false;
+
+		// We freeze selecting during cull plane editing, so save state
+		bool			m_SelectionWasFreezed = false;
+		bool			m_EditingCullPlane = false;
+		// We are maintaining additional matrix for culling plane because
+		// in light cull plane is stored as normal + offset so we can
+		// only "rotate" it around the light. Storing this transform during editing
+		// gives user ability to freely rotate/move plane
+		rage::Mat44V	m_CullPlane;
 
 		// -- Custom gizmos --
 
@@ -38,13 +47,18 @@ namespace rageam::integration
 			rage::Vec3V		CamFront, CamRight, CamUp;
 			graphics::Ray	WorldMouseRay;
 			rage::Mat44V	LightWorld;
-			CLightAttr* Light;
+			rage::Mat44V	LightBind;
+			rage::Mat44V	LightLocal;
+			rage::Mat44V	LightBoneWorld;
+			CLightAttr*     Light;
 			u16				LightIndex;
 			bool			IsSelected;
 			u32				PrimaryColor;
 			u32				SecondaryColor;
 			u32				CulledColor;
 		};
+
+		void SetCullPlaneFromLight(const LightDrawContext& ctx);
 
 		u32 GetOutlinerColor(bool isSelected, bool isHovered, bool isPrimary) const;
 
@@ -59,14 +73,19 @@ namespace rageam::integration
 		graphics::ShapeHit DrawOutliner(const LightDrawContext& ctx) const;
 
 		bool DrawPointLightFalloffGizmo(const LightDrawContext& ctx);
+		void DrawCullPlaneEditGizmo(const LightDrawContext& ctx);
 
 		// Light bind transforms world light position into local
 		void ComputeLightWorldMatrix(
 			gtaDrawable* drawable, const rage::Mat44V& entityMtx, u16 lightIndex,
-			rage::Mat44V& lightWorld, rage::Mat44V& lightBind) const;
+			rage::Mat44V& lightWorld, 
+			rage::Mat44V& lightBind,
+			rage::Mat44V& lightLocal,
+			rage::Mat44V& lightBoneWorld) const;
 
-		void DrawLightUI(CLightAttr* light, const rage::Mat44V& lightWorld);
-		void DrawLightTransformGizmo(CLightAttr* light, const rage::Mat44V& lightWorld, const rage::Mat44V& lightBind) const;
+		int GetImGuizmoOperation() const;
+		void DrawLightUI(const LightDrawContext& ctx);
+		void DrawLightTransformGizmo(const LightDrawContext& ctx) const;
 		void DrawCustomGizmos(const LightDrawContext& ctx);
 		void SelectGizmoMode(gtaDrawable* drawable);
 

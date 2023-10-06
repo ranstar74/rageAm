@@ -61,6 +61,17 @@ namespace rage
 		Mat44V operator*(const Mat44V& other) const { return Multiply(other); }
 		Mat44V& operator*=(const Mat44V& other) { M = XMMatrixMultiply(M, other.M); return *this; }
 
+		static Mat44V FromNormalPos(const Vec3V& pos, const Vec3V& normal)
+		{
+			Vec3V right = normal.Cross(VEC_UP);
+			Vec3V up = right.Cross(normal).Normalized();
+			Mat44V m;
+			m.Front = Vec4V(normal, 0.0f);
+			m.Right = Vec4V(right, 0.0f);
+			m.Up = Vec4V(up, 0.0f);
+			m.Pos = Vec4V(pos, 1.0f);
+			return m;
+		}
 		static Mat44V Transform(const Vec3V& scale, const QuatV& rotation, const Vec3V& translation)
 		{
 			return DirectX::XMMatrixTransformation(

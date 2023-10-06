@@ -7,6 +7,14 @@
 #include "am/ui/font_icons/icons_am.h"
 #include "am/ui/styled/slwidgets.h"
 
+void rageam::integration::LightEditor::SetCullPlaneFromLight(const LightDrawContext& ctx)
+{
+	rage::Vec3V planeNormal = ctx.Light->CullingPlaneNormal;
+	rage::ScalarV planeOffset = ctx.Light->CullingPlaneOffset;
+	rage::Vec3V planePos = -planeNormal * planeOffset;
+	m_CullPlane = rage::Mat44V::FromNormalPos(planePos, planeNormal);
+}
+
 u32 rageam::integration::LightEditor::GetOutlinerColor(bool isSelected, bool isHovered, bool isPrimary) const
 {
 	graphics::ColorU32 col = isPrimary ? graphics::COLOR_YELLOW : graphics::ColorU32(0, 160, 255);
@@ -270,16 +278,40 @@ bool rageam::integration::LightEditor::DrawPointLightFalloffGizmo(const LightDra
 	return true;
 }
 
+void rageam::integration::LightEditor::DrawCullPlaneEditGizmo(const LightDrawContext& ctx)
+{
+	rage::Vec4V lightPos(ctx.Light->Position, 0.0f);
+
+	rage::Mat44V delta;
+	rage::Mat44V planeWorld = m_CullPlane * ctx.LightBoneWorld;
+	planeWorld.Pos += lightPos; // Cull plane ignores light orientation
+
+	GRenderContext->OverlayRender.DrawCircle(
+		planeWorld.Pos, planeWorld.Front, planeWorld.Right, rage::S_TWO, graphics::COLOR_WHITE);
+
+	if (Im3D::Gizmo(planeWorld, delta, ImGuizmo::OPERATION(GetImGuizmoOperation())))
+	{
+		planeWorld.Pos -= lightPos;
+		m_CullPlane = planeWorld * ctx.LightBoneWorld.Inverse();
+
+		ctx.Light->CullingPlaneNormal = rage::Vec3V(m_CullPlane.Front);
+		ctx.Light->CullingPlaneOffset = rage::Vec3V(m_CullPlane.Pos).Length().Get();
+	}
+}
+
 void rageam::integration::LightEditor::ComputeLightWorldMatrix(
 	gtaDrawable* drawable, const rage::Mat44V& entityMtx, u16 lightIndex,
-	rage::Mat44V& lightWorld, rage::Mat44V& lightBind) const
+	rage::Mat44V& lightWorld,
+	rage::Mat44V& lightBind,
+	rage::Mat44V& lightLocal,
+	rage::Mat44V& lightBoneWorld) const
 {
 	CLightAttr* light = drawable->GetLight(lightIndex);
 
 	// Create orientation matrix
-	rage::Mat44V lightLocal = light->GetMatrix();
+	lightBoneWorld = rage::Mat44V::Identity();
+	lightLocal = light->GetMatrix();
 
-	lightBind = rage::Mat44V::Identity();
 	// If there's no skeleton, light transform is defined by CLightAttr.Position * EntityMatrix
 	rage::crSkeletonData* skeleton = drawable->GetSkeletonData();
 	if (skeleton)
@@ -287,18 +319,34 @@ void rageam::integration::LightEditor::ComputeLightWorldMatrix(
 		// Parent light to bone
 		rage::crBoneData* bone = skeleton->GetBoneFromTag(light->BoneTag);
 		rage::Mat44V lightBoneMtx = skeleton->GetBoneWorldTransform(bone);
-		lightBind *= lightBoneMtx;
+		lightBoneWorld *= lightBoneMtx;
 	}
 
-	lightBind *= entityMtx;
+	lightBoneWorld *= entityMtx;
+
+	lightBind *= lightBoneWorld;
 	// Transform to light world space
 	lightWorld = lightLocal * lightBind;
 	// Inverse bind matrix after we used it to transform local light to world
 	lightBind = lightBind.Inverse();
 }
 
-void rageam::integration::LightEditor::DrawLightUI(CLightAttr* light, const rage::Mat44V& lightWorld)
+int rageam::integration::LightEditor::GetImGuizmoOperation() const
 {
+	ImGuizmo::OPERATION op = ImGuizmo::OPERATION(0);
+	switch (m_GizmoMode)
+	{
+	case GIZMO_Translate:	op = ImGuizmo::TRANSLATE;	break;
+	case GIZMO_Rotate:		op = ImGuizmo::ROTATE;		break;
+	default: break;
+	}
+	return op;
+}
+
+void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
+{
+	CLightAttr* light = ctx.Light;
+
 	ConstString windowName = ImGui::FormatTemp(ICON_AM_LIGHT" Light Editor (%s #%i)###LIGHT_EDITOR_WINDOW",
 		GetLightTypeName(light->Type), m_SelectedLight);
 
@@ -312,7 +360,9 @@ void rageam::integration::LightEditor::DrawLightUI(CLightAttr* light, const rage
 		if (ImGui::Combo("Type", &lightTypeIndex, s_LightNames, 3))
 			light->Type = s_LightTypes[lightTypeIndex];
 
+		if (m_EditingCullPlane) ImGui::BeginDisabled();
 		ImGui::Checkbox("Freeze Selection", &m_SelectionFreezed);
+		if (m_EditingCullPlane) ImGui::EndDisabled();
 
 		static bool s_EnableArtificialLights = true;
 		if (ImGui::Checkbox("Enable world lights", &s_EnableArtificialLights))
@@ -374,6 +424,24 @@ void rageam::integration::LightEditor::DrawLightUI(CLightAttr* light, const rage
 				ImGui::SameLine();
 				if (ImGui::Button(">")) light->Flashiness++;
 				ImGui::EndDisabled();
+
+				SlGui::CategoryText("Cull Plane");
+				ImGui::CheckboxFlags("Enable", &light->Flags, LF_ENABLE_CULLING_PLANE);
+				ImGui::SameLine();
+				if (SlGui::ToggleButton("Edit Mode", m_EditingCullPlane))
+				{
+					// Froze selection while editing cull plane
+					if (m_EditingCullPlane)
+					{
+						m_SelectionWasFreezed = m_SelectionFreezed;
+						m_SelectionFreezed = true;
+						SetCullPlaneFromLight(ctx);
+					}
+					else
+					{
+						m_SelectionFreezed = m_SelectionWasFreezed;
+					}
+				}
 
 				if (light->Type == LIGHT_CAPSULE)
 				{
@@ -498,24 +566,16 @@ void rageam::integration::LightEditor::DrawLightUI(CLightAttr* light, const rage
 	ImGui::End();
 }
 
-void rageam::integration::LightEditor::DrawLightTransformGizmo(CLightAttr* light, const rage::Mat44V& lightWorld, const rage::Mat44V& lightBind) const
+void rageam::integration::LightEditor::DrawLightTransformGizmo(const LightDrawContext& ctx) const
 {
 	if (m_GizmoMode != GIZMO_None)
 	{
-		ImGuizmo::OPERATION op;
-		switch (m_GizmoMode)
-		{
-		case GIZMO_Translate:	op = ImGuizmo::TRANSLATE;	break;
-		case GIZMO_Rotate:		op = ImGuizmo::ROTATE;		break;
-		default: break;
-		}
-
 		rage::Mat44V editDelta;
-		rage::Mat44V editedLightWorld = lightWorld;
-		if (Im3D::Gizmo(editedLightWorld, editDelta, op))
+		rage::Mat44V editedLightWorld = ctx.LightWorld;
+		if (Im3D::Gizmo(editedLightWorld, editDelta, ImGuizmo::OPERATION(GetImGuizmoOperation())))
 		{
-			rage::Mat44V local = editedLightWorld * lightBind;
-			light->SetMatrix(local);
+			rage::Mat44V local = editedLightWorld * ctx.LightBind;
+			ctx.Light->SetMatrix(local);
 		}
 	}
 }
@@ -525,6 +585,11 @@ void rageam::integration::LightEditor::DrawCustomGizmos(const LightDrawContext& 
 	if (ctx.Light->Type == LIGHT_POINT)
 	{
 		DrawPointLightFalloffGizmo(ctx);
+	}
+
+	if (m_EditingCullPlane)
+	{
+		DrawCullPlaneEditGizmo(ctx);
 	}
 }
 
@@ -557,37 +622,26 @@ void rageam::integration::LightEditor::Render(gtaDrawable* drawable, const rage:
 
 	SelectGizmoMode(drawable);
 
-	static bool s_EditingFallof = false;
-	if (m_SelectedLight == -1)
-		s_EditingFallof = false;
-
 	// Prepare context for drawing lights
 	LightDrawContext drawContext;
 	CViewport::GetCamera(&drawContext.CamFront, &drawContext.CamRight, &drawContext.CamUp);
 	CViewport::GetWorldMouseRay(drawContext.WorldMouseRay.Pos, drawContext.WorldMouseRay.Dir);
-
-	rage::Mat44V selectedLightWorld;
-	rage::Mat44V selectedLightBind;
 
 	auto hoveredLightDistance = rage::S_MAX;
 	s32 hoveredLightIndex = -1;
 	for (u16 i = 0; i < drawable->GetLightCount(); i++)
 	{
 		CLightAttr* light = drawable->GetLight(i);
-		rage::Mat44V lightWorld;
-		rage::Mat44V lightBind;
-		ComputeLightWorldMatrix(drawable, entityMtx, i, lightWorld, lightBind);
 
 		bool isSelected = m_SelectedLight == i;
 		bool isHovered = m_HoveredLight == i;
 
-		if (isSelected)
-		{
-			selectedLightWorld = lightWorld;
-			selectedLightBind = lightBind;
-		}
+		ComputeLightWorldMatrix(drawable, entityMtx, i,
+			drawContext.LightWorld,
+			drawContext.LightBind,
+			drawContext.LightLocal,
+			drawContext.LightBoneWorld);
 
-		drawContext.LightWorld = lightWorld;
 		drawContext.IsSelected = m_SelectedLight == i;
 		drawContext.Light = light;
 		drawContext.LightIndex = i;
@@ -606,12 +660,21 @@ void rageam::integration::LightEditor::Render(gtaDrawable* drawable, const rage:
 		if (isSelected)
 		{
 			DrawCustomGizmos(drawContext);
+			DrawLightUI(drawContext);
+
+			// Transform gizmo
+			if (!m_UsingPointFalloffGizmo && !m_EditingCullPlane)
+			{
+				DrawLightTransformGizmo(drawContext);
+			}
 		}
 	}
 
 	// Popup blocks whole screen so we block hovering too
 	if (!ImGui::IsAnyPopUpOpen())
+	{
 		m_HoveredLight = hoveredLightIndex;
+	}
 
 	if (!m_SelectionFreezed)
 	{
@@ -631,17 +694,5 @@ void rageam::integration::LightEditor::Render(gtaDrawable* drawable, const rage:
 				m_UsingPointFalloffGizmo = false;
 			}
 		}
-	}
-
-	// Draw editor for selected light
-	if (m_SelectedLight != -1)
-	{
-		CLightAttr* light = drawable->GetLight(m_SelectedLight);
-
-		if (!m_UsingPointFalloffGizmo)
-		{
-			DrawLightTransformGizmo(light, selectedLightWorld, selectedLightBind);
-		}
-		DrawLightUI(light, selectedLightWorld);
 	}
 }
