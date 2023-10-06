@@ -20,6 +20,7 @@ u32 rageam::integration::LightEditor::GetOutlinerColor(bool isSelected, bool isH
 	graphics::ColorU32 col = isPrimary ? graphics::COLOR_YELLOW : graphics::ColorU32(0, 160, 255);
 	if (!isSelected) col.A -= 65;
 	if (!isSelected && !isHovered) col.A -= 40;
+	if (m_EditingCullPlane) col.A -= 150;
 	return col;
 }
 
@@ -442,21 +443,19 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 						m_SelectionFreezed = m_SelectionWasFreezed;
 					}
 				}
+				ImGui::SameLine();
+				ImGui::HelpMarker("Cull (clip) plane allows to completely block light. Usually they are used to prevent light emitting through a wall.");
 
 				if (light->Type == LIGHT_CAPSULE)
 				{
 					SlGui::CategoryText("Capsule");
-					ImGui::Indent();
 					ImGui::DragFloat("Length", &light->Extent.X, 0.1f, 0.0f, 25.0f, " %.1f");
-					ImGui::Unindent();
 				}
 
 				SlGui::CategoryText("Corona");
-				ImGui::Indent();
 				ImGui::DragFloat("Intensity###CORONA_INTENSITY", &light->CoronaIntensity, 0.05f, 0.0f, 100, "%.4f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
 				ImGui::DragFloat("Size###CORONA_SIZE", &light->CoronaSize, 0.01, 0.0f, 10, "%.3f");
 				ImGui::DragFloat("ZBias###CORONA_ZBIAS", &light->CoronaZBias, 1.0f, 0.0f, 100, "%.1f");
-				ImGui::Unindent();
 
 				ImGui::EndTabItem();
 			}

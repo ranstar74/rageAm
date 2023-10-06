@@ -72,7 +72,7 @@ struct CLightAttr
 	u8				VolumeOuterColorR;
 	u8				VolumeOuterColorG;
 	u8				VolumeOuterColorB;
-	u8				LightHash;
+	u8				LightHash;				// Index, not hash
 	float			VolumeOuterIntensity;
 	float			CoronaSize;
 	float			VolumeOuterExponent;
