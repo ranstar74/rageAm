@@ -347,8 +347,7 @@ void rageam::integration::LightEditor::ComputeLightWorldMatrix(
 	}
 
 	lightBoneWorld *= entityMtx;
-
-	lightBind *= lightBoneWorld;
+	lightBind = lightBoneWorld;
 	// Transform to light world space
 	lightWorld = lightLocal * lightBind;
 	// Inverse bind matrix after we used it to transform local light to world
