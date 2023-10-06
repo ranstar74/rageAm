@@ -151,6 +151,41 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner_Spot(c
 	return shapeHit;
 }
 
+rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner_Capsule(const LightDrawContext& ctx) const
+{
+	// Capsule light diagram: https://i.imgur.com/IdXEw2a.png
+
+	rage::ScalarV halfExtent = ctx.Light->Extent.X * 0.5f;
+	rage::Vec3V extentFrom = rage::VEC_UP * halfExtent;
+	rage::Vec3V extentTo = rage::VEC_DOWN * halfExtent;
+
+	GRenderContext->OverlayRender.DrawLine(extentFrom, extentTo, ctx.SecondaryColor);
+
+	float radius = ctx.Light->Falloff;
+
+	// Half sphere tops
+	GRenderContext->OverlayRender.DrawCircle(extentTo, rage::VEC_UP, rage::VEC_RIGHT, radius, ctx.PrimaryColor);
+	GRenderContext->OverlayRender.DrawCircle(extentFrom, rage::VEC_UP, rage::VEC_RIGHT, radius, ctx.PrimaryColor);
+
+	// Draw two half spheres (arcs)
+	GRenderContext->OverlayRender.DrawCircle(extentTo, rage::VEC_FRONT, rage::VEC_RIGHT, radius, ctx.PrimaryColor, 0, rage::PI);
+	GRenderContext->OverlayRender.DrawCircle(extentTo, -rage::VEC_RIGHT, rage::VEC_FRONT, radius, ctx.PrimaryColor, 0, rage::PI);
+	GRenderContext->OverlayRender.DrawCircle(extentFrom, -rage::VEC_FRONT, rage::VEC_RIGHT, radius, ctx.PrimaryColor, 0, rage::PI);
+	GRenderContext->OverlayRender.DrawCircle(extentFrom, rage::VEC_RIGHT, rage::VEC_FRONT, radius, ctx.PrimaryColor, 0, rage::PI);
+
+	// Draw lines connecting half spheres (arcs)
+	GRenderContext->OverlayRender.DrawLine(extentTo + rage::VEC_FRONT * radius, extentFrom + rage::VEC_FRONT * radius, ctx.PrimaryColor);
+	GRenderContext->OverlayRender.DrawLine(extentTo + rage::VEC_RIGHT * radius, extentFrom + rage::VEC_RIGHT * radius, ctx.PrimaryColor);
+	GRenderContext->OverlayRender.DrawLine(extentTo - rage::VEC_FRONT * radius, extentFrom - rage::VEC_FRONT * radius, ctx.PrimaryColor);
+	GRenderContext->OverlayRender.DrawLine(extentTo - rage::VEC_RIGHT * radius, extentFrom - rage::VEC_RIGHT * radius, ctx.PrimaryColor);
+
+	// Hit test
+	graphics::ShapeHit shapeHit;
+	shapeHit.DidHit = graphics::ShapeTest::RayIntersectsCapsule(ctx.WorldMouseRay.Pos, ctx.WorldMouseRay.Dir,
+		extentFrom.Transform(ctx.LightWorld), extentTo.Transform(ctx.LightWorld), radius, &shapeHit.Distance);
+	return shapeHit;
+}
+
 rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner(const LightDrawContext& ctx) const
 {
 	if (!ShowLightOutlines)
@@ -167,6 +202,7 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner(const 
 	{
 	case LIGHT_POINT:	shapeHit = DrawOutliner_Point(ctx); break;
 	case LIGHT_SPOT:	shapeHit = DrawOutliner_Spot(ctx); break;
+	case LIGHT_CAPSULE:	shapeHit = DrawOutliner_Capsule(ctx); break;
 	default: break;
 	}
 
@@ -444,6 +480,15 @@ void rageam::integration::LightEditor::DrawLightUI(CLightAttr* light, const rage
 						ImGui::Unindent();
 					}
 
+					ImGui::EndTabItem();
+				}
+			}
+
+			if (light->Type == LIGHT_CAPSULE)
+			{
+				if (ImGui::BeginTabItem("Capsule"))
+				{
+					ImGui::DragFloat("Height / Length", &light->Extent.X, 0.1f, 0.0f, 25.0f, "%.1f");
 					ImGui::EndTabItem();
 				}
 			}

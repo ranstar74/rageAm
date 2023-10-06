@@ -13,6 +13,8 @@
 
 namespace rageam::integration
 {
+	// TODO: Add color filling for light outlines so it's easier to see where light ends
+
 	enum eGimzoMode
 	{
 		GIZMO_None,
@@ -36,7 +38,7 @@ namespace rageam::integration
 			rage::Vec3V		CamFront, CamRight, CamUp;
 			graphics::Ray	WorldMouseRay;
 			rage::Mat44V	LightWorld;
-			CLightAttr*     Light;
+			CLightAttr* Light;
 			u16				LightIndex;
 			bool			IsSelected;
 			u32				PrimaryColor;
@@ -53,6 +55,7 @@ namespace rageam::integration
 
 		graphics::ShapeHit DrawOutliner_Point(const LightDrawContext& ctx) const;
 		graphics::ShapeHit DrawOutliner_Spot(const LightDrawContext& ctx) const;
+		graphics::ShapeHit DrawOutliner_Capsule(const LightDrawContext& ctx) const;
 		graphics::ShapeHit DrawOutliner(const LightDrawContext& ctx) const;
 
 		bool DrawPointLightFalloffGizmo(const LightDrawContext& ctx);

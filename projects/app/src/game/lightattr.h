@@ -86,7 +86,7 @@ struct CLightAttr
 	rage::Vector3	Tangent;
 	float			ConeInnerAngle;
 	float			ConeOuterAngle;
-	rage::Vector3	Extent;
+	rage::Vector3	Extent;					// X is capsule light height/length
 	u32				ProjectedTexture;
 
 	void FixupVft() // Temp hack
