@@ -218,6 +218,9 @@ namespace rageam::graphics
 
 		void DrawLine_Unsafe(const rage::Vec3V& p1, const rage::Vec3V& p2, const rage::Mat44V& mtx, ColorU32 col1, ColorU32 col2)
 		{
+			if (col1.A == 0 && col2.A == 0)
+				return;
+
 			rage::Vec3V pt1 = p1.Transform(mtx);
 			rage::Vec3V pt2 = p2.Transform(mtx);
 			m_LineBuffer[m_LineVertexCount++] = VertexUnlit(pt1, col1.ToVec4());
