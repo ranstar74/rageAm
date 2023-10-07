@@ -12,6 +12,11 @@ Currently supported features:
   * Edit any available parameter in real time
 * Shader Editor
   * Replace game shaders by simply placing .HLSL sources in folder
+* Light Editor
+  * Supports all light types - Point, Spot, Capsule
+  * Outlines and gizmos for lights in game viewport
+  * Cull Plane Gizmo
+  * All lights imported from 3D scene file with transform preserved
 * Drawable Import
   * Skinning + linking nodes to bones
   * Embed dictionary
