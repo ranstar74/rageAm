@@ -7,6 +7,8 @@
 //
 #pragma once
 
+#ifdef AM_INTEGRATED
+
 #include "am/graphics/ray.h"
 #include "am/graphics/shapetest.h"
 #include "game/drawable.h"
@@ -99,3 +101,4 @@ namespace rageam::integration
 		bool ShowOnlySelectedLightOutline = true;
 	};
 }
+#endif

@@ -1,9 +1,9 @@
 #include "modelscene.h"
 
+#ifdef AM_INTEGRATED
+
 #include "ImGuizmo.h"
 #include "am/graphics/shapetest.h"
-
-#ifdef AM_INTEGRATED
 
 #include "am/ui/font_icons/icons_am.h"
 #include "am/ui/styled/slwidgets.h"

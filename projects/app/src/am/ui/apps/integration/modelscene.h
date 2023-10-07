@@ -1,5 +1,5 @@
 #pragma once
-#include "lighteditor.h"
+
 #ifdef AM_INTEGRATED
 
 #include "am/types.h"
@@ -14,6 +14,7 @@
 #include "rage/math/vecv.h"
 #include "scripthook/shvnatives.h"
 #include "am/task/worker.h"
+#include "lighteditor.h"
 
 #include <mutex>
 

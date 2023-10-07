@@ -1,5 +1,7 @@
 #include "lighteditor.h"
 
+#ifdef AM_INTEGRATED
+
 #include "ImGuizmo.h"
 #include "am/graphics/shapetest.h"
 #include "am/integration/shvthread.h"
@@ -762,3 +764,4 @@ void rageam::integration::LightEditor::Render(gtaDrawable* drawable, const rage:
 		}
 	}
 }
+#endif
