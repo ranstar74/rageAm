@@ -3,6 +3,7 @@
 #include "imgui_internal.h"
 #include "common/logger.h"
 #include "font_icons/icons_awesome.h"
+#include "helpers/ranges.h"
 #include "misc/freetype/imgui_freetype.h"
 #include "rage/math/vecv.h"
 #include "styled/slgui.h"
@@ -505,10 +506,10 @@ bool ImGui::DragSelectionBehaviour(ImGuiID id, bool& stopped, ImRect& selection,
 
 	// We have to make sure that rect is not inverted (min > max)
 	// TODO: Maybe store it as two mouse positions?
-	selection.Min.x = min(bb.Min.x, bb.Max.x);
-	selection.Max.x = max(bb.Min.x, bb.Max.x);
-	selection.Min.y = min(bb.Min.y, bb.Max.y);
-	selection.Max.y = max(bb.Min.y, bb.Max.y);
+	selection.Min.x = MIN(bb.Min.x, bb.Max.x);
+	selection.Max.x = MAX(bb.Min.x, bb.Max.x);
+	selection.Min.y = MIN(bb.Min.y, bb.Max.y);
+	selection.Max.y = MAX(bb.Min.y, bb.Max.y);
 	selection.ClipWith(window->ClipRect);
 
 	// Render Rect + Border
@@ -918,4 +919,9 @@ bool ImGui::DragU8(const char* label, u8* value, u8 speed, u8 min, u8 max, Const
 {
 	float speedF = speed;
 	return DragScalar(label, ImGuiDataType_U8, value, speedF, &min, &max, format, flags);
+}
+
+bool ImGui::SliderU8(const char* label, u8* value, u8 min, u8 max, ConstString format, ImGuiSliderFlags flags)
+{
+	return SliderScalar(label, ImGuiDataType_U8, value, &min, &max, format, flags);
 }

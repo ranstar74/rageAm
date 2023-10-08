@@ -125,6 +125,14 @@ namespace rage
 			R[3] = M_IDENTITY_R3;
 		}
 
+		Mat34V(const Mat44V& mat)
+		{
+			R[0] = mat.R[0];
+			R[1] = mat.R[1];
+			R[2] = mat.R[2];
+			R[3] = mat.R[3];
+		}
+
 		Mat44V To44() const
 		{
 			Mat44V m44;

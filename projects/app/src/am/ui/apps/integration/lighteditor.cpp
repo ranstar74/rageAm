@@ -488,19 +488,76 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 
 			if (ImGui::BeginTabItem("Misc"))
 			{
-				// TODO: Better blink picker. Can we simulate blinking pattern in UI itself for preview?
-				ImGui::Text("Flashiness (blinking)");
-				ImGui::DragU8("###FLASHINESS", &light->Flashiness, 1, 0, 20);
-				bool noInc = light->Flashiness == 20;
-				bool noSub = light->Flashiness == 0;
-				ImGui::SameLine();
-				ImGui::BeginDisabled(noSub);
-				if (ImGui::Button("<")) light->Flashiness--;
-				ImGui::EndDisabled();
-				ImGui::BeginDisabled(noInc);
-				ImGui::SameLine();
-				if (ImGui::Button(">")) light->Flashiness++;
-				ImGui::EndDisabled();
+				ImVec2 tilePadding = ImVec2(0, ImGui::GetFrameHeight() * 0.25f);
+				if (SlGui::CollapsingHeader("Flashiness (blinking)"))
+				{
+					// Additional simple slider with buttons
+					ImGui::SliderU8("###FLASHINESS", &light->Flashiness, 0, 20, "%u");
+					bool noInc = light->Flashiness == 20;
+					bool noSub = light->Flashiness == 0;
+					ImGui::SameLine(0, 1);
+					ImGui::BeginDisabled(noSub);
+					if (ImGui::Button("<")) light->Flashiness--;
+					ImGui::EndDisabled();
+					ImGui::BeginDisabled(noInc);
+					ImGui::SameLine(0, 1);
+					if (ImGui::Button(">")) light->Flashiness++;
+					ImGui::EndDisabled();
+
+					ImGui::SameLine();
+					ImGui::HelpMarker(
+						"Blinking #0 is default always on state. "
+						"Note that some blinking types use XY light position as the seed ");
+
+					static auto getFlashinessState = gmAddress::Scan("48 8B C4 48 89 58 10 48 89 68 18 48 89 70 20 57 48 83 EC 60 0F 29 70 E8 0F 29 78 D8 49")
+						.ToFunc<void(u8 flashiness, rage::Mat34V * transform, float& outIntensity, bool& outIsDrawn)>();
+
+					ImGui::Dummy(tilePadding); // Add extra padding before flashiness tiles
+
+					ImGui::Indent();
+					for (int i = 0; i <= 20; i++)
+					{
+						// 4 items per row
+						if (i % 4 != 0)
+							ImGui::SameLine();
+
+						ImDrawList* drawList = ImGui::GetCurrentWindow()->DrawList;
+
+						// Flashiness picker button
+						float frameHeight = ImGui::GetFrameHeight();
+						ImVec2 itemSize(frameHeight * 2.25f, frameHeight * 1.25f);
+						bool selected = light->Flashiness == i;
+						if (ImGui::Selectable(ImGui::FormatTemp("#%u###FLASHINESS_SELECTABLE_%u", i, i), selected, 0, itemSize))
+						{
+							light->Flashiness = i;
+						}
+						const ImRect& selectableRect = GImGui->LastItemData.Rect;
+						// Selectable border
+						drawList->AddRect(selectableRect.GetTL(), selectableRect.GetBR(),
+							selected ? ImGui::GetColorU32(ImGuiCol_ButtonActive) : ImGui::GetColorU32(ImGuiCol_Border));
+
+						// Get flashiness state from game
+						float flashinessIntensity = 1.0f;
+						bool flashinessIsDrawn = false;
+						getFlashinessState(i, (rage::Mat34V*)&ctx.LightWorld, flashinessIntensity, flashinessIsDrawn);
+						if (!flashinessIsDrawn)
+							flashinessIntensity = 0.0f;
+
+						// Draw it in UI
+						ImU32 flashinessColor = // Also can use light color here but looks a bit weird
+							IM_COL32(230, 230, 230, static_cast<u8>(flashinessIntensity * 255.0f));
+						float lightPadding = ImGui::GetStyle().FramePadding.x * 2.5f;
+						// Position on top right corner
+						float lightRadius = frameHeight * 0.475f;
+						ImVec2 lightSize(lightRadius, lightRadius);
+						ImVec2 lightPos = selectableRect.GetTR();
+						lightPos += ImVec2(-lightRadius * 0.5f, lightRadius * 0.5f);
+						lightPos += ImVec2(-lightPadding, lightPadding);
+						drawList->AddCircleFilled(lightPos, lightSize.x, flashinessColor);
+					}
+					ImGui::Unindent();
+					ImGui::Dummy(tilePadding); // Add extra padding after flashiness tiles
+				}
 
 				editFadeDistance("Specular Fade", light->LightFadeDistance);
 
