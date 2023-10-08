@@ -88,7 +88,8 @@ struct CLightAttr
 	u8				VolumeOuterColorR;
 	u8				VolumeOuterColorG;
 	u8				VolumeOuterColorB;
-	u8				LightHash;				// Index, not hash
+	// Used to override light from map light extension, light hash must match in both
+	u8				LightHash;
 	float			VolumeOuterIntensity;
 	float			CoronaSize;
 	float			VolumeOuterExponent;
