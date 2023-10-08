@@ -491,6 +491,11 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 				ImVec2 tilePadding = ImVec2(0, ImGui::GetFrameHeight() * 0.25f);
 				if (SlGui::CollapsingHeader("Flashiness (blinking)"))
 				{
+					ImGui::HelpMarker(
+						"#0 is the default 'always on' state.\n"
+						"#11, #12, #13 use XY light position as the seed for randomizing.\n"
+						"#14 is synced with #3 unless there is a radio audio emitter nearby.\n", "Help");
+
 					// Additional simple slider with buttons
 					ImGui::SliderU8("###FLASHINESS", &light->Flashiness, 0, 20, "%u");
 					bool noInc = light->Flashiness == 20;
@@ -504,17 +509,12 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 					if (ImGui::Button(">")) light->Flashiness++;
 					ImGui::EndDisabled();
 
-					ImGui::SameLine();
-					ImGui::HelpMarker(
-						"Blinking #0 is default always on state. "
-						"Note that some blinking types use XY light position as the seed ");
-
 					static auto getFlashinessState = gmAddress::Scan("48 8B C4 48 89 58 10 48 89 68 18 48 89 70 20 57 48 83 EC 60 0F 29 70 E8 0F 29 78 D8 49")
 						.ToFunc<void(u8 flashiness, rage::Mat34V * transform, float& outIntensity, bool& outIsDrawn)>();
 
 					ImGui::Dummy(tilePadding); // Add extra padding before flashiness tiles
-
 					ImGui::Indent();
+				
 					for (int i = 0; i <= 20; i++)
 					{
 						// 4 items per row
