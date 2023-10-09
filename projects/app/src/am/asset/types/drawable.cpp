@@ -537,35 +537,12 @@ bool rageam::asset::DrawableAsset::GenerateSkeleton()
 		bone->SetName(sceneNode->GetName());
 
 		// Apply transformation
-		if (!sceneNode->HasSkin()) // Skinned bone transform is computed later
-		{
-			rage::Vec3V trans = sceneNode->GetTranslation();
-			rage::Vec3V scale = sceneNode->GetScale();
-			rage::QuatV rot = sceneNode->GetRotation();
-			bone->SetTransform(&trans, &scale, &rot);
-		}
+		rage::Vec3V trans = sceneNode->GetTranslation();
+		rage::Vec3V scale = sceneNode->GetScale();
+		rage::QuatV rot = sceneNode->GetRotation();
+		bone->SetTransform(&trans, &scale, &rot);
 
 		boneIndex++;
-	}
-
-	// Compute weighted skinned bone transforms
-	for (u16 i = 0; i < sceneNodeCount; i++)
-	{
-		graphics::SceneNode* sceneNode = m_Scene->GetNode(i);
-		if (!sceneNode->HasSkin())
-			continue;
-
-		for (u16 k = 0; k < sceneNode->GetBoneCount(); k++)
-		{
-			graphics::SceneNode* sceneBone = sceneNode->GetBone(k);
-			rage::crBoneData* bone = m_NodeToBone[sceneBone->GetIndex()];
-
-			// TODO: Gltf + blender exports skeleton Y axis UP so until we implement FBX
-			// no weight skinned transforms are imported, they are not important in any case
-			// Only used for skeleton rendering + exporting ydr model back to 3d scene
-			rage::Mat44V mtx = rage::Mat44V::Identity();
-			bone->SetTransform(mtx);
-		}
 	}
 
 	// Setup parent & sibling indices
@@ -587,14 +564,15 @@ bool rageam::asset::DrawableAsset::GenerateSkeleton()
 		// Node 2: Is Not Bone
 		// Node 3: Is Bone
 		// In skeleton Node 3 will appear after Node 1 but as 'NextSibling' in scene it won't
-		for (u16 nextNodeIndex = nodeIndex + 1; nextNodeIndex < sceneNodeCount; nextNodeIndex++)
+		graphics::SceneNode* nextSublingBoneNode;
+		while ((nextSublingBoneNode = sceneNode->GetNextSibling()))
 		{
-			if (m_NodeToBone[nextNodeIndex] == nullptr)
-				continue;
-
-			// We found next node that is also a bone
-			siblingBoneIndex = GetNodeBoneIndex(m_Scene->GetNode(nextNodeIndex));
-			break;
+			s32 nextSiblingBoneIndex = GetNodeBoneIndex(nextSublingBoneNode);
+			if (nextSiblingBoneIndex != -1)
+			{
+				siblingBoneIndex = nextSiblingBoneIndex;
+				break;
+			}
 		}
 
 		// We have to link root bone with first child manually
