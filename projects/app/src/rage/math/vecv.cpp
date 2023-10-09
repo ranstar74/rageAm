@@ -103,18 +103,12 @@ rage::Vec3V rage::Vec3V::Project(const Vec3V& normal) const
 
 rage::Vec3V rage::Vec3V::Min(const Vec3V& other) const
 {
-	// Min function takes into account W component
-	DirectX::XMVectorSetW(M, INFINITY);
-	DirectX::XMVectorSetW(other.M, INFINITY);
-	return DirectX::XMVectorMin(M, other.M);
+	return _mm_min_ps(M, other.M);
 }
 
 rage::Vec3V rage::Vec3V::Max(const Vec3V& other) const
 {
-	// Same as in Min
-	DirectX::XMVectorSetW(M, -INFINITY);
-	DirectX::XMVectorSetW(other.M, -INFINITY);
-	return DirectX::XMVectorMax(M, other.M);
+	return _mm_max_ps(M, other.M);
 }
 
 rage::Vec3V rage::Vec3V::Transform(const Mat44V& mtx) const
