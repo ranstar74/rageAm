@@ -8,6 +8,8 @@
 #pragma once
 
 #include <cmath>
+
+#include "am/system/asserts.h"
 #include "helpers/ranges.h"
 
 namespace rage
@@ -27,6 +29,18 @@ namespace rage
 
 		void FromArray(const float* arr) { X = arr[0]; Y = arr[1]; }
 		void ToArray(float* arr) const { arr[0] = X; arr[1] = Y; }
+
+		float& operator[](int index)
+		{
+			switch (index)
+			{
+			case 0: return X;
+			case 1: return Y;
+			}
+#ifdef DEBUG
+			AM_UNREACHABLE("Vector2::operator[] -> Index %u is invalid.", index);
+#endif
+		}
 	};
 
 	struct Vector3
@@ -58,6 +72,19 @@ namespace rage
 
 		void FromArray(const float* arr) { X = arr[0]; Y = arr[1]; Z = arr[2]; }
 		void ToArray(float* arr) const { arr[0] = X; arr[1] = Y; arr[2] = Z; }
+
+		float& operator[](int index)
+		{
+			switch (index)
+			{
+			case 0: return X;
+			case 1: return Y;
+			case 2: return Z;
+			}
+#ifdef DEBUG
+			AM_UNREACHABLE("Vector3::operator[] -> Index %u is invalid.", index);
+#endif
+		}
 	};
 
 	struct Vector4
@@ -70,5 +97,19 @@ namespace rage
 
 		void FromArray(const float* arr) { X = arr[0]; Y = arr[1]; Z = arr[2]; W = arr[3]; }
 		void ToArray(float* arr) const { arr[0] = X; arr[1] = Y; arr[2] = Z; arr[3] = W; }
+
+		float& operator[](int index)
+		{
+			switch (index)
+			{
+			case 0: return X;
+			case 1: return Y;
+			case 2: return Z;
+			case 3: return W;
+			}
+#ifdef DEBUG
+			AM_UNREACHABLE("Vector4::operator[] -> Index %u is invalid.", index);
+#endif
+		}
 	};
 }
