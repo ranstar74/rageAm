@@ -319,6 +319,12 @@ void rageam::ModelScene::SetEntityPos(const rage::Vec3V& pos)
 	}
 }
 
+pVoid rageam::ModelScene::GetEntity()
+{
+	std::unique_lock lock(m_Mutex);
+	return (pVoid)m_Entity;
+}
+
 gtaDrawable* rageam::ModelScene::GetDrawable()
 {
 	std::unique_lock lock(m_Mutex);
@@ -669,9 +675,11 @@ void rageam::ModelSceneApp::OnRender()
 	{
 		ImGui::Text("Entity Handle: %u", m_ModelScene->GetEntityHandle());
 
-		char drawablePtrBuf[64];
-		sprintf_s(drawablePtrBuf, 64, "%p", m_ModelScene->GetDrawable());
-		ImGui::InputText("Drawable Ptr", drawablePtrBuf, 64, ImGuiInputTextFlags_ReadOnly);
+		char ptrBuf[64];
+		sprintf_s(ptrBuf, 64, "%p", m_ModelScene->GetDrawable());
+		ImGui::InputText("Drawable Ptr", ptrBuf, 64, ImGuiInputTextFlags_ReadOnly);
+		sprintf_s(ptrBuf, 64, "%p", m_ModelScene->GetEntity());
+		ImGui::InputText("Entity Ptr", ptrBuf, 64, ImGuiInputTextFlags_ReadOnly);
 
 		constexpr ImVec2 buttonSize = { 90, 0 };
 

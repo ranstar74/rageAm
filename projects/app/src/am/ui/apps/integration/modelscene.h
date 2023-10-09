@@ -70,6 +70,7 @@ namespace rageam
 
 		void SetEntityPos(const rage::Vec3V& pos);
 
+		pVoid GetEntity();
 		gtaDrawable* GetDrawable();
 		void SetDrawable(gtaDrawable* drawable);
 		u32 GetEntityHandle() const { return m_EntityHandle; }
