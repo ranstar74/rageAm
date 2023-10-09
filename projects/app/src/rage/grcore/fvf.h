@@ -56,6 +56,10 @@ namespace rage
 		u32					Unknown18;
 	};
 
+	static constexpr u32 TEXCOORD_MAX = 8;	// 8 texcoord attributes
+	static constexpr u32 TANGENT_MAX = 2;	// 2 tangent attributes
+	static constexpr u32 COLOR_MAX = 2;		// 2 color attributes
+
 	/**
 	 * \brief Even more flexible than DirectX one! Flexible-Vertex-Format.
 	 */
