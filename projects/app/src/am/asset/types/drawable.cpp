@@ -564,8 +564,8 @@ bool rageam::asset::DrawableAsset::GenerateSkeleton()
 		// Node 2: Is Not Bone
 		// Node 3: Is Bone
 		// In skeleton Node 3 will appear after Node 1 but as 'NextSibling' in scene it won't
-		graphics::SceneNode* nextSublingBoneNode;
-		while ((nextSublingBoneNode = sceneNode->GetNextSibling()))
+		graphics::SceneNode* nextSublingBoneNode = sceneNode->GetNextSibling();
+		while (nextSublingBoneNode)
 		{
 			s32 nextSiblingBoneIndex = GetNodeBoneIndex(nextSublingBoneNode);
 			if (nextSiblingBoneIndex != -1)
@@ -573,6 +573,7 @@ bool rageam::asset::DrawableAsset::GenerateSkeleton()
 				siblingBoneIndex = nextSiblingBoneIndex;
 				break;
 			}
+			nextSublingBoneNode = nextSublingBoneNode->GetNextSibling();
 		}
 
 		// We have to link root bone with first child manually
