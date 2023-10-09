@@ -97,7 +97,7 @@ bool rageam::texture::Compressor::LoadImageFromMemory(const char* data, u32 data
 	m_Height = m_Image.height();
 	m_PixelCount = m_Width * m_Height;
 
-	if (min(m_Width, m_Height) < 4)
+	if (MIN(m_Width, m_Height) < 4)
 	{
 		AM_ERRF("TextureCompressor::Load() -> Minimum allowed texture resolution is 4x4, actual: %ux%u)", m_Width, m_Height);
 		return false;
@@ -152,7 +152,7 @@ void rageam::texture::Compressor::GetResolution(const CompressionOptions& option
 		return;
 	}
 
-	u32 max = max(m_Width, m_Height);
+	u32 max = MAX(m_Width, m_Height);
 
 	if (!IS_POWER_OF_TWO(max))
 		max = ALIGN_POWER_OF_TWO_32(max);

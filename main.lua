@@ -153,3 +153,5 @@ project "rageAm"
 	filter{}
 	
 	dpiawareness "HighPerMonitor"
+
+	defines { "NOMINMAX" }
