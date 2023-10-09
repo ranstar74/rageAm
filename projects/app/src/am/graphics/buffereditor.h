@@ -112,15 +112,13 @@ namespace rageam::graphics
 			// See comment in CanConvertSetBlendIndices
 			if (toFormat == DXGI_FORMAT_R32G32B32A32_FLOAT && inFormat == DXGI_FORMAT_R8G8B8A8_UINT)
 			{
-				static constexpr float offset = 0; // (1.0f / 255.0f) * 2;
-
 				u32 in_u32 = *static_cast<u32*>(in);
 				rage::Vector4 out_Vec4 =
 				{
-					(float)(in_u32 >> 0 & 0xF) / 255.0f + offset,
-					(float)(in_u32 >> 8 & 0xF) / 255.0f + offset,
-					(float)(in_u32 >> 16 & 0xF) / 255.0f + offset,
-					(float)(in_u32 >> 24 & 0xF) / 255.0f + offset,
+					(float)(in_u32 >> 0 & 0xF) / 255.0f,
+					(float)(in_u32 >> 8 & 0xF) / 255.0f,
+					(float)(in_u32 >> 16 & 0xF) / 255.0f,
+					(float)(in_u32 >> 24 & 0xF) / 255.0f,
 				};
 				SetAttributeAt(vertexIndex, attribute->Offset, out_Vec4);
 				return;
