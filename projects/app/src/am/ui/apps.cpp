@@ -111,12 +111,12 @@ bool rageam::ui::Apps::UpdateAll()
 		ImGui::SameLine();
 		ImGui::Text("The 'rageAm' RAGE Research Project");
 		ImGui::SnapToPrevious();
-		ImGui::Text(U8("©"));
+		ImGui::Text(U8("\u00a9")); // Trademark
 		ImGui::SameLine(0, 0);
 		ImGui::Text(" %i ranstar74.", currentYear);
 
 		ImGui::Dummy(ImVec2(0, ImGui::GetFrameHeight() * 1.75f));
-		
+
 		if (ImGui::Button("Continue"))
 			ImGui::CloseCurrentPopup();
 
