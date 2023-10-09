@@ -15,10 +15,10 @@ namespace rageam::graphics
 		void Init()
 		{
 			CheckerTexture.Init();
-#ifndef AM_STANDALONE
+#ifdef AM_INTEGRATED
 			DebugRender.Init();
-#endif
 			OverlayRender.Init();
+#endif
 		}
 	};
 }
