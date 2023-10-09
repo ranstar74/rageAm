@@ -140,6 +140,7 @@ project "rageAm"
 		"nvtt",
 		"magic_enum",
 		"cgltf",
+		"ufbx",
 		"hwbreakpoint",
 	}
 	links { "Comctl32.lib" } -- TaskDialog
