@@ -1,5 +1,6 @@
 #include "scene.h"
 
+#include "scene_fbx.h"
 #include "scene_gl.h"
 #include "am/file/pathutils.h"
 #include "rage/crypto/joaat.h"
@@ -21,6 +22,9 @@ bool rageam::graphics::SceneMesh::HasSkin() const
 
 void rageam::graphics::SceneNode::ComputeMatrices()
 {
+	//if (HasLocalWorldMatrices())
+	//	return;
+
 	m_LocalMatrix = rage::Mat44V::Transform(GetScale(), GetRotation(), GetTranslation());
 
 	rage::Mat44V world = GetLocalTransform();
@@ -122,17 +126,93 @@ void rageam::graphics::Scene::Init()
 	ComputeNodeMatrices();
 }
 
+void rageam::graphics::Scene::DebugPrint()
+{
+	AM_TRACEF("######## SCENE DEBUG INFO ########");
+
+	auto logger = Logger::GetInstance();
+	logger->GetOptions().Set(LOG_OPTION_NO_PREFIX, true);
+
+	string indentString;
+	int indent = 0;
+	std::function<void(SceneNode*)> printRecurse;
+	printRecurse = [&](const SceneNode* node)
+		{
+			if (!node)
+				return;
+			indentString = "";
+			for (int i = 0; i < indent; i++) indentString += "    ";
+
+			string nodeDisplay;
+			nodeDisplay.AppendFormat("- %s%s <Skin:%u Mesh:%u Light:%u",
+				indentString.GetCStr(), node->GetName(),
+				node->HasSkin(), node->HasMesh(), node->HasLight());
+
+			if (node->HasScale())
+			{
+				rage::Vec3V s = node->GetScale();
+				nodeDisplay.AppendFormat(" S(%g %g %g)", s.X(), s.Y(), s.Z());
+			}
+
+			if (node->HasRotation())
+			{
+				rage::QuatV r = node->GetRotation();
+				nodeDisplay.AppendFormat(" R(%g %g %g %g)", r.X(), r.Y(), r.Z(), r.W());
+			}
+
+			if (node->HasTranslation())
+			{
+				rage::Vec3V t = node->GetTranslation();
+				nodeDisplay.AppendFormat(" T(%g %g %g)", t.X(), t.Y(), t.Z());
+			}
+
+			nodeDisplay += '>';
+
+			AM_TRACEF(nodeDisplay.GetCStr());
+
+			if (node->HasMesh())
+			{
+				auto mesh = node->GetMesh();
+				for (u16 i = 0; i < mesh->GetGeometriesCount(); i++)
+				{
+					auto geom = mesh->GetGeometry(i);
+					auto& bb = geom->GetAABB();
+					AM_TRACEF("%s\tGeometry #%u (Verts:%u Indies:%u Mat:%u) Min(%g %g %g) Max(%g %g %g)",
+						indentString.GetCStr(), i, geom->GetVertexCount(), geom->GetIndexCount(), geom->GetMaterialIndex(),
+						bb.Min.X(), bb.Min.Y(), bb.Min.Z(), bb.Max.X(), bb.Max.Y(), bb.Max.Z());
+				}
+			}
+
+			indent++;
+			printRecurse(node->GetFirstChild());
+			indent--;
+			printRecurse(node->GetNextSibling());
+		};
+
+	AM_TRACEF("Scene Type: %s", GetTypeName());
+	AM_TRACEF("Node Count: %u", GetNodeCount());
+	AM_TRACEF("Node Hierarchy:");
+	SceneNode* root = GetFirstNode();
+	printRecurse(root);
+
+	logger->GetOptions().Set(LOG_OPTION_NO_PREFIX, false);
+}
+
 amPtr<rageam::graphics::Scene> rageam::graphics::SceneFactory::LoadFrom(ConstWString path)
 {
 	ConstWString extension = file::GetExtension(path);
 
 	Scene* scene = nullptr;
 
-	switch (rage::joaat(extension))
+	switch (Hash(extension))
 	{
-	case rage::joaat("gltf"):
-	case rage::joaat("glb"):
+	case Hash("gltf"):
+	case Hash("glb"):
 		scene = new SceneGl();
+		break;
+	case Hash("obj"): // UFBX also supports .obj
+	case Hash("fbx"):
+		scene = new SceneFbx();
 		break;
 	}
 
@@ -154,11 +234,12 @@ amPtr<rageam::graphics::Scene> rageam::graphics::SceneFactory::LoadFrom(ConstWSt
 
 bool rageam::graphics::SceneFactory::IsSupportedFormat(ConstWString extension)
 {
-	// TODO: Use map with create delegate instead, so we can just check if it's in map
-	switch (rage::joaat(extension))
+	switch (Hash(extension))
 	{
-	case rage::joaat("gltf"):
-	case rage::joaat("glb"):
+	case Hash("gltf"):
+	case Hash("glb"):
+	case Hash("obj"):
+	case Hash("fbx"):
 		return true;
 	}
 	return false;

@@ -199,5 +199,7 @@ namespace rageam::graphics
 
 		// Gets corresponding SceneNodeGl from gltf node
 		SceneNode* GetNodeFromGl(cgltf_node* glNode) const;
+
+		ConstString GetTypeName() override { return "GL"; }
 	};
 }

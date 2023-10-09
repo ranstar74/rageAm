@@ -213,6 +213,10 @@ namespace rageam::graphics
 
 		bool HasMesh() const { return GetMesh() != nullptr; }
 
+		// If false, local and world matrices will be computed automatically from GetScale, GetRotation and GetTranslation
+		// TODO: Implement this
+		// virtual bool HasLocalWorldMatrices() { return false; }
+
 		// Called by the scene on initialization, don't use
 		void ComputeMatrices();
 
@@ -293,6 +297,12 @@ namespace rageam::graphics
 		bool HasMultipleRootNodes() const { return m_HasMultipleRootNodes; }
 		// Whether any node in the scene use skinning
 		bool HasSkinning() const { return m_HasSkinning; }
+
+		// Gets scene type such as 'GL' / 'FBX' / 'OBJ'
+		virtual ConstString GetTypeName() = 0;
+
+		// Prints scene hierarchy to console
+		void DebugPrint();
 	};
 	using ScenePtr = amPtr<Scene>;
 
