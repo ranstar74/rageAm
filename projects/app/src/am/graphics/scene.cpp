@@ -118,12 +118,24 @@ void rageam::graphics::Scene::ComputeNodeMatrices() const
 	}
 }
 
+void rageam::graphics::Scene::ComputeStats()
+{
+	m_LightCount = 0;
+	for (u16 i = 0; i < GetNodeCount(); i++)
+	{
+		SceneNode* node = GetNode(i);
+		if (node->HasLight())
+			m_LightCount++;
+	}
+}
+
 void rageam::graphics::Scene::Init()
 {
 	FindTransformedModels();
 	FindNeedDefaultMaterial();
 	ScanForMultipleRootBones();
 	ComputeNodeMatrices();
+	ComputeStats();
 }
 
 void rageam::graphics::Scene::DebugPrint()

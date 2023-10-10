@@ -16,6 +16,8 @@
 #include "rage/math/quatv.h"
 #include "rage/spd/aabb.h"
 
+// TODO: Progress reporting
+
 namespace rageam::graphics
 {
 	class SceneNode;
@@ -246,6 +248,11 @@ namespace rageam::graphics
 		SceneNode* GetFirstChild() const { return m_FirstChild; }
 	};
 
+	struct SceneLoadOptions
+	{
+		bool SkipMeshData; // No expensive vertex data will be loaded
+	};
+
 	/**
 	 * \brief A Scene represents 3D model data loaded from file such as obj/fbx/glb.
 	 */
@@ -253,16 +260,19 @@ namespace rageam::graphics
 	{
 		rage::atString m_Name;
 
-		bool m_HasTransform;
-		bool m_NeedDefaultMaterial;
-		bool m_HasMultipleRootNodes;
-		bool m_HasSkinning;
+		bool	m_HasTransform;
+		bool	m_NeedDefaultMaterial;
+		bool	m_HasMultipleRootNodes;
+		bool	m_HasSkinning;
+		u16		m_LightCount;
 
 		void FindSkinnedNodes();
 		void FindTransformedModels();
 		void FindNeedDefaultMaterial();
 		void ScanForMultipleRootBones();
 		void ComputeNodeMatrices() const;
+		void ComputeStats();
+
 	public:
 		Scene() = default;
 		virtual ~Scene() = default;
@@ -297,6 +307,8 @@ namespace rageam::graphics
 		bool HasMultipleRootNodes() const { return m_HasMultipleRootNodes; }
 		// Whether any node in the scene use skinning
 		bool HasSkinning() const { return m_HasSkinning; }
+		// Total light count in this scene nodes
+		u16 GetLightCount() const { return m_LightCount; }
 
 		// Gets scene type such as 'GL' / 'FBX' / 'OBJ'
 		virtual ConstString GetTypeName() = 0;
