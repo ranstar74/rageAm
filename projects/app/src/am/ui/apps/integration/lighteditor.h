@@ -94,6 +94,9 @@ namespace rageam::integration
 
 	public:
 		void Render(gtaDrawable* drawable, const rage::Mat44V& entityMtx);
+		// Pass -1 to select none
+		// Nothing is done if selection was frozen by user
+		void SelectLight(s32 index);
 
 		bool ShowLightOutlines = true;
 		bool ShowOnlySelectedLightOutline = true;

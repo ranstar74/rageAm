@@ -514,7 +514,7 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 
 					ImGui::Dummy(tilePadding); // Add extra padding before flashiness tiles
 					ImGui::Indent();
-				
+
 					for (int i = 0; i <= 20; i++)
 					{
 						// 4 items per row
@@ -820,5 +820,11 @@ void rageam::integration::LightEditor::Render(gtaDrawable* drawable, const rage:
 			}
 		}
 	}
+}
+
+void rageam::integration::LightEditor::SelectLight(s32 index)
+{
+	if (!m_SelectionFreezed)
+		m_SelectedLight = index;
 }
 #endif
