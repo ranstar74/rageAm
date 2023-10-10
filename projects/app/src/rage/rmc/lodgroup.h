@@ -38,6 +38,7 @@ namespace rage
 		rmcLod(const rmcLod& other) = default;
 
 		pgUPtrArray<grmModel>& GetModels() { return m_Models; }
+		grmModel* GetModel(u16 index) { return m_Models[index].Get(); }
 	};
 
 	/**
