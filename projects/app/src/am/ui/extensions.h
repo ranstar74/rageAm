@@ -155,6 +155,7 @@ namespace ImGui
 
 	bool DragU8(const char* label, u8* value, u8 speed, u8 min, u8 max, ConstString format = "%u", ImGuiSliderFlags flags = 0);
 	bool SliderU8(const char* label, u8* value, u8 min, u8 max, ConstString format = "%u", ImGuiSliderFlags flags = 0);
+	bool InputU16(const char* label, u16* value);
 }
 
 namespace ImPlot

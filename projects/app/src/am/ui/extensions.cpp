@@ -925,3 +925,8 @@ bool ImGui::SliderU8(const char* label, u8* value, u8 min, u8 max, ConstString f
 {
 	return SliderScalar(label, ImGuiDataType_U8, value, &min, &max, format, flags);
 }
+
+bool ImGui::InputU16(const char* label, u16* value)
+{
+	return InputScalar(label, ImGuiDataType_U16, value, 0, 0);
+}

@@ -1,4 +1,6 @@
 #pragma once
+#pragma once
+#include "am/ui/styled/slwidgets.h"
 
 #ifdef AM_INTEGRATED
 
@@ -21,6 +23,17 @@
 namespace rageam
 {
 	class BackgroundTask;
+
+	// State that we are querying from UI thread every tick, everything packed
+	// in one struct to prevent too much mutex use
+	struct ModelSceneState
+	{
+		bool			IsLoading;
+		bool			IsEntitySpawned;
+		rage::Mat44V	EntityWorld;
+		u32				EntityHandle;
+		pVoid			EntityPtr;
+	};
 
 	class ModelScene : public integration::IUpdateComponent
 	{
@@ -48,6 +61,7 @@ namespace rageam
 		bool						m_CleanUpRequested = false;
 		rage::fiDirectoryWatcher	m_FileWatcher;
 		amPtr<BackgroundTask>		m_LoadTask;
+		amPtr<asset::DrawableAsset> m_DrawableAsset; // Exists only during loading
 
 		void CreateEntity(const rage::Vec3V& coors);
 		void DeleteEntity();
@@ -70,18 +84,9 @@ namespace rageam
 
 		void SetEntityPos(const rage::Vec3V& pos);
 
-		pVoid GetEntity();
-		gtaDrawable* GetDrawable();
-		void SetDrawable(gtaDrawable* drawable);
-		u32 GetEntityHandle() const { return m_EntityHandle; }
+		void GetState(ModelSceneState& state);
 
-		// Is drawable being currently loaded in background thread
-		bool IsLoading();
-
-		bool IsEntitySpawned();
-		rage::Mat44V GetEntityMatrix() const;
-
-		std::function<void()> LoadCallback;
+		std::function<void(asset::DrawableAssetPtr&, gtaDrawable*)> LoadCallback;
 	};
 
 	class ModelSceneApp : public ui::App
@@ -93,7 +98,22 @@ namespace rageam
 		static inline const rage::Vec3V DEFAULT_POS = { -676, 167, 73.55f };
 		static constexpr u32 RAGEAM_HASH = Hash("RAGEAM_TESTBED_ARCHETYPE");
 
+		enum eSceneNodeAttr
+		{
+			SceneNodeAttr_None,
+			SceneNodeAttr_Mesh,
+			SceneNodeAttr_Bone,
+			SceneNodeAttr_Light,
+			SceneNodeAttr_Collision,
+		};
+
+		static constexpr ConstString SceneNodeAttrDisplay[] =
+		{
+			"None", "Mesh", "Bone", "Light", "Collision"
+		};
+
 		file::WPath					m_AssetPath; // User/Desktop/rageAm.idr
+		rage::Vec3V					m_ScenePosition = DEFAULT_POS;
 		rage::Vector3				m_Dimensions;
 		u32							m_NumLods = 0;
 		u32							m_NumModels = 0;
@@ -107,13 +127,31 @@ namespace rageam
 		bool						m_CameraEnabled = false;
 		bool						m_UseOrbitCamera = true;
 		integration::LightEditor	m_LightEditor;
+		graphics::ScenePtr			m_Scene; // Drawable scene
+		asset::DrawableAssetMap		m_DrawableSceneMap;
+		gtaDrawable*                m_Drawable;
+		ModelSceneState				m_ModelState;
+		std::mutex					m_Mutex;
+		//SmallList<ImRect>			m_GraphRectStack;
+
+		// Graph View
+		s32							m_SelectedNodeIndex = -1;
+		eSceneNodeAttr				m_SelectedNodeAttr = SceneNodeAttr_None;
+
+		bool SceneTreeNode(ConstString text, bool& selected, bool& toggled, SlGuiTreeNodeFlags flags);
 
 		rage::Vec3V GetEntityScenePos() const;
 		void UpdateDrawableStats();
 		void ResetCameraPosition();
 		void UpdateCamera();
-		void DrawDrawableUi(gtaDrawable* drawable);
+		void DrawSceneGraphRecurse(const graphics::SceneNode* sceneNode);
+		void DrawSceneGraph(const graphics::SceneNode* sceneNode);
+		void DrawSkeletonGraph();
+		void DrawDrawableUI();
+		void DrawStarBar();
+		void UpdateScenePosition();
 		void OnRender() override;
+		void OnDrawableLoaded(const asset::DrawableAssetPtr& asset, gtaDrawable* drawable);
 
 	public:
 		ModelSceneApp();
