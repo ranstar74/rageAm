@@ -1,5 +1,6 @@
 #include "slwidgets.h"
 
+#include "am/graphics/color.h"
 #include "am/string/string.h"
 #include "am/ui/extensions.h"
 #include "am/ui/font_icons/icons_awesome.h"
@@ -101,6 +102,39 @@ bool SlGui::MenuButton(ConstString text)
 	return pressed;
 }
 
+bool SlGui::IconButton(ConstString idStr, ConstString text, ImU32 color)
+{
+	ImGuiWindow* window = ImGui::GetCurrentWindow();
+	ImGuiStyle& style = ImGui::GetStyle();
+
+	ImVec2 textSize = ImGui::CalcTextSize(text);
+	ImVec2 size = textSize + style.FramePadding * 2.0f;
+	ImVec2 pos = window->DC.CursorPos;
+	ImRect bb(pos, pos + size);
+
+	ImGuiID id = ImGui::GetID(idStr);
+
+	ImGui::ItemSize(bb);
+	if (!ImGui::ItemAdd(bb, id))
+		return false;
+
+	bool hovered;
+	bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, NULL);
+
+	// ImGui handles overlapping extremely retarded way
+	if (hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left))
+		pressed = true;
+
+	rageam::graphics::ColorU32 finalColor = color;
+	if (!hovered)
+		finalColor.A = ImMax<u8>(finalColor.A - 40, 0);
+
+	ImVec2 textPos = pos + style.FramePadding;
+	window->DrawList->AddText(textPos, finalColor, text);
+
+	return pressed;
+}
+
 bool SlGui::Button(ConstString text, const ImVec2& sizeOverride)
 {
 	ImGuiWindow* window = ImGui::GetCurrentWindow();
@@ -194,7 +228,7 @@ bool SlGui::TreeNode(ConstString text, bool& selected, bool& toggled, ImTextureI
 	ImGuiStyle& style = context->Style;
 	ImGuiID id = window->GetID(text);
 
-	bool& isOpen = *storage->GetBoolRef(id, flags & ImGuiIconTreeNodeFlags_DefaultOpen);
+	bool& isOpen = *storage->GetBoolRef(id, (flags & ImGuiTreeNodeFlags_DefaultOpen) ? 1 : 0);
 
 	ImVec2 cursor = window->DC.CursorPos;
 
@@ -222,8 +256,13 @@ bool SlGui::TreeNode(ConstString text, bool& selected, bool& toggled, ImTextureI
 	ImVec2 arrowMax(arrowMin.x + arrowSizeX, frameMax.y);
 	ImRect arrowBb(arrowMin, arrowMax);
 
-	ImVec2 iconMin(arrowMax.x, IM_GET_CENTER(frameMin.y, frameSize.y, iconSize));
-	ImVec2 iconMax(iconMin.x + iconSize, iconMin.y + iconSize);
+	ImVec2 iconMin(arrowMax.x, arrowMin.y);
+	ImVec2 iconMax(arrowMax.x, arrowMax.y);
+	if (icon != nullptr)
+	{
+		iconMin = ImVec2(arrowMax.x, IM_GET_CENTER(frameMin.y, frameSize.y, iconSize));
+		iconMax = ImVec2(iconMin.x + iconSize, iconMin.y + iconSize);
+	}
 
 	ImVec2 textMin(iconMax.x + style.FramePadding.x, frameMin.y);
 	ImVec2 textMax(textMin.x + textSize.x, frameMax.y);
