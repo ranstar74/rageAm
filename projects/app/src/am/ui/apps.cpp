@@ -36,16 +36,25 @@ bool rageam::ui::Apps::UpdateAll()
 	// We display UI disabled if game viewport is focused (active) in integration mode
 #ifndef AM_STANDALONE
 	static bool gameDisabled = false;
+	static bool openImDebug = false;
 	if (ImGui::IsKeyPressed(ImGuiKey_F10))
 	{
 		gameDisabled = !gameDisabled;
 	}
 
+	if (ImGui::IsKeyPressed(ImGuiKey_F9))
+	{
+		openImDebug = !openImDebug;
+	}
+
+	if (openImDebug)
+		ImGui::ShowMetricsWindow();
+
 	if (gameDisabled)
 	{
 		static gmAddress disabledAllControlsCommand = gmAddress::Scan("40 53 48 83 EC 20 33 DB 85 C9 75 09");
 		disabledAllControlsCommand.To<void(*)(int)>()(0);
-	}
+}
 
 	// TODO: Bring back cursor clip hook
 	GImGui->IO.MouseDrawCursor = gameDisabled;
@@ -123,7 +132,7 @@ bool rageam::ui::Apps::UpdateAll()
 		ImGui::PopFont();
 
 		ImGui::EndPopup();
-	}
+}
 #endif
 
 	// Update apps
