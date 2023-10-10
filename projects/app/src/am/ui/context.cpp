@@ -84,7 +84,11 @@ void rageam::ui::UIContext::StyleBlack() const
 	style.Colors[ImGuiCol_FrameBgActive] = ImGui::ColorConvertU32ToFloat4(IM_COL32(62, 64, 71, 255));
 
 	style.Colors[ImGuiCol_Border] = ImGui::ColorConvertU32ToFloat4(IM_COL32(61, 62, 63, 255));
+#ifdef AM_STANDLONE
 	style.Colors[ImGuiCol_WindowBg] = ImGui::ColorConvertU32ToFloat4(IM_COL32(41, 46, 54, 255));
+#else
+	style.Colors[ImGuiCol_WindowBg] = ImGui::ColorConvertU32ToFloat4(IM_COL32(41, 46, 54, 245));
+#endif
 
 	style.Colors[ImGuiCol_TitleBg] = ImGui::ColorConvertU32ToFloat4(IM_COL32(31, 37, 48, 255));
 	style.Colors[ImGuiCol_TitleBgCollapsed] = ImGui::ColorConvertU32ToFloat4(IM_COL32(31, 37, 48, 255));
