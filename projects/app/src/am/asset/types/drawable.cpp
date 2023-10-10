@@ -254,6 +254,38 @@ void rageam::asset::DrawableTune::Deserialize(const XmlHandle& node)
 	XmlHandle xLights = node.GetChild("Lights");
 }
 
+rage::grmModel* rageam::asset::DrawableAssetMap::GetModelFromScene(rage::rmcDrawable* drawable, u16 sceneNodeIndex)
+{
+	ModelHandle& handle = SceneNodeToModel[sceneNodeIndex];
+	if (handle.Index == u16(-1))
+		return nullptr;
+	return drawable->GetLodGroup().GetLod(handle.Lod)->GetModel(handle.Index);
+}
+
+rage::crBoneData* rageam::asset::DrawableAssetMap::GetBoneFromScene(const rage::rmcDrawable* drawable, u16 sceneNodeIndex)
+{
+	u16 boneIndex = SceneNodeToBone[sceneNodeIndex];
+	if (boneIndex == u16(-1))
+		return nullptr;
+	return drawable->GetSkeletonData()->GetBone(boneIndex);
+}
+
+rage::phBound* rageam::asset::DrawableAssetMap::GetBoundFromScene(const gtaDrawable* drawable, u16 sceneNodeIndex)
+{
+	u16 boundIndex = SceneNodeToBound[sceneNodeIndex];
+	if (boundIndex == u16(-1))
+		return nullptr;
+	return ((rage::phBoundComposite*)drawable->GetBound())->GetBound(boundIndex).Get();
+}
+
+CLightAttr* rageam::asset::DrawableAssetMap::GetLightFromScene(gtaDrawable* drawable, u16 sceneNodeIndex)
+{
+	u16 lightAttrIndex = SceneNodeToLightAttr[sceneNodeIndex];
+	if (lightAttrIndex == u16(-1))
+		return nullptr;
+	return drawable->GetLight(lightAttrIndex);
+}
+
 bool rageam::asset::DrawableAsset::CacheEffects()
 {
 	m_EffectCache.Destruct();
@@ -279,10 +311,25 @@ bool rageam::asset::DrawableAsset::CacheEffects()
 
 void rageam::asset::DrawableAsset::PrepareForConversion()
 {
+	u16 nodeCount = m_Scene->GetNodeCount();
+
 	CacheEffects();
-	m_NodeToModel.Resize(m_Scene->GetNodeCount());
-	m_NodeToBone.Resize(m_Scene->GetNodeCount());
+	m_NodeToModel.Resize(nodeCount);
+	m_NodeToBone.Resize(nodeCount);
 	m_EmbedDict = nullptr;
+
+	CompiledDrawableMap = {};
+	CompiledDrawableMap.SceneNodeToModel.Resize(nodeCount);
+	CompiledDrawableMap.SceneNodeToBound.Resize(nodeCount);
+	CompiledDrawableMap.SceneNodeToBone.Resize(nodeCount);
+	CompiledDrawableMap.SceneMaterialToShader.Resize(m_Scene->GetMaterialCount());
+	CompiledDrawableMap.SceneNodeToLightAttr.Resize(nodeCount);
+	// Default everything to -1
+	for (auto& handle : CompiledDrawableMap.SceneNodeToModel)	handle = { u16(-1), u16(-1) };
+	for (u16& i : CompiledDrawableMap.SceneNodeToBound)			i = u16(-1);
+	for (u16& i : CompiledDrawableMap.SceneNodeToBone)			i = u16(-1);
+	for (u16& i : CompiledDrawableMap.SceneMaterialToShader)	i = u16(-1);
+	for (u16& i : CompiledDrawableMap.SceneNodeToLightAttr)		i = u16(-1);
 }
 
 void rageam::asset::DrawableAsset::CleanUpConversion()
@@ -517,6 +564,9 @@ bool rageam::asset::DrawableAsset::GenerateSkeleton()
 		char rootName[64];
 		sprintf_s(rootName, 64, "%s_root", m_Scene->GetName());
 		skeletonData->GetBone(0)->SetName(rootName);
+
+		// We have to add it to ensure valid indexing
+		CompiledDrawableMap.BoneToSceneNode.Add(u16(-1));
 	}
 
 	// Setup bone for every scene node
@@ -541,6 +591,10 @@ bool rageam::asset::DrawableAsset::GenerateSkeleton()
 		rage::Vec3V scale = sceneNode->GetScale();
 		rage::QuatV rot = sceneNode->GetRotation();
 		bone->SetTransform(&trans, &scale, &rot);
+
+		// Map graphics::SceneNode -> crBoneData
+		CompiledDrawableMap.SceneNodeToBone[nodeIndex] = boneIndex;
+		CompiledDrawableMap.BoneToSceneNode.Add(nodeIndex);
 
 		boneIndex++;
 	}
@@ -701,6 +755,10 @@ void rageam::asset::DrawableAsset::SetupLodModels()
 		if (IsCollisionNode(sceneNode))
 			continue;
 
+		// Map rage::grmModel -> graphics::SceneNode
+		u16 modelIndex = lodModels.GetSize();
+		CompiledDrawableMap.SceneNodeToModel[sceneNode->GetIndex()] = { 0, modelIndex }; // TODO: Specify lod
+
 		lodModels.Emplace(ConvertSceneModel(sceneNode));
 	}
 }
@@ -710,7 +768,7 @@ void rageam::asset::DrawableAsset::CalculateLodExtents() const
 	m_Drawable->GetLodGroup().CalculateExtents();
 }
 
-void rageam::asset::DrawableAsset::CreateMaterials() const
+void rageam::asset::DrawableAsset::CreateMaterials()
 {
 	rage::grmShaderGroup* shaderGroup = m_Drawable->GetShaderGroup();
 
@@ -779,6 +837,14 @@ void rageam::asset::DrawableAsset::CreateMaterials() const
 				}
 			}
 		}
+
+		// Map graphics::SceneMaterial -> rage::grmShader
+		if (material.SceneMaterialIndex != u16(-1)) // Default implicit material has no scene material linkage
+		{
+			u16 shaderIndex = shaderGroup->GetShaderCount();
+			CompiledDrawableMap.SceneMaterialToShader[material.SceneMaterialIndex] = shaderIndex;
+		}
+		CompiledDrawableMap.ShaderToSceneMaterial.Add(material.SceneMaterialIndex);
 
 		shaderGroup->AddShader(shader);
 	}
@@ -866,7 +932,7 @@ rageam::SmallList<rage::phBoundPtr> rageam::asset::DrawableAsset::CreateBoundsFr
 	return bounds;
 }
 
-void rageam::asset::DrawableAsset::CreateAndSetCompositeBound() const
+void rageam::asset::DrawableAsset::CreateAndSetCompositeBound()
 {
 	u16 nodeCount = m_Scene->GetNodeCount();
 
@@ -888,7 +954,14 @@ void rageam::asset::DrawableAsset::CreateAndSetCompositeBound() const
 		// Map all bounds created from scene node to the node
 		u16 startIndex = bounds.GetSize();
 		for (u16 k = 0; k < nodeBounds.GetSize(); k++)
-			boundToSceneIndex[startIndex + k] = i;
+		{
+			u16 boundIndex = startIndex + k;
+			boundToSceneIndex[boundIndex] = i;
+
+			// Map graphics::SceneNode -> rage::phBound
+			CompiledDrawableMap.SceneNodeToBound[i] = boundIndex;
+			CompiledDrawableMap.BoneToSceneNode.Add(i);
+		}
 
 		bounds.AddRange(std::move(nodeBounds));
 	}
@@ -963,13 +1036,18 @@ void rageam::asset::DrawableAsset::GeneratePaletteTexture()
 	//m_EmbedDict->Refresh();
 }
 
-void rageam::asset::DrawableAsset::CreateLights() const
+void rageam::asset::DrawableAsset::CreateLights()
 {
 	for (u16 i = 0; i < m_Scene->GetNodeCount(); i++)
 	{
 		graphics::SceneNode* sceneNode = m_Scene->GetNode(i);
 		if (!sceneNode->HasLight())
 			continue;
+
+		// Map graphics::SceneLight -> CLightAttr
+		u16 lightIndex = m_Drawable->GetLightCount();
+		CompiledDrawableMap.SceneNodeToLightAttr[sceneNode->GetIndex()] = lightIndex;
+		CompiledDrawableMap.LightAttrToSceneNode.Add(sceneNode->GetIndex());
 
 		graphics::SceneLight* sceneLight = sceneNode->GetLight();
 		graphics::ColorU32 sceneLightColor = sceneLight->GetColor();
@@ -1081,9 +1159,10 @@ void rageam::asset::DrawableAsset::InitializeEmbedDict()
 
 void rageam::asset::DrawableAsset::CreateMaterialTuneGroupFromScene()
 {
-	if (m_Scene->NeedDefaultMaterial())
+	bool needDefaultMaterial = m_Scene->NeedDefaultMaterial();
+	if (needDefaultMaterial)
 	{
-		MaterialTune defaultMaterial("default");
+		MaterialTune defaultMaterial("default", u16(-1));
 		defaultMaterial.InitFromShader();
 		m_DrawableTune.MaterialTuneGroup.Materials.Emplace(std::move(defaultMaterial));
 	}
@@ -1092,7 +1171,7 @@ void rageam::asset::DrawableAsset::CreateMaterialTuneGroupFromScene()
 	{
 		graphics::SceneMaterial* sceneMaterial = m_Scene->GetMaterial(i);
 
-		MaterialTune material(sceneMaterial->GetName());
+		MaterialTune material(sceneMaterial->GetName(), i);
 		material.InitFromShader();
 		material.SetTextureNamesFromSceneMaterial(sceneMaterial);
 		m_DrawableTune.MaterialTuneGroup.Materials.Emplace(std::move(material));
