@@ -84,6 +84,11 @@ void SlGui::StyleColorsDark()
 	style.Colors[SlGuiCol_NodePressed] = ColorConvertU32ToGradient(IM_COL32(25, 55, 84, 125), IM_COL32(27, 59, 89, 125));
 	style.Colors[SlGuiCol_NodeBorderHighlight] = ColorConvertU32ToGradient(IM_COL32(25, 57, 87, 115), IM_COL32(14, 40, 63, 80));
 
+	style.Colors[SlGuiCol_GraphNode] = ColorConvertU32ToGradient(IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 0));
+	style.Colors[SlGuiCol_GraphNodeHovered] = ColorConvertU32ToGradient(IM_COL32(43, 43, 43, 200), IM_COL32(43, 43, 43, 200));
+	style.Colors[SlGuiCol_GraphNodePressed] = ColorConvertU32ToGradient(IM_COL32(51, 77, 128, 200), IM_COL32(51, 77, 128, 200));
+	style.Colors[SlGuiCol_GraphNodeBorderHighlight] = ColorConvertU32ToGradient(IM_COL32(68, 68, 68, 115), IM_COL32(68, 68, 68, 115));
+
 	//style.Colors[SlGuiCol_Node] = ColorConvertU32ToGradient(IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 0));
 	//style.Colors[SlGuiCol_NodeHovered] = ColorConvertU32ToGradient(IM_COL32(50, 58, 75, 255), IM_COL32(50, 58, 75, 255));
 	//style.Colors[SlGuiCol_NodePressed] = ColorConvertU32ToGradient(IM_COL32(62, 78, 105, 255), IM_COL32(62, 78, 105, 255));

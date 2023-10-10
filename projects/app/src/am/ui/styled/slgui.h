@@ -44,6 +44,11 @@ enum SlGuiCol_
 	SlGuiCol_NodePressed,
 	SlGuiCol_NodeBorderHighlight,
 
+	SlGuiCol_GraphNode,
+	SlGuiCol_GraphNodeHovered,
+	SlGuiCol_GraphNodePressed,
+	SlGuiCol_GraphNodeBorderHighlight,
+
 	SlGuiCol_List,
 	SlGuiCol_ListHovered,
 	SlGuiCol_ListPressed,
