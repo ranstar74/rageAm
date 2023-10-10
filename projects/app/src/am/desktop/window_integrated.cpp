@@ -52,8 +52,8 @@ rageam::WindowIntegrated::WindowIntegrated()
 	m_Handle = FindWindowA("grcWindow", NULL);
 	AM_ASSERT(m_Handle, "WindowIntegrated -> Unable to find grcWindow, did you inject DLL into GTA5.exe?");
 
-	// Just make it a little bit more fancy
-	SetWindowTextA(m_Handle, "Grand Theft Auto V | RageAm");
+	// Just make it a little bit more fancier
+	SetWindowTextA(m_Handle, "Grand Theft Auto V | rageAm - RAGE Research Project");
 
 	s_gAddr_WndProc = gmAddress::Scan("48 8D 05 ?? ?? ?? ?? 33 C9 89 75 20", "WndProc").GetRef(3);
 	Hook::Create(s_gAddr_WndProc, WndProc, &gImpl_WndProc);
