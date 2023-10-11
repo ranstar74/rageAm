@@ -183,13 +183,13 @@ namespace rage
 			m_UsedSlotCount = 0;
 			m_AllowGrowing = false;
 		}
-		atSet(const std::initializer_list<TValue>& list)
+		atSet(const std::initializer_list<TValue>& list) : atSet()
 		{
 			InitAndAllocate(list.size());
 			for (const TValue& value : list)
 				Insert(value);
 		}
-		atSet(const atSet& other)
+		atSet(const atSet& other) : atSet()
 		{
 			CopyFrom(other);
 		}
@@ -214,7 +214,7 @@ namespace rage
 			}
 		}
 		// ReSharper restore CppObjectMemberMightNotBeInitialized
-		atSet(atSet&& other) noexcept
+		atSet(atSet&& other) noexcept : atSet()
 		{
 			Swap(other);
 		}
