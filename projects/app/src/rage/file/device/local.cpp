@@ -285,6 +285,10 @@ bool rage::fiDeviceLocal::SetFileTime(ConstString path, u64 time)
 
 fiHandle_t rage::fiDeviceLocal::FindFileBegin(ConstString path, fiFindData& findData)
 {
+	// Remove private system directories from search results
+	if (!CanAccessPath(ConvertPathToWide(path), FILE_GENERIC_READ))
+		return INVALID_HANDLE_VALUE;
+
 	char searchPath[MAX_PATH];
 
 	bool isFile = strchr(path, '.') != nullptr;
@@ -295,14 +299,10 @@ fiHandle_t rage::fiDeviceLocal::FindFileBegin(ConstString path, fiFindData& find
 	else
 	{
 		bool hasSeparator = Char::IsPathSeparator(path[strlen(path) - 1]);
-		sprintf_s(searchPath, MAX_PATH, hasSeparator ? "%s*" : "%s/*", path);
+		sprintf_s(searchPath, MAX_PATH, hasSeparator ? "%s*" : "%s\\*", path);
 	}
 
 	ConstWString wPath = ConvertPathToWide(searchPath);
-
-	// Remove private system directories from search results
-	if (!CanAccessPath(wPath, FILE_GENERIC_READ))
-		return INVALID_HANDLE_VALUE;
 
 	WIN32_FIND_DATAW winFindData{};
 	HANDLE file = FindFirstFileW(wPath, &winFindData);
