@@ -13,9 +13,13 @@ amUniquePtr<rageam::Window> rageam::WindowFactory::sm_Window;
 
 LRESULT rageam::Common_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-	ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam);
-
-	if (Gui) Gui->Input.HandleProc(msg, wParam, lParam);
+	GetGuiMutex().lock();
+	if (Gui)
+	{
+		ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam);
+		Gui->Input.HandleProc(msg, wParam, lParam);
+	}
+	GetGuiMutex().unlock();
 
 	return 0;
 }

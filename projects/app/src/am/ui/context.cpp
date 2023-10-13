@@ -131,13 +131,23 @@ void rageam::ui::UIContext::StyleLight() const
 
 rageam::ui::UIContext* Gui = nullptr;
 
+std::recursive_mutex& GetGuiMutex()
+{
+	static std::recursive_mutex s_Mutex;
+	return s_Mutex;
+}
+
 void CreateUIContext()
 {
+	std::unique_lock lock(GetGuiMutex());
 	Gui = new rageam::ui::UIContext();
 }
 
 void DestroyUIContext()
 {
+	// Make sure context is not destructed while it's used in wnd proc
+	std::unique_lock lock(GetGuiMutex());
+
 	delete Gui;
 	Gui = nullptr;
 }

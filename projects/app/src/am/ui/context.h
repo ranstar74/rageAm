@@ -22,12 +22,12 @@ namespace rageam::ui
 	 */
 	struct UIContext
 	{
-		Renderer		Renderer;
-		Icons			Icons;
-		Apps			Apps;
-		WindowManager*	Windows;
-		StatusBar*		Status;
-		Input			Input;
+		Renderer			Renderer;
+		Icons				Icons;
+		Apps				Apps;
+		WindowManager*		Windows;
+		StatusBar*			Status;
+		Input				Input;
 
 		UIContext();
 		~UIContext();
@@ -37,11 +37,11 @@ namespace rageam::ui
 		void StyleBlack() const;
 		void StyleLight() const;
 	};
-
 }
 
 // Global user interface context
 extern rageam::ui::UIContext* Gui;
+std::recursive_mutex& GetGuiMutex();
 
 void CreateUIContext();
 void DestroyUIContext();
