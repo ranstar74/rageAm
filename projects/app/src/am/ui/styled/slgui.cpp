@@ -167,50 +167,55 @@ void SlGui::AddCustomIcons()
 
 		const ImFontAtlasCustomRect* rect = io.Fonts->GetCustomRectByIndex(iconIds[iconId++]);
 
+		ImmutableWString imageFileName = rageam::file::GetFileName(path.GetCStr());
+		bool adjustColors = !imageFileName.StartsWith('_'); // We use '_' prefix to indicate that image colors needs to be used as is
+
 		// Write pixels to atlas region from png icon
 		for (int y = 0; y < iconSurface.height(); y++)
 		{
 			ImU32* p = reinterpret_cast<ImU32*>(tex_pixels) + (rect->Y + y) * tex_width + rect->X; // NOLINT(bugprone-implicit-widening-of-multiplication-result)
 			for (int x = 0; x < iconSurface.width(); x++)
 			{
-				//ImU32 col = IM_COL32(
-				//	(int)(*r++ * 255),
-				//	(int)(*g++ * 255),
-				//	(int)(*b++ * 255),
-				//	(int)(*a++ * 255));
-
-				// See https://learn.microsoft.com/en-us/VisualStudio/extensibility/ux-guidelines/images-and-icons-for-visual-studio?view=vs-2022
-				// 'Color inversion for dark themes'
-
-				// https://stackoverflow.com/questions/36778989/vs2015-icon-guide-color-inversion
-
-				ImU32 bg = IM_COL32(0, 0, 0, 255);
-				ImU32 halo = IM_COL32(246, 246, 246, 255);
-				float haloH, haloS, haloL;
-				ImGui::ColorConvertRGBtoHSL(246, 246, 246, haloH, haloS, haloL);
-
 				int colR = (int)(*r++ * 255);
 				int colG = (int)(*g++ * 255);
 				int colB = (int)(*b++ * 255);
-				int  colA = (int)(*a++ * 255);
-				float colH, colS, colL;
-				ImGui::ColorConvertRGBtoHSL(colR, colG, colB, colH, colS, colL);
+				int colA = (int)(*a++ * 255);
 
-				float bgH, bgS, bgL;
-				ImGui::ColorConvertRGBtoHSL(43, 43, 43, bgH, bgS, bgL);
-				if (bgL < 0.5f)
+				if (!adjustColors)
 				{
-					haloL = 1.0f - haloL;
-					colL = 1.0f - colL;
+					*p++ = IM_COL32(colR, colG, colB, colA);
 				}
-
-				if (colL < haloL)
-					colL = bgL * colL / haloL;
 				else
-					colL = (1.0f - bgL) * (colL - 1.0f) / (1.0f - haloL) + 1.0f;
+				{
+					// See https://learn.microsoft.com/en-us/VisualStudio/extensibility/ux-guidelines/images-and-icons-for-visual-studio?view=vs-2022
+					// 'Color inversion for dark themes'
 
-				ImGui::ColorConvertHSLtoRGB(colH, colS, colL, colR, colG, colB);
-				*p++ = IM_COL32(colR, colG, colB, colA);
+					// https://stackoverflow.com/questions/36778989/vs2015-icon-guide-color-inversion
+
+					ImU32 bg = IM_COL32(0, 0, 0, 255);
+					ImU32 halo = IM_COL32(246, 246, 246, 255);
+					float haloH, haloS, haloL;
+					ImGui::ColorConvertRGBtoHSL(246, 246, 246, haloH, haloS, haloL);
+
+					float colH, colS, colL;
+					ImGui::ColorConvertRGBtoHSL(colR, colG, colB, colH, colS, colL);
+
+					float bgH, bgS, bgL;
+					ImGui::ColorConvertRGBtoHSL(43, 43, 43, bgH, bgS, bgL);
+					if (bgL < 0.5f)
+					{
+						haloL = 1.0f - haloL;
+						colL = 1.0f - colL;
+					}
+
+					if (colL < haloL)
+						colL = bgL * colL / haloL;
+					else
+						colL = (1.0f - bgL) * (colL - 1.0f) / (1.0f - haloL) + 1.0f;
+
+					ImGui::ColorConvertHSLtoRGB(colH, colS, colL, colR, colG, colB);
+					*p++ = IM_COL32(colR, colG, colB, colA);
+				}
 			}
 		}
 	}
@@ -250,9 +255,25 @@ void SlGui::LoadFonts()
 	// Load fonts from "data/fonts"
 
 	const auto& fonts = rageam::DataManager::GetFontsFolder();
+	
+	// TODO: We support only latin & cyrillic & chinese for now
+	static const ImWchar fontRange[] =
+	{
+		// Latin
+		0x0020, 0x00FF, // Basic Latin + Latin Supplement
+		0x0400, 0x052F, // Cyrillic + Cyrillic Supplement
+		0x2DE0, 0x2DFF, // Cyrillic Extended-A
+		0xA640, 0xA69F, // Cyrillic Extended-B
+		// Chinese
+		0x2000, 0x206F, // General Punctuation
+		0x3000, 0x30FF, // CJK Symbols and Punctuations, Hiragana, Katakana
+		0x31F0, 0x31FF, // Katakana Phonetic Extensions
+		0xFF00, 0xFFEF, // Half-width characters
+		0xFFFD, 0xFFFD, // Invalid
+		0x4e00, 0x9FAF, // CJK Ideograms
 
-	// TODO: We support only latin & cyrillic for now
-	const auto fontRange = ImGui::GetIO().Fonts->GetGlyphRangesCyrillic();
+		0,
+	};
 
 	// ---- Regular ----
 	io.Fonts->AddFontFromFileTTF(PATH_TO_UTF8(fonts / L"Regular.ttf"), fontSize, &regularConfig, fontRange);
