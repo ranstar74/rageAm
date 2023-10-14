@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+	ShaderUI.xml
+	
+	Part of rageAm - RAGE Research Project
+	Copyright (C) 2023 ranstar74
+	
+-->
+<UIShaderConfig>
+	<!-- 
+		UI control overrides for shader variables 
+		
+		Available properties:
+			@Name						@Description
+			Name						Override display name
+			Description					Adds help text with '?' icon
+			Widget						Override control, see available list below
+		
+		Available widgets:
+			@Name						@Description																						@Params
+			SliderFloat 				Regular range slider with 'Min' and 'Max' values													Max Min
+			SliderFloatLogarithmic 		Same as SliderFloat but uses logarithmic scale instead of linear, useful for exponent values		Max Min
+			ToggleFloat					Checkbox that switches between 'Enabled' and 'Disabled' float values								Enabled Disabled
+			ColorRGB					Color picker																						-
+
+		Note: Override widget for texture variables will be ignored
+	-->
+	<UIVars>
+		<!-- Common -->
+		
+		<Item Name="useTessellation">
+			<Name>Use tessellation</Name>
+			<Description>Makes low poly meshes appear smooth by subdividing them in shader.</Description>
+			<Widget Type="ToggleFloat">
+				<Enabled>1</Enabled>
+				<Disabled>0</Disabled>
+			</Widget>
+		</Item>
+		<Item Name="wetnessMultiplier">
+			<Name>Wetness Multiplier</Name>
+			<Description>How much surface gets wet when raining.</Description>
+			<Widget Type="SliderFloatLogarithmic">
+				<Min>0</Min>
+				<Max>100</Max>
+			</Widget>
+		</Item>
+		<Item Name="specularFresnel">
+			<Name>Specular fresnel</Name>
+			<Description>Defines amount of reflection on straight angle. Lower values make reflection uniform all across the curved surface, while on higher values reflection will be visible only on edges.</Description>
+			<Widget Type="SliderFloat">
+				<Min>0</Min>
+				<Max>1</Max>
+			</Widget>
+		</Item>
+		<Item Name="specularFalloffMult">
+			<Name>Specular falloff</Name>
+			<Description>Defines how much reflection is 'rough / blurred'.</Description>
+			<Widget Type="SliderFloatLogarithmic">
+				<Min>0</Min>
+				<Max>420</Max>
+			</Widget>
+		</Item>		
+		<Item Name="specularIntensityMult">
+			<Name>Specular intensity</Name>
+			<Description>Defines opacity of reflection map.</Description>
+			<Widget Type="SliderFloat">
+				<Min>0</Min>
+				<Max>1</Max>
+			</Widget>
+		</Item>
+		
+		<!-- Vehicles -->
+		
+		<Item Name="matDiffuseSpecularRampEnabled">
+			<Name>Diffuse specular ramp</Name>
+			<Widget Type="ToggleFloat">
+				<Disabled>-1</Disabled>
+				<Enabled>1</Enabled>
+			</Widget>
+		</Item>		
+		<Item Name="dirtLevelMod">
+			<Name>Dirt level</Name>
+			<Widget Type="SliderFloat">
+				<Min>0</Min>
+				<Max>1</Max>
+			</Widget>
+		</Item>
+		<Item Name="dirtColor">
+			<Name>Dirt color</Name>
+			<Widget Type="ColorRGB"/>
+		</Item>
+		<Item Name="bDebugDisplayDamageScale">
+			<Name>Damage vertex color</Name>
+			<Description>Shows deformation color (Blue vertex channel).</Description>
+		</Item>
+		<Item Name="bDebugDisplayDamageMap">
+			<Name>Damage texture</Name>
+			<Description>Shows deformation displacement texture (DamageRT).</Description>
+		</Item>
+		<Item Name="matDiffuseColor">
+			<Name>Diffuse color</Name>
+			<Description>Defines diffuse color. In vehicle case - paint color.</Description>
+			<Widget Type="ColorRGB"/>
+		</Item>
+	</UIVars>
+</UIShaderConfig>
