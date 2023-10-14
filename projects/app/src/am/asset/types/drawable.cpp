@@ -788,6 +788,7 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 
 		rage::grcEffect* effect = effectInfo.Effect;
 		rage::grmShader* shader = new rage::grmShader(effect);
+		shader->SetTessellated(false);
 		for (MaterialTune::Param& param : material.Params)
 		{
 			u16 varIndex;
@@ -1143,6 +1144,8 @@ bool rageam::asset::DrawableAsset::TryCompileToGame()
 	PoseModelBoundsFromScene();
 	CalculateLodExtents();
 	CreateLights();
+
+	m_Drawable->GetLodGroup().ComputeBucketMask(m_Drawable->GetShaderGroup());
 
 	return true;
 }
