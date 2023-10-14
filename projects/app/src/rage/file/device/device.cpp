@@ -3,14 +3,20 @@
 #include "rage/paging/resourceheader.h"
 #include "common/logger.h"
 #include "local.h"
+#include "am/integration/memory/address.h"
 
 rage::fiDevice* rage::fiDevice::GetDeviceImpl(ConstString path, bool isReadOnly)
 {
 #ifdef AM_STANDALONE
 	return fiDeviceLocal::GetInstance(); // For now...
 #else
-	// 48 89 5C 24 08 88 54 24 10 55 56 57 41 54 41 55 41 56 41 57 48 83
-	return fiDeviceLocal::GetInstance();
+	auto getDeviceImpl = gmAddress::Scan("48 89 5C 24 08 88 54 24 10 55 56 57 41 54 41 55 41 56 41 57 48 83")
+		.ToFunc<fiDevice * (ConstString, bool)>();
+
+	fiDevice* device = getDeviceImpl(path, isReadOnly);
+	if(!device || String::Equals(device->GetDebugName(), "Local")) // Fall back on our local device
+		return fiDeviceLocal::GetInstance();
+	return device;
 #endif
 }
 
