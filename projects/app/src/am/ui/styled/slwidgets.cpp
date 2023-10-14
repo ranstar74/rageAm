@@ -102,7 +102,7 @@ bool SlGui::MenuButton(ConstString text)
 	return pressed;
 }
 
-bool SlGui::IconButton(ConstString idStr, ConstString text, ImU32 color)
+bool SlGui::IconButton(ConstString text, ImU32 color)
 {
 	ImGuiWindow* window = ImGui::GetCurrentWindow();
 	ImGuiStyle& style = ImGui::GetStyle();
@@ -112,7 +112,7 @@ bool SlGui::IconButton(ConstString idStr, ConstString text, ImU32 color)
 	ImVec2 pos = window->DC.CursorPos;
 	ImRect bb(pos, pos + size);
 
-	ImGuiID id = ImGui::GetID(idStr);
+	ImGuiID id = ImGui::GetID(text);
 
 	ImGui::ItemSize(bb);
 	if (!ImGui::ItemAdd(bb, id))

@@ -100,7 +100,7 @@ namespace SlGui
 	void EndToolWindow();
 	bool ToggleButton(ConstString text, bool& isActive);
 	bool MenuButton(ConstString text);
-	bool IconButton(ConstString idStr, ConstString text, ImU32 color = IM_COL32_WHITE);
+	bool IconButton(ConstString text, ImU32 color = IM_COL32_WHITE);
 	bool Button(ConstString text, const ImVec2& sizeOverride = ImVec2(0, 0));
 	bool Begin(ConstString name, bool* open = 0, ImGuiWindowFlags flags = 0);
 	void End();
