@@ -1,11 +1,8 @@
 #pragma once
-#pragma once
-#include "am/ui/styled/slwidgets.h"
 
 #ifdef AM_INTEGRATED
 
 #include "am/types.h"
-#include "am/asset/factory.h"
 #include "am/integration/hooks/streaming.h"
 #include "am/integration/shvthread.h"
 #include "am/integration/updatecomponent.h"
@@ -17,6 +14,8 @@
 #include "scripthook/shvnatives.h"
 #include "am/task/worker.h"
 #include "lighteditor.h"
+#include "mateditor.h"
+#include "am/ui/styled/slwidgets.h"
 
 #include <mutex>
 
@@ -101,15 +100,15 @@ namespace rageam
 		enum eSceneNodeAttr
 		{
 			SceneNodeAttr_None,
-			SceneNodeAttr_Mesh,
-			SceneNodeAttr_Bone,
-			SceneNodeAttr_Light,
-			SceneNodeAttr_Collision,
+			SceneNodeAttr_Mesh,			// rage::grmModel
+			SceneNodeAttr_Bone,			// rage::crBoneData
+			SceneNodeAttr_Collision,	// rage::phBound
+			SceneNodeAttr_Light,		// CLightAttr
 		};
 
 		static constexpr ConstString SceneNodeAttrDisplay[] =
 		{
-			"None", "Mesh", "Bone", "Light", "Collision"
+			"None", "Mesh", "Bone", "Collision", "Light"
 		};
 
 		file::WPath					m_AssetPath; // User/Desktop/rageAm.idr
@@ -126,7 +125,6 @@ namespace rageam
 		bool						m_IsolatedSceneActive = false;
 		bool						m_CameraEnabled = false;
 		bool						m_UseOrbitCamera = true;
-		integration::LightEditor	m_LightEditor;
 		graphics::ScenePtr			m_Scene; // Drawable scene
 		asset::DrawableAssetMap		m_DrawableSceneMap;
 		gtaDrawable*                m_Drawable;
@@ -137,8 +135,15 @@ namespace rageam
 		// Graph View
 		s32							m_SelectedNodeIndex = -1;
 		eSceneNodeAttr				m_SelectedNodeAttr = SceneNodeAttr_None;
+		eSceneNodeAttr				m_JustSelectedNodeAttr = SceneNodeAttr_None; // In current frame
 
-		bool SceneTreeNode(ConstString text, bool& selected, bool& toggled, SlGuiTreeNodeFlags flags);
+		integration::LightEditor	m_LightEditor;
+		integration::MaterialEditor	m_MaterialEditor;
+
+		rage::grmModel* GetMeshAttr(u16 nodeIndex) { return m_DrawableSceneMap.GetModelFromScene(m_Drawable, nodeIndex); }
+		rage::crBoneData* GetBoneAttr(u16 nodeIndex) { return m_DrawableSceneMap.GetBoneFromScene(m_Drawable, nodeIndex); }
+		rage::phBound* GetBoundAttr(u16 nodeIndex) { return m_DrawableSceneMap.GetBoundFromScene(m_Drawable, nodeIndex); }
+		CLightAttr* GetLightAttr(u16 nodeIndex) { return m_DrawableSceneMap.GetLightFromScene(m_Drawable, nodeIndex); }
 
 		rage::Vec3V GetEntityScenePos() const;
 		void UpdateDrawableStats();
@@ -147,6 +152,7 @@ namespace rageam
 		void DrawSceneGraphRecurse(const graphics::SceneNode* sceneNode);
 		void DrawSceneGraph(const graphics::SceneNode* sceneNode);
 		void DrawSkeletonGraph();
+		void DrawNodePropertiesUI(u16 nodeIndex);
 		void DrawDrawableUI();
 		void DrawStarBar();
 		void UpdateScenePosition();

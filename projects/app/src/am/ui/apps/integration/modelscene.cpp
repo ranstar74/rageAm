@@ -1,5 +1,6 @@
 #include "modelscene.h"
 
+#include "widgets.h"
 #include "am/ui/font_icons/icons_awesome.h"
 
 #ifdef AM_INTEGRATED
@@ -317,7 +318,7 @@ void rageam::ModelScene::SetEntityPos(const rage::Vec3V& pos)
 		scrInvoke([=]
 			{
 				SHV::ENTITY::SET_ENTITY_COORDS_NO_OFFSET(
-					m_EntityHandle, pos.X(), pos.Y(), pos.Z(), FALSE, FALSE, TRUE);
+					m_EntityHandle, pos.X(), pos.Y(), pos.Z(), FALSE, FALSE, FALSE);
 			});
 	}
 }
@@ -335,155 +336,6 @@ void rageam::ModelScene::GetState(ModelSceneState& state)
 	state.EntityHandle = m_EntityHandle;
 	state.IsEntitySpawned = m_Entity != 0;
 	state.IsLoading = m_LoadTask && !m_LoadTask->IsFinished();;
-}
-
-bool rageam::ModelSceneApp::SceneTreeNode(ConstString text, bool& selected, bool& toggled, SlGuiTreeNodeFlags flags)
-{
-	toggled = false;
-
-	ImGuiWindow* window = ImGui::GetCurrentWindow();
-	if (window->SkipItems)
-		return false;
-
-	ImGuiStorage* storage = window->DC.StateStorage;
-	ImGuiContext* context = GImGui;
-	ImGuiStyle& style = context->Style;
-	ImGuiID id = window->GetID(text);
-
-	bool& isOpen = *storage->GetBoolRef(id, flags & SlGuiTreeNodeFlags_DefaultOpen);
-
-	ImVec2 cursor = window->DC.CursorPos;
-
-	ImGui::ColumnsBeginBackground();
-	// Stretch horizontally on whole window
-	ImVec2 frameSize(window->ParentWorkRect.GetWidth(), ImGui::GetFrameHeight());
-	ImVec2 frameMin(window->ParentWorkRect.Min.x, cursor.y);
-	ImVec2 frameMax(frameMin.x + frameSize.x, frameMin.y + frameSize.y);
-	//ImRect bb(frameMin, frameMax);
-
-	// Based on whether we hover arrow / frame we select corresponding bounding box for button
-	constexpr float arrowSizeX = 18.0f; // Eyeballed
-	ImVec2 arrowMin(cursor.x + style.FramePadding.x, frameMin.y);
-	ImVec2 arrowMax(arrowMin.x + arrowSizeX, frameMax.y);
-	ImRect arrowBb(arrowMin, arrowMax);
-
-	// Item bounding it set to only arrow to allow us to add more items in node later using ImGui::SameLine
-	ImRect itemBb(arrowMin, arrowMax);
-	ImRect bb(frameMin, frameMax);
-
-	ImGui::ItemSize(itemBb.GetSize(), 0.0f);
-	bool added = ImGui::ItemAdd(itemBb, id);
-	ImGui::ColumnsEndBackground();
-	if (!added)
-	{
-		if (isOpen)
-			ImGui::TreePushOverrideID(id);
-
-		return isOpen;
-	}
-
-	ImVec2 textSize = ImGui::CalcTextSize(text);
-	float centerTextY = IM_GET_CENTER(frameMin.y, frameSize.y, textSize.y);
-
-	ImVec2 arrowPos(arrowMin.x, centerTextY);
-
-	bool hoversArrow = ImGui::IsMouseHoveringRect(arrowMin, arrowMax);
-
-	ImGuiButtonFlags buttonFlags = ImGuiButtonFlags_MouseButtonLeft;
-	if (flags & SlGuiTreeNodeFlags_RightClickSelect)
-		buttonFlags |= ImGuiButtonFlags_MouseButtonRight;
-
-	bool hovered, held;
-	bool pressed = ImGui::ButtonBehavior(hoversArrow ? arrowBb : bb, id, &hovered, &held, buttonFlags);
-	ImGui::SetItemAllowOverlap();
-
-	if (flags & SlGuiTreeNodeFlags_DisplayAsHovered)
-		hovered = true;
-
-	if (!hoversArrow && pressed)
-		selected = true;
-
-	bool canOpen = !(flags & ImGuiIconTreeNodeFlags_NoChildren);
-	if (canOpen)
-	{
-		// Toggle on simple arrow click
-		if (pressed && hoversArrow)
-			toggled = true;
-
-		// Toggle on mouse double click
-		if (flags & SlGuiTreeNodeFlags_RightClickSelect &&
-			hovered &&
-			context->IO.MouseClickedCount[ImGuiMouseButton_Left] == 2)
-			toggled = true;
-
-		// Arrow right opens node
-		if (isOpen && context->NavId == id && context->NavMoveDir == ImGuiDir_Left)
-		{
-			toggled = true;
-			ImGui::NavMoveRequestCancel();
-		}
-
-		// Arrow left closes node
-		if (!isOpen && context->NavId == id && context->NavMoveDir == ImGuiDir_Right)
-		{
-			toggled = true;
-			ImGui::NavMoveRequestCancel();
-		}
-
-		if (toggled)
-		{
-			isOpen = !isOpen;
-			context->LastItemData.StatusFlags |= ImGuiItemStatusFlags_ToggledOpen;
-		}
-	}
-
-	// Render
-	{
-		// Shrink it a little to create spacing between items
-		// We do that after collision pass so you can't click in-between
-		//bb.Expand(ImVec2(-1, -1));
-
-		const SlGuiCol backgroundCol =
-			selected ? SlGuiCol_GraphNodePressed : SlGuiCol_GraphNode;
-		const SlGuiCol borderCol = selected ? SlGuiCol_GraphNodeBorderHighlight : SlGuiCol_None;
-
-		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
-
-		// Shadow, Background, Gloss, Border
-		SlGui::RenderFrame(bb, SlGui::GetColorGradient(backgroundCol));
-		SlGui::RenderBorder(bb, SlGui::GetColorGradient(borderCol));
-		if (selected || hovered) SlGui::RenderGloss(bb, SlGuiCol_GlossBg);
-		ImGui::PopStyleVar();
-	}
-	ImGui::RenderNavHighlight(bb, id, ImGuiNavHighlightFlags_TypeThin);
-
-	// Arrow, we add slow fading in/out just like in windows explorer
-	if (canOpen)
-	{
-		bool arrowVisible = context->HoveredWindow == window || ImGui::IsWindowFocused();
-
-		float& alpha = *storage->GetFloatRef(id + 1);
-
-		// Fade in fast, fade out slower...
-		alpha += ImGui::GetIO().DeltaTime * (arrowVisible ? 4.0f : -2.0f);
-
-		// Make max alpha level a little dimmer for sub-nodes
-		float maxAlpha = window->DC.TreeDepth == 0 ? 0.8f : 0.6f;
-		alpha = ImClamp(alpha, 0.0f, maxAlpha);
-
-		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, hoversArrow ? maxAlpha : alpha);
-		ImGui::RenderText(arrowPos, isOpen ? ICON_FA_ANGLE_DOWN : ICON_FA_ANGLE_RIGHT);
-		ImGui::PopStyleVar(); // Alpha
-	}
-
-	const char* textDisplayEnd = ImGui::FindRenderedTextEnd(text);
-	ImGui::SameLine();
-	ImGui::AlignTextToFramePadding();
-	ImGui::TextEx(text, textDisplayEnd);
-
-	if (isOpen)
-		ImGui::TreePushOverrideID(id);
-	return isOpen;
 }
 
 rage::Vec3V rageam::ModelSceneApp::GetEntityScenePos() const
@@ -585,62 +437,74 @@ void rageam::ModelSceneApp::DrawSceneGraphRecurse(const graphics::SceneNode* sce
 	ImGui::TableNextRow();
 
 	// Column: Node
-	ImGui::TableNextColumn();
-	ConstString treeNodeName = ImGui::FormatTemp("%s###NODE_%u", sceneNode->GetName(), sceneNode->GetIndex());
-	SlGuiTreeNodeFlags treeNodeFlags =
-		SlGuiTreeNodeFlags_DefaultOpen;
-	if (sceneNode->GetFirstChild() == nullptr)
-		treeNodeFlags |= SlGuiTreeNodeFlags_NoChildren;
+	bool treeOpened;
+	{
+		ImGui::TableNextColumn();
+		ConstString treeNodeName = ImGui::FormatTemp("%s###NODE_%u", sceneNode->GetName(), sceneNode->GetIndex());
+		SlGuiTreeNodeFlags treeNodeFlags =
+			SlGuiTreeNodeFlags_DefaultOpen;
+		if (sceneNode->GetFirstChild() == nullptr)
+			treeNodeFlags |= SlGuiTreeNodeFlags_NoChildren;
 
-	bool selected = m_SelectedNodeIndex == nodeIndex;
-	bool toggled;
-	bool opened = SceneTreeNode(treeNodeName, selected, toggled, treeNodeFlags);
-	if (selected)
-		m_SelectedNodeIndex = nodeIndex;
+		bool selected = m_SelectedNodeIndex == nodeIndex;
+		bool toggled;
+		treeOpened = SlGui::GraphTreeNode(treeNodeName, selected, toggled, treeNodeFlags);
+		if (selected)
+			m_SelectedNodeIndex = nodeIndex;
 
-	// Attribute icons
-	ImGui::SameLine(); ImGui::Dummy(ImVec2(2, 0)); // Spacing after text
-	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 4));
-	auto grmModel = m_DrawableSceneMap.GetModelFromScene(m_Drawable, nodeIndex);
-	auto crBoneData = m_DrawableSceneMap.GetBoneFromScene(m_Drawable, nodeIndex);
-	auto lightAttr = m_DrawableSceneMap.GetLightFromScene(m_Drawable, nodeIndex);
-	auto phBound = m_DrawableSceneMap.GetBoundFromScene(m_Drawable, nodeIndex);
-	if (grmModel)
-	{
-		ImGui::SameLine();
-		SlGui::IconButton("MESH", ICON_AM_MESH, IM_COL32(9, 178, 139, 255));
-	}
-	if (crBoneData)
-	{
-		ImGui::SameLine();
-		SlGui::IconButton("BONE", ICON_AM_BONE);
-	}
-	if (lightAttr)
-	{
-		ImGui::SameLine();
-		if (SlGui::IconButton("LIGHT", ICON_AM_LIGHT))
+		// Attribute buttons
+		auto attrButton = [&](pVoid attrData, eSceneNodeAttr attr, ConstString icon, ImU32 col = IM_COL32_WHITE)
+			{
+				if (!attrData)
+					return false;
+				ImGui::SameLine();
+				bool pressed = SlGui::IconButton(icon, col);
+				if (pressed)
+				{
+					m_SelectedNodeIndex = nodeIndex;
+					m_SelectedNodeAttr = attr;
+					m_JustSelectedNodeAttr = attr;
+				}
+				return pressed;
+			};
+		ImGui::SameLine(); ImGui::Dummy(ImVec2(2, 0)); // Spacing after text
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 4));
+		// Mesh
+		rage::grmModel* grmModel = GetMeshAttr(nodeIndex);
+		if (attrButton(grmModel, SceneNodeAttr_Mesh, ICON_AM_MESH, IM_COL32(9, 178, 139, 255))) // Green color
+		{
+
+		}
+		// Bone
+		rage::crBoneData* crBoneData = GetBoneAttr(nodeIndex);
+		if (attrButton(crBoneData, SceneNodeAttr_Bone, ICON_AM_BONE))
+		{
+
+		}
+		// Collision
+		rage::phBound* phBound = GetBoundAttr(nodeIndex);
+		if (attrButton(phBound, SceneNodeAttr_Collision, ICON_AM_COLLIDER))
+		{
+
+		}
+		// Light
+		CLightAttr* lightAttr = GetLightAttr(nodeIndex);
+		if (attrButton(lightAttr, SceneNodeAttr_Light, ICON_AM_LIGHT))
 		{
 			m_LightEditor.SelectLight(m_DrawableSceneMap.SceneNodeToLightAttr[nodeIndex]);
 		}
+		ImGui::PopStyleVar(2); // ItemSpacing, FramePadding
 	}
-	if (phBound)
-	{
-		ImGui::SameLine();
-		SlGui::IconButton("COLLISION", ICON_AM_COLLIDER);
-	}
-	ImGui::PopStyleVar(2); // ItemSpacing, FramePadding
 
 	// Column: Visibility Eye
 	ImGui::TableNextColumn();
-	SlGui::IconButton("VIS", ICON_AM_EYE_ON);
+	SlGui::IconButton(ICON_AM_EYE_ON);
 
 	// Draw children
-	if (opened)
+	if (treeOpened)
 	{
-		// Draw children
 		DrawSceneGraphRecurse(sceneNode->GetFirstChild());
-
 		ImGui::TreePop();
 	}
 
@@ -668,71 +532,135 @@ void rageam::ModelSceneApp::DrawSkeletonGraph()
 
 }
 
-void rageam::ModelSceneApp::DrawDrawableUI()
+void rageam::ModelSceneApp::DrawNodePropertiesUI(u16 nodeIndex)
 {
-	if (!m_Drawable || !m_ModelState.IsEntitySpawned)
-		return;
+	graphics::SceneNode* sceneNode = m_Scene->GetNode(nodeIndex);
 
-	m_LightEditor.Render(m_Drawable, m_ModelState.EntityWorld);
+	ConstString title = ImGui::FormatTemp(
+		"%s Properties###DRAWABLE_ATTR_PROPERTIES", sceneNode->GetName());
 
-	if (m_SelectedNodeIndex != -1)
-	{
-		ConstString propertiesTitle = ImGui::FormatTemp("%s Properties###DRAWABLE_ATTR_PROPERTIES",
-			m_Scene->GetNode(m_SelectedNodeIndex)->GetName());
-		if (ImGui::Begin(propertiesTitle))
+	auto beginAttrTabItem = [&](pVoid attr, eSceneNodeAttr attrType, ConstString icon) -> bool
 		{
-			bool forceBone = false;
-			ImGui::Checkbox("Force bone", &forceBone);
-			ImGui::SameLine();
-			ImGui::HelpMarker(
-				"By default bone for a scene node is created if:\n"
-				"- Node has skinning.\n"
-				"- Node or one of node parent's has non-zero transform.\n"
-				"This option allows to convert node into a bone regardless.");
-		}
-		ImGui::End();
-	}
+			if (!attr)
+				return false;
 
-	if (m_SelectedNodeIndex != -1 && m_SelectedNodeAttr != SceneNodeAttr_None)
+			ImGuiTabItemFlags flags = ImGuiTabItemFlags_None;
+			if (m_JustSelectedNodeAttr == attrType)
+				flags = ImGuiTabItemFlags_SetSelected;
+
+			return ImGui::BeginTabItem(icon, 0, flags);
+		};
+
+	if (ImGui::Begin(title))
 	{
-		ConstString propertiesTitle = ImGui::FormatTemp("%s Properties###DRAWABLE_ATTR_PROPERTIES",
-			SceneNodeAttrDisplay[m_SelectedNodeAttr]);
-		if (ImGui::Begin(propertiesTitle))
+		if (ImGui::BeginTabBar("PROPERTIES_TAB_BAR"))
 		{
-			switch (m_SelectedNodeAttr)
+			// Node Properties
+			if (ImGui::BeginTabItem("Common"))
 			{
-			case SceneNodeAttr_Bone:
-			{
-				rage::crBoneData* boneData = m_DrawableSceneMap.GetBoneFromScene(m_Drawable, m_SelectedNodeIndex);
+				bool forceBone = false;
+				ImGui::Checkbox("Force create bone", &forceBone);
+				ImGui::SameLine();
+				ImGui::HelpMarker(
+					"Note: we are referring to scene objects as 'Nodes'\n"
+					"By default bone for a scene node is created if:\n"
+					"- Node has skinning.\n"
+					"- Node or one of node parent's has non-identity transform (Reset XForm in 3Ds Max sets it to identity).\n"
+					"This option allows to convert node into a bone regardless.\n"
+					"It is important to understand that in rage skeleton is often used to set transformation (e.g. for animations) to a mesh\n"
+					"    (or grmModel, technically speaking) and doesn't require mesh having skinning.\n"
+					"Common examples of using a bone:\n"
+					"- Bone world & local position / rotation can be accessed from script using natives\n"
+					"- Game entities can be attached to a bone (including ropes and cameras)\n"
+					"- Animation (requires YCD or scripting)\n");
 
+				// TODO: We can create physical material for regular materials
+				// TODO: Shouldn't be visible if already a collider
+				bool collider = false;
+				ImGui::Checkbox("Create collider", &collider);
+
+				ImGui::EndTabItem();
+			}
+
+			// Mesh
+			rage::grmModel* grmModel = GetMeshAttr(nodeIndex);
+			if (beginAttrTabItem(grmModel, SceneNodeAttr_Mesh, ICON_AM_MESH" Mesh"))
+			{
+				if (SlGui::CollapsingHeader("Render Flags"))
+				{
+					u32 renderFlags = grmModel->GetRenderFlags();
+					if (integration::widgets::EnumFlags<rage::grcRenderFlags>("RENDER_FLAGS", "LF", &renderFlags))
+					{
+						ImGui::CheckboxFlags("Visibility", &renderFlags, rage::RF_VISIBILITY);
+						ImGui::CheckboxFlags("Shadows", &renderFlags, rage::RF_SHADOWS);
+						ImGui::CheckboxFlags("Reflections", &renderFlags, rage::RF_REFLECTIONS);
+					}
+					grmModel->SetRenderFlags(renderFlags);
+				}
+
+				ImGui::EndTabItem();
+			}
+
+			// Bone
+			rage::crBoneData* crBoneData = GetBoneAttr(nodeIndex);
+			if (beginAttrTabItem(crBoneData, SceneNodeAttr_Bone, ICON_AM_BONE" Bone"))
+			{
 				// TODO: Edit bone tune
 				// asset::DrawableBoneTune = m_Drawable
-				u16 tag = boneData->GetBoneTag();
+				u16 tag = crBoneData->GetBoneTag();
 				static bool override = false;
-				if (ImGui::Checkbox("Override", &override))
-					if (!override) ImGui::BeginDisabled();
+				ImGui::Checkbox("Override", &override);
+				ImGui::SameLine();
+				ImGui::HelpMarker("Bone tag is often overriden on vanilla game models (mostly PEDs). Use only if necessary.");
+				if (!override) ImGui::BeginDisabled();
 				ImGui::InputU16("Tag", &tag);
 				if (!override) ImGui::EndDisabled();
-				ImGui::HelpMarker("Bone tag is often overriden on vanilla game models (mostly PEDs). Use only if necessary.");
+				ImGui::SameLine();
+				ImGui::HelpMarker("Tag (or ID) is bone name hash (ELF Hash wrapped to U16 range), used to quickly look up a bone in hash set.");
 
-				SlGui::CategoryText("Transform");
-				// TODO: Local / World
+				SlGui::CategoryText("Local Transform");
+				// TODO: Local / World, Euler
 
-				rage::Vector3 translation = boneData->GetTranslation();;
+				ImGui::BeginDisabled();
+				rage::Vector3 translation = crBoneData->GetTranslation();;
 				rage::Vector3 rotation = { 0.0f, 0.0f, 0.0f }; // TODO: QuatV -> Euler conversion
-				rage::Vector3 scale = boneData->GetScale();
+				rage::Vector3 scale = crBoneData->GetScale();
 				ImGui::DragFloat3("Translation", (float*)&translation, 0.1f, -INFINITY, INFINITY, "%g");
 				ImGui::DragFloat3("Rotation", (float*)&rotation, 0.1f, -INFINITY, INFINITY, "%g");
 				ImGui::DragFloat3("Scale", (float*)&scale, 0.1f, -INFINITY, INFINITY, "%g");
+				ImGui::EndDisabled();
 
+				ImGui::EndTabItem();
+			}
 
-				break;
+			// Collision
+			rage::phBound* phBound = GetBoundAttr(nodeIndex);
+			if (beginAttrTabItem(phBound, SceneNodeAttr_Collision, ICON_AM_COLLIDER" Collision"))
+			{
+
+				ImGui::EndTabItem();
 			}
-			default: break;
-			}
+
+			//// Light
+			//CLightAttr* lightAttr = GetLightAttr(nodeIndex);
+			//if (beginAttrTabItem(lightAttr, SceneNodeAttr_Light, ICON_AM_LIGHT" Light"))
+			//{
+			//	if (ImGui::Button("Select"))
+			//	{
+			//		m_LightEditor.SelectLight(m_DrawableSceneMap.SceneNodeToLightAttr[nodeIndex]);
+			//	}
+			//	ImGui::EndTabItem();
+			//}
+
+			ImGui::EndTabBar();
 		}
-		ImGui::End();
 	}
+	ImGui::End();
+}
+
+void rageam::ModelSceneApp::DrawDrawableUI()
+{
+	m_JustSelectedNodeAttr = SceneNodeAttr_None;
 
 	if (ImGui::BeginTabBar("SCENE_DRAWABLE_TAB_BAR"))
 	{
@@ -770,7 +698,7 @@ void rageam::ModelSceneApp::DrawDrawableUI()
 			{
 				scrInvoke([&]
 					{
-						SHV::Ped localPed = SHV::PLAYER::GET_PLAYER_PED(0);
+						SHV::Ped localPed = SHV::PLAYER::GET_PLAYER_PED(-1);
 						SHV::Hash room = SHV::INTERIOR::GET_ROOM_KEY_FROM_ENTITY(localPed);
 						SHV::Interior interior = SHV::INTERIOR::GET_INTERIOR_FROM_ENTITY(localPed);
 						SHV::INTERIOR::FORCE_ROOM_FOR_ENTITY((int)m_ModelState.EntityHandle, interior, room);
@@ -793,6 +721,11 @@ void rageam::ModelSceneApp::DrawDrawableUI()
 			ImGui::EndTabItem();
 		}
 		ImGui::EndTabBar();
+	}
+
+	if (m_SelectedNodeIndex != -1)
+	{
+		DrawNodePropertiesUI(m_SelectedNodeIndex);
 	}
 
 	return;
@@ -1010,6 +943,7 @@ void rageam::ModelSceneApp::OnRender()
 	std::unique_lock lock(m_Mutex);
 
 	m_ModelScene->GetState(m_ModelState);
+
 	DrawStarBar();
 
 	// We don't want camera controls interference imgui
@@ -1018,40 +952,47 @@ void rageam::ModelSceneApp::OnRender()
 		m_Camera->DisableControls(GImGui->HoveredWindow != nullptr);
 	}
 
+	// Switch camera with ']'
 	if (ImGui::IsKeyPressed(ImGuiKey_RightBracket))
 	{
 		m_CameraEnabled = !m_CameraEnabled;
 		UpdateCamera();
 	}
 
-	if (ImGui::Begin("Scene"))
+	bool isModelLoading = m_ModelState.IsLoading;
+
+	if (ImGui::Begin("Scene", 0, ImGuiWindowFlags_MenuBar))
 	{
-		constexpr ImVec2 buttonSize = { 90, 0 };
-
-		// TODO: Broken
-		bool isLoading = m_ModelState.IsLoading;
-
-		if (isLoading) ImGui::BeginDisabled();
-		if (ImGui::Button("Load", buttonSize))
+		if (isModelLoading) ImGui::BeginDisabled();
+		if (ImGui::BeginMenuBar())
 		{
-			m_ModelScene->SetupFor(m_AssetPath, GetEntityScenePos());
+			if (ImGui::MenuItem(ICON_AM_LOAD_SCENE" Load"))
+			{
+				m_ModelScene->SetupFor(m_AssetPath, GetEntityScenePos());
+			}
+
+			if (ImGui::MenuItem(ICON_AM_CANCEL" Unload"))
+			{
+				m_ModelScene->CleanUp();
+			}
+
+			if (ImGui::MenuItem(ICON_AM_BALL" Material Editor"))
+			{
+				m_MaterialEditor.IsOpen = !m_MaterialEditor.IsOpen;
+				// TODO: We can split material editor on Graphics & Physical materials
+			}
+
+			ImGui::EndMenuBar();
 		}
+		if (isModelLoading) ImGui::EndDisabled();
 
-		ImGui::SameLine();
-
-		if (ImGui::Button("Unload", buttonSize))
+		// Loading indicator
+		// TODO: Progress bar with status
+		if (isModelLoading)
 		{
-			m_ModelScene->CleanUp();
-		}
-
-		if (isLoading) ImGui::EndDisabled();
-
-		if (isLoading)
-		{
-			// TODO: Report progress
-			// Loading indicator
 			int type = (int)(ImGui::GetTime() * 5) % 3;
-			ImGui::Text("Loading%s", type == 0 ? "." : type == 1 ? ".." : "...");
+			ConstString loadingText = ImGui::FormatTemp("Loading%s", type == 0 ? "." : type == 1 ? ".." : "...");
+			ImGui::TextCentered(loadingText, ImGuiTextCenteredFlags_Horizontal | ImGuiTextCenteredFlags_Vertical);
 		}
 
 		if (m_ModelState.IsEntitySpawned)
@@ -1060,6 +1001,12 @@ void rageam::ModelSceneApp::OnRender()
 		}
 	}
 	ImGui::End(); // Scene
+
+	if (m_ModelState.IsEntitySpawned)
+	{
+		m_LightEditor.Render(m_Drawable, m_ModelState.EntityWorld);
+		m_MaterialEditor.Render();
+	}
 }
 
 void rageam::ModelSceneApp::OnDrawableLoaded(const asset::DrawableAssetPtr& asset, gtaDrawable* drawable)
@@ -1073,6 +1020,9 @@ void rageam::ModelSceneApp::OnDrawableLoaded(const asset::DrawableAssetPtr& asse
 
 	m_SelectedNodeIndex = -1;
 	m_SelectedNodeAttr = SceneNodeAttr_None;
+
+	m_MaterialEditor.SetDrawable(m_Drawable);
+	m_MaterialEditor.SetMap(m_Scene.get(), &m_DrawableSceneMap);
 
 	UpdateDrawableStats();
 }
