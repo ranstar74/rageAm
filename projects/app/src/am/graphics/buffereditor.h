@@ -23,7 +23,7 @@ namespace rageam::graphics
 		u32					m_VertexCount = 0;
 		CharArray			m_Buffer = nullptr;
 		bool				m_OwnBufferMemory = false;
-		u8					m_Semantics[MAX_SEMANTIC]{}; // To check if attribute was set
+		u16					m_Semantics[MAX_SEMANTIC]{}; // To check if attribute was set
 
 		void AllocateBuffer(u32 vertexCount);
 		void SetBuffer(char* buffer, u32 vertexCount);
@@ -31,7 +31,7 @@ namespace rageam::graphics
 		// Marks semantic as 'set' (meaning initialized & value was set)
 		void SetSemantic(VertexSemantic semantic, u32 semanticIndex)
 		{
-			u8 bit = 1 << static_cast<u8>(semantic);
+			u16 bit = 1 << static_cast<u16>(semantic);
 			m_Semantics[semanticIndex] |= bit;
 		}
 
@@ -167,7 +167,7 @@ namespace rageam::graphics
 		// Gets whether given semantic was set using SetTexcoord/SetPosition etc functions
 		bool IsSet(VertexSemantic semantic, u32 semanticIndex) const
 		{
-			u8 bit = 1 << static_cast<u8>(semantic);
+			u16 bit = 1 << static_cast<u16>(semantic);
 			return m_Semantics[semanticIndex] & bit;
 		}
 
