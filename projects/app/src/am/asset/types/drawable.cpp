@@ -360,6 +360,13 @@ rageam::List<rageam::asset::DrawableAsset::SplittedGeometry> rageam::asset::Draw
 	graphics::VertexBufferEditor sceneVertexBuffer(decl);
 	sceneVertexBuffer.Init(totalVertexCount);
 	sceneVertexBuffer.SetFromGeometry(sceneGeometry);
+	if (!sceneVertexBuffer.IsSet(graphics::COLOR, 0))
+	{
+		sceneVertexBuffer.SetColorSingle(0, graphics::COLOR_WHITE);
+		AM_WARNINGF(
+			"DrawableAsset::ConvertSceneGeometry() -> Geometry '%u' of mesh '%s' has no vertex color! Using WHITE as default.",
+			sceneGeometry->GetIndex(), sceneGeometry->GetParentMesh()->GetParentNode()->GetName());
+	}
 
 	// Remap blend indices to skeleton for skinning, they are ignored by VertexBufferEditor::SetFromGeometry
 	if (skinned)
