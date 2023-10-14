@@ -1,6 +1,7 @@
 #include "extensions.h"
 
 #include "imgui_internal.h"
+#include "am/graphics/color.h"
 #include "common/logger.h"
 #include "font_icons/icons_awesome.h"
 #include "helpers/ranges.h"
@@ -929,4 +930,22 @@ bool ImGui::SliderU8(const char* label, u8* value, u8 min, u8 max, ConstString f
 bool ImGui::InputU16(const char* label, u16* value)
 {
 	return InputScalar(label, ImGuiDataType_U16, value, 0, 0);
+}
+
+void ImGui::InputTextPlaceholder(ConstString inputText, ConstString placeholder)
+{
+	// Show only if text box is not selected
+	if (IsItemActive())
+		return;
+
+	// There is some text... placeholder must be shown only in empty text box
+	if (inputText[0] != '\0')
+		return;
+
+	rageam::graphics::ColorU32 textColor = GetColorU32(ImGuiCol_Text);
+	textColor.A -= 60; // Make a little bit dimmer
+
+	const ImRect& rect = GImGui->LastItemData.Rect;
+	ImVec2 textPos = rect.Min + GImGui->Style.FramePadding;
+	GetCurrentWindow()->DrawList->AddText(textPos, textColor, placeholder);
 }

@@ -12,6 +12,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "am/string/stringwrapper.h"
+#include "am/system/enum.h"
 #include "common/types.h"
 #include "helpers/resharper.h"
 
@@ -156,6 +157,56 @@ namespace ImGui
 	bool DragU8(const char* label, u8* value, u8 speed, u8 min, u8 max, ConstString format = "%u", ImGuiSliderFlags flags = 0);
 	bool SliderU8(const char* label, u8* value, u8 min, u8 max, ConstString format = "%u", ImGuiSliderFlags flags = 0);
 	bool InputU16(const char* label, u16* value);
+
+	// Sets placeholder text (for example 'Search...) to previous text box
+	void InputTextPlaceholder(ConstString inputText, ConstString placeholder);
+
+	template<typename TFlagsEnum>
+	void EnumFlags(ConstString idStr, u32* flags, int nameSkip = 0)
+	{
+		ImGuiID id = GetID(idStr);
+		PushID(id);
+		static constexpr int numBits = sizeof(TFlagsEnum) * 8;
+		for (int i = 0; i < numBits; i++)
+		{
+			TFlagsEnum flag = TFlagsEnum(1 << i);
+			ConstString name = rageam::Enum::GetName(flag);
+			if (!name)
+				break;
+			name += nameSkip;
+			ImGui::CheckboxFlags(name, flags, flag);
+		}
+		PopID();
+	}
+
+	// Adds "<" and ">" buttons to add and sub 1 from given value
+	template<typename TValue>
+	bool AddSubButtons(ConstString id, TValue& value, TValue min, TValue max, bool sameLine = true)
+	{
+		bool edited = false;
+		PushID(id);
+		bool noInc = value == max;
+		bool noSub = value == min;
+		if(sameLine)
+			SameLine(0, 1);
+		BeginDisabled(noSub);
+		if (Button("<"))
+		{
+			--value;
+			edited = true;
+		}
+		EndDisabled();
+		BeginDisabled(noInc);
+		SameLine(0, 1);
+		if (Button(">"))
+		{
+			++value;
+			edited = true;
+		}
+		EndDisabled();
+		PopID();
+		return edited;
+	}
 }
 
 namespace ImPlot
