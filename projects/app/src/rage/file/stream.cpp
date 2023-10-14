@@ -297,6 +297,27 @@ u32 rage::fiStream::Write(pConstVoid src, u32 size)
 	return size;
 }
 
+bool rage::fiStream::ReadLine(char* buffer, int bufferSize)
+{
+	int length = 0;
+	while (true)
+	{
+		AM_ASSERT(length < bufferSize, "fiStream::ReadLine() -> Buffer is too short.");
+
+		if (!Read(buffer + length, 1))
+			return false; // End of stream
+
+		if (buffer[length] == '\n' || buffer[length] == '\r')
+		{
+			buffer[length] = '\0';
+			this->ReadU8(); // Skip one
+			return true;
+		}
+		
+		length++;
+	}
+}
+
 bool rage::fiStream::PutCh(char c)
 {
 	return Write(&c, 1) != FI_INVALID_RESULT;

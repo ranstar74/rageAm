@@ -114,6 +114,8 @@ namespace rage
 		 */
 		u32 Write(pConstVoid src, u32 size);
 
+		bool ReadLine(char* buffer, int bufferSize);
+
 		bool PutCh(char c);
 
 		void WriteLineVA(const char* fmt, const va_list& args);
@@ -166,5 +168,7 @@ namespace rage
 			std::swap(m_Stream, other.m_Stream);
 			return *this;
 		}
+
+		operator bool() const { return m_Stream != nullptr; }
 	};
 }
