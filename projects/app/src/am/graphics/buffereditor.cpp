@@ -179,11 +179,17 @@ void rageam::graphics::VertexBufferEditor::SetColorSingle(u32 semanticIndex, u32
 			Enum::GetName(inFormat), Enum::GetName(attr->Format));
 		return;
 	}
-
-	for (u32 i = 0; i < m_VertexCount; i++)
+	
+	// Instead of converting color million times we set it for the first vertex
+	// and then just copy to remaining elements
+	ConvertAndSetColor(0, attr, attr->Format, inFormat, &color);
+	pVoid colorSrc = m_Buffer + attr->Offset; // In the first vertex
+	for (u32 i = 1; i < m_VertexCount; i++)
 	{
-		ConvertAndSetColor(i, attr, attr->Format, inFormat, &color);
+		pVoid colorDst = m_Buffer + GetBufferOffset(i, attr->Offset);
+		memcpy(colorDst, colorSrc, attr->SizeInBytes);
 	}
+
 	SetSemantic(COLOR, semanticIndex);
 }
 
