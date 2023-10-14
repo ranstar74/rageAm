@@ -1589,3 +1589,152 @@ bool SlGui::Checkbox(const char* label, bool* v)
 	IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags | ImGuiItemStatusFlags_Checkable | (*v ? ImGuiItemStatusFlags_Checked : 0));
 	return pressed;
 }
+
+bool SlGui::GraphTreeNode(ConstString text, bool& selected, bool& toggled, SlGuiTreeNodeFlags flags)
+{
+	toggled = false;
+
+	ImGuiWindow* window = ImGui::GetCurrentWindow();
+	if (window->SkipItems)
+		return false;
+
+	ImGuiStorage* storage = window->DC.StateStorage;
+	ImGuiContext* context = GImGui;
+	ImGuiStyle& style = context->Style;
+	ImGuiID id = window->GetID(text);
+
+	bool& isOpen = *storage->GetBoolRef(id, flags & SlGuiTreeNodeFlags_DefaultOpen);
+
+	ImVec2 cursor = window->DC.CursorPos;
+
+	ImGui::ColumnsBeginBackground();
+	// Stretch horizontally on whole window
+	ImVec2 frameSize(window->ParentWorkRect.GetWidth(), ImGui::GetFrameHeight());
+	ImVec2 frameMin(window->ParentWorkRect.Min.x, cursor.y);
+	ImVec2 frameMax(frameMin.x + frameSize.x, frameMin.y + frameSize.y);
+	//ImRect bb(frameMin, frameMax);
+
+	// Based on whether we hover arrow / frame we select corresponding bounding box for button
+	constexpr float arrowSizeX = 18.0f; // Eyeballed
+	ImVec2 arrowMin(cursor.x + style.FramePadding.x, frameMin.y);
+	ImVec2 arrowMax(arrowMin.x + arrowSizeX, frameMax.y);
+	ImRect arrowBb(arrowMin, arrowMax);
+
+	// Item bounding it set to only arrow to allow us to add more items in node later using ImGui::SameLine
+	ImRect itemBb(arrowMin, arrowMax);
+	ImRect bb(frameMin, frameMax);
+
+	ImGui::ItemSize(itemBb.GetSize(), 0.0f);
+	bool added = ImGui::ItemAdd(itemBb, id);
+	ImGui::ColumnsEndBackground();
+	if (!added)
+	{
+		if (isOpen)
+			ImGui::TreePushOverrideID(id);
+
+		return isOpen;
+	}
+
+	ImVec2 textSize = ImGui::CalcTextSize(text);
+	float centerTextY = IM_GET_CENTER(frameMin.y, frameSize.y, textSize.y);
+
+	ImVec2 arrowPos(arrowMin.x, centerTextY);
+
+	bool hoversArrow = ImGui::IsMouseHoveringRect(arrowMin, arrowMax);
+
+	ImGuiButtonFlags buttonFlags = ImGuiButtonFlags_MouseButtonLeft;
+	if (flags & SlGuiTreeNodeFlags_RightClickSelect)
+		buttonFlags |= ImGuiButtonFlags_MouseButtonRight;
+
+	bool hovered, held;
+	bool pressed = ImGui::ButtonBehavior(hoversArrow ? arrowBb : bb, id, &hovered, &held, buttonFlags);
+	ImGui::SetItemAllowOverlap();
+
+	if (flags & SlGuiTreeNodeFlags_DisplayAsHovered)
+		hovered = true;
+
+	if (!hoversArrow && pressed)
+		selected = true;
+
+	bool canOpen = !(flags & ImGuiIconTreeNodeFlags_NoChildren);
+	if (canOpen)
+	{
+		// Toggle on simple arrow click
+		if (pressed && hoversArrow)
+			toggled = true;
+
+		// Toggle on mouse double click
+		if (flags & SlGuiTreeNodeFlags_RightClickSelect &&
+			hovered &&
+			context->IO.MouseClickedCount[ImGuiMouseButton_Left] == 2)
+			toggled = true;
+
+		// Arrow right opens node
+		if (isOpen && context->NavId == id && context->NavMoveDir == ImGuiDir_Left)
+		{
+			toggled = true;
+			ImGui::NavMoveRequestCancel();
+		}
+
+		// Arrow left closes node
+		if (!isOpen && context->NavId == id && context->NavMoveDir == ImGuiDir_Right)
+		{
+			toggled = true;
+			ImGui::NavMoveRequestCancel();
+		}
+
+		if (toggled)
+		{
+			isOpen = !isOpen;
+			context->LastItemData.StatusFlags |= ImGuiItemStatusFlags_ToggledOpen;
+		}
+	}
+
+	// Render
+	{
+		// Shrink it a little to create spacing between items
+		// We do that after collision pass so you can't click in-between
+		//bb.Expand(ImVec2(-1, -1));
+
+		const SlGuiCol backgroundCol =
+			selected ? SlGuiCol_GraphNodePressed : SlGuiCol_GraphNode;
+		const SlGuiCol borderCol = selected ? SlGuiCol_GraphNodeBorderHighlight : SlGuiCol_None;
+
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
+
+		// Shadow, Background, Gloss, Border
+		SlGui::RenderFrame(bb, SlGui::GetColorGradient(backgroundCol));
+		SlGui::RenderBorder(bb, SlGui::GetColorGradient(borderCol));
+		if (selected || hovered) SlGui::RenderGloss(bb, SlGuiCol_GlossBg);
+		ImGui::PopStyleVar();
+	}
+	ImGui::RenderNavHighlight(bb, id, ImGuiNavHighlightFlags_TypeThin);
+
+	// Arrow, we add slow fading in/out just like in windows explorer
+	if (canOpen)
+	{
+		bool arrowVisible = context->HoveredWindow == window || ImGui::IsWindowFocused();
+
+		float& alpha = *storage->GetFloatRef(id + 1);
+
+		// Fade in fast, fade out slower...
+		alpha += ImGui::GetIO().DeltaTime * (arrowVisible ? 4.0f : -2.0f);
+
+		// Make max alpha level a little dimmer for sub-nodes
+		float maxAlpha = window->DC.TreeDepth == 0 ? 0.8f : 0.6f;
+		alpha = ImClamp(alpha, 0.0f, maxAlpha);
+
+		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, hoversArrow ? maxAlpha : alpha);
+		ImGui::RenderText(arrowPos, isOpen ? ICON_FA_ANGLE_DOWN : ICON_FA_ANGLE_RIGHT);
+		ImGui::PopStyleVar(); // Alpha
+	}
+
+	const char* textDisplayEnd = ImGui::FindRenderedTextEnd(text);
+	ImGui::SameLine();
+	ImGui::AlignTextToFramePadding();
+	ImGui::TextEx(text, textDisplayEnd);
+
+	if (isOpen)
+		ImGui::TreePushOverrideID(id);
+	return isOpen;
+}

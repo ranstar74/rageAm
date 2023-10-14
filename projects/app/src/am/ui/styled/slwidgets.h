@@ -138,4 +138,6 @@ namespace SlGui
 	bool Combo(const char* label, int* current_item, bool (*items_getter)(void*, int, const char**), void* data, int items_count, int popup_max_height_in_items);
 	bool Combo(const char* label, int* current_item, const char* const items[], int items_count, int popup_max_height_in_items = -1);
 	bool Checkbox(const char* label, bool* v);
+
+	bool GraphTreeNode(ConstString text, bool& selected, bool& toggled, SlGuiTreeNodeFlags flags);
 }
