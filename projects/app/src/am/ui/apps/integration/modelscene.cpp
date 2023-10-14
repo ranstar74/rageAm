@@ -1,6 +1,7 @@
 #include "modelscene.h"
 
 #include "widgets.h"
+#include "am/asset/factory.h"
 #include "am/ui/font_icons/icons_awesome.h"
 
 #ifdef AM_INTEGRATED
