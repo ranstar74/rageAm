@@ -1,4 +1,6 @@
 #include "model.h"
+#include "shadergroup.h"
+#include "rage/grcore/effect/effect.h"
 
 rage::spdAABB* rage::grmAABBGroup::GetAABBs(u16 bbCount)
 {
@@ -95,7 +97,7 @@ rage::grmModel::grmModel()
 	m_Flags = 0;
 	m_Type = 0;
 	m_BoneIndex = 0;
-	m_RenderMask = 0xFF;
+	m_RenderFlags = RF_ALL;
 	m_GeometryCount = 0;
 
 	SetTesselatedGeometryCount(0);
@@ -106,23 +108,15 @@ rage::grmModel::grmModel(const grmModel& other) : m_Geometries(other.m_Geometrie
 {
 	m_AABBs = grmAABBGroup::Copy(other.m_AABBs, other.m_GeometryCount);
 
-	pgRscCompiler* compiler = pgRscCompiler::GetCurrent();
-
-	if (compiler)
-	{
+	if (pgRscCompiler::GetCurrent())
 		m_AABBs.AddCompilerRef();
-		m_GeometryToMaterial.Snapshot(other.m_GeometryToMaterial);
-	}
-	else
-	{
-		m_GeometryToMaterial.Copy(other.m_GeometryToMaterial);
-	}
 
+	m_GeometryToMaterial.Copy(other.m_GeometryToMaterial, other.m_GeometryCount);
 	m_BoneCount = other.m_BoneCount;
 	m_Flags = other.m_Flags;
 	m_Type = other.m_Type;
 	m_BoneIndex = other.m_BoneIndex;
-	m_RenderMask = other.m_RenderMask;
+	m_RenderFlags = other.m_RenderFlags;
 	m_GeometryCount = other.m_GeometryCount;
 	m_TesselatedCountAndIsSkinned = other.m_TesselatedCountAndIsSkinned;
 
@@ -176,6 +170,16 @@ void rage::grmModel::SetIsSkinned(bool skinned, u8 numBones)
 	}
 }
 
+void rage::grmModel::RecomputeTessellationRenderFlag()
+{
+	// m_RenderMask is 8-16 bits of bucket mask, so tesselation flag 0x8000 is shifted right by 8
+
+	if (GetTesselatedGeometryCount() == 0)
+		m_RenderFlags &= 0x7F; // Erase last bit
+	else
+		m_RenderFlags |= 0x80;
+}
+
 void rage::grmModel::ComputeAABB() const
 {
 	m_AABBs->ComputeCombinedBB(m_GeometryCount);
@@ -219,72 +223,104 @@ void rage::grmModel::RemoveGeometry(u16 index)
 	m_GeometryCount -= 1;
 }
 
-void rage::grmModel::SortForTessellation(const pgUPtr<grmShaderGroup>& shaderGroup)
+void rage::grmModel::SortForTessellation(const grmShaderGroup* shaderGroup)
 {
-	//struct SortedGeometry
-	//{
-	//	pgUPtr<grmGeometryQB>	Geometry;
-	//	spdAABB					BoundingBox;
-	//	u16						MaterialIndex;
-	//	bool					IsTesselated;
-	//};
+	// Copy all geometries (including their bb's, material indices) to temporary buffer
+	// then first copy back non-tessellated geometries, afterwards - tessellated ones
 
-	//atArray<SortedGeometry> temp;
-	//temp.Reserve(m_GeometryCount);
+	struct SortedGeometry
+	{
+		pgUPtr<grmGeometryQB>	Geometry;
+		spdAABB					BoundingBox;
+		u16						MaterialIndex;
+		bool					IsTesselated;
+	};
 
-	//u16 tesselatedCount = 0;
-	//u16 regularCount = 0;
-	//u16 geometryIndex = 0;
+	if (m_GeometryCount == 0)
+	{
+		SetTesselatedGeometryCount(0);
+		return;
+	}
 
-	//// We copy all existing geometry data to temporary array and then
-	//// copy regular geometries first, 
-	//for (u16 i = 0; i < m_GeometryCount; i++)
-	//{
-	//	auto& geometry = m_Geometries[i];
-	//	spdAABB& bb = GetGeometryBoundingBox(i);
-	//	u16	materialIndex = GetMaterialIndex(i);
-	//	bool isTesselated = shaderGroup->GetMaterials()[i]->IsTessellated();
+	// No need to sort single geometry
+	if (m_GeometryCount == 1)
+	{
+		u16	materialIndex = GetMaterialIndex(0);
+		bool isTesselated = shaderGroup->GetShader(materialIndex)->IsTessellated();
+		SetTesselatedGeometryCount(isTesselated ? 1 : 0);
+		return;
+	}
 
-	//	if (isTesselated)	tesselatedCount++;
-	//	else				regularCount++;
+	atArray<SortedGeometry> temp;
+	temp.Reserve(m_GeometryCount);
 
-	//	temp.Construct(std::move(geometry), bb, materialIndex, isTesselated);
-	//}
+	u16 tesselatedCount = 0;
+	u16 regularCount = 0;
+	u16 geometryIndex = 0;
 
-	//auto SetGeometry = [this](u16 index, SortedGeometry& modelGeometry)
-	//{
-	//	m_Geometries[index] = std::move(modelGeometry.Geometry);
-	//	m_GeometryToMaterial.Get()[index] = modelGeometry.MaterialIndex;
-	//	GetGeometryBBs()[index] = modelGeometry.BoundingBox;
-	//};
+	// We copy all existing geometry data to temporary array and then
+	// copy regular geometries first, 
+	for (u16 i = 0; i < m_GeometryCount; i++)
+	{
+		auto& geometry = m_Geometries[i];
+		auto& bb = GetGeometryBoundingBox(i);
+		u16	materialIndex = GetMaterialIndex(i);
+		bool isTesselated = shaderGroup->GetShader(materialIndex)->IsTessellated();
 
-	//auto CopyGeometries = [&, this](bool tesselated)
-	//{
-	//	for (u16 i = 0; i < m_GeometryCount; i++)
-	//	{
-	//		SortedGeometry& modelGeometry = temp[i];
-	//		if (modelGeometry.IsTesselated != tesselated) continue;
-	//		SetGeometry(geometryIndex++, modelGeometry);
-	//	}
-	//};
+		if (isTesselated)	tesselatedCount++;
+		else				regularCount++;
 
-	//// Place all non-tessellated geometries first,
-	//// then loop again and place remaining tessellated ones
-	//CopyGeometries(false);
-	//CopyGeometries(true);
+		temp.Construct(geometry.Get(), bb, materialIndex, isTesselated);
+	}
 
-	//// Now we also can update number of tessellated geometries
-	//SetTesselatedGeometryCount(tesselatedCount);
+	auto copyGeometries = [&](bool tesselated)
+		{
+			for (u16 i = 0; i < m_GeometryCount; i++)
+			{
+				SortedGeometry& modelGeometry = temp[i];
+				if (modelGeometry.IsTesselated == tesselated)
+				{
+					m_Geometries[geometryIndex].Set(modelGeometry.Geometry.Get());
+					m_GeometryToMaterial[geometryIndex] = modelGeometry.MaterialIndex;
+					m_AABBs->GetAABBs(m_GeometryCount)[geometryIndex] = modelGeometry.BoundingBox;
+
+					modelGeometry.Geometry.Set(nullptr);
+
+					geometryIndex++;
+				}
+			}
+		};
+
+	// Place all non-tessellated geometries first,
+	// then loop again and place remaining tessellated ones
+	copyGeometries(false);
+	copyGeometries(true);
+
+	// Now we also can update number of tessellated geometries
+	SetTesselatedGeometryCount(tesselatedCount);
 }
 
-void rage::grmModel::DrawPortion(int a2, u32 startGeometryIndex, u32 totalGeometries, const grmShaderGroup* shaderGroup, grcDrawBucketMask mask) const
+u32 rage::grmModel::ComputeBucketMask(const grmShaderGroup* shaderGroup) const
+{
+	u32 modelMask = 0;
+	for (u16 i = 0; i < m_GeometryCount; i++)
+	{
+		u16 materialIndex = GetMaterialIndex(i);
+		modelMask |= shaderGroup->GetShader(materialIndex)->GetDrawBucketMask();
+	}
+
+	modelMask |= (u32)m_RenderFlags << 8;
+	return modelMask;
+}
+
+void rage::grmModel::DrawPortion(int a2, u32 startGeometryIndex, u32 totalGeometries, const grmShaderGroup* shaderGroup, grcRenderMask mask) const
 {
 	static auto fn = gmAddress::Scan("48 89 5C 24 08 44 89 4C 24 20 89 54 24 10 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 30")
-		.To<void(*)(const grmModel*, int, u32, u32, const grmShaderGroup*, grcDrawBucketMask)>();
+		.To<void(*)(const grmModel*, int, u32, u32, const grmShaderGroup*, grcRenderMask)>();
 	fn(this, a2, startGeometryIndex, totalGeometries, shaderGroup, mask);
 }
 
-void rage::grmModel::DrawUntessellatedPortion(const grmShaderGroup* shaderGroup, grcDrawBucketMask mask) const
+void rage::grmModel::DrawUntessellatedPortion(const grmShaderGroup* shaderGroup, grcRenderMask mask) const
 {
 	u32 nonTessellatedGeometriesCount = m_GeometryCount - GetTesselatedGeometryCount();
 	if (nonTessellatedGeometriesCount == 0)
@@ -292,7 +328,7 @@ void rage::grmModel::DrawUntessellatedPortion(const grmShaderGroup* shaderGroup,
 	DrawPortion(0, 0 /* Non tessellated models placed first */, nonTessellatedGeometriesCount, shaderGroup, mask);
 }
 
-void rage::grmModel::DrawTesellatedPortion(const grmShaderGroup* shaderGroup, grcDrawBucketMask mask, bool a5) const
+void rage::grmModel::DrawTesellatedPortion(const grmShaderGroup* shaderGroup, grcRenderMask mask, bool a5) const
 {
 	u32 tessellatedGeometriesCount = GetTesselatedGeometryCount();
 	u32 tessellatedGeometriesStartIdx = m_GeometryCount - tessellatedGeometriesCount; // Tessellated geometries placed after non-tessellated ones

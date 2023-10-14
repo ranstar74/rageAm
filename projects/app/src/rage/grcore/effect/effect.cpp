@@ -210,7 +210,7 @@ void rage::grcInstanceData::UpdateTessellationBucket()
 		grcInstanceVar* useTesselationVar = GetVar(useTesselationHandle);
 		tesselalationOn = useTesselationVar->GetValue<float>() == 1.0f;
 	}
-	m_DrawBucketMask.SetTessellation(tesselalationOn);
+	m_DrawBucketMask.SetTessellated(tesselalationOn);
 }
 
 void rage::grcInstanceData::CopyVars(const grcInstanceData* to) const

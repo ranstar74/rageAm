@@ -88,13 +88,13 @@ public:
 	//	GRenderContext->DebugRender.RenderDrawable(this, mtx);
 	//}
 
-	void Draw(const rage::Mat34V& mtx, rage::grcDrawBucketMask mask, rage::eDrawableLod lod) override
+	void Draw(const rage::Mat34V& mtx, rage::grcRenderMask mask, rage::eDrawableLod lod) override
 	{
 		rmcDrawable::Draw(mtx, mask, lod);
 		//DrawDebug(mtx.To44());
 	}
 
-	void DrawSkinned(const rage::Mat34V& mtx, u64 a3, rage::grcDrawBucketMask mask, rage::eDrawableLod lod) override
+	void DrawSkinned(const rage::Mat34V& mtx, u64 a3, rage::grcRenderMask mask, rage::eDrawableLod lod) override
 	{
 		rmcDrawable::DrawSkinned(mtx, a3, mask, lod);
 		//DrawDebug(mtx.To44());

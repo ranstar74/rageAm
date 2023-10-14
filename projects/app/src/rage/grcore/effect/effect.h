@@ -53,12 +53,22 @@ namespace rage
 		}
 	}
 
+	enum grcRenderFlags : u8
+	{
+		RF_VISIBILITY = 1 << 0,
+		RF_SHADOWS = 1 << 1,
+		RF_REFLECTIONS = 1 << 2,
+		RF_TESSELLATION = 1 << 7,
+
+		RF_ALL = 0xFF,
+	};
+
 	/**
 	 * \brief Draw / Render mask is used to effectively render only models that we are need,
 	 * for example we can create 'Target' render mask with Tessellated flag set to True and
 	 * easily render only tessellated models, same idea applies to models that must cast shadows and so on.
 	 */
-	struct grcDrawBucketMask
+	struct grcRenderMask
 	{
 		// Based on pong I can make assumption - tessellation, shadows, reflection are buckets too
 		// This would make sense because in pong buckets actually have names and render mask is called 'DrawBucketMask'
@@ -69,22 +79,13 @@ namespace rage
 		// - LevelAlpha3:		3
 		// - CharacterDiffuse:	4
 		// - CharacterSkin:		5
-		//
-		// In models we store only base buckets 0-7 (so type is unsigned byte) because other ones are set on runtime
-		//
-		// - Known buckets:
-		// BUCKET_VISIBLE:		8
-		// BUCKET_SHADOWS:		9
-		// BUCKET_REFLECTIONS:	10
-		// BUCKET_TESSELLATION: 15
 
-		static constexpr u32 DRAW_BUCKET_MASK = 0xFF;
-		static constexpr u32 IS_TESSELLATED_SHIFT = 15;
-		static constexpr u32 IS_TESSELLATED_MASK = 1 << IS_TESSELLATED_SHIFT;
+		static constexpr u32 BASE_BUCKETS_MASK = 0xFF;
+		static constexpr u32 RENDER_FLAGS_SHIFT = 8;
 
 		u32 Mask;
 
-		grcDrawBucketMask()
+		grcRenderMask()
 		{
 			if (!datResource::IsBuilding())
 			{
@@ -92,26 +93,36 @@ namespace rage
 				Mask = 0xFFFFFF00;
 			}
 		}
+		grcRenderMask(u32 mask) { Mask = mask; }
 
-		u8 GetDrawBucket() const { return BitScanR32(Mask & DRAW_BUCKET_MASK); }
+		u8 GetDrawBucket() const { return BitScanR32(Mask & BASE_BUCKETS_MASK); }
 		void SetDrawBucket(u32 bucket)
 		{
-			Mask &= ~DRAW_BUCKET_MASK;
+			Mask &= ~BASE_BUCKETS_MASK;
 			Mask |= 1 << bucket;
 		}
 
-		bool GetTesellation() const { return Mask >> IS_TESSELLATED_SHIFT & 1; }
-		void SetTessellation(bool toggle)
+		u8 GetRenderFlags() const { return static_cast<u8>(Mask >> RENDER_FLAGS_SHIFT & 0xFF); }
+		void SetRenderFlags(u8 flags)
 		{
-			Mask &= ~IS_TESSELLATED_MASK;
-			if (toggle) Mask |= 1 << IS_TESSELLATED_SHIFT;
+			Mask &= ~(0xFF << RENDER_FLAGS_SHIFT); // Erase existing
+			Mask |= static_cast<u32>(flags) << RENDER_FLAGS_SHIFT;
+		}
+
+		bool GetTesellated() const { return Mask & (RF_TESSELLATION << RENDER_FLAGS_SHIFT); }
+		void SetTessellated(bool toggle)
+		{
+			Mask &= ~(RF_TESSELLATION << RENDER_FLAGS_SHIFT);
+			if (toggle) Mask |= (RF_TESSELLATION << RENDER_FLAGS_SHIFT);
 		}
 
 		// Checks if this render mask satisfies target
-		bool DoTest(grcDrawBucketMask target) const
+		bool DoTest(grcRenderMask target) const
 		{
 			return Mask & target.Mask != 0;
 		}
+
+		operator u32() const { return Mask; }
 	};
 
 	/**
@@ -349,7 +360,7 @@ namespace rage
 			u32 NameHash;
 		} m_Preset;
 
-		grcDrawBucketMask m_DrawBucketMask;
+		grcRenderMask m_DrawBucketMask;
 
 		bool	m_IsInstancedDraw;
 		u8		m_Unknown25;
@@ -375,7 +386,8 @@ namespace rage
 		// Useful when need to transfer existing parameters to instance data that uses different effect
 		void CopyVars(const grcInstanceData* to) const;
 
-		bool IsTessellated() const { return m_DrawBucketMask.GetTesellation(); }
+		void SetTessellated(bool toggle) { m_DrawBucketMask.SetTessellated(toggle); }
+		bool IsTessellated() const { return m_DrawBucketMask.GetTesellated(); }
 		bool IsInstancedDraw() const { return m_IsInstancedDraw; }
 
 		grcInstanceData* GetPreset() const { return m_Preset.Ptr; }
@@ -390,6 +402,14 @@ namespace rage
 			return &m_Vars[index];
 		}
 		grcInstanceVar* GetVar(fxHandle_t handle) const { return GetVarByIndex(fxHandleToIndex(handle)); }
+
+		grcRenderMask& GetDrawBucketMask() { return m_DrawBucketMask; }
+		u8 GetDrawBucket() const { return m_DrawBucket; }
+		void SetDrawBucket(u8 bucket)
+		{
+			m_DrawBucket = bucket;
+			m_DrawBucketMask.SetDrawBucket(bucket);
+		}
 
 		u16 GetTextureVarCount() const { return m_TextureVarCount; }
 	};
@@ -520,6 +540,11 @@ namespace rage
 					return fxIndexToHandle(i);
 			}
 			return INVALID_FX_HANDLE;
+		}
+
+		fxHandle_t LookupTechnique(ConstString name)
+		{
+			return LookupTechniqueByHashKey(joaat(name));
 		}
 
 		grcEffectTechnique* GetTechniqueByHandle(fxHandle_t handle)

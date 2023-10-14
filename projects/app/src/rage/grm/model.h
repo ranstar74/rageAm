@@ -60,7 +60,7 @@ namespace rage
 		pgUPtrArray<grmGeometryQB>	m_Geometries;
 		// For multiple bounding boxes there's the main one for all of them (basically model BB)
 		pgUPtr<grmAABBGroup>		m_AABBs;
-		pgUPtr<u16>					m_GeometryToMaterial;
+		pgCArray<u16>				m_GeometryToMaterial;
 		u8							m_BoneCount; // Num of bones linked to this skinned model
 		// 1 -	Relative transforms for skinning. Used on all models that use actual bone skinning (with bone weights)
 		//		If you don't set this, game will apply default bone transformations to the bones and they will appear offset
@@ -68,7 +68,7 @@ namespace rage
 		u8							m_Type;
 		// Used for 'transform' skinning without weighting, which basically links model to bone without deformation
 		u8							m_BoneIndex;
-		u8							m_RenderMask;
+		u8							m_RenderFlags; // Old name - RenderMask
 		// IsSkinned - the lowest bit, the rest 7 high bits are number of geometries with tessellation
 		u8							m_TesselatedCountAndIsSkinned;
 		// Not sure why this variable exists in the first place because m_Geometries is atArray,
@@ -80,7 +80,7 @@ namespace rage
 		void SetTesselatedGeometryCount(u8 count)
 		{
 			m_TesselatedCountAndIsSkinned &= 1;
-			m_TesselatedCountAndIsSkinned |= count << 1;
+			if (count > 0) m_TesselatedCountAndIsSkinned |= count << 1;
 		}
 
 	public:
@@ -106,6 +106,14 @@ namespace rage
 		bool IsSkinned() const { return m_TesselatedCountAndIsSkinned & 1; }
 		u8 GetTesselatedGeometryCount() const { return m_TesselatedCountAndIsSkinned >> 1; }
 
+		// Must be called once tessellation was added / removed,
+		// recomputes grcRenderFlags::RF_TESSELLATION in render flags
+		void RecomputeTessellationRenderFlag();
+
+		// rage::grcRenderFlags
+		u8 GetRenderFlags() const { return m_RenderFlags; }
+		void SetRenderFlags(u8 flags) { m_RenderFlags = flags; }
+
 		u16 GetGeometryCount() const { return m_GeometryCount; }
 
 		u16 GetBoneIndex() const { return m_BoneIndex; }
@@ -124,12 +132,14 @@ namespace rage
 		// The function must be called before rendering:
 		// - Any time the geometry list has been changed
 		// - Geometry material changed from/to tessellated
-		void SortForTessellation(const pgUPtr<grmShaderGroup>& shaderGroup);
+		void SortForTessellation(const grmShaderGroup* shaderGroup);
+
+		u32 ComputeBucketMask(const grmShaderGroup* shaderGroup) const;
 
 		// -- Draw functions --
 
-		void DrawPortion(int a2, u32 startGeometryIndex, u32 totalGeometries, const grmShaderGroup* shaderGroup, grcDrawBucketMask mask) const;
-		void DrawUntessellatedPortion(const grmShaderGroup* shaderGroup, grcDrawBucketMask mask) const;
-		void DrawTesellatedPortion(const grmShaderGroup* shaderGroup, grcDrawBucketMask mask, bool a5) const;
+		void DrawPortion(int a2, u32 startGeometryIndex, u32 totalGeometries, const grmShaderGroup* shaderGroup, grcRenderMask mask) const;
+		void DrawUntessellatedPortion(const grmShaderGroup* shaderGroup, grcRenderMask mask) const;
+		void DrawTesellatedPortion(const grmShaderGroup* shaderGroup, grcRenderMask mask, bool a5) const;
 	};
 }
