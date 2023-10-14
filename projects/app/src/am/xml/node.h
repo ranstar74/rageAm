@@ -68,12 +68,19 @@ public:
 	bool IsNull() const { return m_Element == nullptr; }
 	TinyElement Get() const { return m_Element; }
 
+	u32 GetChildCount(ConstString name = nullptr) const;
+
 	// Gets the first child with given name
 	// <Element>
 	//     <Child />		<!-- Returned if name is NULL or 'Child' -->
 	//     <Child />
 	// </Element>
 	XmlHandle GetChild(ConstString name = nullptr, bool errorOnNull = false) const;
+	void GetChildText(ConstString name, ConstString* outText, bool errorOnNull = false) const
+	{
+		XmlHandle child = GetChild(name, errorOnNull);
+		*outText = child.GetText(errorOnNull);
+	}
 
 	// Gets the next sibling element
 	// <Element />			<!-- Current element -->

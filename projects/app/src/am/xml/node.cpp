@@ -56,6 +56,18 @@ XmlHandle::XmlHandle(const XmlHandle& other)
 	m_Element = other.m_Element;
 }
 
+u32 XmlHandle::GetChildCount(ConstString name) const
+{
+	u32 count = 0;
+	XmlHandle child = GetChild(name);
+	while (!child.IsNull())
+	{
+		count++;
+		child = child.Next(name);
+	}
+	return count;
+}
+
 XmlHandle XmlHandle::GetChild(ConstString name, bool errorOnNull) const
 {
 	VERIFY_HANDLE();
@@ -74,6 +86,9 @@ XmlHandle XmlHandle::Next(ConstString name) const
 
 ConstString XmlHandle::GetText(bool errorOnNull) const
 {
+	if (!errorOnNull && IsNull())
+		return nullptr;
+
 	AssetHandle();
 
 	ConstString text = m_Element->GetText();
