@@ -67,10 +67,10 @@ namespace rageam::graphics
 				u32 in_u32 = *static_cast<u32*>(in);
 				rage::Vector4 out_Vec4 =
 				{
-					(float)(in_u32 >> 0 & 0xF) / 255.0f,
-					(float)(in_u32 >> 8 & 0xF) / 255.0f,
-					(float)(in_u32 >> 16 & 0xF) / 255.0f,
-					(float)(in_u32 >> 24 & 0xF) / 255.0f,
+					(float)(in_u32 >> 0 & 0xFF) / 255.0f,
+					(float)(in_u32 >> 8 & 0xFF) / 255.0f,
+					(float)(in_u32 >> 16 & 0xFF) / 255.0f,
+					(float)(in_u32 >> 24 & 0xFF) / 255.0f,
 				};
 				SetAttributeAt(vertexIndex, attribute->Offset, out_Vec4);
 				return;
@@ -115,10 +115,10 @@ namespace rageam::graphics
 				u32 in_u32 = *static_cast<u32*>(in);
 				rage::Vector4 out_Vec4 =
 				{
-					(float)(in_u32 >> 0 & 0xF) / 255.0f,
-					(float)(in_u32 >> 8 & 0xF) / 255.0f,
-					(float)(in_u32 >> 16 & 0xF) / 255.0f,
-					(float)(in_u32 >> 24 & 0xF) / 255.0f,
+					(float)(in_u32 >> 0 & 0xFF) / 255.0f,
+					(float)(in_u32 >> 8 & 0xFF) / 255.0f,
+					(float)(in_u32 >> 16 & 0xFF) / 255.0f,
+					(float)(in_u32 >> 24 & 0xFF) / 255.0f,
 				};
 				SetAttributeAt(vertexIndex, attribute->Offset, out_Vec4);
 				return;
