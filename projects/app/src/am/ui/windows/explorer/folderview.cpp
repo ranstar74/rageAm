@@ -11,11 +11,6 @@
 #include "am/ui/windows/asset/txd/txdwindow.h"
 #include "helpers/format.h"
 
-namespace rageam
-{
-	class ModelViewer;
-}
-
 const rageam::ui::EntrySelection& rageam::ui::FolderView::GetSelectedEntries() const
 {
 	return m_DragSelecting ? m_DragSelection : m_Selection.Entries;
@@ -281,8 +276,8 @@ void rageam::ui::FolderView::UpdateEntryOpening()
 			}
 			else
 			{
-			assetview::AssetWindowFactory::OpenNewOrFocusExisting(asset);
-		}
+				assetview::AssetWindowFactory::OpenNewOrFocusExisting(asset);
+			}
 		}
 		m_EntryToOpen = nullptr; // To prevent it from actually opening
 	}
@@ -606,7 +601,10 @@ void rageam::ui::FolderView::SetRootEntry(const ExplorerEntryPtr& root)
 	m_RootEntry = root;
 	m_RootEntry->LoadChildren();
 
-	m_DirectoryWatcher.SetEntry(m_RootEntry->GetPath());
+	// Directory watcher only works with file system,
+	// there's no point for watcher in user managed directory in either case
+	if(m_RootEntry->GetEntryType() == ExplorerEntryType_Fi)
+		m_DirectoryWatcher.SetEntry(m_RootEntry->GetPath());
 
 	m_Selection.LastClickedID = -1;
 	m_Selection.Entries.ClearSelection();
