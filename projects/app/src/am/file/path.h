@@ -51,16 +51,19 @@ namespace rageam::file
 
 			u32 length = StringWrapper(m_Buffer).Length();
 			s32 avail = TSize - length;
-			cursor += length;
+
+			if(length > 1) // Move cursor to last symbol
+				cursor += length - 1;
 
 			if (!Char::IsPathSeparator(cursor[0]))
 			{
-				cursor[0] = PATH_SEPARATOR;
-
 				++cursor;
 				--avail;
+				cursor[0] = PATH_SEPARATOR;
 			}
 			AM_ASSERT(avail >= 0, "PathBase::Append() -> Out of memory!");
+
+			++cursor; // Move past separator
 
 			String::Copy(cursor, avail, token);
 		}
