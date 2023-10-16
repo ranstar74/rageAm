@@ -6,6 +6,7 @@
 #include "rage/file/device.h"
 #include "rage/file/iterator.h"
 #include "zlib.h"
+#include "rage/atl/datahash.h"
 
 namespace rage
 {
@@ -14,7 +15,7 @@ namespace rage
 	 */
 	class fiDirectoryWatcher
 	{
-		static constexpr u32 WATCH_UPDATE_INTERVAL = 200; // In milliseconds
+		static constexpr u32 WATCH_UPDATE_INTERVAL = 300; // In milliseconds
 
 		bool			m_IsEnabled = true;
 		bool			m_Initialized = false;
@@ -22,6 +23,8 @@ namespace rage
 		std::mutex		m_Mutex;
 		atString		m_Path;
 		rageam::Thread	m_Thread;
+		bool			m_IsDirectory = false;
+		fiDevicePtr		m_Device = nullptr;
 
 		static u32 ThreadEntry(const rageam::ThreadContext* ctx)
 		{
@@ -31,35 +34,40 @@ namespace rage
 			while (!ctx->Thread->ExitRequested())
 			{
 				watcher->m_Mutex.lock();
-				if (watcher->m_IsEnabled)
+				if (watcher->m_IsEnabled && watcher->m_Device != nullptr)
 				{
-					if (!String::IsNullOrEmpty(watcher->m_Path))
-					{
-						// The easiest & fastest way to check if anything was modified is to
-						// use some sort of hash-sum, we're going to use crc32 implementation from zlib
-						u32 newChecksum = 0;
+					// The easiest & fastest way to check if anything was modified is to
+					// use some sort of hash-sum, we're using joaat
+					u32 newChecksum = 0;
 
-						fiIterator it(watcher->m_Path);
+					// Take hash-sum for all directory files and for files simply write time hash
+					if (watcher->m_IsDirectory)
+					{
+						fiIterator it(watcher->m_Path, watcher->m_Device);
 						while (it.Next())
 						{
 							const fiFindData* findData = &it.GetFindData();
-
-							newChecksum = crc32(newChecksum, reinterpret_cast<const Bytef*>(findData), sizeof fiFindData);
+							newChecksum = atDataHash(findData, sizeof fiFindData, newChecksum);
 						}
-
-						if (watcher->m_Initialized && oldChecksum != newChecksum)
-						{
-							AM_DEBUGF("DirectoryWatcher -> Detected changed in %s", watcher->m_Path.GetCStr());
-
-							if (watcher->OnChangeCallback)
-								watcher->OnChangeCallback();
-
-							watcher->m_Changed = true;
-						}
-
-						watcher->m_Initialized = true;
-						oldChecksum = newChecksum;
 					}
+					else
+					{
+						u64 writeTime = watcher->m_Device->GetFileTime(watcher->m_Path);
+						newChecksum = atDataHash(&writeTime, sizeof u64);
+					}
+
+					if (watcher->m_Initialized && oldChecksum != newChecksum)
+					{
+						AM_DEBUGF("DirectoryWatcher -> Detected change in %s", watcher->m_Path.GetCStr());
+
+						if (watcher->OnChangeCallback)
+							watcher->OnChangeCallback();
+
+						watcher->m_Changed = true;
+					}
+
+					watcher->m_Initialized = true;
+					oldChecksum = newChecksum;
 				}
 				watcher->m_Mutex.unlock();
 
@@ -78,6 +86,12 @@ namespace rage
 			std::unique_lock lock(m_Mutex);
 			if (m_Path.Equals(path, true))
 				return;
+
+			m_Device = fiDevice::GetDeviceImpl(path);
+			if (!m_Device)
+				return;
+
+			m_IsDirectory = m_Device->GetAttributes(path) & FI_ATTRIBUTE_DIRECTORY;
 			m_Path = path;
 			m_Initialized = false;
 		}
