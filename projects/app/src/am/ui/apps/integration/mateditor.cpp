@@ -532,6 +532,10 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 		ImGui::OpenPopup(PICKER_POPUP);
 	}
 
+	// Not picking anything, skip
+	if (s_PickTexID != id)
+		return nullptr;
+
 	static float s_IconScale = 1.0f;
 	static bool s_Grid = false;
 	static bool s_GridGroupByDict = false;
@@ -541,7 +545,7 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(1, 1));
 	ImGui::SetNextWindowPos(GImGui->LastItemData.Rect.GetBL()); // Position right under button
 	ImGui::SetNextWindowSize(ImVec2(s_Grid ? 450 : 240, 400));
-	if (s_PickTexID == id && ImGui::BeginPopup(PICKER_POPUP))
+	if (ImGui::BeginPopup(PICKER_POPUP))
 	{
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
 		ImGui::Checkbox("Grid", &s_Grid);
@@ -585,6 +589,12 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 		ImGui::EndPopup();
 	}
 	ImGui::PopStyleVar(1); // ItemSpacing
+
+	// Texture was picked, reset ID
+	if (!ImGui::IsPopupOpen(PICKER_POPUP))
+	{
+		s_PickTexID = nullptr;
+	}
 
 	return pickedTexture;
 }
@@ -842,7 +852,7 @@ void rageam::integration::MaterialEditor::DrawShaderSearchList()
 	float height = ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeight();
 
 	// Shaders
-	if(ImGui::BeginChild("SHADER_LIST", ImVec2(0, height)))
+	if (ImGui::BeginChild("SHADER_LIST", ImVec2(0, height)))
 	{
 		SlGui::ShadeItem(SlGuiCol_Bg);
 
