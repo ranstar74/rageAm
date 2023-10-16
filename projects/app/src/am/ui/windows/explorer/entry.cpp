@@ -259,7 +259,7 @@ void rageam::ui::ExplorerEntryFi::ScanSubFolders()
 	if (!m_IsDirectory)
 		return;
 
-	rage::fiIterator iterator(m_Path);
+	rage::fiIterator iterator(m_Path, m_Device);
 	while (iterator.Next())
 	{
 		if (iterator.IsDirectory())
@@ -408,7 +408,7 @@ void rageam::ui::ExplorerEntryFi::LoadChildren()
 	if (m_ChildrenLoaded) return;
 
 	u16 index = 0;
-	rage::fiIterator iterator(m_Path);
+	rage::fiIterator iterator(m_Path, m_Device);
 	while (iterator.Next())
 	{
 		ConstString path = iterator.GetFilePath();
