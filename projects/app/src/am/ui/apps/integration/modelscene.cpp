@@ -320,6 +320,7 @@ void rageam::ModelScene::SetEntityPos(const rage::Vec3V& pos)
 			{
 				SHV::ENTITY::SET_ENTITY_COORDS_NO_OFFSET(
 					m_EntityHandle, pos.X(), pos.Y(), pos.Z(), FALSE, FALSE, FALSE);
+				SHV::GRAPHICS::UPDATE_LIGHTS_ON_ENTITY(m_EntityHandle);
 			});
 	}
 }
