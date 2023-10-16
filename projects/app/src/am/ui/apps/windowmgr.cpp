@@ -6,10 +6,8 @@
 
 void rageam::ui::WindowManager::OnStart()
 {
-#ifdef AM_STANDALONE
 	// Open default windows
 	EnsureOpened<Explorer>();
-#endif
 }
 
 void rageam::ui::WindowManager::OnRender()
@@ -48,6 +46,11 @@ void rageam::ui::WindowManager::OnRender()
 		if (SlGui::Begin(title, &isOpen, windowFlags))
 		{
 			UndoStack::Push(window->Undo);
+			if (!window->m_Started)
+			{
+				window->OnStart();
+				window->m_Started = true;
+			}
 			if (hasMenu)
 				window->OnMenuRender();
 			window->OnRender();
