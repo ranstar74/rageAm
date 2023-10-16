@@ -1188,6 +1188,12 @@ void rageam::asset::DrawableAsset::CreateMaterialTuneGroupFromScene()
 	}
 }
 
+void rageam::asset::DrawableAsset::LoadTextureWorkspace()
+{
+	// We need workspace only for TXDs
+	WorkspaceTXD = Workspace::FromAssetPath(GetDirectoryPath(), WF_LoadTx);
+}
+
 rageam::asset::DrawableAsset::DrawableAsset(const file::WPath& path) : GameRscAsset(path), m_DrawableTune(this, path)
 {
 	InitializeEmbedDict();
@@ -1247,6 +1253,7 @@ void rageam::asset::DrawableAsset::Refresh()
 	if (!m_Scene) // Failed to load model file
 		return;
 
+	LoadTextureWorkspace();
 	CreateMaterialTuneGroupFromScene();
 	InitializeEmbedDict();
 }

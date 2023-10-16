@@ -25,6 +25,7 @@ namespace rageam::asset
 
 	enum eAssetType
 	{
+		AssetType_None,
 		AssetType_Txd,
 		AssetType_Drawable,
 	};

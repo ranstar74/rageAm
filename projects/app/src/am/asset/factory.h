@@ -9,8 +9,6 @@
 
 #include "gameasset.h"
 #include "am/system/ptr.h"
-#include "types/drawable.h"
-#include "types/txd.h"
 
 namespace rageam::asset
 {
@@ -21,45 +19,21 @@ namespace rageam::asset
 			using CreateFn = AssetBase * (*)(const file::WPath& path);
 
 			ConstString DisplayName;
+			eAssetType	Type;
 			CreateFn	Create;
 		};
 
 		// Asset path extension to asset definition
 		static rage::atMap<ConstWString, AssetDefinition> sm_ExtToAssetDef;
+		// static rage::atSet<AssetPtr> sm_AssetCache;
 
-		static const AssetDefinition* TryGetDefinition(const file::WPath& path)
-		{
-			file::WPath extension = path.GetExtension();
-			return sm_ExtToAssetDef.TryGet(extension);
-		}
+		static const AssetDefinition* TryGetDefinition(const file::WPath& path);
+
 	public:
-		static void Init()
-		{
-			sm_ExtToAssetDef.InitAndAllocate(2); // Extend this as more added
+		static void Init();
+		static void Shutdown();
 
-			sm_ExtToAssetDef.Insert(L"itd", AssetDefinition("Texture Dictionary", TxdAsset::Allocate));
-			sm_ExtToAssetDef.Insert(L"idr", AssetDefinition("Drawable", DrawableAsset::Allocate));
-		}
-
-		static void Shutdown()
-		{
-			sm_ExtToAssetDef.Destroy();
-		}
-
-		static AssetPtr LoadFromPath(const file::WPath& path)
-		{
-			const AssetDefinition* def = TryGetDefinition(path);
-
-			if (!AM_VERIFY(def != nullptr, L"AssetFactory::Load() -> Unknown asset type %ls", path.GetCStr()))
-				return nullptr;
-
-			AssetBase* asset = def->Create(path);
-
-			if (!AM_VERIFY(asset->LoadConfig(), L"AssetFactory::Load() -> Failed to load config for %ls", path.GetCStr()))
-				return nullptr;
-
-			return AssetPtr(asset);
-		}
+		static AssetPtr LoadFromPath(const file::WPath& path);
 
 		template<typename TAsset>
 		static amPtr<TAsset> LoadFromPath(const file::WPath& path)
@@ -67,17 +41,9 @@ namespace rageam::asset
 			return std::dynamic_pointer_cast<TAsset>(LoadFromPath(path));
 		}
 
-		static bool IsAsset(const file::WPath& path)
-		{
-			return TryGetDefinition(path) != nullptr;
-		}
+		static bool IsAsset(const file::WPath& path);
 
-		static ConstString GetAssetKindName(const file::WPath& path)
-		{
-			const AssetDefinition* def = TryGetDefinition(path);
-			if (!AM_VERIFY(def != nullptr, L"AssetFactory::GetAssetKindName() -> Not asset at path %ls", path.GetCStr()))
-				return "Unknown";
-			return def->DisplayName;
-		}
+		static eAssetType GetAssetType(const file::WPath& path);
+		static ConstString GetAssetKindName(const file::WPath& path);
 	};
 }

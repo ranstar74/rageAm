@@ -12,6 +12,7 @@
 #include "txd.h"
 #include "am/types.h"
 #include "am/asset/gameasset.h"
+#include "am/asset/workspace.h"
 #include "am/graphics/scene.h"
 #include "am/system/nullable.h"
 #include "game/drawable.h"
@@ -348,6 +349,8 @@ namespace rageam::asset
 		void InitializeEmbedDict();
 		// Creates material tunes from scene + default material if needed
 		void CreateMaterialTuneGroupFromScene();
+		// Loads shared texture dictionaries from workspace
+		void LoadTextureWorkspace();
 
 	public:
 		DrawableAsset(const file::WPath& path);
@@ -380,6 +383,8 @@ namespace rageam::asset
 
 		// Only to be used if asset was compiled successfully!
 		DrawableAssetMap CompiledDrawableMap;
+		// Workspace with shared texture dictionaries loaded, may be NULL
+		WorkspacePtr WorkspaceTXD;
 	};
 	using DrawableAssetPtr = amPtr<DrawableAsset>;
 }
