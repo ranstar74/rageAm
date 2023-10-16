@@ -51,12 +51,10 @@ namespace rageam
 			if (m_RenderEngine)
 				m_RenderEngine->SetRenderFunction(nullptr);
 
-			DestroyUIContext();
-
 #ifdef AM_INTEGRATED
 			DestroyIntegrationContext();
 #endif
-			
+			DestroyUIContext();
 			DestroyRenderContext();
 
 			m_RenderEngine.reset();
