@@ -797,6 +797,7 @@ void rageam::integration::MaterialEditor::DrawMaterialOptions() const
 		ImGui::CheckboxFlags("Visibility", &renderFlags, rage::RF_VISIBILITY);
 		ImGui::CheckboxFlags("Shadows", &renderFlags, rage::RF_SHADOWS);
 		ImGui::CheckboxFlags("Reflections", &renderFlags, rage::RF_REFLECTIONS);
+		ImGui::CheckboxFlags("Mirror", &renderFlags, rage::RF_MIRROR);
 	}
 	renderMask.SetRenderFlags(renderFlags);
 

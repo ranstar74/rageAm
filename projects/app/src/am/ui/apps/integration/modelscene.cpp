@@ -596,6 +596,7 @@ void rageam::ModelSceneApp::DrawNodePropertiesUI(u16 nodeIndex)
 						ImGui::CheckboxFlags("Visibility", &renderFlags, rage::RF_VISIBILITY);
 						ImGui::CheckboxFlags("Shadows", &renderFlags, rage::RF_SHADOWS);
 						ImGui::CheckboxFlags("Reflections", &renderFlags, rage::RF_REFLECTIONS);
+						ImGui::CheckboxFlags("Mirror", &renderFlags, rage::RF_MIRROR);
 					}
 					grmModel->SetRenderFlags(renderFlags);
 				}

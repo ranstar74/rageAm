@@ -58,6 +58,7 @@ namespace rage
 		RF_VISIBILITY = 1 << 0,
 		RF_SHADOWS = 1 << 1,
 		RF_REFLECTIONS = 1 << 2,
+		RF_MIRROR = 1 << 3,
 		RF_TESSELLATION = 1 << 7,
 
 		RF_ALL = 0xFF,
