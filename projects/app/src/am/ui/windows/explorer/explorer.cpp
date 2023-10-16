@@ -5,39 +5,90 @@
 #include "entry.h"
 #include "imgui_internal.h"
 #include "am/file/driveinfo.h"
+#include "am/system/datamgr.h"
 #include "am/ui/extensions.h"
 #include "am/ui/styled/slwidgets.h"
+#include "am/xml/doc.h"
+#include "am/xml/iterator.h"
+
+rageam::file::WPath rageam::ui::Explorer::GetExplorerSettingsPath() const
+{
+	return DataManager::GetAppData() / L"Explorer.xml";
+}
+
+void rageam::ui::Explorer::ReadSettings() const
+{
+	file::WPath settingsPath = GetExplorerSettingsPath();
+	if (!IsFileExists(settingsPath))
+		return;
+
+	try
+	{
+		XmlDoc xDoc;
+		xDoc.LoadFromFile(settingsPath);
+		XmlHandle xSettings = xDoc.Root();
+
+		XmlHandle xQuickAccessDirs = xSettings.GetChild("QuickAccessDirs", true);
+		for (const XmlHandle& xItem : XmlIterator(xQuickAccessDirs, "Item"))
+		{
+			file::U8Path uPath = xItem.GetText();
+			file::WPath wPath = file::PathConverter::Utf8ToWide(uPath);
+			if (!IsFileExists(wPath)) // file/directory was moved or removed...
+				continue;
+
+			ExplorerEntryPtr entry = std::make_shared<ExplorerEntryFi>(uPath, ExplorerEntryFlags_NoRename);
+			m_QuickAccess->AddChildren(entry);
+		}
+	}
+	catch (const XmlException& ex)
+	{
+		ex.Print();
+	}
+}
+
+void rageam::ui::Explorer::SaveSettings() const
+{
+	XmlDoc xDoc("Explorer");
+	XmlHandle xSettings = xDoc.Root();
+
+	XmlHandle xQuickAccessDirs = xSettings.AddChild("QuickAccessDirs");
+	for (u16 i = 0; i < m_QuickAccess->GetChildCount(); i++)
+	{
+		const ExplorerEntryPtr& entry = m_QuickAccess->GetChildFromIndex(i);
+
+		XmlHandle xItem = xQuickAccessDirs.AddChild("Item");
+		xItem.SetText(entry->GetPath());
+	}
+
+	xDoc.SaveToFile(GetExplorerSettingsPath());
+}
 
 rageam::ui::Explorer::Explorer()
 {
-	ExplorerEntryUserPtr quickAccess = std::make_shared<ExplorerEntryUser>("Quick Access");
-	ExplorerEntryUserPtr thisPc = std::make_shared<ExplorerEntryUser>("This PC");
+	m_QuickAccess = std::make_shared<ExplorerEntryUser>("Quick Access");
+	m_ThisPC = std::make_shared<ExplorerEntryUser>("This PC");
 	ExplorerEntryUserPtr cycleBin = std::make_shared<ExplorerEntryUser>("Recycle Bin");
 
-	quickAccess->SetIcon("quick_access");
-	thisPc->SetIcon("pc");
+	m_QuickAccess->SetIcon("quick_access");
+	m_ThisPC->SetIcon("pc");
 	cycleBin->SetIcon("bin_empty");
 
-	m_TreeView.Entries.Add(quickAccess);
-	m_TreeView.Entries.Add(thisPc);
+	m_TreeView.Entries.Add(m_QuickAccess);
+	m_TreeView.Entries.Add(m_ThisPC);
 	m_TreeView.Entries.Add(cycleBin);
 
-	// Default selection
-	m_TreeView.SetSelectedEntry(quickAccess);
-	m_FolderView.SetRootEntry(quickAccess);
-
 	// To add user folders (Desktop, Documents, Downloads etc)
-	auto AddSpecialFolder = [&thisPc](REFKNOWNFOLDERID rfid, ConstString iconName)
-	{
-		wchar_t* path;
-		if (SUCCEEDED(SHGetKnownFolderPath(rfid, 0, 0, &path)))
+	auto AddSpecialFolder = [&](REFKNOWNFOLDERID rfid, ConstString iconName)
 		{
-			auto& entry = thisPc->AddChildren(std::make_shared<ExplorerEntryFi>(String::ToUtf8Temp(path)));
-			entry->SetIconOverride(iconName);
+			wchar_t* path;
+			if (SUCCEEDED(SHGetKnownFolderPath(rfid, 0, 0, &path)))
+			{
+				auto& entry = m_ThisPC->AddChildren(std::make_shared<ExplorerEntryFi>(String::ToUtf8Temp(path)));
+				entry->SetIconOverride(iconName);
 
-			CoTaskMemFree(path);
-		}
-	};
+				CoTaskMemFree(path);
+			}
+		};
 	AddSpecialFolder(FOLDERID_Desktop, "desktop");
 	AddSpecialFolder(FOLDERID_Documents, "documents");
 	AddSpecialFolder(FOLDERID_Downloads, "downloads");
@@ -66,8 +117,22 @@ rageam::ui::Explorer::Explorer()
 		diskEntry->SetCustomName(String::ToUtf8Temp(displayName));
 		diskEntry->SetIconOverride(info.IsSystem ? "disk_system" : "disk");
 
-		thisPc->AddChildren(diskEntry);
+		m_ThisPC->AddChildren(diskEntry);
 	}
+
+	ReadSettings();
+}
+
+rageam::ui::Explorer::~Explorer()
+{
+	SaveSettings();
+}
+
+void rageam::ui::Explorer::OnStart()
+{
+	// Default selection
+	m_TreeView.SetSelectedEntry(m_QuickAccess);
+	m_FolderView.SetRootEntry(m_QuickAccess);
 }
 
 void rageam::ui::Explorer::OnRender()

@@ -7,6 +7,7 @@
 //
 #pragma once
 
+#include <shlobj_core.h>
 #include <Windows.h>
 
 #include "am/file/path.h"
@@ -48,9 +49,7 @@ namespace rageam
 			return logsFolder;
 		}
 
-		/**
-		 * \brief Gets path to RageAm data folder, this folder contains logs, icons, fonts.
-		 */
+		// Gets path to RageAm data folder, this folder contains logs, icons, fonts
 		static const file::WPath& GetDataFolder()
 		{
 			static file::WPath dataFolder;
@@ -72,6 +71,25 @@ namespace rageam
 				initialized = true;
 			}
 			return dataFolder;
+		}
+
+		// Folder for storing user data
+		static const file::WPath& GetAppData()
+		{
+			static file::WPath appData;
+			static bool init = false;
+			if (!init)
+			{
+				wchar_t* path;
+				AM_ASSERT(SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, 0, &path)),
+					"DataManager::GetAppData() -> Failed to get path.");
+				appData = path;
+				appData /= L"rageAm";
+				CreateDirectoryW(appData, NULL); // Make sure dir is created
+				CoTaskMemFree(path);
+				init = true;
+			}
+			return appData;
 		}
 	};
 }
