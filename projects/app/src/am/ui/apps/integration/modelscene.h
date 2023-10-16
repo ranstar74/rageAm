@@ -40,7 +40,7 @@ namespace rageam
 		ModelViewerState		ViewerState;			// State of spawned entity
 		asset::WorkspacePtr		Workspace;				// Workspace of drawable asset, may be NULL
 		asset::DrawableAssetPtr DrawableAsset;			// Drawable source asset
-		gtaDrawable*			Drawable;				// Compiled drawable from the asset
+		gtaDrawable*			Drawable = nullptr;		// Compiled drawable from the asset
 		s32						JustChangedTXD = -1;	// Index of TXD in workspace that was edited in TXD Editor
 		SmallList<rage::grcTextureDictionaryPtr> TXDs;	// Workspace TXDs 
 
