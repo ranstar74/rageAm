@@ -26,4 +26,5 @@ namespace rageam::file
 	HANDLE CreateNew(const wchar_t* path);
 	u64 GetFileSize64(const wchar_t* path);
 	bool ReadAllBytes(const wchar_t* path, FileBytes& outFileBytes);
+	bool IsDirectory(const wchar_t* path);
 }

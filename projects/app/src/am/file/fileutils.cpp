@@ -76,3 +76,8 @@ bool rageam::file::ReadAllBytes(const wchar_t* path, FileBytes& outFileBytes)
 
 	return true;
 }
+
+bool rageam::file::IsDirectory(const wchar_t* path)
+{
+	return GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY;
+}
