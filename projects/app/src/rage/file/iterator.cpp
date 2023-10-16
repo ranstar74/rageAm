@@ -1,19 +1,21 @@
 #include "iterator.h"
 
-#include <Windows.h>
-#include <cstdio>
 #include <shlwapi.h>
 
-#include "am/string/char.h"
+#include "device/local.h"
+#include "helpers/win32.h"
 
 bool rage::fiIterator::Begin()
 {
 	m_Initialized = true;
-	m_Device = fiDevice::GetDeviceImpl(m_Path);
+	if (!m_Device)
+		m_Device = fiDevice::GetDeviceImpl(m_Path);
+
 	if (!m_Device)
 		return false;
 
-	m_FindHandle = m_Device->FindFileBegin(m_Path, m_FindData);
+	m_IsDeviceLocal = dynamic_cast<fiDeviceLocal*>(m_Device) != nullptr;
+	m_FindHandle = m_Device->FindFileBegin(m_FileSearchPath, m_FindData);
 	return m_FindHandle != FI_INVALID_HANDLE;
 }
 
@@ -32,20 +34,17 @@ bool rage::fiIterator::FindNext()
 	// Compose full path to current file
 	if (hasAny)
 	{
-		ImmutableString path = m_Path.GetCStr();
-		// If path is not a file
-		if (path.IndexOf('.') == -1)
-			m_FilePath = m_Path / m_FindData.FileName;
-		else
-			m_FilePath = m_Path;
+		m_FilePath = m_Path / m_FindData.FileName;
 	}
 
 	return hasAny;
 }
 
-rage::fiIterator::fiIterator(ConstString path, ConstString searchPattern)
+rage::fiIterator::fiIterator(ConstString path, ConstString searchPattern, fiDevice* device)
 {
+	m_Device = device;
 	m_Path = path;
+	m_FileSearchPath = m_Path / "*";
 	String::Copy(m_SearchPattern, FI_MAX_NAME, searchPattern);
 }
 
@@ -62,6 +61,10 @@ bool rage::fiIterator::Next()
 	{
 		if (!FindNext())
 			return false;
+
+		// Remove private system directories from search results
+		if (m_IsDeviceLocal && !CanAccessPath(String::ToWideTemp(m_FilePath), FILE_GENERIC_READ))
+			continue;
 
 		// Those two directories are reserved in windows by file system
 		if (String::Equals(m_FindData.FileName, ".") || String::Equals(m_FindData.FileName, ".."))

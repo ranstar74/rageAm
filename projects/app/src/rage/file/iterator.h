@@ -17,6 +17,7 @@ namespace rage
 	 */
 	class fiIterator
 	{
+		bool		m_IsDeviceLocal = false;
 		fiDevicePtr	m_Device = nullptr;
 		fiFindData	m_FindData = {};
 		fiHandle_t	m_FindHandle = FI_INVALID_HANDLE;
@@ -24,11 +25,13 @@ namespace rage
 		fiPath		m_Path;
 		char		m_SearchPattern[FI_MAX_NAME];
 		fiPath		m_FilePath; // Full path to current name as fiFindData only provides the name of it
+		fiPath		m_FileSearchPath;
 
 		bool Begin();
 		bool FindNext();
 	public:
-		fiIterator(ConstString path, ConstString searchPattern = "*");
+		fiIterator(ConstString path, ConstString searchPattern = "*", fiDevice* device = nullptr);
+		fiIterator(ConstString path, fiDevice* device) : fiIterator(path, "*", device) { }
 		~fiIterator();
 
 		bool Next();
