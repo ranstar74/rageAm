@@ -25,7 +25,7 @@ void rageam::ui::Apps::RegisterSystemApps()
 	AddApp(new StatusBar());
 	AddApp(new WindowManager());
 #ifndef AM_STANDALONE
-	AddApp(new ModelSceneApp());
+	AddApp(new ModelSceneUI());
 #endif
 }
 

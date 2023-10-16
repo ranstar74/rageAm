@@ -227,7 +227,7 @@ void rageam::ui::TreeView::SetSelectedEntry(const ExplorerEntryPtr& entry)
 		hierarchy.Insert(0, itEntry);
 
 	for (IExplorerEntry* node : hierarchy)
-		ImGui::IconTreeNodeSetOpened(FormatNodeName(*node), true);
+		ImGui::TreeNodeSetOpened(FormatNodeName(*node), true);
 
 	for (IExplorerEntry* node : hierarchy)
 		ImGui::TreePop();

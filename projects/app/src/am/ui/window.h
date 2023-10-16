@@ -18,11 +18,16 @@ namespace rageam::ui
 	 */
 	class Window
 	{
+		friend class WindowManager;
+
+		bool m_Started = false;
+
 	public:
 		virtual ~Window() = default;
 
 		virtual bool HasMenu() const { return false; }
 		virtual void OnMenuRender() {}
+		virtual void OnStart() {}
 		virtual void OnRender() = 0;
 		virtual bool IsDisabled() const { return false; }
 		virtual bool ShowUnsavedChangesInTitle() const { return false; }

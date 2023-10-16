@@ -2,20 +2,20 @@
 
 #ifdef AM_INTEGRATED
 
+#include "lighteditor.h"
+#include "mateditor.h"
 #include "am/types.h"
-#include "am/integration/hooks/streaming.h"
 #include "am/integration/shvthread.h"
 #include "am/integration/updatecomponent.h"
 #include "am/integration/components/camera.h"
+#include "am/integration/hooks/streaming.h"
+#include "am/task/worker.h"
 #include "am/ui/app.h"
 #include "game/archetype.h"
 #include "rage/file/watcher.h"
 #include "rage/math/vecv.h"
 #include "scripthook/shvnatives.h"
-#include "am/task/worker.h"
-#include "lighteditor.h"
-#include "mateditor.h"
-#include "am/ui/styled/slwidgets.h"
+#include "am/asset/workspace.h"
 
 #include <mutex>
 
@@ -25,7 +25,7 @@ namespace rageam
 
 	// State that we are querying from UI thread every tick, everything packed
 	// in one struct to prevent too much mutex use
-	struct ModelSceneState
+	struct ModelViewerState
 	{
 		bool			IsLoading;
 		bool			IsEntitySpawned;
@@ -34,7 +34,29 @@ namespace rageam
 		pVoid			EntityPtr;
 	};
 
-	class ModelScene : public integration::IUpdateComponent
+	// Data shared between all components of the scene (scene graph, light editor, material editor etc)
+	struct ModelSceneContext
+	{
+		ModelViewerState		ViewerState;			// State of spawned entity
+		asset::WorkspacePtr		Workspace;				// Workspace of drawable asset, may be NULL
+		asset::DrawableAssetPtr DrawableAsset;			// Drawable source asset
+		gtaDrawable*			Drawable;				// Compiled drawable from the asset
+		s32						JustChangedTXD = -1;	// Index of TXD in workspace that was edited in TXD Editor
+		SmallList<rage::grcTextureDictionaryPtr> TXDs;	// Workspace TXDs 
+
+		auto GetDrawableMap() const { return DrawableAsset ? &DrawableAsset->CompiledDrawableMap : nullptr; }
+		auto GetScene() const { return DrawableAsset ? DrawableAsset->GetScene().get() : nullptr; }
+
+		// Compiles ALL workspace texture dictionaries, we need this really only for material editor
+		// TODO: We may want lazy loading here
+		void CompileWorkspaceTXDs();
+	};
+
+	/**
+	 * \brief Handles entity spawning in the game world
+	 * \n In the future we can extend this to interface class to support standalone model viewer
+	 */
+	class ModelViewer : public integration::IUpdateComponent
 	{
 		using ModelInfo = CBaseModelInfo*;
 		static constexpr u32 RAGEAM_HASH = Hash("RAGEAM_TESTBED_ARCHETYPE");
@@ -83,15 +105,15 @@ namespace rageam
 
 		void SetEntityPos(const rage::Vec3V& pos);
 
-		void GetState(ModelSceneState& state);
+		void GetState(ModelViewerState& state);
 
 		std::function<void(asset::DrawableAssetPtr&, gtaDrawable*)> LoadCallback;
 	};
 
-	class ModelSceneApp : public ui::App
+	class ModelSceneUI : public ui::App
 	{
 		using CameraOwner = integration::ComponentOwner<integration::ICameraComponent>;
-		using ModelSceneOwner = integration::ComponentOwner<ModelScene>;
+		using ModelSceneOwner = integration::ComponentOwner<ModelViewer>;
 
 		static inline const rage::Vec3V DEFAULT_ISOLATED_POS = { -1700, -6000, 310 };
 		static inline const rage::Vec3V DEFAULT_POS = { -676, 167, 73.55f };
@@ -111,7 +133,7 @@ namespace rageam
 			"None", "Mesh", "Bone", "Collision", "Light"
 		};
 
-		file::WPath					m_AssetPath; // User/Desktop/rageAm.idr
+		//file::WPath					m_AssetPath; // User/Desktop/rageAm.idr
 		rage::Vec3V					m_ScenePosition = DEFAULT_POS;
 		rage::Vector3				m_Dimensions;
 		u32							m_NumLods = 0;
@@ -120,17 +142,12 @@ namespace rageam
 		u32							m_VertexCount = 0;
 		u32							m_TriCount = 0;
 		u32							m_LightCount = 0;
-		ModelSceneOwner				m_ModelScene;
+		ModelSceneOwner				m_ModelViewer;
 		CameraOwner					m_Camera;
 		bool						m_IsolatedSceneActive = false;
 		bool						m_CameraEnabled = false;
 		bool						m_UseOrbitCamera = true;
-		graphics::ScenePtr			m_Scene; // Drawable scene
-		asset::DrawableAssetMap		m_DrawableSceneMap;
-		gtaDrawable*                m_Drawable;
-		ModelSceneState				m_ModelState;
 		std::mutex					m_Mutex;
-		//SmallList<ImRect>			m_GraphRectStack;
 
 		// Graph View
 		s32							m_SelectedNodeIndex = -1;
@@ -140,10 +157,14 @@ namespace rageam
 		integration::LightEditor	m_LightEditor;
 		integration::MaterialEditor	m_MaterialEditor;
 
-		rage::grmModel* GetMeshAttr(u16 nodeIndex) { return m_DrawableSceneMap.GetModelFromScene(m_Drawable, nodeIndex); }
-		rage::crBoneData* GetBoneAttr(u16 nodeIndex) { return m_DrawableSceneMap.GetBoneFromScene(m_Drawable, nodeIndex); }
-		rage::phBound* GetBoundAttr(u16 nodeIndex) { return m_DrawableSceneMap.GetBoundFromScene(m_Drawable, nodeIndex); }
-		CLightAttr* GetLightAttr(u16 nodeIndex) { return m_DrawableSceneMap.GetLightFromScene(m_Drawable, nodeIndex); }
+		ModelSceneContext			m_Context;
+
+		asset::DrawableAssetMap& GetDrawableMap() const;
+
+		auto GetMeshAttr(u16 nodeIndex) const -> rage::grmModel*;
+		auto GetBoneAttr(u16 nodeIndex) const -> rage::crBoneData*;
+		auto GetBoundAttr(u16 nodeIndex) const -> rage::phBound*;
+		auto GetLightAttr(u16 nodeIndex) const -> CLightAttr*;
 
 		rage::Vec3V GetEntityScenePos() const;
 		void UpdateDrawableStats();
@@ -152,7 +173,7 @@ namespace rageam
 		void DrawSceneGraphRecurse(const graphics::SceneNode* sceneNode);
 		void DrawSceneGraph(const graphics::SceneNode* sceneNode);
 		void DrawSkeletonGraph();
-		void DrawNodePropertiesUI(u16 nodeIndex);
+		void DrawNodePropertiesUI(u16 nodeIndex) const;
 		void DrawDrawableUI();
 		void DrawStarBar();
 		void UpdateScenePosition();
@@ -160,7 +181,9 @@ namespace rageam
 		void OnDrawableLoaded(const asset::DrawableAssetPtr& asset, gtaDrawable* drawable);
 
 	public:
-		ModelSceneApp();
+		ModelSceneUI();
+
+		void LoadFromPatch(ConstWString path);
 	};
 }
 #endif

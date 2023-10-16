@@ -1,20 +1,19 @@
 #include "mateditor.h"
 
-#include "am/algorithms/fuzzysearch.h"
-#include "am/string/splitter.h"
-
 #ifdef AM_INTEGRATED
 
+#include "modelscene.h"
+#include "widgets.h"
+#include "am/algorithms/fuzzysearch.h"
 #include "am/graphics/texture/imagefit.h"
 #include "am/integration/hooks/streaming.h"
+#include "am/string/splitter.h"
 #include "am/ui/font_icons/icons_am.h"
-#include "rage/atl/datahash.h"
-#include "rage/streaming/assetstore.h"
-#include "am/xml/doc.h"
-#include "widgets.h"
 #include "am/ui/styled/slgui.h"
 #include "am/ui/styled/slwidgets.h"
+#include "am/xml/doc.h"
 #include "am/xml/iterator.h"
+#include "rage/streaming/assetstore.h"
 
 using fwTxdStore = rage::fwAssetStore<rage::grcTextureDictionary, rage::fwAssetDef<rage::grcTextureDictionary>>;
 static fwTxdStore* GetTxdStore()
@@ -148,7 +147,7 @@ void rageam::integration::MaterialEditor::InitializePresetSearch()
 
 		m_ShaderPresets.Emplace(std::move(shaderPreset));
 	}
-	m_SearchIndices.Reserve(m_ShaderPresets.GetSize());
+	m_PresetSearchIndices.Reserve(m_ShaderPresets.GetSize());
 }
 
 void rageam::integration::MaterialEditor::ComputePresetFilterTagAndTokens(ShaderPreset& preset) const
@@ -213,49 +212,459 @@ void rageam::integration::MaterialEditor::ComputePresetFilterTagAndTokens(Shader
 
 rage::grmShader* rageam::integration::MaterialEditor::GetSelectedMaterial() const
 {
-	return m_Drawable->GetShaderGroup()->GetShader(m_SelectedMaterialIndex);
+	rage::grmShaderGroup* shaderGroup = m_Context->Drawable->GetShaderGroup();
+	return shaderGroup->GetShader(m_SelectedMaterialIndex);
+}
+
+rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_Grid(float iconScale)
+{
+	ImGuiStyle& style = ImGui::GetStyle();
+	auto textureItem = [&](ConstString idStr, const rage::grcTexture* texture) -> bool
+		{
+			ImGuiWindow* window = ImGui::GetCurrentWindow();
+			ImGuiID id = ImGui::GetID(idStr);
+
+			float iconSizeMax = ImGui::GetFrameHeight() * 4.0f * iconScale;
+
+			auto [iconWidth, iconHeight] =
+				Resize(texture->GetWidth(), texture->GetHeight(), iconSizeMax, iconSizeMax, texture::ScalingMode_Fit);
+
+			ImVec2 iconSize(iconWidth, iconHeight);
+			ImVec2 size(
+				iconSizeMax + style.FramePadding.x * 2,
+				iconSizeMax + style.FramePadding.y + ImGui::GetFrameHeight()); // Frame for label text
+
+			ImVec2 min = window->DC.CursorPos;
+			ImVec2 max = min + size;
+			ImRect bb(min, max);
+
+			ImGui::ItemSize(size);
+			if (!ImGui::ItemAdd(bb, id))
+				return false;
+
+			// Hit test
+			bool hovered;
+			bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, nullptr);
+
+			// Rendering
+			ConstString label = texture->GetName();
+			{
+				ImVec2 iconMin = min + style.FramePadding;
+				ImVec2 iconMax = iconMin + iconSize;
+
+				ImVec2 textSize = ImGui::CalcTextSize(label);
+				ImVec2 textPos( // Centered horizontally below icon
+					min.x + (size.x - textSize.x) * 0.5f,
+					max.y - ImGui::GetFrameHeight());
+
+				ImU32 borderColor = ImGui::GetColorU32(
+					pressed ? ImGuiCol_ButtonActive : hovered ? ImGuiCol_ButtonHovered : ImGuiCol_Border);
+
+				// Border
+				window->DrawList->AddRect(min, max, borderColor, 2);
+				// Icon
+				window->DrawList->AddImage(ImTextureID(texture->GetResourceView()), iconMin, iconMax);
+				// Label
+				window->DrawList->AddText(textPos, ImGui::GetColorU32(ImGuiCol_Text), label);
+			}
+			return pressed;
+		};
+
+	rage::grcTexture* pickedTexture = nullptr;
+	for (u16 i = 0; i < m_TextureSearchEntries.GetSize(); i++)
+	{
+		const TextureSearch& search = m_TextureSearchEntries[i];
+
+		if (SlGui::CollapsingHeader(search.DictName, ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			// For item wrapping
+			float maxItemX = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
+
+			for (u16 k = 0; k < search.Textures.GetSize(); k++)
+			{
+				rage::grcTexture* texture = search.Dict->GetValueAt(search.Textures[k]);
+
+				// Try to place on current line
+				if (k != 0)
+				{
+					const ImRect& prevItemRect = GImGui->LastItemData.Rect;
+
+					float nextItemX = prevItemRect.Max.x + style.ItemSpacing.x + prevItemRect.GetSize().x;
+					if (nextItemX < maxItemX)
+						ImGui::SameLine();
+				}
+
+				ConstString idStr = ImGui::FormatTemp("###GRID_TEX_%u_%u", i, k);
+				if (textureItem(idStr, texture))
+					pickedTexture = texture;
+			}
+		}
+	}
+
+	return pickedTexture;
+}
+
+rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List()
+{
+	rage::grcTexture* pickedTexture = nullptr;
+
+	// Draw dictionaries + textures 
+	u16 dictCount = m_TextureSearchEntries.GetSize();
+	bool navUpdated = false;
+	for (u16 i = 0; i < m_TextureSearchEntries.GetSize(); i++)
+	{
+		const TextureSearch& search = m_TextureSearchEntries[i];
+
+		bool dictSelected = m_DictionaryIndex == i;
+
+		// We can't use default navigation system because we always have focus on text box
+		ImGuiDir moveDir = ImGuiDir_None;
+		if (SlGui::IsKeyDownDelayed(ImGuiKey_UpArrow))		moveDir = ImGuiDir_Up;
+		if (SlGui::IsKeyDownDelayed(ImGuiKey_DownArrow))	moveDir = ImGuiDir_Down;
+		if (SlGui::IsKeyDownDelayed(ImGuiKey_LeftArrow))	moveDir = ImGuiDir_Left;
+		if (SlGui::IsKeyDownDelayed(ImGuiKey_RightArrow))	moveDir = ImGuiDir_Right;
+
+		// Dict opening/closing using nav buttons
+		if (dictSelected)
+		{
+			if (m_DictionaryIndex == i && moveDir == ImGuiDir_Left)
+			{
+				ImGui::TreeNodeSetOpened(search.DictName, false); ImGui::TreePop();
+			}
+
+			if (m_DictionaryIndex == i && moveDir == ImGuiDir_Right)
+			{
+				ImGui::TreeNodeSetOpened(search.DictName, true); ImGui::TreePop();
+			}
+		}
+
+		u16 dictTexCount = search.Textures.GetSize();
+
+		// Draw dict & textures
+		bool toggled;
+		bool isDictOpen = false;
+		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.65f);
+		bool treeOpen = SlGui::GraphTreeNode(search.DictName, dictSelected, toggled,
+			SlGuiTreeNodeFlags_DefaultOpen | SlGuiTreeNodeFlags_AlwaysShowArrows);
+		if (toggled)
+		{
+			// Node was selected, reset texture
+			m_TextureIndex = 0;
+		}
+		ImGui::PopStyleVar();
+		if (treeOpen)
+		{
+			isDictOpen = true;
+			for (u16 k = 0; k < dictTexCount; k++)
+			{
+				u16 texIndex = search.Textures[k];
+				rage::grcTexture* texture = search.Dict->GetValueAt(texIndex);
+
+				// Node
+				ConstString displayName = ImGui::FormatTemp("%s###%u;%u",
+					texture->GetName(), i, k);
+				bool texSelected = dictSelected && m_TextureIndex == k;
+
+				//// Store cursor position before drawing node so we can draw icon there later
+				//ImVec2 iconPos(window->WorkRect.Min.x, window->DC.CursorPos.y);
+
+				//ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.0f, 2.0f * s_IconScale));
+				SlGui::GraphTreeNode(displayName, texSelected, toggled, SlGuiTreeNodeFlags_NoChildren);
+				//ImGui::PopStyleVar();
+
+				//// Texture icon
+				//{
+				//	float iconSizeY = ImGui::GetFrameHeight(); // Height of node
+				//	float iconSizeX = iconSizeY * 2.0f; // We have much more space horizontally, let icon span on Y Axis
+				//	auto [width, height] =
+				//		Resize(texture->GetWidth(), texture->GetHeight(), iconSizeX, iconSizeY, texture::ScalingMode_Fit);
+				//	pVoid textureView = texture->GetResourceView();
+
+				//	// We take coord from window because node X is intended
+				//	ImVec2 min = iconPos;
+				//	ImVec2 max = min + ImVec2(width, height);
+
+				//	ImGui::GetWindowDrawList()->AddImage(ImTextureID(textureView), min, max);
+				//}
+
+				// Pick texture using enter or click
+				if (texSelected &&
+					ImGui::IsKeyPressed(ImGuiKey_Enter) ||
+					ImGui::IsItemClicked(ImGuiMouseButton_Left))
+				{
+					pickedTexture = texture;
+				}
+
+				// Draw selected texture in next to window
+				if (texSelected)
+				{
+					constexpr float previewSize = 96.0f;
+					auto [width, height] = Resize(texture->GetWidth(), texture->GetHeight(), previewSize, previewSize, texture::ScalingMode_Fit);
+					ImVec2 min = ImGui::GetCurrentWindow()->ParentWindow->OuterRectClipped.GetTL() - ImVec2(width, 0);
+					ImVec2 max = min + ImVec2(width, height);
+
+					ImDrawList* drawList = ImGui::GetForegroundDrawList();
+					drawList->AddImage(ImTextureID(texture->GetResourceView()), min, max);
+					drawList->AddRect(min, max, ImGui::GetColorU32(ImGuiCol_Border));
+				}
+			}
+
+			ImGui::TreePop();
+		}
+
+		if (dictSelected)
+			m_DictionaryIndex = i;
+
+		// Up/Down nav
+		// This all is a bit awkward but there's no other way to keep input focused + navigation working
+		if (dictSelected && !navUpdated)
+		{
+			// We have to keep this flag because otherwise if we select bottom dict nav will be updated twice
+			navUpdated = true;
+
+			auto getLastDictTexIndex = [&]
+				{
+					return m_TextureSearchEntries[m_DictionaryIndex].Dict->GetSize() - 1;
+				};
+
+			u16 maxNavDictIndex = dictCount - 1;
+			u16 maxNavTexIndex = dictTexCount - 1;
+
+			// Case 0: Dictionary isn't open,
+			// we move down to next dictionary and up to last texture of previous dictionary
+			if (!isDictOpen)
+			{
+				if (m_DictionaryIndex < maxNavDictIndex && moveDir == ImGuiDir_Down)
+					m_DictionaryIndex++;
+
+				if (m_DictionaryIndex > 0 && moveDir == ImGuiDir_Up)
+				{
+					m_DictionaryIndex--;
+					m_TextureIndex = getLastDictTexIndex();
+				}
+			}
+			// Case 1: Dictionary is open,
+			// we move up to either previous texture or to last texture of previous dictionary,
+			// down to either next texture or first texture of next dictionary
+			else
+			{
+				if (moveDir == ImGuiDir_Down)
+				{
+					if (m_TextureIndex < maxNavTexIndex) m_TextureIndex++;
+					else if (m_DictionaryIndex < maxNavDictIndex)
+					{
+						m_DictionaryIndex++;
+						m_TextureIndex = 0;
+					}
+				}
+
+				if (moveDir == ImGuiDir_Up)
+				{
+					if (m_TextureIndex > 0) m_TextureIndex--;
+					else if (m_DictionaryIndex > 0)
+					{
+						m_DictionaryIndex--;
+						m_TextureIndex = getLastDictTexIndex();
+					}
+				}
+			}
+		}
+	}
+
+	// Keep search text box selected
+	ImGui::NavMoveRequestCancel();
+
+	return pickedTexture;
 }
 
 rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString id, const rage::grcTexture* currentTexture)
 {
-	// TODO: Would be great to add some button to open texture explorer in style or file explorer,
-	// with dynamically generated thumbnails for TXDs 
-
-	auto getHintFn = [this](int index, const char** hint, ImTextureID* icon, ImVec2* iconSize, float* iconScale)
-		{
-			rage::grcTextureDX11* texture = (rage::grcTextureDX11*)m_SearchTextures.Get(index);
-			*hint = texture->GetName();
-			*icon = texture->GetShaderResourceView();
-
-			constexpr float maxIconSize = 16.0f;
-			auto [width, height] =
-				Resize(texture->GetWidth(), texture->GetHeight(), maxIconSize, maxIconSize, texture::ScalingMode_Fit);
-			*iconSize = ImVec2(width, height);
-		};
-
-	static auto compareHintFn = [](const char* text, const char* hint)
-		{
-			// We don't do search on some static collection but do it dynamically so this function is not needed
-			return true;
-		};
-
-	ConstString defaultName = currentTexture ? currentTexture->GetName() : "";
-	SlPickerState pickerState = SlGui::InputPicker(id, defaultName, m_SearchTextures.GetSize(), getHintFn, compareHintFn);
-
-	if (pickerState.HintAccepted)
-		return m_SearchTextures[pickerState.HintIndex];
-
-	// Picker is not active
-	if (!pickerState.NeedHints)
+	// Draw current texture preview
 	{
-		return nullptr;
+		constexpr float previewIconSize = 32.0f;
+
+		if (currentTexture)
+		{
+			pVoid textureView = currentTexture->GetResourceView();
+			auto [width, height] =
+				Resize(currentTexture->GetWidth(), currentTexture->GetHeight(), previewIconSize, previewIconSize, texture::ScalingMode_Fit);
+			ImGui::Image(ImTextureID(textureView), ImVec2(width, height));
+		}
+		else
+		{
+			ImGui::Dummy(ImVec2(previewIconSize, previewIconSize));
+		}
+
+		// Icon border
+		const ImRect& iconRect = GImGui->LastItemData.Rect;
+		ImGui::GetWindowDrawList()->AddRect(iconRect.Min, iconRect.Max, ImGui::GetColorU32(ImGuiCol_Border), 2);
+
+		ImGui::SameLine();
 	}
 
-	// TODO: Would make for background thead or simply max execution time for search loop, maybe coroutine?
-	if (pickerState.SearchChanged)
-		SearchTexture(pickerState.Search);
+	// Open picker
+	static constexpr ConstString PICKER_POPUP = "TEXTURE_PICKER_POPUP";
+	ConstString currentTextureName = currentTexture ? currentTexture->GetName() : "-";
+	float buttonWidth = ImGui::GetContentRegionAvail().x;
+	if (ImGui::Button(ImGui::FormatTemp("%s###%s", currentTextureName, id), ImVec2(buttonWidth, 0)))
+	{
+		// Reset search
+		m_DictionaryIndex = 0;
+		m_TextureIndex = 0;
+		m_TextureSearchText[0] = '\0';
+		DoTextureSearch();
 
-	return nullptr;
+		ImGui::OpenPopup(PICKER_POPUP);
+	}
+
+	static float s_IconScale = 1.0f;
+	static bool s_Grid = false;
+
+	// Draw picker
+	rage::grcTexture* pickedTexture = nullptr;
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(1, 1));
+	ImGui::SetNextWindowPos(GImGui->LastItemData.Rect.GetBL()); // Position right under button
+	ImGui::SetNextWindowSize(ImVec2(s_Grid ? 450 : 240, 400));
+	if (ImGui::BeginPopup(PICKER_POPUP))
+	{
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
+		ImGui::Checkbox("Grid", &s_Grid);
+		if (s_Grid)
+		{
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(ImGui::GetFrameHeight() * 4.0f);
+			ImGui::SliderFloat("Icon Scale", &s_IconScale, 1.0f, 3.0f, "%.1f");
+		}
+
+		ImGui::HelpMarker(
+			"There are two ways to search:\n"
+			"Default - Searches in both dictionary and texture name\n"
+			"Extended - Searches in a specific texture dictionary.\n"
+			"\tSearch must be in the following format 'Dict/Texture'");
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+		if (ImGui::InputText("###SEARCH", m_TextureSearchText, IM_ARRAYSIZE(m_TextureSearchText)))
+		{
+			m_DictionaryIndex = 0;
+			m_TextureIndex = 0;
+			DoTextureSearch();
+		}
+		ImGui::InputTextPlaceholder(m_TextureSearchText, "Search...", true);
+		if (ImGui::IsWindowAppearing())
+		{
+			ImGui::ActivateItemByID(ImGui::GetItemID());
+		}
+		ImGui::PopStyleVar(); // ItemSpacing
+
+		ImGui::BeginChild("TEXTURE_PICKER_SCROLL");
+		if (s_Grid)	pickedTexture = TexturePicker_Grid(s_IconScale);
+		else		pickedTexture = TexturePicker_List();
+		ImGui::EndChild();
+
+		if (pickedTexture != nullptr)
+			ImGui::CloseCurrentPopup();
+
+		ImGui::EndPopup();
+	}
+	else
+	{
+		m_TextureSearchEntries.Clear();
+	}
+	ImGui::PopStyleVar(1); // ItemSpacing
+
+	return pickedTexture;
+}
+
+void rageam::integration::MaterialEditor::DoTextureSearch()
+{
+	m_TextureSearchEntries.Clear();
+
+	ImmutableString search = m_TextureSearchText;
+
+	// Search string is in format:
+	// DictName/TextureName
+	int separatorIndex = search.IndexOf('/');
+
+	// Dictionary name is specified always, texture only if '/' present
+	char dictSearchBuffer[64];
+	char texSearchBuffer[64]{};
+	String::Copy(dictSearchBuffer, sizeof dictSearchBuffer, search, separatorIndex);
+	if (separatorIndex != -1)
+		String::Copy(texSearchBuffer, sizeof texSearchBuffer, search + separatorIndex + 1);
+
+	ImmutableString dictSearch = dictSearchBuffer;
+	// We use whole search string in non-full mode
+	ImmutableString texSearch = separatorIndex == -1 ? dictSearchBuffer : texSearchBuffer;
+
+	bool hasDictSearch = dictSearch[0] != '\0';
+	bool hasTexSearch = texSearch[0] != '\0';
+
+	// We skip search only in full '/' mode where both dict&tex are specified,
+	// otherwise we use given search only for texture
+	bool isFullSearch = separatorIndex != -1;
+
+	// Performs search in dict and adds matching textures to results
+	auto doSearch = [&](ImmutableString dictName, rage::grcTextureDictionary* dict)
+		{
+			bool dictNameMatches = true;
+			if (hasDictSearch) dictNameMatches = dictName.StartsWith(dictSearch, true);
+
+			// In full search we require dict name to match
+			if (isFullSearch && !dictNameMatches)
+				return;
+
+			TextureSearch textureSearch;
+
+			// Dictionary matched, search for textures
+			for (u16 i = 0; i < dict->GetSize(); i++)
+			{
+				ImmutableString texName = dict->GetValueAt(i)->GetName();
+
+				bool texNameMatched = true;
+				if (hasTexSearch) texNameMatched = texName.StartsWith(texSearch, true);
+
+				if (isFullSearch)
+				{
+					if (!texNameMatched)
+						continue;
+				}
+				else
+				{
+					if (!dictNameMatches && !texNameMatched)
+						continue;
+				}
+
+				textureSearch.Textures.Add(i);
+			}
+
+			// No textures found, skip
+			if (textureSearch.Textures.GetSize() == 0)
+				return;
+
+			textureSearch.Dict = dict;
+			String::Copy(textureSearch.DictName, sizeof textureSearch.DictName, dictName);
+
+			m_TextureSearchEntries.Emplace(std::move(textureSearch));
+		};
+
+	// Add embed dict, if present
+	auto embedDict = m_Context->Drawable->GetShaderGroup()->GetEmbedTextureDictionary();
+	if (embedDict)
+		doSearch("Embed", embedDict);
+
+	// Add workspace TXDs
+	for (u16 i = 0; i < m_Context->Workspace->GetTexDictCount(); i++)
+	{
+		ImmutableWString txdAssetName = m_Context->Workspace->GetTexDict(i)->GetAssetName();
+		// Convert to ansi + remove '.itd'
+		char dictName[128];
+		sprintf_s(dictName, sizeof dictName, "%ls", (ConstWString)txdAssetName);
+		int itdIndex = txdAssetName.IndexOf(asset::ASSET_ITD_EXT, true);
+		dictName[itdIndex] = '\0';
+
+		const auto& dict = m_Context->TXDs[i];
+		doSearch(dictName, dict.Get());
+	}
 }
 
 void rageam::integration::MaterialEditor::HandleMaterialValueChange(u16 varIndex, rage::grcInstanceVar* var, const rage::grcEffectVar* varInfo) const
@@ -263,48 +672,7 @@ void rageam::integration::MaterialEditor::HandleMaterialValueChange(u16 varIndex
 	// Toggle tessellation
 	if (varInfo->GetNameHash() == rage::joaat("useTessellation"))
 	{
-		m_Drawable->ComputeTessellationForShader(m_SelectedMaterialIndex);
-	}
-}
-
-void rageam::integration::MaterialEditor::HandleMaterialSelectionChanged()
-{
-	//// Clear shader preset search
-	//m_ShaderPresetsSearch.Clear();
-	//m_ShaderPresetSearchText[0] = '\0';
-}
-
-void rageam::integration::MaterialEditor::SearchTexture(ImmutableString searchText)
-{
-	m_SearchTextures.Clear();
-
-	// Search string is in format:
-	// Ytd_Name/Texture_Name
-	int separatorIndex = searchText.IndexOf('/', true);
-	if (separatorIndex == -1)
-		return;
-
-	// For now we only support asset store and it stores only YTD name hash
-	u32 searchDictHash = rage::atDataHash(searchText, separatorIndex); // String View would help here
-	ConstString searchTexture = searchText.Substring(separatorIndex + 1);
-
-	fwTxdStore* txdStore = GetTxdStore();
-	m_SearchYtdSlot = txdStore->FindSlotFromHashKey(searchDictHash);
-	if (m_SearchYtdSlot == rage::INVALID_STR_INDEX)
-		return;
-
-	auto dict = static_cast<rage::grcTextureDictionary*>(txdStore->GetPtr(m_SearchYtdSlot));
-	// TODO: YTD is not streamed, what do we do? There's request async placement function I think
-	if (!dict)
-		return;
-
-	for (u16 i = 0; i < dict->GetSize(); i++)
-	{
-		rage::grcTexture* texture = dict->GetValueAt(i);
-		if (!String::IsNullOrEmpty(searchTexture) && ImmutableString(texture->GetName()).StartsWith(searchTexture))
-			continue;
-
-		m_SearchTextures.Add(texture);
+		m_Context->Drawable->ComputeTessellationForShader(m_SelectedMaterialIndex);
 	}
 }
 
@@ -312,13 +680,13 @@ void rageam::integration::MaterialEditor::DoFuzzySearch()
 {
 	// Timer searchTimer = Timer::StartNew();
 
-	m_SearchIndices.Clear();
+	m_PresetSearchIndices.Clear();
 
 	// Tokenize search and store in array
 	List<string> searchTokens;
 	{
 		ConstString tokenTemp;
-		StringSplitter<' ', '_', '-', ',', ';'> splitter(m_SearchText);
+		StringSplitter<' ', '_', '-', ',', ';'> splitter(m_PresetSearchText);
 		splitter.SetTrimSpaces(true);
 		while (splitter.GetNext(tokenTemp))
 		{
@@ -389,7 +757,7 @@ void rageam::integration::MaterialEditor::DoFuzzySearch()
 		}
 
 		presetDistances.Insert(insertIndex, totalDistance);
-		m_SearchIndices.Insert(insertIndex, i);
+		m_PresetSearchIndices.Insert(insertIndex, i);
 	}
 
 	// searchTimer.Stop();
@@ -405,11 +773,11 @@ void rageam::integration::MaterialEditor::DrawShaderSearchListItem(u16 index)
 	ShaderPreset& preset = m_ShaderPresets[index];
 
 	// Only presets that include all selected categories
-	if (m_SearchCategories != 0 && (preset.Tag.Categories | m_SearchCategories) != preset.Tag.Categories)
+	if (m_PresetSearchCategories != 0 && (preset.Tag.Categories | m_PresetSearchCategories) != preset.Tag.Categories)
 		return;
 
 	// Only presets that include all selected maps
-	if (m_SearchMaps != 0 && (preset.Tag.Maps | m_SearchMaps) != preset.Tag.Maps)
+	if (m_PresetSearchMaps != 0 && (preset.Tag.Maps | m_PresetSearchMaps) != preset.Tag.Maps)
 		return;
 
 	// TODO: Show selected shader
@@ -420,7 +788,8 @@ void rageam::integration::MaterialEditor::DrawShaderSearchListItem(u16 index)
 	if (ImGui::ButtonEx(preset.Name, buttonSize))
 	{
 		// Clone material from preset
-		rage::grmShader* material = m_Drawable->GetShaderGroup()->GetShader(m_SelectedMaterialIndex);
+		rage::grmShaderGroup* shaderGroup = m_Context->Drawable->GetShaderGroup();
+		rage::grmShader* material = shaderGroup->GetShader(m_SelectedMaterialIndex);
 		material->CloneFrom(*preset.InstanceData);
 	}
 	ImGui::PopStyleVar();	// ButtonTextAlign
@@ -432,11 +801,11 @@ void rageam::integration::MaterialEditor::DrawShaderSearchList()
 {
 	// Search box
 	ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-	if (ImGui::InputText("###SEARCH", m_SearchText, sizeof m_SearchText))
+	if (ImGui::InputText("###SEARCH", m_PresetSearchText, sizeof m_PresetSearchText))
 		DoFuzzySearch();
-	ImGui::InputTextPlaceholder(m_SearchText, "Search...");
+	ImGui::InputTextPlaceholder(m_PresetSearchText, "Search...");
 
-	bool hasSearch = m_SearchText[0] != '\0';
+	bool hasSearch = m_PresetSearchText[0] != '\0';
 
 	// Reserve space for status bar
 	float height = ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeight();
@@ -450,7 +819,7 @@ void rageam::integration::MaterialEditor::DrawShaderSearchList()
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 1));
 		if (hasSearch)
 		{
-			for (u16 i : m_SearchIndices)
+			for (u16 i : m_PresetSearchIndices)
 				DrawShaderSearchListItem(i);
 		}
 		else
@@ -463,15 +832,15 @@ void rageam::integration::MaterialEditor::DrawShaderSearchList()
 	ImGui::EndChild();
 
 	// Count on bottom of window
-	u16 itemCount = hasSearch ? m_SearchIndices.GetSize() : m_ShaderPresets.GetSize();
+	u16 itemCount = hasSearch ? m_PresetSearchIndices.GetSize() : m_ShaderPresets.GetSize();
 	ImGui::Dummy(ImVec2(4, 4)); ImGui::SameLine(0, 0); // Window has no padding, we have to add it manually
 	ImGui::Text("%u Item(s)", itemCount);
 }
 
 void rageam::integration::MaterialEditor::DrawShaderSearchFilters()
 {
-#define CATEGORY_FLAG(name) ImGui::CheckboxFlags(#name, &m_SearchCategories, ST_ ##name);
-#define MAP_FLAG(name) ImGui::CheckboxFlags(#name, &m_SearchMaps, SM_ ##name);
+#define CATEGORY_FLAG(name) ImGui::CheckboxFlags(#name, &m_PresetSearchCategories, ST_ ##name);
+#define MAP_FLAG(name) ImGui::CheckboxFlags(#name, &m_PresetSearchMaps, SM_ ##name);
 
 	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(1, 1));
 
@@ -548,7 +917,7 @@ void rageam::integration::MaterialEditor::DrawMaterialList()
 	}
 	SlGui::ShadeItem(SlGuiCol_Bg);
 
-	rage::grmShaderGroup* shaderGroup = m_Drawable->GetShaderGroup();
+	rage::grmShaderGroup* shaderGroup = m_Context->Drawable->GetShaderGroup();
 
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 	for (u16 i = 0; i < shaderGroup->GetShaderCount(); i++)
@@ -560,16 +929,19 @@ void rageam::integration::MaterialEditor::DrawMaterialList()
 		ConstString materialName = effect->GetName();
 
 		// Retrieve material name from scene
-		if (m_DrawableMap)
+		asset::DrawableAssetMap* drawableMap = m_Context->GetDrawableMap();
+		if (drawableMap)
 		{
-			u16 sceneMaterialIndex = m_DrawableMap->ShaderToSceneMaterial[i];
+			u16 sceneMaterialIndex = drawableMap->ShaderToSceneMaterial[i];
 			if (sceneMaterialIndex == u16(-1)) // Invalid index is used only for implicitly created default material
 			{
 				materialName = "Default";
 			}
 			else
 			{
-				materialName = m_Scene->GetMaterial(sceneMaterialIndex)->GetName();
+				graphics::Scene* scene = m_Context->GetScene();
+				graphics::SceneMaterial* sceneMaterial = scene->GetMaterial(sceneMaterialIndex);
+				materialName = sceneMaterial->GetName();
 			}
 		}
 
@@ -581,7 +953,6 @@ void rageam::integration::MaterialEditor::DrawMaterialList()
 		if (selected && m_SelectedMaterialIndex != i)
 		{
 			m_SelectedMaterialIndex = i;
-			HandleMaterialSelectionChanged();
 		}
 	}
 	ImGui::PopStyleVar(); // Item_Spacing
@@ -785,7 +1156,7 @@ void rageam::integration::MaterialEditor::DrawMaterialOptions() const
 	if (drawBucketEdited)
 	{
 		material->SetDrawBucket(drawBucket);
-		m_Drawable->ComputeBucketMask();
+		m_Context->Drawable->ComputeBucketMask();
 	}
 
 	// Render Flags
@@ -804,15 +1175,17 @@ void rageam::integration::MaterialEditor::DrawMaterialOptions() const
 	SlGui::EndPadded();
 }
 
-rageam::integration::MaterialEditor::MaterialEditor()
+rageam::integration::MaterialEditor::MaterialEditor(ModelSceneContext* sceneContext)
 {
 	m_UIConfig.Load();
 	m_UIConfigWatcher.SetEntry(file::PathConverter::WideToUtf8(m_UIConfig.GetFilePath()));
+
+	m_Context = sceneContext;
 }
 
 void rageam::integration::MaterialEditor::Render()
 {
-	if (!IsOpen || !m_Drawable)
+	if (!IsOpen || !m_Context->Drawable)
 		return;
 
 	// Load presets
@@ -899,18 +1272,6 @@ void rageam::integration::MaterialEditor::Render()
 		ImGui::PopStyleVar(1); // CellPadding
 	}
 	ImGui::End();
-}
-
-void rageam::integration::MaterialEditor::SetDrawable(rage::rmcDrawable* drawable)
-{
-	m_Drawable = drawable;
-	m_SelectedMaterialIndex = 0;
-}
-
-void rageam::integration::MaterialEditor::SetMap(graphics::Scene* scene, asset::DrawableAssetMap* map)
-{
-	m_Scene = scene;
-	m_DrawableMap = map;
 }
 
 #endif

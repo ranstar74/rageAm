@@ -1,26 +1,29 @@
 #include "modelscene.h"
 
-#include "widgets.h"
-#include "am/asset/factory.h"
-#include "am/ui/font_icons/icons_awesome.h"
-
 #ifdef AM_INTEGRATED
 
-#include "ImGuizmo.h"
-#include "am/graphics/shapetest.h"
-
+#include "widgets.h"
+#include "am/asset/factory.h"
+#include "am/task/worker.h"
+#include "am/ui/im3d.h"
 #include "am/ui/font_icons/icons_am.h"
 #include "am/ui/styled/slwidgets.h"
 #include "rage/paging/builder/builder.h"
 
-#include <shlobj_core.h>
+void rageam::ModelSceneContext::CompileWorkspaceTXDs()
+{
+	u16 txdCount = Workspace->GetTexDictCount();
+	for (u16 i = 0; i < txdCount; i++)
+	{
+		const asset::TxdAssetPtr& txdAsset = Workspace->GetTexDict(i);
 
-#include "am/task/worker.h"
-#include "rage/math/math.h"
+		rage::grcTextureDictionaryPtr txd = new rage::grcTextureDictionary();
+		if (txdAsset->CompileToGame(txd.Get()))
+			TXDs.Emplace(std::move(txd));
+	}
+}
 
-#include "am/ui/im3d.h"
-
-void rageam::ModelScene::CreateEntity(const rage::Vec3V& coors)
+void rageam::ModelViewer::CreateEntity(const rage::Vec3V& coors)
 {
 	DeleteEntity();
 
@@ -32,7 +35,7 @@ void rageam::ModelScene::CreateEntity(const rage::Vec3V& coors)
 	m_Entity = getEntity(m_EntityHandle);
 }
 
-void rageam::ModelScene::DeleteEntity()
+void rageam::ModelViewer::DeleteEntity()
 {
 	if (m_EntityHandle == 0)
 		return;
@@ -42,7 +45,7 @@ void rageam::ModelScene::DeleteEntity()
 	m_Entity = 0;
 }
 
-void rageam::ModelScene::LoadAndCompileDrawableAsync(ConstWString path)
+void rageam::ModelViewer::LoadAndCompileDrawableAsync(ConstWString path)
 {
 	DeleteDrawable();
 
@@ -72,10 +75,10 @@ void rageam::ModelScene::LoadAndCompileDrawableAsync(ConstWString path)
 			m_FileWatcher.SetEnabled(true);
 
 			return true;
-		});
+		}, L"ModelViewer -> Compile '%ls'", wPath.GetFileName().GetCStr());
 }
 
-void rageam::ModelScene::RegisterArchetype()
+void rageam::ModelViewer::RegisterArchetype()
 {
 	if (m_Archetype)
 		UnregisterArchetype();
@@ -121,7 +124,7 @@ void rageam::ModelScene::RegisterArchetype()
 	m_Archetype = modelInfo;
 }
 
-void rageam::ModelScene::UnregisterArchetype()
+void rageam::ModelViewer::UnregisterArchetype()
 {
 	if (!m_Archetype)
 		return;
@@ -132,7 +135,7 @@ void rageam::ModelScene::UnregisterArchetype()
 	m_Archetype = nullptr;
 }
 
-void rageam::ModelScene::FinalizeOldArchetype()
+void rageam::ModelViewer::FinalizeOldArchetype()
 {
 	if (m_ArchetypeOld && m_ArchetypeOld->m_RefCount == 0)
 	{
@@ -145,7 +148,7 @@ void rageam::ModelScene::FinalizeOldArchetype()
 	}
 }
 
-void rageam::ModelScene::RegisterDrawable()
+void rageam::ModelViewer::RegisterDrawable()
 {
 	rage::strStreamingModule* drawableStore = hooks::Streaming::GetModule("ydr");
 	if (m_DrawableSlot == rage::INVALID_STR_INDEX)
@@ -165,7 +168,7 @@ void rageam::ModelScene::RegisterDrawable()
 	//}
 }
 
-void rageam::ModelScene::UnregisterDrawable()
+void rageam::ModelViewer::UnregisterDrawable()
 {
 	rage::strStreamingModule* drawableStore = hooks::Streaming::GetModule("ydr");
 	if (m_DrawableSlot != rage::INVALID_STR_INDEX)
@@ -185,14 +188,14 @@ void rageam::ModelScene::UnregisterDrawable()
 	//}
 }
 
-void rageam::ModelScene::RequestReload()
+void rageam::ModelViewer::RequestReload()
 {
 	m_HasModelRequest = true;
 	if (m_IsLoaded)
 		m_CleanUpRequested = true;
 }
 
-void rageam::ModelScene::DeleteDrawable()
+void rageam::ModelViewer::DeleteDrawable()
 {
 	if (!m_Drawable)
 		return;
@@ -205,7 +208,7 @@ void rageam::ModelScene::DeleteDrawable()
 		m_Drawable = nullptr;
 }
 
-bool rageam::ModelScene::OnAbort()
+bool rageam::ModelViewer::OnAbort()
 {
 	// Wait for current loading task
 	if (m_LoadTask)
@@ -215,14 +218,14 @@ bool rageam::ModelScene::OnAbort()
 	return m_IsLoaded == false;
 }
 
-void rageam::ModelScene::OnEarlyUpdate()
+void rageam::ModelViewer::OnEarlyUpdate()
 {
 	std::unique_lock lock(m_Mutex);
 
 	FinalizeOldArchetype();
 }
 
-void rageam::ModelScene::OnLateUpdate()
+void rageam::ModelViewer::OnLateUpdate()
 {
 	std::unique_lock lock(m_Mutex);
 
@@ -294,7 +297,7 @@ void rageam::ModelScene::OnLateUpdate()
 	}
 }
 
-void rageam::ModelScene::SetupFor(ConstWString path, const rage::Vec3V& coors)
+void rageam::ModelViewer::SetupFor(ConstWString path, const rage::Vec3V& coors)
 {
 	SetEntityPos(coors);
 
@@ -303,13 +306,13 @@ void rageam::ModelScene::SetupFor(ConstWString path, const rage::Vec3V& coors)
 	RequestReload();
 }
 
-void rageam::ModelScene::CleanUp()
+void rageam::ModelViewer::CleanUp()
 {
 	std::unique_lock lock(m_Mutex);
 	m_CleanUpRequested = true;
 }
 
-void rageam::ModelScene::SetEntityPos(const rage::Vec3V& pos)
+void rageam::ModelViewer::SetEntityPos(const rage::Vec3V& pos)
 {
 	std::unique_lock lock(m_Mutex);
 	m_EntityPos = pos;
@@ -325,7 +328,7 @@ void rageam::ModelScene::SetEntityPos(const rage::Vec3V& pos)
 	}
 }
 
-void rageam::ModelScene::GetState(ModelSceneState& state)
+void rageam::ModelViewer::GetState(ModelViewerState& state)
 {
 	std::unique_lock lock(m_Mutex);
 
@@ -340,22 +343,49 @@ void rageam::ModelScene::GetState(ModelSceneState& state)
 	state.IsLoading = m_LoadTask && !m_LoadTask->IsFinished();;
 }
 
-rage::Vec3V rageam::ModelSceneApp::GetEntityScenePos() const
+rageam::asset::DrawableAssetMap& rageam::ModelSceneUI::GetDrawableMap() const
+{
+	return m_Context.DrawableAsset->CompiledDrawableMap;
+}
+
+rage::grmModel* rageam::ModelSceneUI::GetMeshAttr(u16 nodeIndex) const
+{
+	return GetDrawableMap().GetModelFromScene(m_Context.Drawable, nodeIndex);
+}
+
+rage::crBoneData* rageam::ModelSceneUI::GetBoneAttr(u16 nodeIndex) const
+{
+	return GetDrawableMap().GetBoneFromScene(m_Context.Drawable, nodeIndex);
+}
+
+rage::phBound* rageam::ModelSceneUI::GetBoundAttr(u16 nodeIndex) const
+{
+	return GetDrawableMap().GetBoundFromScene(m_Context.Drawable, nodeIndex);
+}
+
+CLightAttr* rageam::ModelSceneUI::GetLightAttr(u16 nodeIndex) const
+{
+	return GetDrawableMap().GetLightFromScene(m_Context.Drawable, nodeIndex);
+}
+
+rage::Vec3V rageam::ModelSceneUI::GetEntityScenePos() const
 {
 	return m_IsolatedSceneActive ? DEFAULT_ISOLATED_POS : m_ScenePosition;
 }
 
-void rageam::ModelSceneApp::UpdateDrawableStats()
+void rageam::ModelSceneUI::UpdateDrawableStats()
 {
+	gtaDrawable* drawable = m_Context.Drawable;
+
 	m_NumModels = 0;
 	m_NumGeometries = 0;
 	m_VertexCount = 0;
 	m_TriCount = 0;
 	m_LightCount = 0;
 
-	m_LightCount = m_Drawable->m_Lights.GetSize();
+	m_LightCount = drawable->m_Lights.GetSize();
 
-	rage::rmcLodGroup& lodGroup = m_Drawable->GetLodGroup();
+	rage::rmcLodGroup& lodGroup = drawable->GetLodGroup();
 	const rage::spdAABB& boundingBox = lodGroup.GetBoundingBox();
 
 	m_Dimensions = boundingBox.Max - boundingBox.Min;
@@ -380,7 +410,7 @@ void rageam::ModelSceneApp::UpdateDrawableStats()
 	}
 }
 
-void rageam::ModelSceneApp::ResetCameraPosition()
+void rageam::ModelSceneUI::ResetCameraPosition()
 {
 	if (!m_Camera)
 		return;
@@ -389,9 +419,9 @@ void rageam::ModelSceneApp::ResetCameraPosition()
 	rage::Vec3V targetPos;
 	rage::Vec3V scenePos = m_IsolatedSceneActive ? DEFAULT_ISOLATED_POS : DEFAULT_POS;
 
-	if (m_Drawable)
+	if (m_Context.Drawable)
 	{
-		rage::rmcLodGroup& lodGroup = m_Drawable->GetLodGroup();
+		rage::rmcLodGroup& lodGroup = m_Context.Drawable->GetLodGroup();
 		auto& bb = lodGroup.GetBoundingBox();
 		auto& bs = lodGroup.GetBoundingSphere();
 
@@ -411,7 +441,7 @@ void rageam::ModelSceneApp::ResetCameraPosition()
 	m_Camera->LookAt(targetPos);
 }
 
-void rageam::ModelSceneApp::UpdateCamera()
+void rageam::ModelSceneUI::UpdateCamera()
 {
 	if (m_CameraEnabled)
 	{
@@ -429,7 +459,7 @@ void rageam::ModelSceneApp::UpdateCamera()
 	}
 }
 
-void rageam::ModelSceneApp::DrawSceneGraphRecurse(const graphics::SceneNode* sceneNode)
+void rageam::ModelSceneUI::DrawSceneGraphRecurse(const graphics::SceneNode* sceneNode)
 {
 	if (!sceneNode)
 		return;
@@ -494,7 +524,7 @@ void rageam::ModelSceneApp::DrawSceneGraphRecurse(const graphics::SceneNode* sce
 		CLightAttr* lightAttr = GetLightAttr(nodeIndex);
 		if (attrButton(lightAttr, SceneNodeAttr_Light, ICON_AM_LIGHT))
 		{
-			m_LightEditor.SelectLight(m_DrawableSceneMap.SceneNodeToLightAttr[nodeIndex]);
+			m_LightEditor.SelectLight(m_Context.GetDrawableMap()->SceneNodeToLightAttr[nodeIndex]);
 		}
 		ImGui::PopStyleVar(2); // ItemSpacing, FramePadding
 	}
@@ -514,7 +544,7 @@ void rageam::ModelSceneApp::DrawSceneGraphRecurse(const graphics::SceneNode* sce
 	DrawSceneGraphRecurse(sceneNode->GetNextSibling());
 }
 
-void rageam::ModelSceneApp::DrawSceneGraph(const graphics::SceneNode* sceneNode)
+void rageam::ModelSceneUI::DrawSceneGraph(const graphics::SceneNode* sceneNode)
 {
 	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0, 0));
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 0));
@@ -529,14 +559,14 @@ void rageam::ModelSceneApp::DrawSceneGraph(const graphics::SceneNode* sceneNode)
 	ImGui::PopStyleVar(3);
 }
 
-void rageam::ModelSceneApp::DrawSkeletonGraph()
+void rageam::ModelSceneUI::DrawSkeletonGraph()
 {
 
 }
 
-void rageam::ModelSceneApp::DrawNodePropertiesUI(u16 nodeIndex)
+void rageam::ModelSceneUI::DrawNodePropertiesUI(u16 nodeIndex) const
 {
-	graphics::SceneNode* sceneNode = m_Scene->GetNode(nodeIndex);
+	graphics::SceneNode* sceneNode = m_Context.GetScene()->GetNode(nodeIndex);
 
 	ConstString title = ImGui::FormatTemp(
 		"%s Properties###DRAWABLE_ATTR_PROPERTIES", sceneNode->GetName());
@@ -661,7 +691,7 @@ void rageam::ModelSceneApp::DrawNodePropertiesUI(u16 nodeIndex)
 	ImGui::End();
 }
 
-void rageam::ModelSceneApp::DrawDrawableUI()
+void rageam::ModelSceneUI::DrawDrawableUI()
 {
 	m_JustSelectedNodeAttr = SceneNodeAttr_None;
 
@@ -678,7 +708,7 @@ void rageam::ModelSceneApp::DrawDrawableUI()
 			static int s_OutlineModeSelected = OutlineMode_Scene;
 			ImGui::Combo("Graph Mode", &s_OutlineModeSelected, s_OutlineModeDisplay, IM_ARRAYSIZE(s_OutlineModeDisplay));
 
-			graphics::SceneNode* rootNode = m_Scene->GetFirstNode();
+			graphics::SceneNode* rootNode = m_Context.GetScene()->GetFirstNode();
 			switch (s_OutlineModeSelected)
 			{
 			case OutlineMode_Scene:		DrawSceneGraph(rootNode);	break;
@@ -704,7 +734,7 @@ void rageam::ModelSceneApp::DrawDrawableUI()
 						SHV::Ped localPed = SHV::PLAYER::GET_PLAYER_PED(-1);
 						SHV::Hash room = SHV::INTERIOR::GET_ROOM_KEY_FROM_ENTITY(localPed);
 						SHV::Interior interior = SHV::INTERIOR::GET_INTERIOR_FROM_ENTITY(localPed);
-						SHV::INTERIOR::FORCE_ROOM_FOR_ENTITY((int)m_ModelState.EntityHandle, interior, room);
+						SHV::INTERIOR::FORCE_ROOM_FOR_ENTITY((int)m_Context.ViewerState.EntityHandle, interior, room);
 					});
 			}
 			ImGui::SameLine();
@@ -715,11 +745,11 @@ void rageam::ModelSceneApp::DrawDrawableUI()
 
 		if (ImGui::BeginTabItem("Debug"))
 		{
-			ImGui::Text("Entity Handle: %u", m_ModelState.EntityHandle);
+			ImGui::Text("Entity Handle: %u", m_Context.ViewerState.EntityHandle);
 			char ptrBuf[64];
-			sprintf_s(ptrBuf, 64, "%p", m_Drawable);
+			sprintf_s(ptrBuf, 64, "%p", m_Context.Drawable);
 			ImGui::InputText("Drawable Ptr", ptrBuf, 64, ImGuiInputTextFlags_ReadOnly);
-			sprintf_s(ptrBuf, 64, "%p", m_ModelState.EntityPtr);
+			sprintf_s(ptrBuf, 64, "%p", m_Context.ViewerState.EntityPtr);
 			ImGui::InputText("Entity Ptr", ptrBuf, 64, ImGuiInputTextFlags_ReadOnly);
 			ImGui::EndTabItem();
 		}
@@ -845,7 +875,7 @@ void rageam::ModelSceneApp::DrawDrawableUI()
 	//}
 }
 
-void rageam::ModelSceneApp::DrawStarBar()
+void rageam::ModelSceneUI::DrawStarBar()
 {
 	if (SlGui::BeginToolWindow(ICON_AM_STAR" StarBar")) // Scene Toolbar / CameraStar
 	{
@@ -929,9 +959,9 @@ void rageam::ModelSceneApp::DrawStarBar()
 	SlGui::EndToolWindow();
 }
 
-void rageam::ModelSceneApp::UpdateScenePosition()
+void rageam::ModelSceneUI::UpdateScenePosition()
 {
-	m_ModelScene->SetEntityPos(GetEntityScenePos());
+	m_ModelViewer->SetEntityPos(GetEntityScenePos());
 
 	scrInvoke([=]
 		{
@@ -941,11 +971,11 @@ void rageam::ModelSceneApp::UpdateScenePosition()
 		});
 }
 
-void rageam::ModelSceneApp::OnRender()
+void rageam::ModelSceneUI::OnRender()
 {
 	std::unique_lock lock(m_Mutex);
 
-	m_ModelScene->GetState(m_ModelState);
+	m_ModelViewer->GetState(m_Context.ViewerState);
 
 	DrawStarBar();
 
@@ -962,21 +992,21 @@ void rageam::ModelSceneApp::OnRender()
 		UpdateCamera();
 	}
 
-	bool isModelLoading = m_ModelState.IsLoading;
+	bool isModelLoading = m_Context.ViewerState.IsLoading;
 
 	if (ImGui::Begin("Scene", 0, ImGuiWindowFlags_MenuBar))
 	{
 		if (isModelLoading) ImGui::BeginDisabled();
 		if (ImGui::BeginMenuBar())
 		{
-			if (ImGui::MenuItem(ICON_AM_LOAD_SCENE" Load"))
-			{
-				m_ModelScene->SetupFor(m_AssetPath, GetEntityScenePos());
-			}
+			//if (ImGui::MenuItem(ICON_AM_LOAD_SCENE" Load"))
+			//{
+			//	m_ModelScene->SetupFor(m_AssetPath, GetEntityScenePos());
+			//}
 
 			if (ImGui::MenuItem(ICON_AM_CANCEL" Unload"))
 			{
-				m_ModelScene->CleanUp();
+				m_ModelViewer->CleanUp();
 			}
 
 			if (ImGui::MenuItem(ICON_AM_BALL" Material Editor"))
@@ -998,54 +1028,74 @@ void rageam::ModelSceneApp::OnRender()
 			ImGui::TextCentered(loadingText, ImGuiTextCenteredFlags_Horizontal | ImGuiTextCenteredFlags_Vertical);
 		}
 
-		if (m_ModelState.IsEntitySpawned)
+		if (m_Context.ViewerState.IsEntitySpawned)
 		{
 			DrawDrawableUI();
 		}
 	}
 	ImGui::End(); // Scene
 
-	if (m_ModelState.IsEntitySpawned)
+	if (m_Context.ViewerState.IsEntitySpawned)
 	{
-		m_LightEditor.Render(m_Drawable, m_ModelState.EntityWorld);
+		m_LightEditor.Render();
 		m_MaterialEditor.Render();
 	}
+
+	m_Context.JustChangedTXD = -1;
 }
 
-void rageam::ModelSceneApp::OnDrawableLoaded(const asset::DrawableAssetPtr& asset, gtaDrawable* drawable)
+void rageam::ModelSceneUI::OnDrawableLoaded(const asset::DrawableAssetPtr& asset, gtaDrawable* drawable)
 {
 	// Note: this callback is called from game thread
 	// std::unique_lock lock(m_Mutex); // TODO: This mutex causes deadlock...
 
-	m_Drawable = drawable;
-	m_Scene = asset->GetScene();
-	m_DrawableSceneMap = std::move(asset->CompiledDrawableMap);
+	m_Context.Drawable = drawable;
+	m_Context.DrawableAsset = asset;
+	m_Context.Workspace = asset->WorkspaceTXD;
+
+	// Scan workspace TXDs
+	if (m_Context.Workspace)
+	{
+		AM_DEBUGF("ModelSceneUI::OnDrawableLoaded() -> %u TXDs in workspace", m_Context.Workspace->GetTexDictCount());
+		for (u16 i = 0; i < m_Context.Workspace->GetTexDictCount(); i++)
+		{
+			const asset::TxdAssetPtr& texDict = m_Context.Workspace->GetTexDict(i);
+			AM_DEBUGF("ModelSceneUI::OnDrawableLoaded() -> %ls", texDict->GetAssetName());
+		}
+
+		m_Context.CompileWorkspaceTXDs();
+	}
 
 	m_SelectedNodeIndex = -1;
 	m_SelectedNodeAttr = SceneNodeAttr_None;
 
-	m_MaterialEditor.SetDrawable(m_Drawable);
-	m_MaterialEditor.SetMap(m_Scene.get(), &m_DrawableSceneMap);
+	m_LightEditor.Reset();
+	m_MaterialEditor.Reset();
 
 	UpdateDrawableStats();
 }
 
-rageam::ModelSceneApp::ModelSceneApp()
+rageam::ModelSceneUI::ModelSceneUI() : m_LightEditor(&m_Context), m_MaterialEditor(&m_Context)
 {
-	// Temporary solution until we have explorer integration
-	wchar_t* path;
-	if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Desktop, 0, 0, &path)))
-	{
-		m_AssetPath = path;
-		m_AssetPath /= L"rageAm.idr";
+	//// Temporary solution until we have explorer integration
+	//wchar_t* path;
+	//if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Desktop, 0, 0, &path)))
+	//{
+	//	m_AssetPath = path;
+	//	m_AssetPath /= L"rageAm.idr";
 
-		CoTaskMemFree(path);
-	}
+	//	CoTaskMemFree(path);
+	//}
 
-	m_ModelScene.Create();
-	m_ModelScene->LoadCallback = [&](const asset::DrawableAssetPtr& asset, gtaDrawable* drawable)
+	m_ModelViewer.Create();
+	m_ModelViewer->LoadCallback = [&](const asset::DrawableAssetPtr& asset, gtaDrawable* drawable)
 		{
 			OnDrawableLoaded(asset, drawable);
 		};
+}
+
+void rageam::ModelSceneUI::LoadFromPatch(ConstWString path)
+{
+	m_ModelViewer->SetupFor(path, GetEntityScenePos());
 }
 #endif

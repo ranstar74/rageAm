@@ -4,11 +4,17 @@
 #include "am/task/undo.h"
 #include "am/ui/extensions.h"
 #include "am/ui/apps/windowmgr.h"
+#include "am/ui/apps/integration/modelscene.h"
 #include "am/ui/font_icons/icons_am.h"
 #include "am/ui/windows/asset/assethelper.h"
 #include "am/ui/windows/asset/assetwindowfactory.h"
 #include "am/ui/windows/asset/txd/txdwindow.h"
 #include "helpers/format.h"
+
+namespace rageam
+{
+	class ModelViewer;
+}
 
 const rageam::ui::EntrySelection& rageam::ui::FolderView::GetSelectedEntries() const
 {
@@ -267,7 +273,16 @@ void rageam::ui::FolderView::UpdateEntryOpening()
 		asset::AssetPtr asset = m_EntryToOpen->GetAsset();
 		if (asset) // If asset was loaded successfully... TODO: We need to handle loading exceptions from UI
 		{
+			if(asset->GetType() == asset::AssetType_Drawable)
+			{
+#ifdef AM_INTEGRATED
+				Gui->Apps.FindAppByType<ModelSceneUI>()->LoadFromPatch(asset->GetDirectoryPath());
+#endif
+			}
+			else
+			{
 			assetview::AssetWindowFactory::OpenNewOrFocusExisting(asset);
+		}
 		}
 		m_EntryToOpen = nullptr; // To prevent it from actually opening
 	}

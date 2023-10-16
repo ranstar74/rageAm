@@ -3,6 +3,7 @@
 #include "am/asset/gameasset.h"
 #include "am/ui/window.h"
 #include "assethelper.h"
+#include "rage/file/watcher.h"
 
 namespace rageam::ui::assetview
 {
@@ -12,26 +13,39 @@ namespace rageam::ui::assetview
 
 		using Messages = rage::atArray<rage::atString>;
 
-		std::atomic_bool	m_IsCompiling;
-		std::atomic_bool	m_IsSaving;
-		asset::AssetPtr		m_Asset;
-		char				m_Title[MAX_ASSET_WINDOW_NAME];
+		rage::fiDirectoryWatcher	m_Watcher;
 
-		std::mutex			m_ProgressMutex;
-		double				m_Progress = 0;
-		Messages			m_ProgressMessages;
+		std::atomic_bool			m_IsCompiling;
+		std::atomic_bool			m_IsSaving;
+		asset::AssetPtr				m_Asset;
+		char						m_Title[MAX_ASSET_WINDOW_NAME];
+
+		std::mutex					m_ProgressMutex;
+		double						m_Progress = 0;
+		Messages					m_ProgressMessages;
 
 		void SaveAsync();
 		void CompileAsync();
 		void OnMenuRender() override;
 
+	protected:
+		void OnRender() override
+		{
+			if (m_Watcher.GetChangeOccuredAndReset())
+			{
+				OnFileChanged();
+			}
+		}
+
 	public:
 		AssetWindow(const asset::AssetPtr& asset)
 		{
 			m_Asset = asset;
+			m_Watcher.SetEntry(String::ToUtf8Temp(m_Asset->GetDirectoryPath()));
 			MakeAssetWindowName(m_Title, asset);
 		}
 
+		virtual void OnFileChanged() { }
 		virtual void OnAssetMenuRender() { }
 		virtual void SaveChanges() { }
 

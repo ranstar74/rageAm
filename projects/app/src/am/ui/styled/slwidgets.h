@@ -19,6 +19,7 @@ enum SlGuiTreeNodeFlags_
 	SlGuiTreeNodeFlags_NoChildren = 1 << 1,
 	SlGuiTreeNodeFlags_RightClickSelect = 1 << 2,
 	SlGuiTreeNodeFlags_DisplayAsHovered = 1 << 3,
+	SlGuiTreeNodeFlags_AlwaysShowArrows = 1 << 4,
 };
 typedef int SlGuiTreeNodeFlags;
 
@@ -139,5 +140,5 @@ namespace SlGui
 	bool Combo(const char* label, int* current_item, const char* const items[], int items_count, int popup_max_height_in_items = -1);
 	bool Checkbox(const char* label, bool* v);
 
-	bool GraphTreeNode(ConstString text, bool& selected, bool& toggled, SlGuiTreeNodeFlags flags);
+	bool GraphTreeNode(ConstString text, bool& selected, bool& toggled, SlGuiTreeNodeFlags flags = 0);
 }

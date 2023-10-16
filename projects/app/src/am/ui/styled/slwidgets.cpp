@@ -228,7 +228,7 @@ bool SlGui::TreeNode(ConstString text, bool& selected, bool& toggled, ImTextureI
 	ImGuiStyle& style = context->Style;
 	ImGuiID id = window->GetID(text);
 
-	bool& isOpen = *storage->GetBoolRef(id, (flags & ImGuiTreeNodeFlags_DefaultOpen) ? 1 : 0);
+	bool& isOpen = *storage->GetBoolRef(id, (flags & SlGuiTreeNodeFlags_DefaultOpen) ? 1 : 0);
 
 	ImVec2 cursor = window->DC.CursorPos;
 
@@ -289,7 +289,7 @@ bool SlGui::TreeNode(ConstString text, bool& selected, bool& toggled, ImTextureI
 	if (textHovered)
 		ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 
-	bool canOpen = !(flags & ImGuiIconTreeNodeFlags_NoChildren);
+	bool canOpen = !(flags & SlGuiTreeNodeFlags_NoChildren);
 	if (canOpen)
 	{
 		// Toggle on simple arrow click
@@ -1697,7 +1697,7 @@ bool SlGui::GraphTreeNode(ConstString text, bool& selected, bool& toggled, SlGui
 		//bb.Expand(ImVec2(-1, -1));
 
 		const SlGuiCol backgroundCol =
-			selected ? SlGuiCol_GraphNodePressed : SlGuiCol_GraphNode;
+			selected ? SlGuiCol_GraphNodePressed : hovered ? SlGuiCol_GraphNodeHovered : SlGuiCol_GraphNode;
 		const SlGuiCol borderCol = selected ? SlGuiCol_GraphNodeBorderHighlight : SlGuiCol_None;
 
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
@@ -1713,7 +1713,10 @@ bool SlGui::GraphTreeNode(ConstString text, bool& selected, bool& toggled, SlGui
 	// Arrow, we add slow fading in/out just like in windows explorer
 	if (canOpen)
 	{
-		bool arrowVisible = context->HoveredWindow == window || ImGui::IsWindowFocused();
+		bool arrowVisible = 
+			(flags & SlGuiTreeNodeFlags_AlwaysShowArrows) || 
+			context->HoveredWindow == window || 
+			ImGui::IsWindowFocused();
 
 		float& alpha = *storage->GetFloatRef(id + 1);
 

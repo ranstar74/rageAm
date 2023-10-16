@@ -8,6 +8,7 @@
 #include "am/ui/im3d.h"
 #include "am/ui/font_icons/icons_am.h"
 #include "am/ui/styled/slwidgets.h"
+#include "modelscene.h"
 
 void rageam::integration::LightEditor::SetCullPlaneFromLight(const LightDrawContext& ctx)
 {
@@ -325,21 +326,21 @@ void rageam::integration::LightEditor::DrawCullPlaneEditGizmo(const LightDrawCon
 	}
 }
 
-void rageam::integration::LightEditor::ComputeLightWorldMatrix(
-	gtaDrawable* drawable, const rage::Mat44V& entityMtx, u16 lightIndex,
+void rageam::integration::LightEditor::ComputeLightMatrices(
+	u16 lightIndex,
 	rage::Mat44V& lightWorld,
 	rage::Mat44V& lightBind,
 	rage::Mat44V& lightLocal,
 	rage::Mat44V& lightBoneWorld) const
 {
-	CLightAttr* light = drawable->GetLight(lightIndex);
+	CLightAttr* light = m_SceneContext->Drawable->GetLight(lightIndex);
 
 	// Create orientation matrix
 	lightBoneWorld = rage::Mat44V::Identity();
 	lightLocal = light->GetMatrix();
 
 	// If there's no skeleton, light transform is defined by CLightAttr.Position * EntityMatrix
-	rage::crSkeletonData* skeleton = drawable->GetSkeletonData();
+	rage::crSkeletonData* skeleton = m_SceneContext->Drawable->GetSkeletonData();
 	if (skeleton)
 	{
 		// Parent light to bone
@@ -348,7 +349,7 @@ void rageam::integration::LightEditor::ComputeLightWorldMatrix(
 		lightBoneWorld *= lightBoneMtx;
 	}
 
-	lightBoneWorld *= entityMtx;
+	lightBoneWorld *= m_SceneContext->ViewerState.EntityWorld;
 	lightBind = lightBoneWorld;
 	// Transform to light world space
 	lightWorld = lightLocal * lightBind;
@@ -718,7 +719,7 @@ void rageam::integration::LightEditor::DrawCustomGizmos(const LightDrawContext& 
 	}
 }
 
-void rageam::integration::LightEditor::SelectGizmoMode(gtaDrawable* drawable)
+void rageam::integration::LightEditor::SelectGizmoMode()
 {
 	if (m_SelectedLight == -1)
 		return;
@@ -729,7 +730,6 @@ void rageam::integration::LightEditor::SelectGizmoMode(gtaDrawable* drawable)
 	int newModeMask = 0;
 
 	if (ImGui::IsKeyPressed(ImGuiKey_G, false)) newModeMask = GIZMO_Translate;
-	// Rotation is pointless on point light but we still allow to enable to prevent user confusion
 	if (ImGui::IsKeyPressed(ImGuiKey_R, false)) newModeMask = GIZMO_Rotate;
 
 	if (newModeMask != 0) // Some Mode was toggled
@@ -739,13 +739,20 @@ void rageam::integration::LightEditor::SelectGizmoMode(gtaDrawable* drawable)
 	}
 }
 
-void rageam::integration::LightEditor::Render(gtaDrawable* drawable, const rage::Mat44V& entityMtx)
+rageam::integration::LightEditor::LightEditor(ModelSceneContext* sceneContext)
 {
+	m_SceneContext = sceneContext;
+}
+
+void rageam::integration::LightEditor::Render()
+{
+	gtaDrawable* drawable = m_SceneContext->Drawable;
+
 	u16 lightCount = drawable->GetLightCount();
 	if (lightCount == 0)
 		return;
 
-	SelectGizmoMode(drawable);
+	SelectGizmoMode();
 
 	// Prepare context for drawing lights
 	LightDrawContext drawContext;
@@ -761,7 +768,7 @@ void rageam::integration::LightEditor::Render(gtaDrawable* drawable, const rage:
 		bool isSelected = m_SelectedLight == i;
 		bool isHovered = m_HoveredLight == i;
 
-		ComputeLightWorldMatrix(drawable, entityMtx, i,
+		ComputeLightMatrices(i,
 			drawContext.LightWorld,
 			drawContext.LightBind,
 			drawContext.LightLocal,

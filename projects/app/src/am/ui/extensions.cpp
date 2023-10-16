@@ -434,7 +434,7 @@ bool ImGui::IconTreeNode(ConstString text, bool& selected, bool& toggled, ImText
 	return isOpen;
 }
 
-void ImGui::IconTreeNodeSetOpened(ConstString text, bool opened)
+void ImGui::TreeNodeSetOpened(ConstString text, bool opened)
 {
 	ImGuiWindow* window = GetCurrentWindow();
 	ImGuiID id = window->GetID(text);
@@ -932,10 +932,10 @@ bool ImGui::InputU16(const char* label, u16* value)
 	return InputScalar(label, ImGuiDataType_U16, value, 0, 0);
 }
 
-void ImGui::InputTextPlaceholder(ConstString inputText, ConstString placeholder)
+void ImGui::InputTextPlaceholder(ConstString inputText, ConstString placeholder, bool showIfActive)
 {
 	// Show only if text box is not selected
-	if (IsItemActive())
+	if (!showIfActive && IsItemActive())
 		return;
 
 	// There is some text... placeholder must be shown only in empty text box
@@ -943,7 +943,7 @@ void ImGui::InputTextPlaceholder(ConstString inputText, ConstString placeholder)
 		return;
 
 	rageam::graphics::ColorU32 textColor = GetColorU32(ImGuiCol_Text);
-	textColor.A -= 60; // Make a little bit dimmer
+	textColor.A -= 80; // Make a little bit dimmer
 
 	const ImRect& rect = GImGui->LastItemData.Rect;
 	ImVec2 textPos = rect.Min + GImGui->Style.FramePadding;

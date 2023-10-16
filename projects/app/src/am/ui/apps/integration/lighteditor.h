@@ -13,6 +13,11 @@
 #include "am/graphics/shapetest.h"
 #include "game/drawable.h"
 
+namespace rageam
+{
+	struct ModelSceneContext;
+}
+
 namespace rageam::integration
 {
 	// TODO: Add color filling for light outlines so it's easier to see where light ends
@@ -29,23 +34,24 @@ namespace rageam::integration
 
 	class LightEditor
 	{
-		int				m_SelectedLight = -1;
-		int				m_HoveredLight = -1;
-		int				m_GizmoMode = GIZMO_None;
-		bool			m_SelectionFreezed = false;
+		ModelSceneContext*	m_SceneContext;
+		int					m_SelectedLight = -1;
+		int					m_HoveredLight = -1;
+		int					m_GizmoMode = GIZMO_None;
+		bool				m_SelectionFreezed = false;
 
 		// We freeze selecting during cull plane editing, so save state
-		bool			m_SelectionWasFreezed = false;
-		bool			m_EditingCullPlane = false;
+		bool				m_SelectionWasFreezed = false;
+		bool				m_EditingCullPlane = false;
 		// We are maintaining additional matrix for culling plane because
 		// in light cull plane is stored as normal + offset so we can
 		// only "rotate" it around the light. Storing this transform during editing
 		// gives user ability to freely rotate/move plane
-		rage::Mat44V	m_CullPlane;
+		rage::Mat44V		m_CullPlane;
 
 		// -- Custom gizmos --
 
-		bool m_UsingPointFalloffGizmo = false;
+		bool				m_UsingPointFalloffGizmo = false;
 
 		struct LightDrawContext
 		{
@@ -55,7 +61,7 @@ namespace rageam::integration
 			rage::Mat44V	LightBind;
 			rage::Mat44V	LightLocal;
 			rage::Mat44V	LightBoneWorld;
-			CLightAttr* Light;
+			CLightAttr*		Light;
 			u16				LightIndex;
 			bool			IsSelected;
 			u32				PrimaryColor;
@@ -79,8 +85,8 @@ namespace rageam::integration
 		void DrawCullPlaneEditGizmo(const LightDrawContext& ctx);
 
 		// Light bind transforms world light position into local
-		void ComputeLightWorldMatrix(
-			gtaDrawable* drawable, const rage::Mat44V& entityMtx, u16 lightIndex,
+		void ComputeLightMatrices(
+			u16 lightIndex,
 			rage::Mat44V& lightWorld,
 			rage::Mat44V& lightBind,
 			rage::Mat44V& lightLocal,
@@ -90,13 +96,21 @@ namespace rageam::integration
 		void DrawLightUI(const LightDrawContext& ctx);
 		void DrawLightTransformGizmo(const LightDrawContext& ctx) const;
 		void DrawCustomGizmos(const LightDrawContext& ctx);
-		void SelectGizmoMode(gtaDrawable* drawable);
+		void SelectGizmoMode();
 
 	public:
-		void Render(gtaDrawable* drawable, const rage::Mat44V& entityMtx);
+		LightEditor(ModelSceneContext* sceneContext);
+
+		void Render();
 		// Pass -1 to select none
 		// Nothing is done if selection was frozen by user
 		void SelectLight(s32 index);
+
+		// Reset state for new entity
+		void Reset()
+		{
+			SelectLight(-1);
+		}
 
 		bool ShowLightOutlines = true;
 		bool ShowOnlySelectedLightOutline = true;

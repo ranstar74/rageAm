@@ -14,6 +14,11 @@
 #include "rage/streaming/streaming.h"
 #include "rage/file/watcher.h"
 
+namespace rageam
+{
+	struct ModelSceneContext;
+}
+
 namespace rageam::integration
 {
 	/**
@@ -105,19 +110,27 @@ namespace rageam::integration
 	 */
 	class MaterialEditor
 	{
-		rage::rmcDrawable*					m_Drawable = nullptr;
-		asset::DrawableAssetMap*			m_DrawableMap = nullptr;
-		graphics::Scene*					m_Scene = nullptr;
-		int									m_SelectedMaterialIndex = 0;
-		ShaderUIConfig						m_UIConfig;
-		rage::fiDirectoryWatcher			m_UIConfigWatcher;
-		SmallList<ShaderPreset>				m_ShaderPresets;
-		SmallList<u16>						m_SearchIndices;
-		char								m_SearchText[64] = {};
-		u32									m_SearchCategories= 0;
-		u32									m_SearchMaps = 0;
-		rage::strLocalIndex					m_SearchYtdSlot = rage::INVALID_STR_INDEX;
-		rage::atArray<rage::grcTexture*>	m_SearchTextures;
+		struct TextureSearch
+		{
+			char							DictName[128];
+			rage::grcTextureDictionary*		Dict;
+			SmallList<u16>					Textures;
+		};
+
+		ModelSceneContext*			m_Context;
+		int							m_SelectedMaterialIndex = 0;
+		ShaderUIConfig				m_UIConfig;
+		rage::fiDirectoryWatcher	m_UIConfigWatcher;
+		SmallList<ShaderPreset>		m_ShaderPresets;
+		SmallList<u16>				m_PresetSearchIndices;
+		char						m_PresetSearchText[64] = {};
+		u32							m_PresetSearchCategories= 0;
+		u32							m_PresetSearchMaps = 0;
+		char						m_TextureSearchText[256] = {};
+		SmallList<TextureSearch>	m_TextureSearchEntries;
+		// Those two are used only in list texture picker mode
+		int							m_DictionaryIndex = 0;
+		int							m_TextureIndex = 0; // In TextureSearch::Textures
 
 		// Loads preload.list and assigns tags to shader presets
 		void InitializePresetSearch();
@@ -125,25 +138,33 @@ namespace rageam::integration
 
 		rage::grmShader* GetSelectedMaterial() const;
 
+		rage::grcTexture* TexturePicker_Grid(float iconScale);
+		rage::grcTexture* TexturePicker_List();
 		rage::grcTexture* TexturePicker(ConstString id, const rage::grcTexture* currentTexture);
+		void DoTextureSearch();
+
 		void HandleMaterialValueChange(u16 varIndex, rage::grcInstanceVar* var, const rage::grcEffectVar* varInfo) const;
-		void HandleMaterialSelectionChanged();
-		void SearchTexture(ImmutableString searchText);
+
 		void DoFuzzySearch();
 		void DrawShaderSearchListItem(u16 index);
 		void DrawShaderSearchList();
 		void DrawShaderSearchFilters();
 		void DrawShaderSearch();
 		void DrawMaterialList();
+
 		void DrawMaterialVariables();
 		void DrawMaterialOptions() const;
 
 	public:
-		MaterialEditor();
+		MaterialEditor(ModelSceneContext* sceneContext);
 
 		void Render();
-		void SetDrawable(rage::rmcDrawable* drawable);
-		void SetMap(graphics::Scene* scene, asset::DrawableAssetMap* map);
+
+		// Resets state for new shader group
+		void Reset()
+		{
+			m_SelectedMaterialIndex = 0;
+		}
 
 		bool IsOpen = false;
 	};

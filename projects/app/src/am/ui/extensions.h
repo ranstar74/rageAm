@@ -114,7 +114,7 @@ namespace ImGui
 	bool IconTreeNode(ConstString text, bool& selected, bool& toggled, ImTextureID icon, ImGuiIconTreeNodeFlags flags = 0);
 
 	// You have to open whole hierarchy to open sub-node
-	void IconTreeNodeSetOpened(ConstString text, bool opened);
+	void TreeNodeSetOpened(ConstString text, bool opened);
 
 	// Performs mouse-drag selection (selection rectangle like on windows desktop)
 	// Returns true if selection is performed (left mouse button is held)
@@ -159,7 +159,7 @@ namespace ImGui
 	bool InputU16(const char* label, u16* value);
 
 	// Sets placeholder text (for example 'Search...) to previous text box
-	void InputTextPlaceholder(ConstString inputText, ConstString placeholder);
+	void InputTextPlaceholder(ConstString inputText, ConstString placeholder, bool showIfActive = false);
 
 	template<typename TFlagsEnum>
 	void EnumFlags(ConstString idStr, u32* flags, int nameSkip = 0)

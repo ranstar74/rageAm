@@ -327,8 +327,19 @@ namespace rageam::ui::assetview
 			ImGui::EndChild(); // ImagePreview
 		}
 
+		void OnFileChanged() override
+		{
+			// TODO: This will corrupt existing changes! We need same 'file was changed' dialog as in notepad++
+			amPtr<asset::TxdAsset> txd = std::static_pointer_cast<asset::TxdAsset>(GetAsset());
+			txd->Refresh();
+
+			LoadTextures();
+		}
+
 		void OnRender() override
 		{
+			AssetWindow::OnRender();
+
 			// Remove huge gap between the columns
 			ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(1, 0));
 			bool tableOpened = ImGui::BeginTable("TxdAppTable", 3, ImGuiTableFlags_Resizable);
@@ -378,11 +389,12 @@ namespace rageam::ui::assetview
 
 			ImGui::EndTable();
 		}
-	public:
-		TxdWindow(const asset::AssetPtr& asset) : AssetWindow(asset)
-		{
-			amPtr<asset::TxdAsset> txd = std::static_pointer_cast<asset::TxdAsset>(asset);
 
+		void LoadTextures()
+		{
+			m_TextureVms.Clear();
+
+			amPtr<asset::TxdAsset> txd = std::static_pointer_cast<asset::TxdAsset>(GetAsset());
 			auto& textures = txd->GetTextures();
 
 			// Create view model for every texture
@@ -394,6 +406,12 @@ namespace rageam::ui::assetview
 
 			if (textures.Any())
 				m_SelectedIndex = 0;
+		}
+
+	public:
+		TxdWindow(const asset::AssetPtr& asset) : AssetWindow(asset)
+		{
+			LoadTextures();
 		}
 
 		void SaveChanges() override
