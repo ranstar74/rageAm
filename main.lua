@@ -147,6 +147,7 @@ project "rageAm"
 	links { "dbghelp" } -- StackTrace
 	links { "d3d11.lib" }
 	links { "Shlwapi.lib" } -- PathMatchSpecA
+	links { "dxguid.lib" } -- Reflection
 
 	filter "files:**.natvis"
 		buildaction "Natvis"
