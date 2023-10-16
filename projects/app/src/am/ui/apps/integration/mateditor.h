@@ -117,33 +117,46 @@ namespace rageam::integration
 			SmallList<u16>					Textures;
 		};
 
-		ModelSceneContext*			m_Context;
-		int							m_SelectedMaterialIndex = 0;
-		ShaderUIConfig				m_UIConfig;
-		rage::fiDirectoryWatcher	m_UIConfigWatcher;
-		SmallList<ShaderPreset>		m_ShaderPresets;
-		SmallList<u16>				m_PresetSearchIndices;
-		char						m_PresetSearchText[64] = {};
-		u32							m_PresetSearchCategories= 0;
-		u32							m_PresetSearchMaps = 0;
-		char						m_TextureSearchText[256] = {};
-		SmallList<TextureSearch>	m_TextureSearchEntries;
+		union VarBlob
+		{
+			// rage::grcInstanceVar data is divided on 16 byte blocks,
+			// maximum data size we can have is 4x4 mat (64 bytes)
+			char Data[64];
+			// Textures however are stored differently
+			rage::grcTexture* Texture;
+		};
+
+		ModelSceneContext*				m_Context;
+		int								m_SelectedMaterialIndex = 0;
+		ShaderUIConfig					m_UIConfig;
+		rage::fiDirectoryWatcher		m_UIConfigWatcher;
+		SmallList<ShaderPreset>			m_ShaderPresets;
+		SmallList<u16>					m_PresetSearchIndices;
+		char							m_PresetSearchText[64] = {};
+		u32								m_PresetSearchCategories= 0;
+		u32								m_PresetSearchMaps = 0;
+		char							m_TextureSearchText[256] = {};
+		SmallList<TextureSearch>		m_TextureSearchEntries;
 		// Those two are used only in list texture picker mode
-		int							m_DictionaryIndex = 0;
-		int							m_TextureIndex = 0; // In TextureSearch::Textures
+		int								m_DictionaryIndex = 0;
+		int								m_TextureIndex = 0; // In TextureSearch::Textures
+		// We store all material parameters input by user to preserve them on switching shader
+		SmallList<HashSet<VarBlob>>		m_MaterialValues;
 
 		// Loads preload.list and assigns tags to shader presets
 		void InitializePresetSearch();
 		void ComputePresetFilterTagAndTokens(ShaderPreset& preset) const;
 
+		rage::grmShaderGroup* GetShaderGroup() const;
 		rage::grmShader* GetSelectedMaterial() const;
 
-		rage::grcTexture* TexturePicker_Grid(float iconScale);
+		rage::grcTexture* TexturePicker_Grid(bool groupByDict, float iconScale);
 		rage::grcTexture* TexturePicker_List();
 		rage::grcTexture* TexturePicker(ConstString id, const rage::grcTexture* currentTexture);
 		void DoTextureSearch();
 
-		void HandleMaterialValueChange(u16 varIndex, rage::grcInstanceVar* var, const rage::grcEffectVar* varInfo) const;
+		void HandleMaterialValueChange(u16 varIndex, rage::grcInstanceVar* var, const rage::grcEffectVar* varInfo);
+		void HandleShaderChange();
 
 		void DoFuzzySearch();
 		void DrawShaderSearchListItem(u16 index);
@@ -155,16 +168,18 @@ namespace rageam::integration
 		void DrawMaterialVariables();
 		void DrawMaterialOptions() const;
 
+		// Saves given variable value
+		void StoreMaterialValue(u16 materialIndex, u16 varIndex);
+		// Tries to retrieve saved variable value
+		void RestoreMaterialValue(u16 materialIndex, u16 varIndex);
+
 	public:
 		MaterialEditor(ModelSceneContext* sceneContext);
 
 		void Render();
 
 		// Resets state for new shader group
-		void Reset()
-		{
-			m_SelectedMaterialIndex = 0;
-		}
+		void Reset();
 
 		bool IsOpen = false;
 	};

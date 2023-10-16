@@ -148,8 +148,8 @@ namespace rage
 		EFFECT_VALUE_INT4 = 14,		// int[4]
 	};
 	ConstString EffectValueTypeToString(grcEffectVarType e);
-
-	static u8 grcEffectVarTypeToStride[40]
+	
+	static u8 grcEffectVarSize[40]
 	{
 		0, 4, 4, 8, 12, 16, 0, 4, 16, 16,	// NONE to MATRIX44
 		0, 4, 8, 12, 16, 0, 0, 4, 4, 4, 4,	// STRING To ...
@@ -277,6 +277,8 @@ namespace rage
 
 		grcEffectVarType GetType() const { return grcEffectVarType(m_DataType); }
 		bool IsTexture() const { return GetType() == EFFECT_VALUE_TEXTURE; }
+
+		u32 GetValueSize() const { return grcEffectVarSize[m_DataType]; }
 
 		void Deserialize(const fiStreamPtr& stream)
 		{

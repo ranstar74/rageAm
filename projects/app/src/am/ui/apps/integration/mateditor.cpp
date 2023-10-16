@@ -210,13 +210,17 @@ void rageam::integration::MaterialEditor::ComputePresetFilterTagAndTokens(Shader
 	preset.Tag.Maps = m;
 }
 
-rage::grmShader* rageam::integration::MaterialEditor::GetSelectedMaterial() const
+rage::grmShaderGroup* rageam::integration::MaterialEditor::GetShaderGroup() const
 {
-	rage::grmShaderGroup* shaderGroup = m_Context->Drawable->GetShaderGroup();
-	return shaderGroup->GetShader(m_SelectedMaterialIndex);
+	return m_Context->Drawable->GetShaderGroup();
 }
 
-rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_Grid(float iconScale)
+rage::grmShader* rageam::integration::MaterialEditor::GetSelectedMaterial() const
+{
+	return GetShaderGroup()->GetShader(m_SelectedMaterialIndex);
+}
+
+rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_Grid(bool groupByDict, float iconScale)
 {
 	ImGuiStyle& style = ImGui::GetStyle();
 	auto textureItem = [&](ConstString idStr, const rage::grcTexture* texture) -> bool
@@ -271,11 +275,16 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_Grid(float 
 		};
 
 	rage::grcTexture* pickedTexture = nullptr;
+	u16 totalTextures = 0;
 	for (u16 i = 0; i < m_TextureSearchEntries.GetSize(); i++)
 	{
 		const TextureSearch& search = m_TextureSearchEntries[i];
 
-		if (SlGui::CollapsingHeader(search.DictName, ImGuiTreeNodeFlags_DefaultOpen))
+		bool dictOpen = true;
+		if (groupByDict)
+			dictOpen = SlGui::CollapsingHeader(search.DictName, ImGuiTreeNodeFlags_DefaultOpen);
+
+		if (dictOpen)
 		{
 			// For item wrapping
 			float maxItemX = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
@@ -285,7 +294,7 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_Grid(float 
 				rage::grcTexture* texture = search.Dict->GetValueAt(search.Textures[k]);
 
 				// Try to place on current line
-				if (k != 0)
+				if (groupByDict ? k != 0 : totalTextures != 0)
 				{
 					const ImRect& prevItemRect = GImGui->LastItemData.Rect;
 
@@ -297,6 +306,8 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_Grid(float 
 				ConstString idStr = ImGui::FormatTemp("###GRID_TEX_%u_%u", i, k);
 				if (textureItem(idStr, texture))
 					pickedTexture = texture;
+
+				totalTextures++;
 			}
 		}
 	}
@@ -504,6 +515,7 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 
 	// Open picker
 	static constexpr ConstString PICKER_POPUP = "TEXTURE_PICKER_POPUP";
+	static ConstString s_PickTexID = nullptr;
 	ConstString currentTextureName = currentTexture ? currentTexture->GetName() : "-";
 	float buttonWidth = ImGui::GetContentRegionAvail().x;
 	if (ImGui::Button(ImGui::FormatTemp("%s###%s", currentTextureName, id), ImVec2(buttonWidth, 0)))
@@ -514,26 +526,32 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 		m_TextureSearchText[0] = '\0';
 		DoTextureSearch();
 
+		// We need ID check or otherwise we gonna draw picker for all textures in shader
+		s_PickTexID = id;
+
 		ImGui::OpenPopup(PICKER_POPUP);
 	}
 
 	static float s_IconScale = 1.0f;
 	static bool s_Grid = false;
+	static bool s_GridGroupByDict = false;
 
 	// Draw picker
 	rage::grcTexture* pickedTexture = nullptr;
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(1, 1));
 	ImGui::SetNextWindowPos(GImGui->LastItemData.Rect.GetBL()); // Position right under button
 	ImGui::SetNextWindowSize(ImVec2(s_Grid ? 450 : 240, 400));
-	if (ImGui::BeginPopup(PICKER_POPUP))
+	if (s_PickTexID == id && ImGui::BeginPopup(PICKER_POPUP))
 	{
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
 		ImGui::Checkbox("Grid", &s_Grid);
 		if (s_Grid)
 		{
 			ImGui::SameLine();
+			ImGui::Checkbox("Group", &s_GridGroupByDict);
+			ImGui::SameLine();
 			ImGui::SetNextItemWidth(ImGui::GetFrameHeight() * 4.0f);
-			ImGui::SliderFloat("Icon Scale", &s_IconScale, 1.0f, 3.0f, "%.1f");
+			ImGui::SliderFloat("Icon Scale", &s_IconScale, 0.25f, 3.0f, "%.1f");
 		}
 
 		ImGui::HelpMarker(
@@ -557,7 +575,7 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 		ImGui::PopStyleVar(); // ItemSpacing
 
 		ImGui::BeginChild("TEXTURE_PICKER_SCROLL");
-		if (s_Grid)	pickedTexture = TexturePicker_Grid(s_IconScale);
+		if (s_Grid)	pickedTexture = TexturePicker_Grid(s_GridGroupByDict, s_IconScale);
 		else		pickedTexture = TexturePicker_List();
 		ImGui::EndChild();
 
@@ -565,10 +583,6 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 			ImGui::CloseCurrentPopup();
 
 		ImGui::EndPopup();
-	}
-	else
-	{
-		m_TextureSearchEntries.Clear();
 	}
 	ImGui::PopStyleVar(1); // ItemSpacing
 
@@ -667,12 +681,28 @@ void rageam::integration::MaterialEditor::DoTextureSearch()
 	}
 }
 
-void rageam::integration::MaterialEditor::HandleMaterialValueChange(u16 varIndex, rage::grcInstanceVar* var, const rage::grcEffectVar* varInfo) const
+void rageam::integration::MaterialEditor::HandleMaterialValueChange(u16 varIndex, rage::grcInstanceVar* var, const rage::grcEffectVar* varInfo)
 {
+	StoreMaterialValue(m_SelectedMaterialIndex, varIndex);
+
 	// Toggle tessellation
 	if (varInfo->GetNameHash() == rage::joaat("useTessellation"))
 	{
 		m_Context->Drawable->ComputeTessellationForShader(m_SelectedMaterialIndex);
+	}
+}
+
+void rageam::integration::MaterialEditor::HandleShaderChange()
+{
+	// Try to retrieve variables from previous shaders
+	rage::grmShaderGroup* shaderGroup = GetShaderGroup();
+	for (u16 i = 0; i < shaderGroup->GetShaderCount(); i++)
+	{
+		rage::grmShader* shader = shaderGroup->GetShader(i);
+		for (u16 k = 0; k < shader->GetVarCount(); k++)
+		{
+			RestoreMaterialValue(i, k);
+		}
 	}
 }
 
@@ -791,6 +821,7 @@ void rageam::integration::MaterialEditor::DrawShaderSearchListItem(u16 index)
 		rage::grmShaderGroup* shaderGroup = m_Context->Drawable->GetShaderGroup();
 		rage::grmShader* material = shaderGroup->GetShader(m_SelectedMaterialIndex);
 		material->CloneFrom(*preset.InstanceData);
+		HandleShaderChange();
 	}
 	ImGui::PopStyleVar();	// ButtonTextAlign
 	ImGui::PopStyleColor(); // Button
@@ -811,7 +842,7 @@ void rageam::integration::MaterialEditor::DrawShaderSearchList()
 	float height = ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeight();
 
 	// Shaders
-	ImGui::BeginChild("SHADER_LIST", ImVec2(0, height));
+	if(ImGui::BeginChild("SHADER_LIST", ImVec2(0, height)))
 	{
 		SlGui::ShadeItem(SlGuiCol_Bg);
 
@@ -881,7 +912,6 @@ void rageam::integration::MaterialEditor::DrawShaderSearchFilters()
 
 void rageam::integration::MaterialEditor::DrawShaderSearch()
 {
-
 	if (ImGui::BeginTable("SHADER_LIST_TABLE", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV))
 	{
 		ImGui::TableNextRow();
@@ -1175,6 +1205,46 @@ void rageam::integration::MaterialEditor::DrawMaterialOptions() const
 	SlGui::EndPadded();
 }
 
+void rageam::integration::MaterialEditor::StoreMaterialValue(u16 materialIndex, u16 varIndex)
+{
+	rage::grmShader* material = GetShaderGroup()->GetShader(materialIndex);
+	rage::grcInstanceVar* var = material->GetVarByIndex(varIndex);
+	rage::grcEffectVar* varInfo = material->GetEffect()->GetVarByIndex(varIndex);
+
+	VarBlob& blob = m_MaterialValues[materialIndex].InsertAt(varInfo->GetNameHash(), VarBlob());
+	if (var->IsTexture())
+	{
+		blob.Texture = var->GetTexture();
+	}
+	else
+	{
+		// grcInstanceVar uses 16 byte blocks to store values
+		u32 dataSize = 16 * var->GetValueCount();
+		memcpy(blob.Data, var->GetValuePtr<char>(), dataSize);
+	}
+}
+
+void rageam::integration::MaterialEditor::RestoreMaterialValue(u16 materialIndex, u16 varIndex)
+{
+	rage::grmShader* material = GetShaderGroup()->GetShader(materialIndex);
+	rage::grcInstanceVar* var = material->GetVarByIndex(varIndex);
+	rage::grcEffectVar* varInfo = material->GetEffect()->GetVarByIndex(varIndex);
+
+	VarBlob* blob = m_MaterialValues[materialIndex].TryGetAt(varInfo->GetNameHash());
+	if (blob) // We have saved state for this value
+	{
+		if (var->IsTexture())
+		{
+			var->SetTexture(blob->Texture);
+		}
+		else
+		{
+			u32 dataSize = 16 * var->GetValueCount(); // Same as before
+			memcpy(var->GetValuePtr<char>(), blob->Data, dataSize);
+		}
+	}
+}
+
 rageam::integration::MaterialEditor::MaterialEditor(ModelSceneContext* sceneContext)
 {
 	m_UIConfig.Load();
@@ -1272,6 +1342,25 @@ void rageam::integration::MaterialEditor::Render()
 		ImGui::PopStyleVar(1); // CellPadding
 	}
 	ImGui::End();
+}
+
+void rageam::integration::MaterialEditor::Reset()
+{
+	m_SelectedMaterialIndex = 0;
+
+	// Allocate var store for shader group
+	rage::grmShaderGroup* shaderGroup = m_Context->Drawable->GetShaderGroup();
+	m_MaterialValues.Clear();
+	m_MaterialValues.Resize(shaderGroup->GetShaderCount());
+	// Store current material values
+	for (u16 i = 0; i < shaderGroup->GetShaderCount(); i++)
+	{
+		rage::grmShader* shader = shaderGroup->GetShader(i);
+		for (u16 k = 0; k < shader->GetVarCount(); k++)
+		{
+			StoreMaterialValue(i, k);
+		}
+	}
 }
 
 #endif
