@@ -488,8 +488,10 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List()
 	return pickedTexture;
 }
 
-rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString id, const rage::grcTexture* currentTexture)
+rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString idStr, const rage::grcTexture* currentTexture)
 {
+	ImGuiID id = ImGui::GetID(idStr);
+
 	// Draw current texture preview
 	{
 		constexpr float previewIconSize = 32.0f;
@@ -515,10 +517,10 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 
 	// Open picker
 	static constexpr ConstString PICKER_POPUP = "TEXTURE_PICKER_POPUP";
-	static ConstString s_PickTexID = nullptr;
+	static u32 s_PickTexID = 0;
 	ConstString currentTextureName = currentTexture ? currentTexture->GetName() : "-";
 	float buttonWidth = ImGui::GetContentRegionAvail().x;
-	if (ImGui::Button(ImGui::FormatTemp("%s###%s", currentTextureName, id), ImVec2(buttonWidth, 0)))
+	if (ImGui::Button(ImGui::FormatTemp("%s###%s", currentTextureName, idStr), ImVec2(buttonWidth, 0)))
 	{
 		// Reset search
 		m_DictionaryIndex = 0;
@@ -593,7 +595,7 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 	// Texture was picked, reset ID
 	if (!ImGui::IsPopupOpen(PICKER_POPUP))
 	{
-		s_PickTexID = nullptr;
+		s_PickTexID = 0;
 	}
 
 	return pickedTexture;
@@ -1057,7 +1059,8 @@ void rageam::integration::MaterialEditor::DrawMaterialVariables()
 		// Column: Variable value
 		if (ImGui::TableNextColumn())
 		{
-			ConstString inputID = ImGui::FormatTemp("###%s_%i", varInfo->GetName(), i);
+			char inputID[256];
+			sprintf_s(inputID, sizeof inputID, "###%s_%i", varInfo->GetName(), i);
 
 			// Stretch input field
 			ImGui::SetNextItemWidth(-1);
