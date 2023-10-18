@@ -270,7 +270,7 @@ void rageam::ui::ExplorerEntryFi::ScanSubFolders()
 	}
 }
 
-void rageam::ui::ExplorerEntryFi::SetPath(const file::U8Path& path)
+void rageam::ui::ExplorerEntryFi::SetPath(const file::U8Path& path, rage::fiDevice* parentDevice)
 {
 	m_Path = path;
 	m_HashKey = rage::joaat(m_Path);
@@ -287,7 +287,15 @@ void rageam::ui::ExplorerEntryFi::SetPath(const file::U8Path& path)
 		m_FullName = m_Path;
 	}
 
-	m_Device = rage::fiDevice::GetDeviceImpl(m_Path);
+	// NOTE:
+	// GetDeviceImpl is very slow (especially when we're dealing with lot of files)
+	// basically what we can do is to check if device of parent entry contains this path
+	// and it's much faster thing to do. If not - then given new path is within different RPF/device
+	if (parentDevice && parentDevice->GetAttributes(path) != FI_INVALID_ATTRIBUTES)
+		m_Device = parentDevice;
+	else
+		m_Device = rage::fiDevice::GetDeviceImpl(m_Path);
+
 	AM_ASSERT(m_Device, "ExplorerEntryFi::SetPath() -> Failed to get device.");
 
 	Refresh();
@@ -340,10 +348,10 @@ void rageam::ui::ExplorerEntryFi::UpdateIcon()
 	}
 }
 
-rageam::ui::ExplorerEntryFi::ExplorerEntryFi(const file::U8Path& path, ExplorerEntryFlags flags)
+rageam::ui::ExplorerEntryFi::ExplorerEntryFi(const file::U8Path& path, ExplorerEntryFlags flags, rage::fiDevice* parentDevice)
 {
 	ExplorerEntryFi::SetFlags(flags);
-	SetPath(path);
+	SetPath(path, parentDevice);
 }
 
 void rageam::ui::ExplorerEntryFi::Refresh()
@@ -413,7 +421,7 @@ void rageam::ui::ExplorerEntryFi::LoadChildren()
 	{
 		ConstString path = iterator.GetFilePath();
 
-		ExplorerEntryPtr& child = m_Children.Construct(new ExplorerEntryFi(path));
+		ExplorerEntryPtr& child = m_Children.Construct(new ExplorerEntryFi(path, 0, m_Device));
 		child->SetID(index);
 		child->SetParent(this);
 
@@ -452,7 +460,7 @@ bool rageam::ui::ExplorerEntryFi::Rename(ConstString newName)
 		return false;
 	}
 
-	SetPath(newPath);
+	SetPath(newPath, m_Device);
 	return true;
 }
 

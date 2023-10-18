@@ -234,10 +234,10 @@ namespace rageam::ui
 		Image* m_StaticLargeIcon = nullptr;
 
 		void ScanSubFolders();
-		void SetPath(const file::U8Path& path);
+		void SetPath(const file::U8Path& path, rage::fiDevice* parentDevice = nullptr);
 		void UpdateIcon();
 	public:
-		ExplorerEntryFi(const file::U8Path& path, ExplorerEntryFlags flags = 0);
+		ExplorerEntryFi(const file::U8Path& path, ExplorerEntryFlags flags = 0, rage::fiDevice* parentDevice = nullptr);
 		ExplorerEntryFi(ExplorerEntryFi& other) = delete;
 		~ExplorerEntryFi() override = default;
 
