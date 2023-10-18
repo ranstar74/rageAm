@@ -140,6 +140,15 @@ public:
 	static const wchar_t* ToWideTemp(const char* source);
 
 	/**
+	 * \brief Converts ansi UTF8 to wide (UTF16) string using thread-local buffer.
+	 * Buffer size is defined by STRING_TEMP_BUFFER_SIZE and must be long enough for any regular operation.
+	 * \param source	String to convert.
+	 * \return			Temporary converted string, see remarks.
+	 * \remarks Returned string is valid until next call of this function in current thread.
+	 */
+	static const wchar_t* Utf8ToWideTemp(const char* source);
+
+	/**
 	 * \brief Converts wide (UTF16) string to ansi (extended ASCII) string using thread-local buffer.
 	 * Buffer size is defined by STRING_TEMP_BUFFER_SIZE and must be long enough for any regular operation.
 	 * \param source	String to convert.

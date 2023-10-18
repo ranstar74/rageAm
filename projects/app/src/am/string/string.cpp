@@ -107,6 +107,13 @@ const wchar_t* String::ToWideTemp(const char* source)
 	return buffer;
 }
 
+const wchar_t* String::Utf8ToWideTemp(const char* source)
+{
+	static thread_local wchar_t buffer[STRING_TEMP_BUFFER_SIZE];
+	Utf8ToWide(buffer, STRING_TEMP_BUFFER_SIZE, source);
+	return buffer;
+}
+
 const char* String::ToAnsiTemp(const wchar_t* source)
 {
 	static thread_local char buffer[STRING_TEMP_BUFFER_SIZE];

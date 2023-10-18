@@ -63,7 +63,7 @@ bool rage::fiIterator::Next()
 			return false;
 
 		// Remove private system directories from search results
-		if (m_IsDeviceLocal && !CanAccessPath(String::ToWideTemp(m_FilePath), FILE_GENERIC_READ))
+		if (m_IsDeviceLocal && !CanAccessPath(String::Utf8ToWideTemp(m_FilePath), FILE_GENERIC_READ))
 			continue;
 
 		// Those two directories are reserved in windows by file system
