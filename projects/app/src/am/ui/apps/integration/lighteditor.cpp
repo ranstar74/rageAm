@@ -619,6 +619,13 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 				}
 				ImGui::SameLine();
 				ImGui::HelpMarker("Cull (clip) plane allows to completely block light. Usually they are used to prevent light emitting through a wall.");
+				{
+					ConstString normal = ImGui::FormatTemp("%.02f %.02f, %.02f", 
+						light->CullingPlaneNormal.X, light->CullingPlaneNormal.Y, light->CullingPlaneNormal.Z);
+					ImGui::InputText("Normal", (char*)normal, 1, ImGuiInputTextFlags_ReadOnly);
+					ConstString offset = ImGui::FormatTemp("%.02f", light->CullingPlaneOffset);
+					ImGui::InputText("Offset", (char*)offset, 1, ImGuiInputTextFlags_ReadOnly);
+				}
 
 				SlGui::CategoryText(ICON_AM_SHADOW" Shadows");
 				ImGui::CheckboxFlags("Enable###ENABLE_SHADOWS", &light->Flags, LF_ENABLE_SHADOWS);
