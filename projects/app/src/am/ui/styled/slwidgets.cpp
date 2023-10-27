@@ -1624,11 +1624,15 @@ bool SlGui::GraphTreeNode(ConstString text, bool& selected, bool& toggled, SlGui
 	ImRect itemBb(arrowMin, arrowMax);
 	ImRect bb(frameMin, frameMax);
 
+	ImGui::BeginGroup();
+
 	ImGui::ItemSize(itemBb.GetSize(), 0.0f);
 	bool added = ImGui::ItemAdd(itemBb, id);
 	ImGui::ColumnsEndBackground();
 	if (!added)
 	{
+		ImGui::EndGroup();
+
 		if (isOpen)
 			ImGui::TreePushOverrideID(id);
 
@@ -1736,6 +1740,13 @@ bool SlGui::GraphTreeNode(ConstString text, bool& selected, bool& toggled, SlGui
 	ImGui::SameLine();
 	ImGui::AlignTextToFramePadding();
 	ImGui::TextEx(text, textDisplayEnd);
+
+	ImGui::EndGroup();
+
+	// We don't pass whole BB to add size to allow user to add controls on the same line
+	// but in order to allow correct drawing on top of node we have to update rect manually
+	GImGui->LastItemData.Rect = bb;
+	GImGui->LastItemData.NavRect = bb;
 
 	if (isOpen)
 		ImGui::TreePushOverrideID(id);
