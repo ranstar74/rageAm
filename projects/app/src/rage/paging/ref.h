@@ -117,7 +117,10 @@ namespace rage
 	public:
 		using pgPtrBase<T>::pgPtrBase;
 
-		pgPtr(T* ptr) : pgPtrBase<T>(ptr) {}
+		pgPtr(T* ptr) : pgPtrBase<T>(ptr)
+		{
+			SAFE_ADDREF(this->m_Pointer);
+		}
 		pgPtr(const pgPtr& other)
 		{
 			this->m_Pointer = other.m_Pointer;
@@ -127,6 +130,13 @@ namespace rage
 		~pgPtr()
 		{
 			SAFE_RELEASE(this->m_Pointer);
+		}
+
+		void Copy(const pgPtr& from)
+		{
+			if (from.m_Pointer == nullptr)
+				return;
+			this->m_Pointer = new T(*from.m_Pointer);
 		}
 
 		pgPtr& operator=(pgPtr&& other) noexcept
