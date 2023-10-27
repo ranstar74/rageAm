@@ -103,7 +103,7 @@ namespace rageam
 		static constexpr u32 MAX_HISTORY_SIZE = 128;
 		static constexpr u32 UNDO_STACK_SIZE = 32;
 
-		rage::atFixedArray<amUniquePtr<IUndoable>, MAX_HISTORY_SIZE> m_History;
+		rage::atArray<amUniquePtr<IUndoable>> m_History;
 
 		// 'Last' index of completed action in history.
 		// When we undo/redo action, this index is decremented/incremented,

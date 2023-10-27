@@ -51,7 +51,7 @@ void rageam::UndoStack::Add(IUndoable* action)
 	}
 	else
 	{
-		m_History.ConstructAndInsert(m_HistoryPoint, action);
+		m_History.EmplaceAt(m_HistoryPoint, amUniquePtr<IUndoable>(action));
 	}
 
 	m_HistoryPoint++;
