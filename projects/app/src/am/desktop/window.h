@@ -21,8 +21,10 @@ namespace rageam
 {
 	// Implemented in window_integrated.cpp / window_standalone.cpp
 	extern LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-
 	LRESULT WINAPI Common_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+	// Must be called from window event update loop
+	void UpdateImGuiPlatform();
 
 	struct WindowSize { u32 Width, Height; };
 
@@ -42,6 +44,9 @@ namespace rageam
 		virtual void SetCursorVisible(bool visible) = 0;
 
 		virtual void Show();
+
+		virtual void SetClipCursor(bool clip) = 0;
+		virtual bool GetClipCursor() = 0;
 
 		// Gets mouse cursor position relative to this window
 		void GetMousePos(u32& x, u32& y) const;

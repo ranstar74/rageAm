@@ -1,4 +1,4 @@
-#include "apps.h"
+﻿#include "apps.h"
 
 #include "am/system/exception/handler.h"
 #include "imgui_internal.h"
@@ -12,49 +12,43 @@
 #include "extensions.h"
 #include "windows/explorer/explorer.h"
 
-#ifndef AM_STANDALONE
-#include "am/desktop/window_integrated.h"
-#include "apps/integration/modelscene.h"
-#endif
-
 void rageam::ui::Apps::RegisterSystemApps()
 {
 	std::unique_lock lock(m_Mutex);
 
 	AddApp(new TestbedApp());
-	AddApp(new StatusBar());
+	//AddApp(new StatusBar());
 	AddApp(new WindowManager());
-#ifndef AM_STANDALONE
-	AddApp(new ModelSceneUI());
-#endif
 }
 
 bool rageam::ui::Apps::UpdateAll()
 {
 	std::unique_lock lock(m_Mutex);
 
+	static bool openImDebug = false;
+	if (ImGui::IsKeyPressed(ImGuiKey_F9))
+		openImDebug = !openImDebug;
+	if (openImDebug)
+		ImGui::ShowMetricsWindow();
+	
+	// ImGui::DebugTextEncoding(U8("一个好的建筑师在拿起第一块砖之前，已经在自己的脑海中完成了房屋的建造"));
+	// ImGui::DebugTextEncoding(U8("проверка"));
+
 	// We display UI disabled if game viewport is focused (active) in integration mode
 #ifndef AM_STANDALONE
 	static bool gameDisabled = false;
-	static bool openImDebug = false;
 	if (ImGui::IsKeyPressed(ImGuiKey_F10))
 	{
 		gameDisabled = !gameDisabled;
+		// Disable cursor clipping in F10 mode
+		WindowFactory::GetWindow()->SetClipCursor(!gameDisabled);
 	}
-
-	if (ImGui::IsKeyPressed(ImGuiKey_F9))
-	{
-		openImDebug = !openImDebug;
-	}
-
-	if (openImDebug)
-		ImGui::ShowMetricsWindow();
 
 	if (gameDisabled)
 	{
 		static gmAddress disabledAllControlsCommand = gmAddress::Scan("40 53 48 83 EC 20 33 DB 85 C9 75 09");
 		disabledAllControlsCommand.To<void(*)(int)>()(0);
-}
+	}
 
 	// TODO: Bring back cursor clip hook
 	GImGui->IO.MouseDrawCursor = gameDisabled;
@@ -132,7 +126,7 @@ bool rageam::ui::Apps::UpdateAll()
 		ImGui::PopFont();
 
 		ImGui::EndPopup();
-}
+	}
 #endif
 
 	// Update apps

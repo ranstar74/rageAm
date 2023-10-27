@@ -1,5 +1,6 @@
 #include "window.h"
 
+#include "imgui_internal.h"
 #include "input.h"
 #include "am/ui/context.h"
 
@@ -22,6 +23,31 @@ LRESULT rageam::Common_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
 	GetGuiMutex().unlock();
 
 	return 0;
+}
+
+void rageam::UpdateImGuiPlatform()
+{
+#ifdef AM_STANDALONE
+	std::unique_lock guiLock(GetGuiMutex());
+	if (!Gui)
+		return;
+
+	// Viewports aren't enabled, skip
+	if ((ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) == false)
+		return;
+
+	// Update imgui viewport windows
+	std::unique_lock updateLock(Gui->Mutex);
+
+	// Note that we don't wait for render here but only peeking
+	// because rendering might be paused during window resize/move
+	if (Gui->RenderUpdated)
+	{
+		ImGui::UpdatePlatformWindows();
+		Gui->RenderUpdated = false;
+		Gui->PlatformUpdated = true;
+	}
+#endif
 }
 
 void rageam::Window::Show()

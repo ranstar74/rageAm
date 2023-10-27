@@ -14,6 +14,7 @@ void rageam::ui::UIContext::SetupImGui() const
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	// io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
 	SlGui::LoadFonts();
 
@@ -46,6 +47,9 @@ rageam::ui::UIContext::UIContext()
 
 rageam::ui::UIContext::~UIContext()
 {
+	ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_ViewportsEnable;
+	ImGui::DestroyPlatformWindows();
+
 	Renderer.DestroyContext();
 	ImPlot::DestroyContext();
 	ImGui::DestroyContext();
@@ -53,21 +57,70 @@ rageam::ui::UIContext::~UIContext()
 
 bool rageam::ui::UIContext::Update()
 {
-	Input.BeginFrame();
-	Renderer.BeginFrame();
+#ifdef AM_STANDALONE
+	// Wait for viewports platform to update
+	if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 	{
-		ImGuizmo::SetImGuiContext(GImGui);
-		ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
-		ImGuizmo::SetRect(0, 0, GImGui->IO.DisplaySize.x, GImGui->IO.DisplaySize.y);
-		ImGuizmo::BeginFrame();
+		while (!PlatformUpdated) {}
 	}
-	bool needContinue = Apps.UpdateAll();
-	Renderer.EndFrame();
-	Input.EndFrame();
+#endif
+
+	// Do main render
+	bool needContinue;
+#ifdef AM_STANDALONE
+	Mutex.lock();
+#endif
+	{
+		Input.BeginFrame();
+		Renderer.BeginFrame();
+		// ImGuizmo
+		{
+			ImGuizmo::SetImGuiContext(GImGui);
+			ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
+			ImGuizmo::SetRect(0, 0, GImGui->IO.DisplaySize.x, GImGui->IO.DisplaySize.y);
+			ImGuizmo::BeginFrame();
+		}
+		needContinue = Apps.UpdateAll();
+		Renderer.EndFrame();
+		Input.EndFrame();
+
+#ifdef AM_INTEGRATED
+		if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+		{
+			ImGui::UpdatePlatformWindows();
+			ImGui::RenderPlatformWindowsDefault();
+		}
+#endif
+
+#ifdef AM_STANDALONE
+		// Signal window platform thread
+		if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+		{
+			PlatformUpdated = false;
+			RenderUpdated = true;
+		}
+#endif
+	}
+#ifdef AM_STANDALONE
+	Mutex.unlock();
+#endif
+
+#ifdef AM_STANDALONE
+	// Wait for platform to update windows
+	if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	{
+		while (!PlatformUpdated) {}
+
+		// And now render them
+		Mutex.lock();
+		ImGui::RenderPlatformWindowsDefault();
+		Mutex.unlock();
+	}
+#endif
 
 	if (!needContinue)
 		return false;
-
+	
 	return true;
 }
 

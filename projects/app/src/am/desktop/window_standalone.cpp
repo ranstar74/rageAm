@@ -1,3 +1,4 @@
+#include "imgui_internal.h"
 #ifdef AM_STANDALONE
 
 #include "window_standalone.h"
@@ -6,10 +7,6 @@
 
 LRESULT rageam::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-	//// Call WndProc handler only if ui context was initialized
-	//if (!Gui)
-	//	return 0;
-
 	LRESULT common = Common_WndProc(hWnd, msg, wParam, lParam);
 	if (common != 0)
 		return common;
@@ -106,8 +103,11 @@ bool rageam::WindowStandalone::Update()
 	MSG msg;
 	while (PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE))
 	{
+		UpdateImGuiPlatform();
+
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
+		
 		if (msg.message == WM_QUIT)
 			return false;
 	}

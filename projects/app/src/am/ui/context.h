@@ -29,6 +29,13 @@ namespace rageam::ui
 		StatusBar*			Status;
 		Input				Input;
 
+#ifdef AM_STANDALONE
+		// For syncing between main / render thread
+		std::mutex			Mutex;
+		std::atomic_bool	RenderUpdated = false;
+		std::atomic_bool	PlatformUpdated = true; // First tick don't wait for platform update
+#endif
+
 		UIContext();
 		~UIContext();
 

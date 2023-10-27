@@ -12,6 +12,13 @@ AM_NOINLINE void rageam::ImAssertHandler(bool expression, ConstString assert)
 	if (expression)
 		return;
 
+	// Break immediately if attached
+	if (Debugger::IsPresent())
+	{
+		Debugger::Break();
+		return;
+	}
+
 	if (Gui) // Null if error happened during initialization
 	{
 		ui::App* lastUpdatedApp = Gui->Apps.GetLastUpdated();

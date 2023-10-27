@@ -25,9 +25,13 @@ int aImpl_ShowCursor(BOOL show)
 }
 
 void (*gImpl_ClipCursor)(LPRECT);
-void aImpl_ClipCursor(LPRECT)
+void aImpl_ClipCursor(LPRECT rect)
 {
-	// Don't allow game to clip cursor
+	rageam::Window* window = rageam::WindowFactory::GetWindow();
+	if (!window || window->GetClipCursor())
+		gImpl_ClipCursor(rect);
+	else
+		gImpl_ClipCursor(NULL);
 }
 
 bool(*gImpl_UpdateResize)();
@@ -45,6 +49,14 @@ bool aImpl_UpdateResize()
 	return gImpl_UpdateResize();
 }
 
+//LRESULT(*WINAPI gImpl_DispatchMessageW)(_In_ CONST MSG* lpMsg);
+//LRESULT WINAPI aImpl_DispatchMessageW(_In_ CONST MSG* lpMsg)
+//{
+//	AM_TRACEF("Dispatch");
+//	rageam::UpdateImGuiPlatform();
+//	return gImpl_DispatchMessageW(lpMsg);
+//}
+
 static gmAddress s_gAddr_UpdateResize;
 static gmAddress s_gAddr_WndProc;
 rageam::WindowIntegrated::WindowIntegrated()
@@ -61,10 +73,13 @@ rageam::WindowIntegrated::WindowIntegrated()
 	// TODO: Disable cursor clipping when in imgui mode so we can easily move cursor out
 
 	//Hook::Create(ShowCursor, aImpl_ShowCursor, &gImpl_ShowCursor, true);
-	//Hook::Create(ClipCursor, aImpl_ClipCursor, &gImpl_ClipCursor, true);
+	Hook::Create(ClipCursor, aImpl_ClipCursor, &gImpl_ClipCursor, true);
 
 	s_gAddr_UpdateResize = gmAddress::Scan("48 8B C4 55 53 56 57 41 54 41 56 41 57 48 8D A8 F8");
 	Hook::Create(s_gAddr_UpdateResize, aImpl_UpdateResize, &gImpl_UpdateResize);
+
+	// We hook DispatchMessageW because it's called from main window event loop and it's exactly what we need
+	//Hook::Create(DispatchMessageW, aImpl_DispatchMessageW, &gImpl_DispatchMessageW, true);
 
 	// TODO: We use ImGui cursor for now, following code will show it so I commented it out
 
@@ -81,6 +96,7 @@ rageam::WindowIntegrated::~WindowIntegrated()
 
 	Hook::Remove(s_gAddr_WndProc);
 	Hook::Remove(s_gAddr_UpdateResize);
+	//Hook::Remove(DispatchMessageW);
 	//Hook::Remove(ShowCursor);
 	//Hook::Remove(ClipCursor);
 }
@@ -93,22 +109,33 @@ void rageam::WindowIntegrated::SetCursorVisible(bool visible)
 	// See remarks https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showcursor
 	if (visible)
 	{
-		gImpl_ClipCursor(NULL);
+		//gImpl_ClipCursor(NULL);
 
 		while (gImpl_ShowCursor(true) < 0) {}
 	}
 	else
 	{
-		// Fix cursor at 0, 0
-		POINT point = { 0, 0 };
-		ClientToScreen(m_Handle, &point);
-		RECT clipRect = { point.x, point.y, point.x, point.y };
-		gImpl_ClipCursor(&clipRect);
+		//// Fix cursor at 0, 0
+		//POINT point = { 0, 0 };
+		//ClientToScreen(m_Handle, &point);
+		//RECT clipRect = { point.x, point.y, point.x, point.y };
+		//gImpl_ClipCursor(&clipRect);
 
 		while (gImpl_ShowCursor(false) >= 0) {}
 	}
 
 	m_CursorVisible = visible;
+}
+
+void rageam::WindowIntegrated::SetClipCursor(bool clip)
+{
+	// Clipping itself is done in hooked function
+	m_ClipCursor = clip;
+}
+
+bool rageam::WindowIntegrated::GetClipCursor()
+{
+	return m_ClipCursor;
 }
 
 #endif

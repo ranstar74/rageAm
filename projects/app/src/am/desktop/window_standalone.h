@@ -29,6 +29,9 @@ namespace rageam
 		bool IsCursorVisible() const override { return m_CursorVisible; }
 		void SetCursorVisible(bool visible) override;
 		bool Update() override;
+
+		void SetClipCursor(bool clip) override { }
+		bool GetClipCursor() override { return false; }
 	};
 }
 #endif

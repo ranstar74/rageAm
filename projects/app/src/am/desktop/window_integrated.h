@@ -15,6 +15,7 @@ namespace rageam
 	class WindowIntegrated : public Window
 	{
 		std::atomic_bool m_CursorVisible = false;
+		std::atomic_bool m_ClipCursor = true;
 	public:
 		WindowIntegrated();
 		~WindowIntegrated() override;
@@ -23,6 +24,9 @@ namespace rageam
 
 		bool IsCursorVisible() const override { return m_CursorVisible; }
 		void SetCursorVisible(bool visible) override;
+
+		void SetClipCursor(bool clip) override;
+		bool GetClipCursor() override;
 	};
 }
 #endif
