@@ -265,6 +265,35 @@ namespace rage
 		}
 
 		/**
+		 * \brief Inserts item at given index of array, index value must be within array range.
+		 * \remarks If index is equal to Size, item is added at the end of array.
+		 */
+		T& EmplaceAt(TSize index, T&& item)
+		{
+			if (index == m_Size)
+				return Emplace(std::move(item));
+
+			AM_ASSERT(index < m_Size, "atArray::EmplaceAt(%i) -> Index is out of range.", index);
+
+			VerifyBufferCanFitOrGrow(m_Size + 1);
+
+			// Shift items on indices >= requested
+			memmove(
+				m_Items + index + 1,
+				m_Items + index,
+				(size_t)(m_Size - index) * sizeof(T));
+
+			++m_Size;
+
+			pVoid where = m_Items + index;
+
+			// Move-place
+			T* slot = new (where) T();
+			*slot = std::move(item);
+			return *slot;
+		}
+
+		/**
 		 * \brief Moves item in the end of array.
 		 * \param item Item to move, use std::move.
 		 */
@@ -280,7 +309,7 @@ namespace rage
 			*slot = std::move(item);
 			return *slot;
 		}
-
+		
 		/**
 		 * \brief Constructs a new item in place with given params.
 		 * \remarks No copying is done, neither move constructor is required.
