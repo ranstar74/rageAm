@@ -264,6 +264,7 @@ namespace rage
 	static const ScalarV S_QUARTER = { 0.25f };
 	static const ScalarV S_PI = { 3.14159265358979323846f };
 	static const ScalarV S_2PI = { 2.0f * 3.14159265358979323846f };
+	static const ScalarV S_FLT_MAX = { FLT_MAX };
 	static const ScalarV S_MAX = { INFINITY };
 	static const ScalarV S_MIN = { -INFINITY };
 	static const ScalarV S_EPSION = { 0.000001f };
