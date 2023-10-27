@@ -30,7 +30,8 @@ rageam::render::Engine::Engine(bool useWindow)
 			{
 				// IDXGISwapChain::ResizeBuffers is invoked by game in integration mode
 #ifdef AM_STANDALONE
-				WaitRenderDone();
+				// I had to disable this to support imgui viewports but this may cause weird issues
+				//WaitRenderDone();
 
 				IDXGISwapChain* swapchain = m_Device.GetSwapchain();
 				swapchain->ResizeBuffers(0, size.Width, size.Height, DXGI_FORMAT_UNKNOWN, 0);

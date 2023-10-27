@@ -36,7 +36,6 @@ namespace rageam::asset
 
 	struct Texture : AssetSource
 	{
-
 		static constexpr int MAX_NAME = 128;
 
 		// This is actual name that will be used in game after export, contains no extension and unicode characters
@@ -70,7 +69,7 @@ namespace rageam::asset
 	public:
 		TxdAsset(const file::WPath& path) : GameRscAsset(path) {}
 
-		bool CompileToGame(rage::pgDictionary<rage::grcTextureDX11>* ppOutGameFormat) override;
+		bool CompileToGame(rage::grcTextureDictionary* ppOutGameFormat) override;
 		void Refresh() override;
 
 		ConstWString GetXmlName()			const override { return L"TextureDictionary"; }
@@ -89,6 +88,31 @@ namespace rageam::asset
 
 		Textures& GetTextures() { return m_Textures; }
 		u32 GetTextureCount() const { return m_Textures.GetNumUsedSlots(); }
+
+		// After renaming old texture tune won't be valid anymore!
+		bool RenameTextureTune(const Texture& textureTune, const file::WPath& newFileName);
+		void RemoveTextureTune(const Texture& textureTune);
+
+		// Verify that texture name has no non-ascii symbols because
+		// they can't be converted into const char* and user will have issues later
+		static bool ValidateTextureName(ConstWString fileName, bool showWarningMessage = true);
+
+		// Checks if texture is placed in a TXD asset and have supported extension
+		static bool IsAssetTexture(const file::WPath& texturePath);
+		static bool GetTxdAssetPathFromTexture(const file::WPath& texturePath, file::WPath& path);
+		static file::WPath GetTxdAssetPathFromTexture(const file::WPath& texturePath);
+		static bool IsSupportedTextureExtension(const file::WPath& texturePath);
+
+		// Path can be full or not but it must contain texture name
+		Texture* TryFindTextureTuneFromPath(const file::WPath& texturePath) const;
+		// Returns NULL if given path is not valid
+		Texture* CreateTuneForPath(const file::WPath& texturePath);
+
+		// Gets error-checked texture name from absolute/relative texture file path
+		bool GetValidatedTextureName(const file::WPath& texturePath, file::Path& outName) const;
+
+		// Compiles single texture from given path
+		rage::grcTexture* CompileTexture(const Texture* textureTune) const;
 	};
 	using TxdAssetPtr = amPtr<TxdAsset>;
 }

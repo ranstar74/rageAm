@@ -39,7 +39,7 @@ namespace rageam::asset
 
 	static constexpr u16 MAX_BONES = 128;
 	static constexpr int MAX_LOD = 4;
-	static constexpr ConstString DEFAULT_SHADER = "default"; // default.fxc
+	static constexpr ConstString DEFAULT_SHADER = "default"; // default.fxc // TODO: We should use .sps instead
 	static constexpr ConstWString PALETTE_TEXTURE_NAME = L"autogen_palette";
 	static constexpr ConstWString EMBED_DICT_NAME = L"textures";
 	static constexpr ConstString COL_MODEL_EXT = ".COL"; // Postfix of collision models in scene
@@ -159,17 +159,19 @@ namespace rageam::asset
 
 	struct ModelTune
 	{
-		bool UseAsBound = false; // Uses least detailed lod as bound
+		u8		DrawBucket = 255;			// If set to 255, uses the default one (from shader preset)
+		bool	UseAsBound = false;			// Uses least detailed lod as bound
+		bool	EnableShadows = true;
+		bool	ShowInReflections = true;
 	};
 	using ModelTunes = List<ModelTune>;
 
 	struct LodGroupTune : IXml
 	{
-		string	FileName;
-
-		//Models	Models[MAX_LOD]{};
-		float	LodThreshold[MAX_LOD] = { 30, 60, 90, 120 };
-		bool	AutoGenerateLods = false; // TODO: We need some 3D mesh processing library
+		string		FileName;
+		ModelTune	Models;
+		float		LodThreshold[MAX_LOD] = { 30, 60, 90, 120 };
+		bool		AutoGenerateLods = false; // TODO: We need some 3D mesh processing library
 
 		void Serialize(XmlHandle& node) const override;
 		void Deserialize(const XmlHandle& node) override;
@@ -372,6 +374,7 @@ namespace rageam::asset
 
 		// ---------- Asset Related ----------
 
+		const file::WPath& GetEmbedDictionaryPath() const { return m_EmbedDictPath; }
 		TxdAssetPtr GetEmbedDictionary() const { return m_EmbedDictTune; }
 		void SetEmbedDictionary(const TxdAssetPtr& dict) { m_EmbedDictTune = dict; }
 
@@ -380,6 +383,13 @@ namespace rageam::asset
 
 		DrawableTune& GetDrawableTune() { return m_DrawableTune; }
 		ConstWString GetDrawableModelPath() const { return m_ScenePath; }
+
+		// File to the scene 3D model file, might be empty
+		const file::WPath& GetScenePath() { return m_ScenePath; }
+		// NOTE: There's no checks if path is valid or not, used only by hot reload currently
+		void SetScenePath(ConstWString path) { m_ScenePath = path; }
+
+		bool HasEmbedTXD() const { return true; } // TODO: Currently embed dictionary is always compiled!
 
 		// Only to be used if asset was compiled successfully!
 		DrawableAssetMap CompiledDrawableMap;

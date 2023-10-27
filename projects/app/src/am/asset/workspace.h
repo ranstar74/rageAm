@@ -42,6 +42,8 @@ namespace rageam::asset
 		SmallList<AssetPtr> m_Assets;
 		SmallList<u16>		m_TDs;
 		SmallList<u16>		m_DRs;
+		u16					m_TotalTDs;
+		u16					m_TotalDRs;
 		u16					m_FailedCount;
 		eWorkspaceFlags		m_Flags;
 
@@ -57,14 +59,26 @@ namespace rageam::asset
 		u16 GetDrawableCount() const { return m_DRs.GetSize(); }
 		const auto& GetAsset(u16 index) const { return m_Assets[index]; }
 
+		// Those functions counts num of assets by type in workspace even if they weren't loaded
+		u16 GetTotalTdCount() const { return m_TotalTDs; }
+		u16 GetTotalDrCount() const { return m_TotalDRs; }
+
 		auto GetTexDict(u16 index) const -> const amPtr<TxdAsset>&;
 		auto GetDrawable(u16 index) const -> const amPtr<DrawableAsset>&;
 
+		// Absolute path of this workspace
+		ConstWString GetPath() const { return m_Path; }
+
 		// Tries to get asset's parent workspace, returns NULL if asset is not in workspace
 		static amPtr<Workspace> FromAssetPath(ConstWString assetPath, eWorkspaceFlags flags);
+		static amPtr<Workspace> FromPath(ConstWString workspacePath, eWorkspaceFlags flags);
+
+		// Gets if closest parent directory in hierarchy is workspace and not an asset
+		static bool IsInWorkspace(ConstWString filePath);
 
 		// Gets 'x:/dlc.pack' from 'x:/dlc.pack/props'
 		// Returns whether path is within a workspace
+		// Out path is set to empty string if workspace was not found
 		static bool GetParentWorkspacePath(ConstWString assetPath, file::WPath& outPath);
 
 		// A valid workspace is a directory ending with '.pack' extension

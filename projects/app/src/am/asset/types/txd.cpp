@@ -50,7 +50,7 @@ void rageam::asset::Texture::Deserialize(const XmlHandle& node)
 	Options.Deserialize(node);
 }
 
-bool rageam::asset::TxdAsset::CompileToGame(rage::pgDictionary<rage::grcTextureDX11>* ppOutGameFormat)
+bool rageam::asset::TxdAsset::CompileToGame(rage::grcTextureDictionary* ppOutGameFormat)
 {
 	ReportProgress(L"- Compressing textures", 0);
 
@@ -129,10 +129,11 @@ bool rageam::asset::TxdAsset::CompileToGame(rage::pgDictionary<rage::grcTextureD
 		texture::CompressedInfo& info = job.Info;
 
 		ConstString textureName = job.Texture->Name;
+		auto gameTexture = new rage::grcTextureDX11(
+			info.Width, info.Height, 1, info.MipCount, info.Format, job.PixelData);
+		gameTexture->SetName(textureName);
 
-		rage::grcTexture* texture = txd.Construct(
-			textureName, info.Width, info.Height, 1, info.MipCount, info.Format, job.PixelData);
-		texture->SetName(textureName);
+		txd.Insert(textureName, gameTexture);
 	}
 
 	return true;
@@ -165,22 +166,7 @@ void rageam::asset::TxdAsset::Refresh()
 			continue;
 		}
 
-		// Verify that texture name has no non-ascii symbols because they can't be converted into const char* and user will have issues later
-		bool validName = true;
-		for (wchar_t c : fileName)
-		{
-			if (static_cast<u16>(c) <= UINT8_MAX)
-				continue;
-
-			AM_WARNINGF(
-				L"TxdAsset::Refresh() -> Found non ASCII symbol in %ls (%lc)! Name cannot be converted safely, skipping!",
-				fileName.GetCStr(), c);
-
-			validName = false;
-			break;
-		}
-
-		if (!validName)
+		if (!ValidateTextureName(fileName))
 			continue;
 
 		imageNames.Insert(nameHash);
@@ -240,4 +226,128 @@ void rageam::asset::TxdAsset::Deserialize(const XmlHandle& node)
 		Texture& texture = m_Textures.ConstructAt(hashKey, this, texturePath);
 		texture.Deserialize(xTexture);
 	}
+}
+
+bool rageam::asset::TxdAsset::RenameTextureTune(const Texture& textureTune, const file::WPath& newFileName)
+{
+	file::Path newName;
+	if (!GetValidatedTextureName(newFileName, newName))
+		return false;
+
+	// We have to make copy because original texture tune will be destroyed on Remove
+	Texture textureTuneCopy = textureTune;
+	String::Copy(textureTuneCopy.Name, Texture::MAX_NAME, newName);
+	textureTuneCopy.SetFileName(newFileName);
+
+	// We have to reinsert tune in set with new name, remove it first
+	m_Textures.Remove(textureTune);
+
+	// Now it was renamed, we can insert it back
+	m_Textures.Emplace(std::move(textureTuneCopy));
+
+	return true;
+}
+
+void rageam::asset::TxdAsset::RemoveTextureTune(const Texture& textureTune)
+{
+	m_Textures.Remove(textureTune);
+}
+
+bool rageam::asset::TxdAsset::ValidateTextureName(ConstWString fileName, bool showWarningMessage)
+{
+	while (*fileName)
+	{
+		wchar_t c = *fileName;
+		fileName++;
+
+		if (static_cast<u16>(c) <= UINT8_MAX)
+			continue;
+
+		if (showWarningMessage)
+		{
+			AM_WARNINGF(
+				L"TxdAsset::ValidateTextureName() -> Found non ASCII symbol in %ls (%lc)! Name cannot be converted safely, skipping!",
+				fileName, c);
+		}
+
+		return false;
+	}
+	return true;
+}
+
+bool rageam::asset::TxdAsset::IsAssetTexture(const file::WPath& texturePath)
+{
+	file::WPath assetPath;
+	if (!GetTxdAssetPathFromTexture(texturePath, assetPath)) 
+		return false; // Not in asset directory
+	return IsSupportedTextureExtension(texturePath);
+}
+
+bool rageam::asset::TxdAsset::GetTxdAssetPathFromTexture(const file::WPath& texturePath, file::WPath& path)
+{
+	path = GetTxdAssetPathFromTexture(texturePath);
+	return ImmutableWString(path).EndsWith(ASSET_ITD_EXT);
+}
+
+rageam::file::WPath rageam::asset::TxdAsset::GetTxdAssetPathFromTexture(const file::WPath& texturePath)
+{
+	return texturePath.GetParentDirectory();
+}
+
+bool rageam::asset::TxdAsset::IsSupportedTextureExtension(const file::WPath& texturePath)
+{
+	return texture::IsImageFormat(texturePath.GetExtension());
+}
+
+rageam::asset::Texture* rageam::asset::TxdAsset::TryFindTextureTuneFromPath(const file::WPath& texturePath) const
+{
+	ConstWString fileName = file::GetFileName<wchar_t>(texturePath);
+	return m_Textures.TryGetAt(rage::joaat(fileName));
+}
+
+rageam::asset::Texture* rageam::asset::TxdAsset::CreateTuneForPath(const file::WPath& texturePath)
+{
+	if (!IsSupportedTextureExtension(texturePath))
+		return nullptr;
+
+	Texture newTune(this, texturePath.GetFileName());
+	return &m_Textures.Insert(newTune);
+}
+
+bool rageam::asset::TxdAsset::GetValidatedTextureName(const file::WPath& texturePath, file::Path& outName) const
+{
+	outName = "";
+
+	file::WPath fileName = texturePath.GetFileNameWithoutExtension();
+	if (!ValidateTextureName(fileName))
+		return false;
+
+	outName = String::ToAnsiTemp(fileName);
+	return true;
+}
+
+rage::grcTexture* rageam::asset::TxdAsset::CompileTexture(const Texture* textureTune) const
+{
+	const file::WPath& texturePath = textureTune->GetFullPath();
+
+	texture::CompressionOptions options;
+	textureTune->Options.GetCompressionOptions(options);
+
+	char* pixelData;
+
+	texture::Surface surface;
+	surface.SetCompressOptions(options);
+	if (!surface.LoadToRam(texturePath, &pixelData))
+	{
+		delete[] pixelData;
+		return nullptr;
+	}
+
+	const texture::CompressedInfo& info = surface.GetInfo();
+	rage::grcTexture* gameTexture = new rage::grcTextureDX11(info.Width, info.Height, 1, info.MipCount, info.Format, pixelData);
+
+	const file::WPath& textureName = texturePath.GetFileNameWithoutExtension();
+	gameTexture->SetName(String::ToAnsiTemp(textureName));
+
+	return gameTexture;
 }

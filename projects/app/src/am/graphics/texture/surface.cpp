@@ -15,6 +15,8 @@ bool rageam::texture::Surface::LoadToGpu(ConstWString path, ID3D11ShaderResource
 
 bool rageam::texture::Surface::LoadToRam(ConstWString path, char** ppPixelData, bool forceCompress)
 {
+	*ppPixelData = nullptr;
+
 	m_IsPreCompressed = IsDDS(path);
 
 	// .dds files are already compressed so just use them as is

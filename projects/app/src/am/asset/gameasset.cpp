@@ -1,7 +1,22 @@
 #include "gameasset.h"
 
+#include "workspace.h"
 #include "am/time/datetime.h"
 #include "am/xml/doc.h"
+
+rageam::asset::AssetBase::AssetBase(const file::WPath& path)
+{
+	m_HasSavedConfig = IsFileExists(GetConfigPath());
+	SetNewPath(path, true);
+}
+
+void rageam::asset::AssetBase::SetNewPath(ConstWString newPath, bool updateWorkspace)
+{
+	m_Directory = newPath;
+	m_HashKey = Hash(newPath);
+	if(updateWorkspace)
+		Workspace::GetParentWorkspacePath(newPath, m_WorkspaceDirectory);
+}
 
 bool rageam::asset::AssetBase::LoadConfig()
 {
@@ -84,4 +99,10 @@ bool rageam::asset::AssetBase::SaveConfig() const
 		return false;
 	}
 	return true;
+}
+
+void rageam::asset::AssetSource::SetFileName(ConstWString fileName)
+{
+	m_FileName = fileName;
+	m_HashKey = Hash(m_FileName);
 }

@@ -46,6 +46,7 @@ bool rageam::asset::AssetFactory::IsAsset(const file::WPath& path)
 rageam::asset::eAssetType rageam::asset::AssetFactory::GetAssetType(const file::WPath& path)
 {
 	const AssetDefinition* def = TryGetDefinition(path);
+	if (!def) return AssetType_None;
 	return def->Type;
 }
 

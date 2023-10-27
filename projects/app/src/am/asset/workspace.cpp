@@ -25,8 +25,13 @@ void rageam::asset::Workspace::ScanRecurse(ConstWString path)
 			continue;
 		}
 
-		// Check if asset type is set in flags
 		eAssetType assetType = AssetFactory::GetAssetType(findData.Path);
+
+		// Count totals
+		if (assetType == AssetType_Txd)			m_TotalTDs++;
+		if (assetType == AssetType_Drawable)	m_TotalDRs++;
+
+		// Check if asset type is set in flags
 		if ((m_Flags & WF_LoadTx) == 0 && assetType == AssetType_Txd) continue;
 		if ((m_Flags & WF_LoadDr) == 0 && assetType == AssetType_Drawable) continue;
 
@@ -61,6 +66,8 @@ void rageam::asset::Workspace::Refresh()
 	m_Assets.Clear();
 	m_TDs.Clear();
 	m_DRs.Clear();
+	m_TotalTDs = 0;
+	m_TotalDRs = 0;
 	m_FailedCount = 0;
 	ScanRecurse(m_Path);
 	if (m_FailedCount != 0)
@@ -85,11 +92,36 @@ amPtr<rageam::asset::Workspace> rageam::asset::Workspace::FromAssetPath(ConstWSt
 	return nullptr;
 }
 
+amPtr<rageam::asset::Workspace> rageam::asset::Workspace::FromPath(ConstWString workspacePath, eWorkspaceFlags flags)
+{
+	return std::make_unique<Workspace>(workspacePath, flags);
+}
+
+bool rageam::asset::Workspace::IsInWorkspace(ConstWString filePath)
+{
+	file::WPath path = filePath;
+	while (!String::IsNullOrEmpty(path))
+	{
+		// Note that we first get parent directory because we don't want to check against file/dir specified in path
+		path = path.GetParentDirectory();
+
+		// Directory/file has no extension, keep searching...
+		if (String::IsNullOrEmpty(path.GetExtension()))
+			continue;
+
+		return ImmutableWString(path).EndsWith(WORKSPACE_EXT, true);
+	}
+	return false;
+}
+
 bool rageam::asset::Workspace::GetParentWorkspacePath(ConstWString assetPath, file::WPath& outPath)
 {
 	int extIndex = StringWrapper(assetPath).LastIndexOf(WORKSPACE_EXT);
 	if (extIndex == -1)
+	{
+		outPath = L"";
 		return false;
+	}
 
 	extIndex += 5; // To include '.pack'
 

@@ -49,9 +49,8 @@ namespace rageam::texture
 
 	inline bool IsImageFormat(ConstWString extension)
 	{
-		constexpr int maxSize = 5; // for largest extension with 4 chars such as .jpeg + nul
-		char buffer[maxSize];
-		String::ToAnsi(buffer, maxSize, extension);
+		char buffer[MAX_PATH];
+		String::ToAnsi(buffer, MAX_PATH, extension);
 		return IsImageFormat(buffer);
 	}
 

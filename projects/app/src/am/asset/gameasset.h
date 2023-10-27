@@ -39,17 +39,18 @@ namespace rageam::asset
 	 */
 	class AssetBase : public IXml
 	{
-		file::WPath m_Directory; // Path to directory where asset-specific files are located
+		file::WPath m_Directory;			// Path to directory where asset-specific files are located
+		file::WPath m_WorkspaceDirectory;	// Path to workspace that holds current asset, empty string if none
 		bool		m_HasSavedConfig;
+		u32			m_HashKey;
 
 	public:
-		AssetBase(const file::WPath& path)
-		{
-			m_Directory = path;
-			m_HasSavedConfig = IsFileExists(GetConfigPath());
-		}
+		AssetBase(const file::WPath& path);
 
 		~AssetBase() override = default;
+
+		// If directory was renamed, workspace has to be updated if directory was moved
+		void SetNewPath(ConstWString newPath, bool updateWorkspace = false);
 
 		// Compiles asset into file. If path is null, GetCompilePath() is used.
 		virtual bool CompileToFile(ConstWString filePath = nullptr) = 0;
@@ -70,8 +71,12 @@ namespace rageam::asset
 		// Useful when some data needs to be set only on config creation
 		bool HasSavedConfig() const { return m_HasSavedConfig; }
 
+		// Joaat of directory path
+		u32 GetHashKey() const { return m_HashKey; }
 		// Gets full path to asset directory 'x:/assets/adder.itd'
 		const file::WPath& GetDirectoryPath() const { return m_Directory; }
+		// Path to workspace that holds current asset, empty string if none
+		const file::WPath& GetWorkspacePath() const { return m_WorkspaceDirectory; }
 		// Gets name in format 'adder.itd'
 		ConstWString GetAssetName() const { return file::GetFileName(m_Directory.GetCStr()); }
 		// Gets full path to asset config 'x:/assets/adder.itd/config.xml', config name is defined by ASSET_CONFIG_NAME
@@ -114,18 +119,19 @@ namespace rageam::asset
 	{
 		AssetBase* m_Parent;
 
-		rage::atWideString	m_FileName; // File name including extension
-		u32					m_HashKey;	// Joaat of file name 
+		file::WPath m_FileName; // File name including extension
+		u32			m_HashKey;	// Joaat of file name 
 
 	public:
-		AssetSource(AssetBase* parent, ConstWString fileName) : m_FileName(fileName)
+		AssetSource(AssetBase* parent, ConstWString fileName)
 		{
 			m_Parent = parent;
-			m_HashKey = joaat(m_FileName);
+			SetFileName(fileName);
 		}
 
 		~AssetSource() override = default;
 
+		void SetFileName(ConstWString fileName);
 		// Gets base asset resource this source file belongs to.
 		AssetBase* GetParent() const { return m_Parent; }
 		// Gets file name including extension.

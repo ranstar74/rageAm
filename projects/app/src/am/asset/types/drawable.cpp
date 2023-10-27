@@ -753,7 +753,7 @@ void rageam::asset::DrawableAsset::SetupLodModels()
 
 	rage::rmcLodGroup& lodGroup = m_Drawable->GetLodGroup();
 	rage::rmcLod* lod = lodGroup.GetLod(rage::LOD_HIGH);
-	auto& lodModels = lod->GetModels();
+	rage::grmModels& lodModels = lod->GetModels();
 	for (u32 i = 0; i < m_Scene->GetNodeCount(); i++)
 	{
 		graphics::SceneNode* sceneNode = m_Scene->GetNode(i);
@@ -865,10 +865,10 @@ bool rageam::asset::DrawableAsset::ResolveAndSetTexture(rage::grcInstanceVar* va
 	// Try to resolve first in embed dictionary (it has highest priority)
 	if (m_EmbedDict)
 	{
-		rage::pgUPtr<rage::grcTextureDX11>* texture;
-		if (m_EmbedDict->Find(rage::joaat(textureName), &texture))
+		rage::grcTexture* embedTexture = m_EmbedDict->Find(textureName);
+		if(embedTexture)
 		{
-			var->SetTexture(texture->Get());
+			var->SetTexture(embedTexture);
 			return true;
 		}
 	}
@@ -1162,7 +1162,6 @@ bool rageam::asset::DrawableAsset::TryCompileToGame()
 
 	ReportProgress(L"Calculating lod extents", 0.8);
 	CalculateLodExtents();
-	CreateLights();
 
 	m_Drawable->GetLodGroup().ComputeBucketMask(m_Drawable->GetShaderGroup());
 
@@ -1210,7 +1209,7 @@ void rageam::asset::DrawableAsset::CreateMaterialTuneGroupFromScene()
 void rageam::asset::DrawableAsset::LoadTextureWorkspace()
 {
 	// We need workspace only for TXDs
-	WorkspaceTXD = Workspace::FromAssetPath(GetDirectoryPath(), WF_LoadTx);
+	WorkspaceTXD = Workspace::FromPath(GetWorkspacePath(), WF_LoadTx);
 }
 
 rageam::asset::DrawableAsset::DrawableAsset(const file::WPath& path) : GameRscAsset(path), m_DrawableTune(this, path)
