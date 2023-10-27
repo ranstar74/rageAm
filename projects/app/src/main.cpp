@@ -1,9 +1,5 @@
 // ReSharper disable CppUnusedIncludeDirective
 
-#ifndef AM_STANDALONE
-#define AM_INTEGRATED
-#endif
-
 #include "rage/system/new.h"
 
 #include "am/manifest.h"
@@ -43,7 +39,7 @@ namespace cli
 
 			for (u16 i = 0; i < ytd->GetSize(); i++)
 			{
-				rage::grcTextureDX11* texture = ytd->GetValueAt(i);
+				rage::grcTextureDX11* texture = (rage::grcTextureDX11*)ytd->GetValueAt(i);
 				texture->ExportTextureTo(outDir, false);
 			}
 		}

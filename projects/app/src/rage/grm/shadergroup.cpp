@@ -60,8 +60,7 @@ void rage::grmShaderGroup::Copy(const grmShaderGroup& other)
 
 	m_ContainerBlockSize = other.m_ContainerBlockSize;
 	m_HasInstancedShader = other.m_HasInstancedShader;
-
-	m_EmbedTextures.Copy(other.m_EmbedTextures);
+	m_EmbedTextures = other.m_EmbedTextures;
 	m_Shaders = other.m_Shaders;
 }
 

@@ -24,65 +24,53 @@ namespace rage
 	};
 
 	/**
-	 * \brief Dictionary with hash keys.
+	 * \brief Hash set for small sized collections.
+	 * \n Note:
+	 * Dictionary holds pointers of specified type!
+	 * All pointers are destroyed with dictionary.
 	 */
 	template<typename T>
 	class pgDictionary : public pgBase
 	{
-		static inline pgDictionary* sm_Current = nullptr; // TODO: TLS Hook
+		static inline pgDictionary* sm_Current = nullptr;
 
 		// For pgTextureDictionary - parent from CTxdRelationship
 		pgPtr<pgDictionary> m_Parent;
+		u32					m_RefCount;
+		pgArray<u32>		m_Keys;
+		pgUPtrArray<T>		m_Items;
 
-		u32 m_RefCount;
-		u32 m_Unused1C = 0;
-
-		pgArray<u32>	m_Keys;
-		pgUPtrArray<T>	m_Items;
-
-		void Sort()
+		// Instead of sorting dictionary after adding new item we
+		// simply insert it at right position
+		u16 FindInsertIndex(u32 key)
 		{
-			u16 size = m_Keys.GetSize();
-
-			atArray oldItems = std::move(m_Items);
-			atArray oldKeys = m_Keys;
-
-			m_Items.Resize(size);
-
-			m_Keys.Sort();
-			for (u16 i = 0; i < size; i++)
-			{
-				u16 newIndex = m_Keys.Find(oldKeys[i]);
-				m_Items[newIndex] = std::move(oldItems[i]);
-			}
+			auto it = std::ranges::lower_bound(m_Keys, key);
+			return static_cast<u16>(std::distance(m_Keys.begin(), it));
 		}
+
 	public:
-		pgDictionary(u16 size) : m_Keys(size), m_Items(size)
+		pgDictionary() { m_RefCount = 0; }
+		pgDictionary(u16 size) : m_Keys(size), m_Items(size) { m_RefCount = 0; }
+		pgDictionary(const pgDictionary& other) : pgBase(other), m_Keys(other.m_Keys), m_Items(other.m_Items)
 		{
-			m_RefCount = 1;
-		}
-		pgDictionary()
-		{
-			m_RefCount = 1;
-		}
-		pgDictionary(const pgDictionary& other)
-			: pgBase(other), m_Keys(other.m_Keys), m_Items(other.m_Items)
-		{
-			m_RefCount = 1;
+			if (IsResourceCompiling())
+				m_RefCount = other.m_RefCount;
+			else
+				m_RefCount = 0;
 		}
 		pgDictionary(pgDictionary&& other) noexcept : pgDictionary(0)
 		{
+			std::swap(m_Parent, other.m_Parent);
 			std::swap(m_RefCount, other.m_RefCount);
 			std::swap(m_Keys, other.m_Keys);
 			std::swap(m_Items, other.m_Items);
 		}
-
 		// ReSharper disable once CppPossiblyUninitializedMember
 		pgDictionary(const datResource& rsc) : m_Keys(rsc), m_Items(rsc)
 		{
 			// Nothing to do here, everything is resolved by pgArray
 		}
-
+		// Pushes dictionary on top of the stack, see PopDictionary & GetCurrent
 		static void PushDictionary(pgDictionary* dict)
 		{
 			AM_ASSERT(dict != nullptr, "pgDictionary::PushDictionary() -> Dict was NULL.");
@@ -92,7 +80,7 @@ namespace rage
 			dict->m_Parent.Set(sm_Current);
 			sm_Current = dict;
 		}
-
+		// Pops dictionary from top of the stack
 		static void PopDictionary()
 		{
 			AM_ASSERT(sm_Current != nullptr, "pgDictionary::PopDictionary() -> Stack is empty!");
@@ -101,121 +89,77 @@ namespace rage
 			sm_Current->m_Parent.Set(nullptr);
 			sm_Current = oldCurrent;
 		}
-
-		pgPtr<pgDictionary>& GetParent() { return m_Parent; }
+		// Gets dictionary from top of the stack, may be NULL
+		static pgDictionary* GetCurrent() { return sm_Current; }
+		// Gets linked parent dictionary
+		const pgPtr<pgDictionary>& GetParent() { return m_Parent; }
+		// Parenting is used for linking multiple TXDs together
 		void SetParent(const pgPtr<pgDictionary>& newParent) { m_Parent = newParent; }
-
-		const pgArray<u32>& GetKeys() const { return m_Keys; }
-		const pgArray<u32>& GetItems() const { return m_Items; }
-
-		int  GetSize() const { return m_Items.GetSize(); }
+		// Total number of added items
+		u16 GetSize() const { return m_Items.GetSize(); }
+		// Gets size of internal array buffers
+		u16 GetCapacity() const { return m_Items.GetCapacity(); }
+		// Destroys all existing items
 		void Clear() { m_Items.Clear(); m_Keys.Clear(); }
-		bool ContainsKey(u32 key) const { return m_Keys.Find(key); }
-		bool Find(u32 key, pgUPtr<T>** outItem)
+		// If key is in the set
+		bool Contains(u32 key) const { return m_Keys.Find(key); }
+		bool Contains(ConstString key) const { return Contains(joaat(key)); }
+		// Returns NULL if element is not in the set
+		T* Find(u32 key)
 		{
-			*outItem = nullptr;
-			s32 slot = m_Keys.Find(key);
-			if (slot == -1) return false;
-
-			*outItem = &m_Items[slot];
-			return true;
+			int index = m_Keys.Find(key);
+			if (index == -1) return nullptr;
+			return m_Items[index].Get();
 		}
-
+		T* Find(ConstString key) { return Find(joaat(key)); }
+		// Gets key-value pair at given index (meant to be used with GetSize for iterating dictionary)
 		pgKeyPair<T> GetAt(u16 index) { return { m_Keys[index], m_Items[index].Get() }; }
+		// Gets just value at index, use with GetSize
 		T* GetValueAt(u16 index) { return m_Items[index].Get(); }
-
-		/**
-		 * \brief Gets index of item by hash key.
-		 * \return Index if item present in dictionary; Otherwise -1;
-		 */
-		s32 GetIndexOf(u32 key) const
+		// Gets index from element hash key
+		s32 IndexOf(u32 key) const { return m_Keys.Find(key); }
+		s32 IndexOf(ConstString key) const { return IndexOf(joaat(key)); }
+		// NOTE: Added element pointer ownership goes to dictionary!
+		// If value is already set for given key, it will be replaced
+		T* Insert(u32 key, T* item)
 		{
-			return m_Keys.Find(key);
+			int existingIndex = IndexOf(key);
+			if (existingIndex != -1)
+			{
+				m_Items[existingIndex] = pgUPtr<T>(item);
+				return m_Items[existingIndex].Get();
+			}
+
+			u16 index = FindInsertIndex(key);
+			m_Keys.Insert(index, key);
+			m_Items.EmplaceAt(index, pgUPtr<T>(item));
+			return m_Items[index].Get();
 		}
-
-		s32 GetIndexOf(ConstString key) const { return GetIndexOf(joaat(key)); }
-
-		template<typename ...Args>
-		T* Construct(ConstString key, Args&&... args)
+		T* Insert(ConstString key, T* item) { return Insert(joaat(key), item); }
+		// Removes the key and value if exists, otherwise does nothing
+		void Remove(u32 key)
 		{
-			return Construct(joaat(key), std::forward<Args>(args)...);
-		}
-
-		template<typename ...Args>
-		T* Construct(u32 key, Args&&... args)
-		{
-			T* item;
-
-			s32 index = GetIndexOf(key);
+			int index = IndexOf(key);
 			if (index != -1)
 			{
-				T* ptr = new T(std::forward<Args>(args)...);
-				m_Items[index] = pgUPtr<T>(ptr);
-				item = m_Items[index].Get();
+				m_Keys.RemoveAt(index);
+				m_Items.RemoveAt(index);
 			}
-			else
-			{
-				m_Keys.Add(key);
-				m_Items.Construct(new T(args...));
-				item = m_Items.Last().Get();
-			}
-
-			// Binary search requires array to be sorted
-			// TODO: This can be improved by 'inserting' new item without messing with order
-			Sort();
-
+		}
+		void Remove(ConstString key) { Remove(joaat(key)); }
+		// Transfers ownership of the value to caller and removes the item from collection
+		// NULL is returned if key is not present in the collection
+		T* Move(u32 key)
+		{
+			int index = IndexOf(key);
+			if (index == -1) return nullptr;
+			m_Keys.RemoveAt(index);
+			T* item = m_Items[index].Get();
+			m_Items[index].Set(nullptr); // Force set pointer to NULL without deleting
+			m_Items.RemoveAt(index);
 			return item;
 		}
-
-		/**
-		 * \brief If item with given key is not present in dictionary, item is inserted;
-		 * Otherwise existing item is destructed and replaced.
-		 * \remarks Item must be allocated on heap and dictionary will take care of it.
-		 */
-		T* Add(u32 key, T* item)
-		{
-			T* addedItem;
-
-			s32 index = GetIndexOf(key);
-			if (index != -1)
-			{
-				m_Items[index] = item;
-				addedItem = m_Items[index].Get();
-			}
-			else
-			{
-				m_Keys.Add(key);
-				addedItem = m_Items.Emplace(pgUPtr<T>(item)).Get();
-			}
-
-			// We have to sort it now, otherwise Find will be broken.
-			// TODO: This can be improved by 'inserting' new item without messing with order
-			Sort();
-
-			return addedItem;
-		}
-
-		T* Add(ConstString key, T* item)
-		{
-			return Add(joaat(key), item);
-		}
-
-		/**
-		 * \brief Gets existing item if exists, otherwise creates new.
-		 * \returns Reference to item pointer.
-		 * \remarks If key was not present and returned value was not assigned, exception is thrown.
-		 */
-		[[nodiscard]] T* operator [](u32 key)
-		{
-			s32 index = GetIndexOf(key);
-			if (index != -1) return m_Items[index].Get();
-			AM_UNREACHABLE("pgDitionary::operator []() -> Item with key %u is not present dictionary.", key);
-		}
-
-		[[nodiscard]] T* operator [](ConstString key)
-		{
-			return operator[](joaat(key));
-		}
+		T* Move(ConstString key) { return Move(joaat(key)); }
 
 		IMPLEMENT_REF_COUNTER(pgDictionary);
 	};
