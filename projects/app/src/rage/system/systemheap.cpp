@@ -37,7 +37,7 @@ void rage::SystemHeap::Init()
 
 	sm_MultiAllocator = &s_Multi;
 
-	sysMemAllocator::SetCurrent(sm_MultiAllocator);
+	sysMemAllocator::SetCurrentFallback(sm_MultiAllocator);
 }
 
 void rage::SystemHeap::Shutdown()
@@ -51,7 +51,7 @@ void rage::SystemHeap::Shutdown()
 #endif
 	sm_MultiAllocator = nullptr;
 
-	sysMemAllocator::SetCurrent(nullptr);
+	sysMemAllocator::SetCurrentFallback(nullptr);
 }
 
 static void EnsureHeapInitialized()

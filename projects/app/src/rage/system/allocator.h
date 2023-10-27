@@ -66,13 +66,18 @@ namespace rage
 
 	class sysMemAllocator
 	{
+		static inline thread_local sysMemAllocator* sm_CurrentLocal = nullptr;
 		static inline sysMemAllocator* sm_Current = nullptr;
 	public:
 		sysMemAllocator() = default;
 		virtual ~sysMemAllocator() = default;
 
-		static sysMemAllocator* GetCurrent() { return sm_Current; }
-		static void SetCurrent(sysMemAllocator* that) { sm_Current = that; }
+		// Gets allocator in current thread storage if set, otherwise falls back to default one
+		static sysMemAllocator* GetCurrent() { return sm_CurrentLocal ? sm_CurrentLocal : sm_Current; }
+		// Sets allocator in current thread storage
+		static void SetCurrent(sysMemAllocator* that) { sm_CurrentLocal = that; }
+		// Sets allocator that will be returned in case if there's no thread local one set
+		static void SetCurrentFallback(sysMemAllocator* that) { sm_Current = that; }
 
 		/**
 		 * \brief Sets whether allocator should throw on errors or ignore them.
