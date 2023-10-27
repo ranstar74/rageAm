@@ -76,8 +76,8 @@ void rageam::ui::assetview::AssetWindow::OnMenuRender()
 			if(rage::Math::AlmostEquals(ImGui::GetScrollY(), ImGui::GetScrollMaxY()))
 				ImGui::SetScrollY(ImGui::GetScrollMaxY());
 
-			ImGui::EndChild();
 		}
+		ImGui::EndChild();
 
 		// Align progress bar to bottom of window
 		ImGuiWindow* window = ImGui::GetCurrentWindow();
