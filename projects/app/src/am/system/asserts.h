@@ -39,7 +39,7 @@ namespace unit_testing
 	WPRINTF_ATTR(2, 3) AM_NOINLINE	bool AssertHandler(bool expression, const wchar_t* fmt, ...);
 	PRINTF_ATTR(2, 3) AM_NOINLINE	bool AssertHandler(bool expression, const char* fmt, ...);
 }
-
+#include <cstdlib> // std::exit
 #define AM_ASSERT(expr, fmt, ...)	unit_testing::AssertHandler(expr, fmt, __VA_ARGS__)
 #define AM_VERIFY(expr, fmt, ...)	unit_testing::AssertHandler(expr, fmt, __VA_ARGS__ /* We take everything seriously in unit testing */ )
 #define AM_UNREACHABLE(fmt, ...)	unit_testing::AssertHandler(false, fmt, __VA_ARGS__); std::exit(-1)
