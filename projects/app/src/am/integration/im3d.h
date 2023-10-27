@@ -16,6 +16,12 @@ using ImVec3V = rage::Vec3V;
 using ImVec3 = rage::Vector3;
 using ImMat44V = rage::Mat44V;
 
+struct Im3DContext
+{
+	ImGuiID HoveredGizmoID;
+	ImGuiID ActiveGizmoID;
+};
+
 namespace Im3D
 {
 	// Returns whether point is not culled (visible on screen and not behind camera)
@@ -37,11 +43,16 @@ namespace Im3D
 	bool GizmoTrans(ImVec3& translation);
 
 	bool GizmoBehaviour(
-		bool& isDragging, 
-		const ImVec3V& planePos, const ImVec3V& planeNormal, 
+		bool& isDragging,
+		const ImVec3V& planePos, const ImVec3V& planeNormal,
 		ImVec3V& moveDelta, ImVec3V& startPos, ImVec3V& dragPos);
 
 	// Creates invisible window at given world coordinate, use ImGui functions to draw the rest
 	bool Begin(const ImVec3V& startPos, bool background = false);
 	void End();
+
+	// No gizmo or ImGui window is hovered
+	bool IsViewportHovered();
+	// No gizmo or ImGui window is selected
+	bool IsViewportFocused();
 }

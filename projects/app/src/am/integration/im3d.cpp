@@ -241,3 +241,13 @@ void Im3D::End()
 	ImGui::PopStyleVar();
 	ImGui::PopStyleColor(3); // WindowBg, Border, WindowShadow
 }
+
+bool Im3D::IsViewportHovered()
+{
+	return GImGui->HoveredWindow == nullptr; // TODO: Add gizmo here
+}
+
+bool Im3D::IsViewportFocused()
+{
+	return GImGui->ActiveIdWindow == nullptr; // TODO: Add gizmo here
+}
