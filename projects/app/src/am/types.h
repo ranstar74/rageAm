@@ -6,6 +6,9 @@
 #include "rage/atl/set.h"
 #include "rage/atl/string.h"
 #include "system/ptr.h"
+#include "rage/math/vec.h"
+#include "rage/math/vecv.h"
+#include "rage/math/mtxv.h"
 
 namespace rageam
 {
@@ -40,9 +43,21 @@ namespace rageam
 	using Dictionary = rage::atMap<TKey, TValue, THashFn>;
 
 	// Value set
-	template<typename TKey>
-	using HashSet = rage::atSet<TKey>;
+	template<typename TValue, typename THashFn = rage::atMapHashFn<TValue>>
+	using HashSet = rage::atSet<TValue, THashFn>;
 
 	constexpr u32 Hash(ConstString str) { return rage::joaat(str); }
 	constexpr u32 Hash(ConstWString str) { return rage::joaat(str); }
+
+	// Math
+
+	using Scalar = float;
+	using ScalarV = rage::ScalarV;
+	using Vec3V = rage::Vec3V;
+	using Vec4V = rage::Vec4V;
+	using Vec2S = rage::Vector2;
+	using Vec3S = rage::Vector3;
+	using Vec4S = rage::Vector4;
+	using Mat34V = rage::Mat34V;
+	using Mat44V = rage::Mat44V;
 }
