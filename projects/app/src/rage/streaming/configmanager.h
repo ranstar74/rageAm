@@ -1,3 +1,10 @@
+//
+// File: configmanager.h
+//
+// Copyright (C) 2023 ranstar74. All rights violated.
+//
+// Part of "Rage Am" Research Project.
+//
 #pragma once
 
 #include "common/logger.h"

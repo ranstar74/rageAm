@@ -1,3 +1,10 @@
+//
+// File: streamengine.h
+//
+// Copyright (C) 2023 ranstar74. All rights violated.
+//
+// Part of "Rage Am" Research Project.
+//
 #pragma once
 
 #include "streaming.h"
@@ -5,6 +12,8 @@
 
 namespace rage
 {
+	class strStreamingModule;
+
 	struct strStreamingInfo
 	{
 		strIndex	Slot;
@@ -16,7 +25,8 @@ namespace rage
 	class strStreamingModuleMgr
 	{
 	public:
-
+		// Extension must be in platform-specific format, for example: 'ydr', 'ytd'
+		static strStreamingModule* GetModule(ConstString extension);
 	};
 
 	class strStreamingInfoManager

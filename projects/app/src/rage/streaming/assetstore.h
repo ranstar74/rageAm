@@ -1,3 +1,10 @@
+//
+// File: assetstore.h
+//
+// Copyright (C) 2023 ranstar74. All rights violated.
+//
+// Part of "Rage Am" Research Project.
+//
 #pragma once
 
 #include "assettypes.h"
@@ -17,29 +24,29 @@ namespace rage
 		FW_DEF_FLAG_ON_DEFRAG = 1 << 1,
 	};
 
-	/**
-	 * \brief Holds information on streamed asset.
-	 */
-	template<typename T>
-	struct fwAssetDef
-	{
-		T* m_pObject = nullptr;
+	///**
+	// * \brief Holds information on streamed asset.
+	// */
+	//template<typename T>
+	//struct fwAssetDef
+	//{
+	//	T* m_Object = nullptr;
 
-		s32 m_RefCount = 0;
-		u32 m_NameHash = 0;
-		s32 m_Unknown10 = 0;
+	//	s32 m_RefCount = 0;
+	//	u32 m_NameHash = 0;
+	//	u32 m_Dependency = 0; // Archetype sets it to specified TXD slot in ityp (
 
-		FlagSet<eFwDefFlags> m_Flags;
+	//	FlagSet<eFwDefFlags> m_Flags;
 
-		void DestroyObject()
-		{
-			if (!m_pObject)
-				return;
+	//	void DestroyObject()
+	//	{
+	//		if (!m_Object)
+	//			return;
 
-			m_pObject->~T();
-			m_pObject = nullptr;
-		}
-	};
+	//		m_Object->~T();
+	//		m_Object = nullptr;
+	//	}
+	//};
 
 	template<typename TAsset, typename TDef>
 	class fwAssetStore : public strStreamingModule
@@ -97,11 +104,11 @@ namespace rage
 			else
 			{
 				TDef* def = m_Defs.GetSlot(slot);
-				if (def->m_Flags.IsSet(FW_DEF_FLAG_UNK0))
+				if (def->Flags & FW_DEF_FLAG_UNK0)
 				{
 					// TODO: Streaming stuff...
-					def->m_Flags.Set(FW_DEF_FLAG_UNK0, false);
-					def->m_pObject = nullptr;
+					def->Flags &= ~FW_DEF_FLAG_UNK0;
+					def->Object = nullptr;
 				}
 			}
 		}
@@ -114,9 +121,9 @@ namespace rage
 		void Remove(strLocalIndex slot) override
 		{
 			TDef* def = m_Defs.GetSlot(slot);
-			if (def->m_Flags.IsSet(FW_DEF_FLAG_UNK0))
+			if (def->Flags & FW_DEF_FLAG_UNK0)
 			{
-				def->m_pObject = nullptr;
+				def->Object = nullptr;
 			}
 			else
 			{
@@ -129,14 +136,14 @@ namespace rage
 			Remove(slot);
 
 			TDef* def = m_Defs.GetSlot(slot);
-			m_NameHashToIndex.Remove(def->m_NameHash);
+			m_NameHashToIndex.Remove(def->NameHash);
 			m_Defs.Delete(def);
 		}
 
 		void Load(strLocalIndex slot, ConstString name, s32 unknown) override
 		{
 			TDef* def = m_Defs.GetSlot(slot);
-			if (!def->m_Flags.IsSet(FW_DEF_FLAG_UNK0))
+			if (!(def->Flags & FW_DEF_FLAG_UNK0))
 			{
 				strStreamingModule::Load(slot, name, unknown);
 			}
@@ -148,7 +155,7 @@ namespace rage
 
 			// TODO: Fails with phBound
 			//TDef* def = m_Defs.GetSlot(slot);
-			//def->m_pObject = new (rsc.Map->MainChunk) TAsset(rsc);
+			//def->Object = new (rsc.Map->MainChunk) TAsset(rsc);
 
 			pgRscBuilder::Cleanup(map);
 		}
@@ -164,7 +171,7 @@ namespace rage
 			if (!AM_VERIFY(def != nullptr, "fwAssetStore::GetPtr() -> Slot at index %i is not in image (RPF)!", slot))
 				return nullptr;
 
-			return def->m_pObject;
+			return def->Object;
 		}
 
 		pVoid Defragment(strLocalIndex slot, datResourceMap& map, bool& success) override
@@ -177,10 +184,10 @@ namespace rage
 
 			// TODO: Fails with phBound...
 			//datResource rsc(map, "<defrag>");
-			//def->m_pObject = new (rsc.Map->MainChunk) TAsset(rsc);
+			//def->Object = new (rsc.Map->MainChunk) TAsset(rsc);
 
 			success = true;
-			return def->m_pObject;
+			return def->Object;
 		}
 
 		void DefragmentComplete(strLocalIndex slot) override
@@ -189,7 +196,7 @@ namespace rage
 			if (!AM_VERIFY(def != nullptr, "fwAssetStore::DefragmentComplete() -> Slot at index %i is not in image (RPF)!", slot))
 				return;
 
-			def->m_Flags.Set(FW_DEF_FLAG_ON_DEFRAG, false);
+			def->Flags &= ~FW_DEF_FLAG_ON_DEFRAG;
 		}
 
 		void DefragmentPreprocess(strLocalIndex slot) override
@@ -198,7 +205,7 @@ namespace rage
 			if (!AM_VERIFY(def != nullptr, "fwAssetStore::DefragmentComplete() -> Slot at index %i is not in image (RPF)!", slot))
 				return;
 
-			def->m_Flags.Set(FW_DEF_FLAG_ON_DEFRAG, true);
+			def->Flags |= FW_DEF_FLAG_ON_DEFRAG;
 		}
 
 		pVoid GetResource(strLocalIndex slot) override
@@ -207,7 +214,7 @@ namespace rage
 			if (!AM_VERIFY(def != nullptr, "fwAssetStore::GetPtr() -> Slot at index %i is not in image (RPF)!", slot))
 				return nullptr;
 
-			return def->m_pObject;
+			return def->Object;
 		}
 		
 		//void Set(strLocalIndex slot, pVoid object) override
@@ -216,7 +223,7 @@ namespace rage
 		//	if (!AM_VERIFY(def != nullptr, "fwAssetStore::Set() -> Slot at index %i is not in image (RPF)!", slot))
 		//		return;
 
-		//	def->m_pObject = object;
+		//	def->Object = object;
 		//}
 	};
 
@@ -237,14 +244,14 @@ namespace rage
 				return false;
 			}
 
-			pgRscBuilder::Load(&pDef->m_pObject, path, this->m_AssetExtension.GetCStr(), this->m_AssetVersion);
+			pgRscBuilder::Load(&pDef->Object, path, this->m_AssetExtension.GetCStr(), this->m_AssetVersion);
 
-			if (!pDef->m_pObject)
+			if (!pDef->Object)
 			{
 				AM_ERRF("fwRscAssetStore::LoadFile(index: %u, path: %s) -> Failed to load resource from file!",
 					index, path);
 			}
-			return pDef->m_pObject != nullptr;
+			return pDef->Object != nullptr;
 		}
 	};
 }
