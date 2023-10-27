@@ -18,8 +18,6 @@
 
 namespace rageam::file
 {
-	// TODO: Path comparison doesn't work properly with '/', '\\'
-
 #define PATH_SEPARATOR '\\'
 
 	/**
@@ -42,17 +40,58 @@ namespace rageam::file
 		PathBase(const PathBase& other) : PathBase(other.m_Buffer) {}
 		PathBase() = default;
 
+		bool IsEmpty() { return m_Buffer[0] == '\0'; }
+
+		/**
+		 * \brief Compares two path's, must be used instead of String::Equals because
+		 * 'C:/Videos' is not the same string as 'C:\\Videos\\' but the same path.
+		 * \remarks Paths 'C:/Videos/../' and 'C:/Videos/' are not considered equal by this function.
+		 */
+		bool Equals(TCString other) const
+		{
+			u32 cursor = 0;
+			while (true)
+			{
+				char lhs = m_Buffer[cursor];
+				char rhs = other[cursor];
+				char lhsn = m_Buffer[cursor + 1];
+				char rhsn = other[cursor + 1];
+
+				cursor++;
+
+				// End of paths, match
+				if (lhs == '\0' && rhs == '\0')
+					return true;
+
+				// Trailing separator
+				if (lhs == '\0' && Char::IsPathSeparator(rhs) && rhsn == '\0' ||
+					rhs == '\0' && Char::IsPathSeparator(lhs) && lhsn == '\0')
+				{
+					return true;
+				}
+
+				// Both are separators
+				if (Char::IsPathSeparator(lhs) && Char::IsPathSeparator(rhs))
+				{
+					continue;
+				}
+				
+				if (lhs != rhs)
+					return false;
+			}
+		}
+
 		/**
 		 * \brief Joins current path with given token using '/' separator symbol if needed.
 		 */
-		void Join(TCString token)
+		void Join(TCString token, int tokenLength = -1)
 		{
 			TString cursor = m_Buffer;
 
 			u32 length = StringWrapper(m_Buffer).Length();
 			s32 avail = TSize - length;
 
-			if(length > 1) // Move cursor to last symbol
+			if (length > 1) // Move cursor to last symbol
 				cursor += length - 1;
 
 			if (!Char::IsPathSeparator(cursor[0]))
@@ -65,20 +104,20 @@ namespace rageam::file
 
 			++cursor; // Move past separator
 
-			String::Copy(cursor, avail, token);
+			String::Copy(cursor, avail, token, tokenLength);
 		}
 
 		/**
 		 * \brief Appends given token to the end of current path as just text.
 		 */
-		void Append(TCString token)
+		void Append(TCString token, int tokenLength = -1)
 		{
 			TString cursor = m_Buffer;
 
 			u32 length = StringWrapper(m_Buffer).Length();
 			cursor += length;
 
-			String::Copy(cursor, MAX_PATH - length, token);
+			String::Copy(cursor, MAX_PATH - length, token, tokenLength);
 		}
 
 		/**
@@ -168,12 +207,12 @@ namespace rageam::file
 		/**
 		 * \brief Appends given token in the end of current path and returns copy.
 		 */
-		 PathBase operator/(TCString token) const
-		 {
-			 PathBase result(m_Buffer);
-			 result.Join(token);
-			 return result;
-		 }
+		PathBase operator/(TCString token) const
+		{
+			PathBase result(m_Buffer);
+			result.Join(token);
+			return result;
+		}
 
 		/**
 		 * \brief Appends given token to the end of current path as just text and returns copy.
@@ -195,6 +234,16 @@ namespace rageam::file
 		{
 			String::Copy(m_Buffer, TSize, other.m_Buffer);
 			return *this;
+		}
+
+		bool operator==(const TCString other) const
+		{
+			return Equals(other);
+		}
+
+		bool operator==(const PathBase& other) const
+		{
+			return Equals(other);
 		}
 
 		operator TCString() const { return m_Buffer; }

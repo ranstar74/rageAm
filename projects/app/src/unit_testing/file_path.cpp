@@ -12,6 +12,13 @@ namespace unit_testing
 	TEST_CLASS(FilePathTests)
 	{
 	public:
+		TEST_METHOD(VerifyEquality)
+		{
+			Path lhs = "C:/Videos/";
+			Path rhs = "C:\\Videos";
+			Assert::IsTrue(lhs.Equals(rhs));
+		}
+
 		TEST_METHOD(VerifyJoin)
 		{
 			Path path = "dir";
@@ -19,6 +26,15 @@ namespace unit_testing
 			path /= "files";
 			
 			Assert::AreEqual("dir\\home\\files", path.GetCStr());
+		}
+
+		TEST_METHOD(VerifyJoin2)
+		{
+			Path path = "dir\\";
+			path /= "home/";
+			path /= "files";
+
+			Assert::AreEqual("dir\\home/files", path.GetCStr());
 		}
 
 		TEST_METHOD(VerifyAppend)
