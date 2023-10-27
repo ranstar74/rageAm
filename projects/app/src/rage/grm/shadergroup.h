@@ -55,8 +55,8 @@ namespace rage
 	 */
 	class grmShaderGroup : public datBase
 	{
-		pgUPtr<grcTextureDictionary>  m_EmbedTextures;
-		pgUPtrArray<grmShader, false> m_Shaders;
+		grcTextureDictionaryPtr			m_EmbedTextures;
+		pgUPtrArray<grmShader, false>	m_Shaders;
 
 		u64		m_Unknown20;
 		u16		m_Unknown28;
