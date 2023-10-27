@@ -96,6 +96,11 @@ namespace rage
 			m_Initialized = false;
 		}
 
+		ConstString GetEntry()
+		{
+			return m_Path;
+		}
+
 		bool GetChangeOccuredAndReset()
 		{
 			std::unique_lock lock(m_Mutex);
