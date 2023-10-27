@@ -80,7 +80,10 @@ namespace rageam::file
 
 		s32 index = StringWrapper(destination).template LastIndexOf<'/', '\\'>();
 		if (index == -1)
-			return; // Path contains single directory
+		{
+			// Path has no parent directory
+			destination[0] = '\0';
+		}
 
 		destination[index] = '\0'; // Terminate string where current directory starts
 	}
