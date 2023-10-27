@@ -13,17 +13,14 @@
 #include "am/graphics/shapetest.h"
 #include "game/drawable.h"
 
-namespace rageam
-{
-	struct ModelSceneContext;
-}
-
 namespace rageam::integration
 {
 	// TODO: Add color filling for light outlines so it's easier to see where light ends
 	// TODO: Bitmap hit detection (how to allow user to select small light that's inside of larger one? larger one is always in front)
 	// TODO: We should add IsSphereVisible in viewport to quickly cull out outlines
 	// TODO: Color filling for cull plane (different color on both sides)
+
+	struct ModelSceneContext;
 
 	enum eGimzoMode
 	{
@@ -116,4 +113,5 @@ namespace rageam::integration
 		bool ShowOnlySelectedLightOutline = true;
 	};
 }
+
 #endif

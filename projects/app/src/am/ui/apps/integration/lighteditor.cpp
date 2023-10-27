@@ -1,14 +1,13 @@
-#include "lighteditor.h"
-
 #ifdef AM_INTEGRATED
 
+#include "lighteditor.h"
 #include "ImGuizmo.h"
 #include "am/graphics/shapetest.h"
 #include "am/integration/shvthread.h"
-#include "am/ui/im3d.h"
 #include "am/ui/font_icons/icons_am.h"
 #include "am/ui/styled/slwidgets.h"
 #include "modelscene.h"
+#include "am/integration/im3d.h"
 
 void rageam::integration::LightEditor::SetCullPlaneFromLight(const LightDrawContext& ctx)
 {
@@ -349,7 +348,7 @@ void rageam::integration::LightEditor::ComputeLightMatrices(
 		lightBoneWorld *= lightBoneMtx;
 	}
 
-	lightBoneWorld *= m_SceneContext->ViewerState.EntityWorld;
+	lightBoneWorld *= m_SceneContext->EntityWorld;
 	lightBind = lightBoneWorld;
 	// Transform to light world space
 	lightWorld = lightLocal * lightBind;
@@ -753,7 +752,7 @@ rageam::integration::LightEditor::LightEditor(ModelSceneContext* sceneContext)
 
 void rageam::integration::LightEditor::Render()
 {
-	gtaDrawable* drawable = m_SceneContext->Drawable;
+	gtaDrawable* drawable = m_SceneContext->Drawable.get();
 
 	u16 lightCount = drawable->GetLightCount();
 	if (lightCount == 0)
@@ -841,4 +840,5 @@ void rageam::integration::LightEditor::SelectLight(s32 index)
 	if (!m_SelectionFreezed)
 		m_SelectedLight = index;
 }
+
 #endif
