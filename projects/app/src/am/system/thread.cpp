@@ -3,28 +3,25 @@
 #include "common/logger.h"
 #include "am/system/asserts.h"
 
-rage::atFixedArray<rageam::ThreadContext, rageam::Thread::MAX_THREADS> rageam::Thread::sm_ThreadContexts;
-
 DWORD rageam::Thread::ThreadEntry(LPVOID lpParam)
 {
-	s32 index = reinterpret_cast<s32>(lpParam); // NOLINT(clang-diagnostic-void-pointer-to-int-cast)
+	ThreadContext* ctx = (ThreadContext*)lpParam;
 
-	ThreadContext* ctx = &sm_ThreadContexts[index];
 	ctx->Thread->m_Running = true;
 	u32 retCode = ctx->EntryPoint(ctx);
 	ctx->Thread->m_Running = false;
+
+	delete ctx;
 
 	return retCode;
 }
 
 rageam::Thread::Thread(ConstString debugName, ThreadEntryPoint entryPoint, pVoid param, bool paused)
 {
+	ThreadContext* ctx = new ThreadContext();
+
 	m_DebugName = debugName;
-
-	s32 threadIndex = sm_ThreadContexts.GetSize();
-
-	m_Handle = CreateThread(
-		NULL, 0, ThreadEntry, reinterpret_cast<LPVOID>(threadIndex), CREATE_SUSPENDED, NULL);
+	m_Handle = CreateThread(NULL, 0, ThreadEntry, ctx, CREATE_SUSPENDED, NULL);
 
 	AM_ASSERT(m_Handle != INVALID_HANDLE_VALUE, "Failed to create thread %s", debugName);
 	AM_DEBUGF("Thread [%s] started", debugName);
@@ -34,10 +31,10 @@ rageam::Thread::Thread(ConstString debugName, ThreadEntryPoint entryPoint, pVoid
 	swprintf_s(wName, 64, L"[RAGEAM] %hs", debugName);
 	SetThreadDescription(m_Handle, wName);
 
-	ThreadContext& ctx = sm_ThreadContexts.Construct();
-	ctx.Param = param;
-	ctx.EntryPoint = entryPoint;
-	ctx.Thread = this;
+	// Fill thread context before resuming thread
+	ctx->Param = param;
+	ctx->EntryPoint = entryPoint;
+	ctx->Thread = this;
 
 	m_Suspended = paused;
 	if (!paused)
@@ -68,4 +65,9 @@ void rageam::Thread::WaitExit()
 	m_Handle = INVALID_HANDLE_VALUE;
 
 	AM_DEBUGF("Thread [%s] exited with code %u", m_DebugName, code);
+}
+
+void rageam::CurrentThreadSleep(u32 ms)
+{
+	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }

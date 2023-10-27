@@ -29,16 +29,11 @@ namespace rageam
 
 	class Thread
 	{
-		static constexpr u32 MAX_THREADS = 64;
-
-		static rage::atFixedArray<ThreadContext, MAX_THREADS> sm_ThreadContexts;
-
-		std::atomic_bool m_ExitRequested = false;
-		ConstString m_DebugName;
-		HANDLE m_Handle;
-
-		std::atomic_bool m_Running = false;
-		std::atomic_bool m_Suspended;
+		std::atomic_bool	m_ExitRequested = false;
+		ConstString			m_DebugName;
+		HANDLE				m_Handle;
+		std::atomic_bool	m_Running = false;
+		std::atomic_bool	m_Suspended;
 
 		static DWORD ThreadEntry(LPVOID lpParam);
 	public:
@@ -55,4 +50,7 @@ namespace rageam
 		void Pause() { SuspendThread(m_Handle); m_Suspended = true; }
 		void Join() const { WaitForSingleObject(m_Handle, INFINITE); }
 	};
+
+	// Pauses current thread for given amount of time
+	void CurrentThreadSleep(u32 ms);
 }
