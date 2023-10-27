@@ -18,48 +18,65 @@ namespace rage
 	/**
 	 * \brief Non-resizable static array.
 	 */
-	template<typename T, s32 Capacity, typename TSize = s32>
+	template<typename T, u32 Capacity, typename TSize = int>
 	class atFixedArray
 	{
-		T		m_Items[Capacity] = {};
-		TSize	m_Size = 0;
+		// Use union to prevent destructor calls on elements
+		union
+		{
+			T		m_Items[Capacity] = {};
+			char	m_Dummy;
+		};
+		TSize		m_Size;
 
 		void VerifyBufferCanFitNext() const
 		{
 			AM_ASSERT(m_Size < Capacity, "atFixedArray::VerifyBufferCanFitNext() -> %u/%u - Full", m_Size, Capacity);
 		}
 
-		void PrepareForInsert(TSize index)
-		{
-			AM_ASSERT(index < m_Size, "atFixedArray::Insert(%i) -> Index is out of range.", index);
-
-			VerifyBufferCanFitNext();
-
-			memmove(
-				m_Items + index + 1,
-				m_Items + index,
-				(size_t)(m_Size - index) * sizeof(T));
-
-			++m_Size;
-		}
 	public:
-		TSize GetSize() const { return m_Size; }
-		TSize GetCapacity() const { return Capacity; }
+		atFixedArray() = default;
+		atFixedArray(TSize size)
+		{
+			m_Size = 0;
+			Resize(size);
+		}
+		~atFixedArray()
+		{
+			Resize(0);
+		}
 
 		/*
 		 *	------------------ Adding / Removing items ------------------
 		 */
 
-		 /**
-		  * \brief Appends item copy in the end of array.
-		  * \remarks
-		  * - For complex/large structures or classes use atArray::Emplace with move constructor.
-		  * - Also known as push_back
-		  */
+		void AddRange(const atFixedArray& other)
+		{
+			Reserve(m_Size + other.m_Size);
+			for (const T& element : other)
+				Add(element);
+		}
+
+		void AddRange(atFixedArray&& other)
+		{
+			Reserve(m_Size + other.m_Size);
+			for (u16 i = 0; i < other.m_Size; i++)
+				Emplace(std::move(other.m_Items[i]));
+		}
+
+		/**
+		 * \brief Appends item copy in the end of array.
+		 * \remarks
+		 * - For complex/large structures or classes use atFixedArray::Emplace with move constructor.
+		 * - Also known as push_back
+		 */
 		T& Add(const T& item)
 		{
 			VerifyBufferCanFitNext();
-			return m_Items[m_Size++] = item;
+
+			pVoid where = m_Items + m_Size;
+			++m_Size;
+			return *new (where) T(item); // Copy-place
 		}
 
 		/**
@@ -71,9 +88,66 @@ namespace rage
 			if (index == m_Size)
 				return Add(item);
 
-			PrepareForInsert(index);
+			AM_ASSERT(index < m_Size, "atFixedArray::Insert(%i) -> Index is out of range.", index);
 
-			return m_Items[index] = item;
+			VerifyBufferCanFitNext();
+
+			// Shift items on indices >= requested
+			memmove(
+				m_Items + index + 1,
+				m_Items + index,
+				(size_t)(m_Size - index) * sizeof(T));
+
+			++m_Size;
+
+			pVoid where = m_Items + index;
+			return *new(where) T(item); // Copy-place
+		}
+
+		/**
+		 * \brief Inserts item at given index of array, index value must be within array range.
+		 * \remarks If index is equal to Size, item is added at the end of array.
+		 */
+		T& EmplaceAt(TSize index, T&& item)
+		{
+			if (index == m_Size)
+				return Emplace(std::move(item));
+
+			AM_ASSERT(index < m_Size, "atFixedArray::Emplace(%i) -> Index is out of range.", index);
+
+			VerifyBufferCanFitNext();
+
+			// Shift items on indices >= requested
+			memmove(
+				m_Items + index + 1,
+				m_Items + index,
+				(size_t)(m_Size - index) * sizeof(T));
+
+			++m_Size;
+
+			pVoid where = m_Items + index;
+
+			// Move-place
+			T* slot = new (where) T();
+			*slot = std::move(item);
+			return *slot;
+		}
+
+		/**
+		 * \brief Moves item in the end of array.
+		 * \param item Item to move, use std::move.
+		 */
+		T& Emplace(T&& item)
+		{
+			VerifyBufferCanFitNext();
+
+			pVoid where = m_Items + m_Size;
+			++m_Size;
+
+			// Move-place
+			T* slot = new (where) T();
+			*slot = std::move(item);
+			return *slot;
 		}
 
 		/**
@@ -84,57 +158,9 @@ namespace rage
 		T& Construct(Args... args)
 		{
 			VerifyBufferCanFitNext();
-
 			pVoid where = (pVoid)(m_Items + m_Size);
 			++m_Size;
-			return *new (where) T(args...);
-		}
-
-		/**
-		 * \brief Constructs and inserts item in place at given index of array, index value must be within array range.
-		 * \remarks If index is equal to Size, item is added at the end of array.
-		 */
-		template<typename ...Args>
-		T& ConstructAndInsert(u32 index, Args... args)
-		{
-			if (index == m_Size)
-				return Construct(args...);
-
-			PrepareForInsert(index);
-
-			pVoid where = (pVoid)(m_Items + index);
-			return *new (where) T(args...);
-		}
-
-		/**
-		 * \brief Inserts given item at the end of array using move semantics.
-		 * \param item Item to move, use std::move.
-		 */
-		T& Emplace(T&& item)
-		{
-			VerifyBufferCanFitNext();
-
-			pVoid where = m_Items + m_Size;
-			++m_Size;
-
-			T* slot = new (where) T();
-			*slot = std::move(item);
-			return *slot;
-		}
-
-		/**
-		 * \brief Inserts given item at given index using move semantics (std::move);
-		 */
-		T& EmplaceInsert(TSize index, T&& item)
-		{
-			VerifyBufferCanFitNext();
-
-			PrepareForInsert(index);
-
-			pVoid where = m_Items + index;
-			T* slot = new (where) T();
-			*slot = std::move(item);
-			return *slot;
+			return *new (where) T(args...); // Construct in-place
 		}
 
 		/**
@@ -143,7 +169,7 @@ namespace rage
 		 */
 		void RemoveFirst()
 		{
-			AM_ASSERT(m_Size != 0, "atArray::RemoveFirst() -> Array is empty!");
+			AM_ASSERT(m_Size != 0, "atFixedArray::RemoveFirst() -> Array is empty!");
 			RemoveAt(0);
 		}
 
@@ -153,19 +179,29 @@ namespace rage
 		 */
 		void RemoveLast()
 		{
-			AM_ASSERT(m_Size != 0, "atArray::RemoveEnd() -> Array is empty!");
-			m_Items[--m_Size].~T();
+			AM_ASSERT(m_Size != 0, "atFixedArray::RemoveEnd() -> Array is empty!");
+			RemoveAt(m_Size - 1);
 		}
 
 		/**
 		 * \brief Removes item at given index. Other elements will be shifted to fill the gap.
 		 */
-		void RemoveAt(s32 index)
+		void RemoveAt(TSize index)
 		{
+			AM_ASSERT(index >= 0 && index < m_Size, "atFixedArray::Remove(%u) -> Index was out of range.", index);
+
 			m_Items[index].~T();
 
-			memmove(m_Items + index, m_Items + index + 1,
-				(size_t)(m_Size - index - 1) * sizeof(T));
+			// Is there anything to shift?
+			if (index + 1 < m_Size)
+			{
+				T* dst = m_Items + index;
+				T* src = dst + 1;
+				u32 size = (m_Size - (index + 1)) * sizeof T;
+
+				memmove(dst, src, size);
+			}
+
 			--m_Size;
 		}
 
@@ -189,14 +225,41 @@ namespace rage
 		 */
 		void Clear()
 		{
-			for (TSize i = 0; i < m_Size; i++)
+			// Destruct all items
+			for (TSize i = 0; i < m_Size; ++i)
 				m_Items[i].~T();
+
 			m_Size = 0;
 		}
 
-		/**
-		 * \brief Sorts array in ascending order using default predicate.
+		/*
+		 *	------------------ Altering array size ------------------
 		 */
+
+		 /**
+		  * \brief Resizes internal array buffer capacity to given size.
+		  */
+		void Resize(TSize newSize)
+		{
+			if (m_Size == newSize)
+				return;
+
+			AM_ASSERT(newSize <= Capacity, 
+				"atFixedArray::Resize() -> Requested size %u is larger than capacity %u.", newSize, Capacity);
+
+			for (TSize i = m_Size; i > newSize; --i)
+				m_Items[i - 1].~T();
+
+			m_Size = newSize;
+		}
+
+		/*
+		 *	------------------ Getters / Operators ------------------
+		 */
+
+		 /**
+		  * \brief Sorts array in ascending order using default predicate.
+		  */
 		void Sort()
 		{
 			std::sort(m_Items, m_Items + m_Size);
@@ -205,82 +268,30 @@ namespace rage
 		/**
 		 * \brief Sorts array using given predicate and std::sort;
 		 */
-		template<typename TPredicate>
-		void Sort(TPredicate predicate)
+		void Sort(std::function<bool(const T& lhs, const T& rhs)> predicate)
 		{
 			std::sort(m_Items, m_Items + m_Size, predicate);
 		}
 
-		/*
-		 *	Altering array size
-		 */
-
-		 /**
-		  * \brief Sets accessible array range.
-		  * This is slightly misleading because array is not being actually resized (in terms of internal capacity)
-		  * but only items are constructed / destructed.
-		  *
-		  * \n Example of use:
-		  * \n atFixedArray<int, 50> values;
-		  * \n values[5] = 0; // Index of out range
-		  * \n This happens because we maintain internal size counter and item at index 5 was not constructed yet.
-		  * \n values.Resize(50);
-		  * \n values[5] = 0; // Works as intended
-		  */
-		void Resize(TSize newSize)
-		{
-			if (m_Size == newSize)
-				return;
-
-			if (newSize < m_Size)
-			{
-				for (TSize i = m_Size; i > newSize; --i)
-					m_Items[i - 1].~T();
-
-				m_Size = newSize;
-				return;
-			}
-			m_Size = newSize;
-
-			// We must ensure that accessible items are constructed
-			for (TSize i = 0; i < m_Size; ++i)
-			{
-				pVoid where = (pVoid)(m_Items + i);
-				new (where) T();
-			}
-		}
-
-		/*
-		 *	------------------ Getters / Operators ------------------
-		 */
-
 		/**
 		 * \brief Gets last element in the array.
 		 */
-		T& Last()
-		{
-			AM_ASSERT(m_Size != 0, "atFixedArray::Last() -> No items in array.");
-			return m_Items[m_Size - 1];
-		}
+		T& Last() { return m_Items[m_Size - 1]; }
 
 		/**
 		 * \brief Gets first element in the array.
 		 */
-		T& First()
-		{
-			AM_ASSERT(m_Size != 0, "atFixedArray::First() -> No items in array.");
-			return m_Items[0];
-		}
+		T& First() { return m_Items[0]; }
 
-		 /**
-		  * \brief Gets const item reference at given index.
-		  */
-		const T& Get(s32 index) const
-		{
-			AM_ASSERT(index >= 0 && index < m_Size, "atFixedArray::Get(%u) -> Index was out of range.", index);
+		/**
+		 * \brief Gets pointer to underlying buffer array, with size of GetCapacity() and usable range of GetSize().
+		 */
+		const T* GetItems() const { return m_Items; }
 
-			return m_Items[index];
-		}
+		/**
+		 * \brief Gets const pointer to underlying buffer array, with size of GetCapacity() and usable range of GetSize().
+		 */
+		T* GetItems() { return m_Items; }
 
 		/**
 		 * \brief Gets item reference at given index.
@@ -292,7 +303,89 @@ namespace rage
 			return m_Items[index];
 		}
 
-		bool Any() const { return m_Size > 0; }
+		/**
+		 * \brief Gets const item reference at given index.
+		 */
+		const T& Get(s32 index) const
+		{
+			AM_ASSERT(index >= 0 && index < m_Size, "atFixedArray::Get(%u) -> Index was out of range.", index);
+
+			return m_Items[index];
+		}
+
+		/**
+		 * \brief Sets value at given index.
+		 */
+		T& Set(s32 index, const T& value) const
+		{
+			AM_ASSERT(index >= 0 && index < m_Size, "atFixedArray::Set(%u) -> Index was out of range.", index);
+
+			return m_Items[index] = value;
+		}
+
+		/**
+		 * \brief Returns index of pointer, -1 if pointer is nullptr or out of range.
+		 */
+		s32 IndexOf(T& item) const
+		{
+			for (TSize i = 0; i < m_Size; ++i)
+			{
+				if (m_Items[i] == item)
+					return i;
+			}
+			return -1;
+		}
+
+		/**
+		 * \brief Returns index of iterator.
+		 */
+		s32 IndexFromPtr(T* pItem) const
+		{
+			if (pItem == nullptr)
+				return -1;
+
+			AM_ASSERT(pItem > begin() && pItem < end(),
+				"atFixedArray::IndexFromPtr() -> Item at %p is not in range of internal buffer %p to %p. "
+				"Most likely array was resized and pointer became invalid.",
+				pItem, begin(), end());
+
+			return (pItem - m_Items) / sizeof T;
+		}
+
+		/**
+		 * \brief Performs binary search to find given value index.
+		 * \remarks Array has to be sorted in ascending order.
+		 */
+		s32 Find(const T& value) const
+		{
+			auto it = std::lower_bound(begin(), end(), value);
+			if (it == end() || *it != value)
+			{
+				return -1;
+			}
+			return std::distance(begin(), it);
+		}
+
+		/**
+		 * \brief Gets whether array contains given item, type must have comparison operator implemented.
+		 */
+		bool Contains(const T& item) const
+		{
+			for (TSize i = 0; i < m_Size; ++i)
+			{
+				if (m_Items[i] == item)
+					return true;
+			}
+			return false;
+		}
+
+		/**
+		 * \brief Gets whether array has at least one item.
+		 */
+		bool Any() const { return m_Size != 0; }
+
+		TSize GetSize() const { return m_Size; }
+		TSize GetCapacity() const { return Capacity; }
 
 		T* begin() { return m_Items; }
 		T* end() { return m_Items + m_Size; }
