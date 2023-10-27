@@ -27,7 +27,14 @@
 	-->
 	<UIVars>
 		<!-- Common -->
-		
+		<Item Name="bumpiness">
+			<Name>Bumpiness</Name>
+			<Description>Multiplies effect of the normal map.</Description>
+			<Widget Type="SliderFloat">
+				<Min>0</Min>
+				<Max>10</Max>
+			</Widget>
+		</Item>
 		<Item Name="useTessellation">
 			<Name>Use tessellation</Name>
 			<Description>Makes low poly meshes appear smooth by subdividing them in shader.</Description>
