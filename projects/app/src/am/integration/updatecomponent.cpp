@@ -62,13 +62,6 @@ void rageam::integration::ComponentManager::EarlyUpdateAll()
 	{
 		amUniquePtr<IUpdateComponent>& component = m_UpdateComponents[i];
 
-		// Init on first call
-		if (!component->m_Initialized)
-		{
-			component->OnStart();
-			component->m_Initialized = true;
-		}
-
 		if (component->m_AbortRequested)
 		{
 			// We keep updating component until it completely unloads
@@ -79,6 +72,13 @@ void rageam::integration::ComponentManager::EarlyUpdateAll()
 				componentsToRemove.Insert(0, i);
 				continue; // Component is aborted, no need to update anymore
 			}
+		}
+
+		// Init on first call
+		if (!component->m_Initialized)
+		{
+			component->OnStart();
+			component->m_Initialized = true;
 		}
 
 		component->OnEarlyUpdate();

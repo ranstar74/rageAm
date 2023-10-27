@@ -6,12 +6,12 @@
 // Part of "Rage Am" Research Project.
 //
 #pragma once
-#include "rage/atl/array.h"
 
 #ifdef AM_INTEGRATED
 
 #include "rage/atl/fixedarray.h"
 #include "am/system/ptr.h"
+#include "rage/atl/array.h"
 
 #include <atomic>
 #include <any>
@@ -95,6 +95,9 @@ namespace rageam::integration
 		TBase* m_Component = nullptr;
 
 	public:
+		ComponentOwner() = default;
+		ComponentOwner(const ComponentOwner&) = delete;
+		ComponentOwner(ComponentOwner&&) = default;
 		~ComponentOwner()
 		{
 			Destroy();
@@ -126,6 +129,9 @@ namespace rageam::integration
 		bool operator!() const { return !m_Component; }
 		bool operator==(std::nullptr_t) const { return m_Component == nullptr; }
 		ComponentOwner& operator=(std::nullptr_t) { Destroy(); return *this; }
+
+		ComponentOwner& operator=(const ComponentOwner&) = delete;
+		ComponentOwner& operator=(ComponentOwner&&) = default;
 	};
 }
 #endif
