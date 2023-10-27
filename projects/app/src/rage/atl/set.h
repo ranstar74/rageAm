@@ -392,8 +392,7 @@ namespace rage
 		TValue& EmplaceAt(u32 hash, TValue&& value)
 		{
 			Node& node = AllocateNodeInLinkedListOrFindExisting(hash);
-			new (&node.Value) TValue(); // Place dummy
-			node.Value = std::move(value); // Swap it with dummy
+			new (&node.Value) TValue(std::move(value));
 			return node.Value;
 		}
 
