@@ -14,13 +14,10 @@
 #include "rage/streaming/streaming.h"
 #include "rage/file/watcher.h"
 
-namespace rageam
-{
-	struct ModelSceneContext;
-}
-
 namespace rageam::integration
 {
+	struct ModelSceneContext;
+
 	/**
 	 * \brief UI configuration for shaders, see data/ShaderUI.xml
 	 */
@@ -142,6 +139,7 @@ namespace rageam::integration
 		int								m_TextureIndex = 0; // In TextureSearch::Textures
 		// We store all material parameters input by user to preserve them on switching shader
 		SmallList<HashSet<VarBlob>>		m_MaterialValues;
+		double							m_TexturePickerOpenTime = 0.0f;
 
 		// Loads preload.list and assigns tags to shader presets
 		void InitializePresetSearch();
@@ -150,8 +148,13 @@ namespace rageam::integration
 		rage::grmShaderGroup* GetShaderGroup() const;
 		rage::grmShader* GetSelectedMaterial() const;
 
+		// Returns UI override for missing textures 
+		ImTextureID GetTexID(const rage::grcTexture* tex) const;
+		ImU32 GetTexLabelCol(const rage::grcTexture* tex) const;
+		void ScrollingLabel(const ImVec2& pos, const ImRect& bb, ConstString text, ConstString textEnd, ImU32 col) const;
+		void ScrollingLabel(const ImVec2& pos, const ImRect& bb, const rage::grcTexture* texture) const;
 		rage::grcTexture* TexturePicker_Grid(bool groupByDict, float iconScale);
-		rage::grcTexture* TexturePicker_List();
+		rage::grcTexture* TexturePicker_List(float iconScale);
 		rage::grcTexture* TexturePicker(ConstString id, const rage::grcTexture* currentTexture);
 		void DoTextureSearch();
 

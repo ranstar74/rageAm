@@ -1,6 +1,8 @@
-#include "mateditor.h"
-
+#include "am/asset/types/drawablehelpers.h"
+#include "am/ui/context.h"
 #ifdef AM_INTEGRATED
+
+#include "mateditor.h"
 
 #include "modelscene.h"
 #include "widgets.h"
@@ -14,13 +16,8 @@
 #include "am/xml/doc.h"
 #include "am/xml/iterator.h"
 #include "rage/streaming/assetstore.h"
-
-using fwTxdStore = rage::fwAssetStore<rage::grcTextureDictionary, rage::fwAssetDef<rage::grcTextureDictionary>>;
-static fwTxdStore* GetTxdStore()
-{
-	static fwTxdStore* txdStore = static_cast<fwTxdStore*>(hooks::Streaming::GetModule("ytd"));
-	return txdStore;
-}
+#include "am/asset/types/drawablehelpers.h"
+#include "am/ui/context.h"
 
 void rageam::integration::ShaderUIConfig::Load()
 {
@@ -220,6 +217,78 @@ rage::grmShader* rageam::integration::MaterialEditor::GetSelectedMaterial() cons
 	return GetShaderGroup()->GetShader(m_SelectedMaterialIndex);
 }
 
+ImTextureID rageam::integration::MaterialEditor::GetTexID(const rage::grcTexture* tex) const
+{
+	if (asset::IsMissingTexture(tex))
+		return Gui->Icons.GetIcon("no_tex_ui")->GetID();
+	return ImTextureID(tex->GetResourceView());
+}
+
+ImU32 rageam::integration::MaterialEditor::GetTexLabelCol(const rage::grcTexture* tex) const
+{
+	if (!asset::IsMissingTexture(tex))
+		return ImGui::GetColorU32(ImGuiCol_Text);
+
+	static constexpr float animTime = 2.0f;
+	float phase = static_cast<float>(fmod(ImGui::GetTime(), 4.0f));
+
+	// Loop and normalize
+	if (phase > animTime * 0.5f)
+		phase = animTime - phase;
+	phase *= 2;
+	phase /= animTime;
+
+	static constexpr ImVec4 COL1 = { 1.0f, 0.0f, 1.0f, 1.0f }; // Pink
+	static constexpr ImVec4 COL2 = { 0.6f, 0.0f, 0.6f, 1.0f }; // Dark Pink
+
+	return ImGui::ColorConvertFloat4ToU32(ImLerp(COL1, COL2, phase));
+}
+
+void rageam::integration::MaterialEditor::ScrollingLabel(const ImVec2& pos, const ImRect& bb, ConstString text, ConstString textEnd, ImU32 col) const
+{
+	const ImGuiStyle& style = GImGui->Style;
+	ImGuiWindow* window = ImGui::GetCurrentWindow();
+
+	ImVec2 textSize = ImGui::CalcTextSize(text, textEnd);
+
+	ImVec2 animPos = pos;
+
+	float sidePadding = style.FramePadding.x * 2.0f;
+	float textDisplayWidth = bb.GetWidth() - sidePadding;
+	// Scrolling text animation
+	bool animate = textSize.x > textDisplayWidth;
+	if (animate)
+	{
+		// Total animation takes 'animTotalDuration' seconds,
+		// scrolling starts after 'animWaitTime' seconds,
+		// scrolls for 'animDuration' seconds and stays for 'animWaitTime' seconds
+		constexpr float animWaitTime = 2.0f;
+		constexpr float animDuration = 2.5f;
+		constexpr float animTotalDuration = animDuration + animWaitTime * 2.0f;
+
+		double currentTime = ImGui::GetTime() - m_TexturePickerOpenTime;
+		// Loop every X seconds
+		float animTime = static_cast<float>(fmod(currentTime, static_cast<double>(animTotalDuration)));
+		float currentPhase = rage::Math::Remap(animTime, animWaitTime, animWaitTime + animDuration, 0.0f, 1.0f);
+		currentPhase = ImClamp(currentPhase, 0.0f, 1.0f);
+
+		// Scroll to left
+		float clippedWidth = textSize.x - textDisplayWidth;
+		animPos.x -= clippedWidth * currentPhase;
+	}
+
+	ImGui::PushClipRect(bb.Min, bb.Max, true);
+	window->DrawList->AddText(animPos, col, text, textEnd);
+	ImGui::PopClipRect();
+}
+
+void rageam::integration::MaterialEditor::ScrollingLabel(const ImVec2& pos, const ImRect& bb, const rage::grcTexture* texture) const
+{
+	ConstString label = texture->GetName();
+	ConstString labelEnd = ImGui::FindRenderedTextEnd(label); // Support missing texture names ##
+	ScrollingLabel(pos, bb, label, labelEnd, GetTexLabelCol(texture));
+}
+
 rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_Grid(bool groupByDict, float iconScale)
 {
 	ImGuiStyle& style = ImGui::GetStyle();
@@ -233,10 +302,15 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_Grid(bool g
 			auto [iconWidth, iconHeight] =
 				Resize(texture->GetWidth(), texture->GetHeight(), iconSizeMax, iconSizeMax, texture::ScalingMode_Fit);
 
+			// Hide label when icons are very tiny
+			bool showLabel = iconScale > 0.7;
+
+			float labelHeight = showLabel ? ImGui::GetFrameHeight() : 0;
+
 			ImVec2 iconSize(iconWidth, iconHeight);
 			ImVec2 size(
 				iconSizeMax + style.FramePadding.x * 2,
-				iconSizeMax + style.FramePadding.y + ImGui::GetFrameHeight()); // Frame for label text
+				iconSizeMax + style.FramePadding.y * 2 + labelHeight); // Frame for label text
 
 			ImVec2 min = window->DC.CursorPos;
 			ImVec2 max = min + size;
@@ -251,15 +325,9 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_Grid(bool g
 			bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, nullptr);
 
 			// Rendering
-			ConstString label = texture->GetName();
 			{
 				ImVec2 iconMin = min + style.FramePadding;
 				ImVec2 iconMax = iconMin + iconSize;
-
-				ImVec2 textSize = ImGui::CalcTextSize(label);
-				ImVec2 textPos( // Centered horizontally below icon
-					min.x + (size.x - textSize.x) * 0.5f,
-					max.y - ImGui::GetFrameHeight());
 
 				ImU32 borderColor = ImGui::GetColorU32(
 					pressed ? ImGuiCol_ButtonActive : hovered ? ImGuiCol_ButtonHovered : ImGuiCol_Border);
@@ -267,9 +335,17 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_Grid(bool g
 				// Border
 				window->DrawList->AddRect(min, max, borderColor, 2);
 				// Icon
-				window->DrawList->AddImage(ImTextureID(texture->GetResourceView()), iconMin, iconMax);
+				window->DrawList->AddImage(GetTexID(texture), iconMin, iconMax);
+
 				// Label
-				window->DrawList->AddText(textPos, ImGui::GetColorU32(ImGuiCol_Text), label);
+				if (showLabel)
+				{
+					ImVec2 textPos( // Below icon
+						min.x + style.FramePadding.x,
+						max.y - ImGui::GetFrameHeight());
+
+					ScrollingLabel(textPos, bb, texture);
+				}
 			}
 			return pressed;
 		};
@@ -307,6 +383,9 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_Grid(bool g
 				if (textureItem(idStr, texture))
 					pickedTexture = texture;
 
+				// Show texture name when hovered tile
+				ImGui::ToolTip(texture->GetName());
+
 				totalTextures++;
 			}
 		}
@@ -315,9 +394,13 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_Grid(bool g
 	return pickedTexture;
 }
 
-rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List()
+rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List(float iconScale)
 {
 	rage::grcTexture* pickedTexture = nullptr;
+
+	static bool navChangedPrevFrame = false;
+
+	ImGui::PushStyleColor(ImGuiCol_NavHighlight, 0);
 
 	// Draw dictionaries + textures 
 	u16 dictCount = m_TextureSearchEntries.GetSize();
@@ -363,6 +446,14 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List()
 			m_TextureIndex = 0;
 		}
 		ImGui::PopStyleVar();
+
+		// We navigated to dict last frame, scroll to it
+		if (m_TextureIndex == 0 && dictSelected && navChangedPrevFrame)
+		{
+			navChangedPrevFrame = false;
+			ImGui::ScrollToItem();
+		}
+
 		if (treeOpen)
 		{
 			isDictOpen = true;
@@ -372,36 +463,57 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List()
 				rage::grcTexture* texture = search.Dict->GetValueAt(texIndex);
 
 				// Node
-				ConstString displayName = ImGui::FormatTemp("%s###%u;%u",
-					texture->GetName(), i, k);
+				ConstString displayName = ImGui::FormatTemp("###%u;%u", i, k);
 				bool texSelected = dictSelected && m_TextureIndex == k;
-
-				//// Store cursor position before drawing node so we can draw icon there later
-				//ImVec2 iconPos(window->WorkRect.Min.x, window->DC.CursorPos.y);
-
-				//ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.0f, 2.0f * s_IconScale));
+				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.0f, 6.0f * iconScale));
 				SlGui::GraphTreeNode(displayName, texSelected, toggled, SlGuiTreeNodeFlags_NoChildren);
-				//ImGui::PopStyleVar();
+				ImGui::PopStyleVar();
 
-				//// Texture icon
-				//{
-				//	float iconSizeY = ImGui::GetFrameHeight(); // Height of node
-				//	float iconSizeX = iconSizeY * 2.0f; // We have much more space horizontally, let icon span on Y Axis
-				//	auto [width, height] =
-				//		Resize(texture->GetWidth(), texture->GetHeight(), iconSizeX, iconSizeY, texture::ScalingMode_Fit);
-				//	pVoid textureView = texture->GetResourceView();
+				// We navigated to texture last frame, scroll to it
+				if (texSelected && navChangedPrevFrame)
+				{
+					navChangedPrevFrame = false;
+					ImGui::ScrollToItem();
+				}
+				
+				const ImRect& nodeRect = GImGui->LastItemData.Rect;
 
-				//	// We take coord from window because node X is intended
-				//	ImVec2 min = iconPos;
-				//	ImVec2 max = min + ImVec2(width, height);
+				// Draw separator on bottom of node
+				ImGui::GetWindowDrawList()->AddLine(nodeRect.GetBL(), nodeRect.GetBR(), ImGui::GetColorU32(ImGuiCol_Border));
 
-				//	ImGui::GetWindowDrawList()->AddImage(ImTextureID(textureView), min, max);
-				//}
+				ImTextureID texId = GetTexID(texture);
+
+				// Texture icon, we draw it first to get full available rect for text
+				ImVec2 textMin = nodeRect.GetTL() + ImVec2(ImGui::GetFrameHeight(), 0);
+				ImVec2 textMax;
+				{
+					const ImGuiStyle& style = GImGui->Style;
+					const ImVec2 iconPad = ImVec2();
+
+					float iconSizeY = nodeRect.GetHeight() - iconPad.y * 2;
+					float iconSizeX = iconSizeY * 2.0f; // We have much more space horizontally, let icon span on Y Axis
+					auto [width, height] =
+						Resize(texture->GetWidth(), texture->GetHeight(), iconSizeX, iconSizeY, texture::ScalingMode_Fit);
+
+					// We take coord from window because node X is intended
+					ImVec2 min = nodeRect.GetTR();
+					min.x -= width + iconPad.x;
+					min.y += iconPad.y;
+					ImVec2 max = min + ImVec2(width, height - iconPad.y);
+
+					textMax = ImVec2(min.x, max.y);
+
+					ImGui::GetWindowDrawList()->AddImage(texId, min, max);
+				}
+
+				// Node label
+				ImVec2 textPos = textMin + ImGui::GetStyle().FramePadding;
+				ImRect textRect(textPos, textMax);
+				ScrollingLabel(textPos, textRect, texture);
 
 				// Pick texture using enter or click
-				if (texSelected &&
-					ImGui::IsKeyPressed(ImGuiKey_Enter) ||
-					ImGui::IsItemClicked(ImGuiMouseButton_Left))
+				if (texSelected && ImGui::IsKeyPressed(ImGuiKey_Enter) || 
+					ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::IsMouseHoveringRect(nodeRect.Min, nodeRect.Max))
 				{
 					pickedTexture = texture;
 				}
@@ -415,8 +527,8 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List()
 					ImVec2 max = min + ImVec2(width, height);
 
 					ImDrawList* drawList = ImGui::GetForegroundDrawList();
-					drawList->AddImage(ImTextureID(texture->GetResourceView()), min, max);
-					drawList->AddRect(min, max, ImGui::GetColorU32(ImGuiCol_Border));
+					drawList->AddImage(texId, min, max);
+					drawList->AddRect(min, max, ImGui::GetColorU32(ImGuiCol_ButtonActive));
 				}
 			}
 
@@ -428,10 +540,12 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List()
 
 		// Up/Down nav
 		// This all is a bit awkward but there's no other way to keep input focused + navigation working
-		if (dictSelected && !navUpdated)
+		if (moveDir != ImGuiDir_None && dictSelected && !navUpdated)
 		{
 			// We have to keep this flag because otherwise if we select bottom dict nav will be updated twice
 			navUpdated = true;
+
+			navChangedPrevFrame = true;
 
 			auto getLastDictTexIndex = [&]
 				{
@@ -446,9 +560,10 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List()
 			if (!isDictOpen)
 			{
 				if (m_DictionaryIndex < maxNavDictIndex && moveDir == ImGuiDir_Down)
+				{
 					m_DictionaryIndex++;
-
-				if (m_DictionaryIndex > 0 && moveDir == ImGuiDir_Up)
+				}
+				else if (m_DictionaryIndex > 0 && moveDir == ImGuiDir_Up)
 				{
 					m_DictionaryIndex--;
 					m_TextureIndex = getLastDictTexIndex();
@@ -461,7 +576,10 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List()
 			{
 				if (moveDir == ImGuiDir_Down)
 				{
-					if (m_TextureIndex < maxNavTexIndex) m_TextureIndex++;
+					if (m_TextureIndex < maxNavTexIndex)
+					{
+						m_TextureIndex++;
+					}
 					else if (m_DictionaryIndex < maxNavDictIndex)
 					{
 						m_DictionaryIndex++;
@@ -481,6 +599,8 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List()
 			}
 		}
 	}
+
+	ImGui::PopStyleColor(); // NavHighlight
 
 	// Keep search text box selected
 	ImGui::NavMoveRequestCancel();
@@ -532,15 +652,29 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 		s_PickTexID = id;
 
 		ImGui::OpenPopup(PICKER_POPUP);
+		m_TexturePickerOpenTime = ImGui::GetTime();
 	}
 
 	// Not picking anything, skip
 	if (s_PickTexID != id)
 		return nullptr;
 
-	static float s_IconScale = 1.0f;
+	static constexpr float ICON_SIZE_MIN = 0.5f;
+	static constexpr float ICON_SIZE_MAX = 3.0f;
+	static float s_IconSize = 0.25f;
 	static bool s_Grid = false;
-	static bool s_GridGroupByDict = false;
+	static bool s_GridGroupByDict = true;
+
+	auto doTextureSearch = [&]
+		{
+			m_DictionaryIndex = 0;
+			m_TextureIndex = 0;
+			DoTextureSearch();
+		};
+
+	// Some TXD was modified, current search is invalid now and we have to redo it
+	if (m_Context->HotFlags & AssetHotFlags_TxdModified)
+		doTextureSearch();
 
 	// Draw picker
 	rage::grcTexture* pickedTexture = nullptr;
@@ -549,16 +683,17 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 	ImGui::SetNextWindowSize(ImVec2(s_Grid ? 450 : 240, 400));
 	if (ImGui::BeginPopup(PICKER_POPUP))
 	{
+		ImGui::SetNextItemWidth(ImGui::GetFrameHeight() * 4.0f);
+		ImGui::SliderFloat("Icon Size", &s_IconSize, 0.0f, 1.0f, "", ImGuiSliderFlags_NoRoundToFormat);
+		ImGui::SameLine(0, ImGui::GetStyle().FramePadding.x);
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
 		ImGui::Checkbox("Grid", &s_Grid);
 		if (s_Grid)
 		{
 			ImGui::SameLine();
 			ImGui::Checkbox("Group", &s_GridGroupByDict);
-			ImGui::SameLine();
-			ImGui::SetNextItemWidth(ImGui::GetFrameHeight() * 4.0f);
-			ImGui::SliderFloat("Icon Scale", &s_IconScale, 0.25f, 3.0f, "%.1f");
 		}
+		float iconScale = rage::Math::Remap(s_IconSize, 0.0f, 1.0f, ICON_SIZE_MIN, ICON_SIZE_MAX);
 
 		ImGui::HelpMarker(
 			"There are two ways to search:\n"
@@ -569,9 +704,7 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
 		if (ImGui::InputText("###SEARCH", m_TextureSearchText, IM_ARRAYSIZE(m_TextureSearchText)))
 		{
-			m_DictionaryIndex = 0;
-			m_TextureIndex = 0;
-			DoTextureSearch();
+			doTextureSearch();
 		}
 		ImGui::InputTextPlaceholder(m_TextureSearchText, "Search...", true);
 		if (ImGui::IsWindowAppearing())
@@ -581,8 +714,8 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 		ImGui::PopStyleVar(); // ItemSpacing
 
 		ImGui::BeginChild("TEXTURE_PICKER_SCROLL");
-		if (s_Grid)	pickedTexture = TexturePicker_Grid(s_GridGroupByDict, s_IconScale);
-		else		pickedTexture = TexturePicker_List();
+		if (s_Grid)	pickedTexture = TexturePicker_Grid(s_GridGroupByDict, iconScale);
+		else		pickedTexture = TexturePicker_List(iconScale);
 		ImGui::EndChild();
 
 		if (pickedTexture != nullptr)
@@ -679,17 +812,18 @@ void rageam::integration::MaterialEditor::DoTextureSearch()
 		doSearch("Embed", embedDict);
 
 	// Add workspace TXDs
-	for (u16 i = 0; i < m_Context->Workspace->GetTexDictCount(); i++)
+	for (asset::HotTxd& hotTxd : *m_Context->TXDs)
 	{
-		ImmutableWString txdAssetName = m_Context->Workspace->GetTexDict(i)->GetAssetName();
-		// Convert to ansi + remove '.itd'
-		char dictName[128];
-		sprintf_s(dictName, sizeof dictName, "%ls", (ConstWString)txdAssetName);
-		int itdIndex = txdAssetName.IndexOf(asset::ASSET_ITD_EXT, true);
-		dictName[itdIndex] = '\0';
+		// We draw embed dictionary separately with our custom name
+		if (hotTxd.IsEmbed)
+			continue;
 
-		const auto& dict = m_Context->TXDs[i];
-		doSearch(dictName, dict.Get());
+		file::WPath txdAssetName = hotTxd.Asset->GetAssetName();
+		// Convert to ansi + remove '.itd' extension
+		file::Path txdName = file::PathConverter::WideToUtf8(txdAssetName);
+		txdName = txdName.GetFileNameWithoutExtension();
+
+		doSearch(txdName.GetCStr(), hotTxd.Dict.Get());
 	}
 }
 
