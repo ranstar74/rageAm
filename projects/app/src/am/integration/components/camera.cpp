@@ -11,6 +11,7 @@
 #include "am/ui/context.h"
 #include "rage/framework/pool.h"
 #include "scripthook/shvnatives.h"
+#include "am/integration/im3d.h"
 
 void rageam::integration::ICameraComponent::SetActive(bool active)
 {
@@ -209,6 +210,12 @@ void rageam::integration::CameraComponentBase::LookAt(const rage::Vec3V& point)
 	m_Up = m_Right.Cross(m_Front).Normalized();
 }
 
+bool rageam::integration::CameraComponentBase::ControlsDisabled()
+{
+	// Don't process camera controls if we're hovering window or gizmo
+	return m_DisableControls || !Im3D::IsViewportHovered();
+}
+
 void rageam::integration::FreeCamera::OnEarlyUpdate()
 {
 	if (!IsActive())
@@ -216,7 +223,7 @@ void rageam::integration::FreeCamera::OnEarlyUpdate()
 
 	CameraComponentBase::OnEarlyUpdate();
 
-	if (m_DisableControls)
+	if (ControlsDisabled())
 		return;
 
 	// Speed edit by zooming
@@ -299,7 +306,7 @@ void rageam::integration::OrbitCamera::OnEarlyUpdate()
 
 	CameraComponentBase::OnEarlyUpdate();
 
-	if (m_DisableControls)
+	if (ControlsDisabled())
 		return;
 
 	// Shifting / zooming distance must scale with distance from origin

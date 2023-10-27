@@ -26,6 +26,7 @@ namespace rageam::integration
 		virtual void LookAt(const rage::Vec3V& point) = 0;
 
 		virtual void DisableControls(bool) = 0;
+		virtual bool ControlsDisabled() = 0;
 
 		virtual void SetActive(bool active);
 		bool IsActive() const { return sm_Active == this; }
@@ -75,6 +76,7 @@ namespace rageam::integration
 		void LookAt(const rage::Vec3V& point) override;
 
 		void DisableControls(bool value) override { m_DisableControls = value; }
+		bool ControlsDisabled() override;
 	};
 
 	class FreeCamera : public CameraComponentBase
