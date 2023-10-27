@@ -86,16 +86,14 @@ project "rageAm"
 		defines { "AM_STANDALONE" }
 		defines { "AM_UNIT_TESTS" }
 
-	filter { "not options:unittests" }
-		
-		filter { "options:standalone" }
-			kind "ConsoleApp"
-			defines { "AM_STANDALONE" }
-		
-		filter { "not options:standalone" }
-			kind "SharedLib"
-			add_launcher_events("bin/%{cfg.buildcfg}" .. "/")
-			defines { "AM_INTEGRATED" }
+	filter { "options:standalone" }
+		kind "ConsoleApp"
+		defines { "AM_STANDALONE" }
+	
+	filter { "not options:standalone", "not options:unittests" }
+		kind "SharedLib"
+		add_launcher_events("bin/%{cfg.buildcfg}" .. "/")
+		defines { "AM_INTEGRATED" }
 
 	filter { "not options:nostacksymbols" }
 		defines { "AM_STACKTRACE_SYMBOLS" }
