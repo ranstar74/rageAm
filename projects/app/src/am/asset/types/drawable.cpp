@@ -448,6 +448,8 @@ const rageam::asset::MaterialTune& rageam::asset::DrawableAsset::GetGeometryMate
 
 rage::pgUPtr<rage::grmModel> rageam::asset::DrawableAsset::ConvertSceneModel(const graphics::SceneNode* sceneNode)
 {
+	ReportProgress(String::FormatTemp(L"Converting model '%hs'", sceneNode->GetName()), 0.2);
+
 	AM_ASSERT(sceneNode->HasMesh(), "DrawableAsset::ConvertSceneModel() -> Given node has no mesh!");
 
 	graphics::SceneMesh* sceneMesh = sceneNode->GetMesh();
@@ -1121,6 +1123,7 @@ void rageam::asset::DrawableAsset::CreateLights()
 
 bool rageam::asset::DrawableAsset::TryCompileToGame()
 {
+	ReportProgress(L"Compiling embed dictionary", 0.0);
 	if (!CompileAndSetEmbedDict())
 	{
 		AM_ERRF("DrawableAsset::TryCompileToGame() -> Conversion canceled, failed to convert embed dictionary.");
@@ -1129,19 +1132,35 @@ bool rageam::asset::DrawableAsset::TryCompileToGame()
 
 	// We must generate skeleton first because we'll have to remap skinning blend indices
 	AM_DEBUGF("DrawableAsset() -> Creating skeleton");
+	ReportProgress(L"Creating skeleton", 0.1);
 	if (!GenerateSkeleton())
 		return false;
 
 	AM_DEBUGF("DrawableAsset() -> Setting up lod models");
+	ReportProgress(L"Creating LODs", 0.2);
 	SetupLodModels();
+
 	AM_DEBUGF("DrawableAsset() -> Linking models to skeleton");
+	ReportProgress(L"Linking models to skeleton", 0.3);
 	LinkModelsToSkeleton();
+
 	AM_DEBUGF("DrawableAsset() -> Creating materials");
+	ReportProgress(L"Generating materials", 0.4);
 	CreateMaterials();
+
 	AM_DEBUGF("DrawableAsset() -> Creating collision bounds");
+	ReportProgress(L"Creating collision bounds", 0.5);
 	CreateAndSetCompositeBound();
+
+	AM_DEBUGF("DrawableAsset() -> Creating lights");
+	ReportProgress(L"Creating lights", 0.6);
+	CreateLights();
+
 	AM_DEBUGF("DrawableAsset() -> Posing bounds from scene");
+	ReportProgress(L"Posing bound", 0.7);
 	PoseModelBoundsFromScene();
+
+	ReportProgress(L"Calculating lod extents", 0.8);
 	CalculateLodExtents();
 	CreateLights();
 
@@ -1206,8 +1225,10 @@ bool rageam::asset::DrawableAsset::CompileToGame(gtaDrawable* ppOutGameFormat)
 		return false;
 
 	m_Drawable = ppOutGameFormat;
+	ReportProgress(L"Preparing assets", 0.0);
 	PrepareForConversion();
 	bool result = TryCompileToGame();
+	ReportProgress(L"Cleaning up", 0.99);
 	CleanUpConversion();
 	m_Drawable = nullptr;
 	return result;
