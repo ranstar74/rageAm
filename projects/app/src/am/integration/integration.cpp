@@ -1,8 +1,12 @@
-#include "integration.h"
-
-#include "memory/address.h"
 #ifdef AM_INTEGRATED
 
+#include "integration.h"
+
+#include "am/ui/apps.h"
+#include "am/ui/context.h"
+#include "am/ui/apps/integration/modelscene.h"
+#include "apps/starbar.h"
+#include "memory/address.h"
 #include "memory/hook.h"
 
 namespace
@@ -10,8 +14,6 @@ namespace
 	gmAddress s_GameUpdateAddr;
 	rageam::integration::GameIntegration* s_Instance = nullptr;
 }
-
-rageam::integration::GameIntegration* GIntegration = nullptr;
 
 static bool(*CApp_GameUpdate_gImpl)();
 bool CApp_GameUpdate_aImpl()
@@ -26,10 +28,8 @@ bool CApp_GameUpdate_aImpl()
 	return result;
 }
 
-rageam::integration::GameIntegration::GameIntegration()
+void rageam::integration::GameIntegration::InitComponentManager()
 {
-	s_Instance = this;
-
 	ComponentMgr = std::make_unique<ComponentManager>();
 	ComponentManager::SetCurrent(ComponentMgr.get());
 
@@ -39,7 +39,7 @@ rageam::integration::GameIntegration::GameIntegration()
 	Hook::Create(s_GameUpdateAddr, CApp_GameUpdate_aImpl, &CApp_GameUpdate_gImpl, true);
 }
 
-rageam::integration::GameIntegration::~GameIntegration()
+void rageam::integration::GameIntegration::ShutdownComponentManager() const
 {
 	// Component manager will pause current thread and continue
 	// updating until every component is fully aborted
@@ -47,17 +47,33 @@ rageam::integration::GameIntegration::~GameIntegration()
 
 	Hook::Remove(s_GameUpdateAddr);
 	ComponentManager::SetCurrent(nullptr);
-	s_Instance = nullptr;
 }
 
-void CreateIntegrationContext()
+void rageam::integration::GameIntegration::RegisterApps() const
 {
-	GIntegration = new rageam::integration::GameIntegration();
+	Gui->Apps.AddApp(new StarBar());
+	Gui->Apps.AddApp(new ModelScene());
 }
 
-void DestroyIntegrationContext()
+rageam::integration::GameIntegration::GameIntegration()
 {
-	delete GIntegration;
-	GIntegration = nullptr;
+	InitComponentManager();
+	RegisterApps();
 }
+
+rageam::integration::GameIntegration::~GameIntegration()
+{
+	ShutdownComponentManager();
+}
+
+rageam::integration::GameIntegration* rageam::integration::GameIntegration::GetInstance()
+{
+	return s_Instance;
+}
+
+void rageam::integration::GameIntegration::SetInstance(GameIntegration* instance)
+{
+	s_Instance = instance;
+}
+
 #endif

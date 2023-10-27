@@ -3,13 +3,14 @@
 #include "am/asset/types/txd.h"
 #include "am/task/undo.h"
 #include "am/ui/extensions.h"
-#include "am/ui/apps/windowmgr.h"
-#include "am/ui/apps/integration/modelscene.h"
 #include "am/ui/font_icons/icons_am.h"
-#include "am/ui/windows/asset/assethelper.h"
 #include "am/ui/windows/asset/assetwindowfactory.h"
 #include "am/ui/windows/asset/txd/txdwindow.h"
 #include "helpers/format.h"
+
+#ifdef AM_INTEGRATED
+#include "am/ui/apps/integration/modelscene.h"
+#endif
 
 const rageam::ui::EntrySelection& rageam::ui::FolderView::GetSelectedEntries() const
 {
@@ -271,7 +272,7 @@ void rageam::ui::FolderView::UpdateEntryOpening()
 			if(asset->GetType() == asset::AssetType_Drawable)
 			{
 #ifdef AM_INTEGRATED
-				Gui->Apps.FindAppByType<ModelSceneUI>()->LoadFromPatch(asset->GetDirectoryPath());
+				Gui->Apps.FindAppByType<integration::ModelScene>()->LoadFromPatch(asset->GetDirectoryPath());
 #endif
 			}
 			else

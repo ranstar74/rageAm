@@ -1,465 +1,162 @@
-#include "modelscene.h"
-
 #ifdef AM_INTEGRATED
 
+#include "modelscene.h"
+
 #include "widgets.h"
-#include "am/asset/factory.h"
-#include "am/task/worker.h"
-#include "am/ui/im3d.h"
+#include "am/integration/integration.h"
+#include "am/integration/shvthread.h"
 #include "am/ui/font_icons/icons_am.h"
 #include "am/ui/styled/slwidgets.h"
-#include "rage/paging/builder/builder.h"
+#include "scripthook/shvnatives.h"
+#include "scripthook/shvtypes.h"
 
-void rageam::ModelSceneContext::CompileWorkspaceTXDs()
+rageam::integration::DrawableStats rageam::integration::DrawableStats::ComputeFrom(gtaDrawable* drawable)
 {
-	u16 txdCount = Workspace->GetTexDictCount();
-	for (u16 i = 0; i < txdCount; i++)
+	using namespace rage;
+
+	const spdAABB& bb = drawable->GetLodGroup().GetBoundingBox();
+	const crSkeletonData* skeleton = drawable->GetSkeletonData();
+
+	DrawableStats stats = {};
+	stats.Dimensions = bb.Max - bb.Min;
+	stats.Lights = drawable->GetLightCount();
+	if (skeleton)
+		stats.Bones = skeleton->GetBoneCount();
+
+	for (int i = 0; i < LOD_COUNT; i++)
 	{
-		const asset::TxdAssetPtr& txdAsset = Workspace->GetTexDict(i);
+		const rmcLod* lod = drawable->GetLodGroup().GetLod(i);
+		if (!lod)
+			break; // No more lods in lod group
 
-		rage::grcTextureDictionaryPtr txd = new rage::grcTextureDictionary();
-		if (txdAsset->CompileToGame(txd.Get()))
-			TXDs.Emplace(std::move(txd));
-	}
-}
+		const grmModels& lodModels = lod->GetModels();
 
-void rageam::ModelViewer::CreateEntity(const rage::Vec3V& coors)
-{
-	DeleteEntity();
-
-	m_EntityPos = coors;
-	m_EntityHandle = SHV::OBJECT::CREATE_OBJECT_NO_OFFSET(
-		RAGEAM_HASH, m_EntityPos.X(), m_EntityPos.Y(), m_EntityPos.Z(), FALSE, TRUE, FALSE);
-
-	static auto getEntity = gmAddress::Scan("E8 ?? ?? ?? ?? 90 EB 4B").GetCall().ToFunc<u64(u32)>();
-	m_Entity = getEntity(m_EntityHandle);
-}
-
-void rageam::ModelViewer::DeleteEntity()
-{
-	if (m_EntityHandle == 0)
-		return;
-
-	SHV::ENTITY::SET_ENTITY_AS_MISSION_ENTITY(m_EntityHandle, FALSE, TRUE);
-	SHV::OBJECT::DELETE_OBJECT(&m_EntityHandle);
-	m_Entity = 0;
-}
-
-void rageam::ModelViewer::LoadAndCompileDrawableAsync(ConstWString path)
-{
-	DeleteDrawable();
-
-	file::WPath wPath = path;
-
-	m_FileWatcher.SetEnabled(false);
-	m_LoadTask = BackgroundWorker::Run([&, wPath]
+		stats.Lods++;
+		stats.Models += lodModels.GetSize();
+		for (auto& model : lodModels)
 		{
-			amPtr<asset::DrawableAsset> asset = asset::AssetFactory::LoadFromPath<asset::DrawableAsset>(wPath);
-			if (!asset)
+			const grmGeometries& modelGeoms = model->GetGeometries();
+
+			stats.Geometries += modelGeoms.GetSize();
+			for (auto& geom : modelGeoms)
 			{
-				AM_ERRF(L"ModelScene::LoadAndCompileDrawable() -> Failed to load drawable from path %ls", wPath.GetCStr());
-				return false;
+				stats.Vertices += geom->GetVertexCount();
+				stats.Triangles += geom->GetPrimitiveCount();
 			}
-
-			gtaDrawable* drawable = new gtaDrawable();
-			if (!asset->CompileToGame(drawable))
-			{
-				AM_ERRF(L"ModelScene::LoadAndCompileDrawable() -> Failed to compile drawable from path %ls", wPath.GetCStr());
-				return false;
-			}
-
-			std::unique_lock lock(m_Mutex);
-			m_FileWatcher.SetEntry(String::ToUtf8Temp(asset->GetDrawableModelPath()));
-			m_Drawable = amUniquePtr<gtaDrawable>(drawable);
-			m_DrawableAsset = std::move(asset);
-			m_FileWatcher.SetEnabled(true);
-
-			return true;
-		}, L"ModelViewer -> Compile '%ls'", wPath.GetFileName().GetCStr());
-}
-
-void rageam::ModelViewer::RegisterArchetype()
-{
-	if (m_Archetype)
-		UnregisterArchetype();
-
-	static gmAddress initArchetypeFromDef_Addr = gmAddress::Scan("48 89 5C 24 08 57 48 83 EC 20 49 8B F8 48 8B D9 E8 ?? ?? ?? ?? 44");
-	static void(__fastcall * initArchetypeFromDef)(CBaseModelInfo*, rage::strLocalIndex, rage::fwArchetypeDef*, bool) =
-		initArchetypeFromDef_Addr.To<decltype(initArchetypeFromDef)>();
-
-	static gmAddress baseModelInfoCtor_Addr = gmAddress::Scan("65 48 8B 14 25 58 00 00 00 48 8D 05 ?? ?? ?? ?? 45");
-	static void(__fastcall * baseModelInfoCtor)(CBaseModelInfo*) =
-		baseModelInfoCtor_Addr.To<decltype(baseModelInfoCtor)>();
-
-	CBaseModelInfo* modelInfo = (CBaseModelInfo*)rage_malloc(0xB0);
-	baseModelInfoCtor(modelInfo);
-
-	auto& drBb = m_Drawable->GetLodGroup().GetBoundingBox();
-	auto& drBs = m_Drawable->GetLodGroup().GetBoundingSphere();
-
-	CBaseArchetypeDef modelDef{};
-	modelDef.m_Name = RAGEAM_HASH;
-	modelDef.m_AssetType = rage::fwArchetypeDef::ASSET_TYPE_DRAWABLE;
-	modelDef.m_BoundingBox = drBb;
-	modelDef.m_BsCentre = drBs.GetCenter();
-	modelDef.m_BsRadius = drBs.GetRadius().Get();
-	modelDef.m_AssetName = RAGEAM_HASH;
-	// TODO: This breaks on very large objects, for example plane covering whole map
-	// modelDef.m_LodDist = 100;
-	modelDef.m_LodDist = drBs.GetRadius().Get() + 100.0f; // Temporary solution for large models
-	modelDef.m_PhysicsDictionary = RAGEAM_HASH;
-	modelDef.m_Flags = rage::ADF_STATIC | rage::ADF_BONE_ANIMS;
-	modelDef.m_TextureDictionary = RAGEAM_HASH;
-
-	initArchetypeFromDef(modelInfo, 0, &modelDef, /*false*/ true);
-
-	modelInfo->m_Flags |= 1; // Drawable loaded?
-
-	// TODO: Must be done by init archetype...
-	static gmAddress registerArchetype_Addr = gmAddress::Scan(
-		"48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 83 3D ?? ?? ?? ?? ?? 8B FA");
-	static void(__fastcall * registerArchetype)(CBaseModelInfo*, rage::strLocalIndex) =
-		registerArchetype_Addr.To<decltype(registerArchetype)>();
-	registerArchetype(modelInfo, 0);
-	m_Archetype = modelInfo;
-}
-
-void rageam::ModelViewer::UnregisterArchetype()
-{
-	if (!m_Archetype)
-		return;
-
-	AM_ASSERT(m_ArchetypeOld == nullptr, "ModelScene::UnregisterArchetype() -> Old archetype is not unloaded yet.");
-
-	m_ArchetypeOld = m_Archetype;
-	m_Archetype = nullptr;
-}
-
-void rageam::ModelViewer::FinalizeOldArchetype()
-{
-	if (m_ArchetypeOld && m_ArchetypeOld->m_RefCount == 0)
-	{
-		static auto modelInfoDctor =
-			gmAddress((*gmAddress::Scan("48 8D 05 ?? ?? ?? ?? 4C 89 49 58").GetRef(3).To<u64*>())).ToFunc<void(CBaseModelInfo*, bool)>();
-
-		modelInfoDctor(m_ArchetypeOld, false);
-		rage_free(m_ArchetypeOld);
-		m_ArchetypeOld = nullptr;
-	}
-}
-
-void rageam::ModelViewer::RegisterDrawable()
-{
-	rage::strStreamingModule* drawableStore = hooks::Streaming::GetModule("ydr");
-	if (m_DrawableSlot == rage::INVALID_STR_INDEX)
-		drawableStore->AddSlot(m_DrawableSlot, RAGEAM_HASH);
-	drawableStore->Set(m_DrawableSlot, m_Drawable.get());
-
-	//rage::grcTextureDictionary* dict = m_Drawable->GetShaderGroup()->GetEmbedTextureDictionary();
-	//if (dict)
-	//{
-	//	rage::strStreamingModule* txdStore = hooks::Streaming::GetModule("ytd");
-	//	if (m_DictSlot == rage::INVALID_STR_INDEX)
-	//	{
-	//		txdStore->AddSlot(m_DictSlot, RAGEAM_HASH);
-	//		dict->AddRef();
-	//	}
-	//	txdStore->Set(m_DictSlot, m_Drawable->GetShaderGroup()->GetEmbedTextureDictionary());
-	//}
-}
-
-void rageam::ModelViewer::UnregisterDrawable()
-{
-	rage::strStreamingModule* drawableStore = hooks::Streaming::GetModule("ydr");
-	if (m_DrawableSlot != rage::INVALID_STR_INDEX)
-	{
-		drawableStore->Set(m_DrawableSlot, nullptr);
-		drawableStore->RemoveSlot(m_DrawableSlot);
-		m_DrawableSlot = rage::INVALID_STR_INDEX;
-	}
-
-	//rage::strStreamingModule* txdStore = hooks::Streaming::GetModule("ytd");
-	//if (m_DictSlot != rage::INVALID_STR_INDEX)
-	//{
-	//	m_Drawable->GetShaderGroup()->GetEmbedTextureDictionary()->Release();
-	//	txdStore->Set(m_DictSlot, nullptr);
-	//	txdStore->RemoveSlot(m_DictSlot);
-	//	m_DictSlot = rage::INVALID_STR_INDEX;
-	//}
-}
-
-void rageam::ModelViewer::RequestReload()
-{
-	m_HasModelRequest = true;
-	if (m_IsLoaded)
-		m_CleanUpRequested = true;
-}
-
-void rageam::ModelViewer::DeleteDrawable()
-{
-	if (!m_Drawable)
-		return;
-
-	// Temporary hack until we have simple allocator back because os allocator can't detect
-	// if block is valid or not so it cant dispatch delete to virtual allocator for builded resources
-	if (m_Drawable->HasMap())
-		GetAllocator(rage::ALLOC_TYPE_VIRTUAL)->Free(m_Drawable.release());
-	else
-		m_Drawable = nullptr;
-}
-
-bool rageam::ModelViewer::OnAbort()
-{
-	// Wait for current loading task
-	if (m_LoadTask)
-		return false;
-
-	m_CleanUpRequested = true;
-	return m_IsLoaded == false;
-}
-
-void rageam::ModelViewer::OnEarlyUpdate()
-{
-	std::unique_lock lock(m_Mutex);
-
-	FinalizeOldArchetype();
-}
-
-void rageam::ModelViewer::OnLateUpdate()
-{
-	std::unique_lock lock(m_Mutex);
-
-	// Model file was changed, reload drawable
-	if (m_FileWatcher.GetChangeOccuredAndReset())
-	{
-		RequestReload();
-	}
-
-	// We accept request only once previous entity was cleaned up
-	if (m_HasModelRequest && !m_CleanUpRequested)
-	{
-		// Use drawable from request or load it from .idr
-		if (m_DrawableRequest)
-		{
-			DeleteDrawable();
-			m_Drawable = std::move(m_DrawableRequest);
-		}
-		else if (!m_LoadTask)
-		{
-			LoadAndCompileDrawableAsync(m_LoadRequest->Path);
-		}
-
-		// Use existing drawable (if we just want to respawn entity or if drawable
-		// was set externally) or compile a new one from asset
-		if (m_Drawable)
-		{
-			RegisterDrawable();
-			RegisterArchetype();
-			CreateEntity(m_EntityPos);
-			m_IsLoaded = true;
-
-			//if (m_Drawable->GetSkeletonData())
-			//	m_Drawable->GetSkeletonData()->DebugPrint();
-
-			if (LoadCallback) LoadCallback(m_DrawableAsset, m_Drawable.get());
-			m_HasModelRequest = false;
-			m_LoadTask = nullptr;
 		}
 	}
 
-	if (m_LoadTask && m_LoadTask->IsFinished() && !m_LoadTask->IsSuccess())
-	{
-		// Failed to load...
-		m_LoadTask = nullptr;
-		m_HasModelRequest = false;
-	}
-
-	if (m_CleanUpRequested)
-	{
-		m_FileWatcher.SetEnabled(false);
-
-		// Full entity unload takes more than one frame, we first delete
-		// entity and on the next frame we clean up the rest
-		if (m_EntityHandle != 0) // First tick
-		{
-			AM_DEBUGF("ModelScene -> Clean Up requested, removing entity...");
-			DeleteEntity();
-		}
-		else // Second tick
-		{
-			AM_DEBUGF("ModelScene -> Finishing clean up");
-			UnregisterArchetype();
-			UnregisterDrawable();
-			DeleteDrawable();
-			m_IsLoaded = false;
-			m_CleanUpRequested = false;
-		}
-	}
+	return stats;
 }
 
-void rageam::ModelViewer::SetupFor(ConstWString path, const rage::Vec3V& coors)
-{
-	SetEntityPos(coors);
-
-	std::unique_lock lock(m_Mutex);
-	m_LoadRequest = std::make_unique<LoadRequest>(path);
-	RequestReload();
-}
-
-void rageam::ModelViewer::CleanUp()
-{
-	std::unique_lock lock(m_Mutex);
-	m_CleanUpRequested = true;
-}
-
-void rageam::ModelViewer::SetEntityPos(const rage::Vec3V& pos)
-{
-	std::unique_lock lock(m_Mutex);
-	m_EntityPos = pos;
-
-	if (m_EntityHandle != 0)
-	{
-		scrInvoke([=]
-			{
-				SHV::ENTITY::SET_ENTITY_COORDS_NO_OFFSET(
-					m_EntityHandle, pos.X(), pos.Y(), pos.Z(), FALSE, FALSE, FALSE);
-				SHV::GRAPHICS::UPDATE_LIGHTS_ON_ENTITY(m_EntityHandle);
-			});
-	}
-}
-
-void rageam::ModelViewer::GetState(ModelViewerState& state)
-{
-	std::unique_lock lock(m_Mutex);
-
-	if (m_Entity)
-	{
-		rage::Mat34V world = *(rage::Mat34V*)(m_Entity + 0x60);
-		state.EntityWorld = world.To44();
-	}
-	state.EntityPtr = (pVoid)m_Entity;
-	state.EntityHandle = m_EntityHandle;
-	state.IsEntitySpawned = m_Entity != 0;
-	state.IsLoading = m_LoadTask && !m_LoadTask->IsFinished();;
-}
-
-rageam::asset::DrawableAssetMap& rageam::ModelSceneUI::GetDrawableMap() const
+rageam::asset::DrawableAssetMap& rageam::integration::ModelScene::GetDrawableMap() const
 {
 	return m_Context.DrawableAsset->CompiledDrawableMap;
 }
 
-rage::grmModel* rageam::ModelSceneUI::GetMeshAttr(u16 nodeIndex) const
+rage::grmModel* rageam::integration::ModelScene::GetMeshAttr(u16 nodeIndex) const
 {
-	return GetDrawableMap().GetModelFromScene(m_Context.Drawable, nodeIndex);
+	return GetDrawableMap().GetModelFromScene(GetDrawable(), nodeIndex);
 }
 
-rage::crBoneData* rageam::ModelSceneUI::GetBoneAttr(u16 nodeIndex) const
+rage::crBoneData* rageam::integration::ModelScene::GetBoneAttr(u16 nodeIndex) const
 {
-	return GetDrawableMap().GetBoneFromScene(m_Context.Drawable, nodeIndex);
+	return GetDrawableMap().GetBoneFromScene(GetDrawable(), nodeIndex);
 }
 
-rage::phBound* rageam::ModelSceneUI::GetBoundAttr(u16 nodeIndex) const
+rage::phBound* rageam::integration::ModelScene::GetBoundAttr(u16 nodeIndex) const
 {
-	return GetDrawableMap().GetBoundFromScene(m_Context.Drawable, nodeIndex);
+	return GetDrawableMap().GetBoundFromScene(GetDrawable(), nodeIndex);
 }
 
-CLightAttr* rageam::ModelSceneUI::GetLightAttr(u16 nodeIndex) const
+CLightAttr* rageam::integration::ModelScene::GetLightAttr(u16 nodeIndex) const
 {
-	return GetDrawableMap().GetLightFromScene(m_Context.Drawable, nodeIndex);
+	return GetDrawableMap().GetLightFromScene(GetDrawable(), nodeIndex);
 }
 
-rage::Vec3V rageam::ModelSceneUI::GetEntityScenePos() const
+rageam::Vec3V rageam::integration::ModelScene::GetScenePosition() const
 {
-	return m_IsolatedSceneActive ? DEFAULT_ISOLATED_POS : m_ScenePosition;
+	return m_IsolatedSceneOn ? SCENE_ISOLATED_POS : m_ScenePosition;
 }
 
-void rageam::ModelSceneUI::UpdateDrawableStats()
+void rageam::integration::ModelScene::CreateArchetypeDefAndSpawnGameEntity()
 {
-	gtaDrawable* drawable = m_Context.Drawable;
+	static constexpr u32 ASSET_NAME_HASH = rage::joaat("amTestBedArchetype");
 
-	m_NumModels = 0;
-	m_NumGeometries = 0;
-	m_VertexCount = 0;
-	m_TriCount = 0;
-	m_LightCount = 0;
+	// Make sure that lod distance is not smaller than drawable itself
+	float lodDistance = m_Context.Drawable->GetBoundingSphere().GetRadius().Get();
+	lodDistance += 100.0f;
 
-	m_LightCount = drawable->m_Lights.GetSize();
+	m_ArchetypeDef = std::make_shared<CBaseArchetypeDef>();
+	m_ArchetypeDef->Name = ASSET_NAME_HASH;
+	m_ArchetypeDef->AssetName = ASSET_NAME_HASH;
+	m_ArchetypeDef->LodDist = lodDistance;
+	m_ArchetypeDef->Flags = rage::ADF_STATIC | rage::ADF_BONE_ANIMS;
 
-	rage::rmcLodGroup& lodGroup = drawable->GetLodGroup();
-	const rage::spdAABB& boundingBox = lodGroup.GetBoundingBox();
-
-	m_Dimensions = boundingBox.Max - boundingBox.Min;
-	m_NumLods = lodGroup.GetLodCount();
-	for (int i = 0; i < m_NumLods; i++)
-	{
-		rage::rmcLod* lod = lodGroup.GetLod(i);
-		auto& lodModels = lod->GetModels();
-
-		m_NumModels += lodModels.GetSize();
-		for (auto& model : lodModels)
-		{
-			auto& modelGeoms = model->GetGeometries();
-
-			m_NumGeometries += modelGeoms.GetSize();
-			for (auto& geom : modelGeoms)
-			{
-				m_VertexCount += geom->GetVertexCount();
-				m_TriCount += geom->GetPrimitiveCount();
-			}
-		}
-	}
+	m_GameEntity.Create();
+	m_GameEntity->Spawn(m_Context.Drawable, m_ArchetypeDef, GetScenePosition());
 }
 
-void rageam::ModelSceneUI::ResetCameraPosition()
+void rageam::integration::ModelScene::WarpEntityToScenePosition()
 {
-	if (!m_Camera)
+	if (m_GameEntity)
+		m_GameEntity->SetPosition(GetScenePosition());
+}
+
+void rageam::integration::ModelScene::OnDrawableCompiled()
+{
+	m_DrawableStats = DrawableStats::ComputeFrom(m_Context.Drawable.get());
+	m_CompilerMessages.Destroy();
+	m_CompilerProgress = 1.0;
+	m_SelectedNodeIndex = -1;
+	m_SelectedNodeAttr = SceneNodeAttr_None;
+	m_LightEditor.Reset();
+	m_MaterialEditor.Reset();
+
+	CreateArchetypeDefAndSpawnGameEntity();
+}
+
+void rageam::integration::ModelScene::UpdateContextAndHotReloading()
+{
+	m_Context = {};
+
+	// No scene was even requested
+	if (!m_SceneGlue)
 		return;
 
-	rage::Vec3V camPos;
-	rage::Vec3V targetPos;
-	rage::Vec3V scenePos = m_IsolatedSceneActive ? DEFAULT_ISOLATED_POS : DEFAULT_POS;
+	std::unique_lock glueLock(m_SceneGlue->Mutex);
 
-	if (m_Context.Drawable)
-	{
-		rage::rmcLodGroup& lodGroup = m_Context.Drawable->GetLodGroup();
-		auto& bb = lodGroup.GetBoundingBox();
-		auto& bs = lodGroup.GetBoundingSphere();
+	// No drawable is currently loaded, skip
+	if (!m_SceneGlue->HotDrawable)
+		return;
 
-		camPos = scenePos;
-		// Shift camera away to fully see bounding sphere + add light padding
-		camPos += rage::VEC_BACK * bs.GetRadius() * 1.5f;
-		// Entities are spawned with bottom of bounding box aligned to specified coord
-		targetPos = scenePos + rage::VEC_UP * bb.Height() * rage::S_HALF;
-	}
-	else
+	// Fill context
+	asset::HotDrawableInfo info = m_SceneGlue->HotDrawable->GetInfo();
+	m_Context.IsDrawableLoading = info.IsLoading;
+	m_Context.DrawableAsset = info.DrawableAsset;
+	m_Context.Drawable = info.Drawable;
+	m_Context.TXDs = info.TXDs;
+	// Entity will be NULL if drawable just compiled
+	if (m_GameEntity)
 	{
-		camPos = scenePos + rage::VEC_FORWARD;
-		targetPos = scenePos;
+		m_Context.EntityHandle = m_GameEntity->GetHandle();
+		m_Context.EntityWorld = m_GameEntity->GetWorldTransform();
+		m_Context.EntityPtr = m_GameEntity->GetEntityPointer();
 	}
 
-	m_Camera->SetPosition(camPos);
-	m_Camera->LookAt(targetPos);
-}
+	// Get applied flags and reset state
+	AssetHotFlags hotFlags = m_SceneGlue->HotFlags;
+	m_SceneGlue->HotFlags = AssetHotFlags_None;
+	m_Context.HotFlags = hotFlags;
 
-void rageam::ModelSceneUI::UpdateCamera()
-{
-	if (m_CameraEnabled)
+	// Drawable was successfully compiled, we can spawn entity now
+	if (hotFlags & AssetHotFlags_DrawableCompiled)
 	{
-		if (m_UseOrbitCamera)
-			m_Camera.Create<integration::OrbitCamera>();
-		else
-			m_Camera.Create<integration::FreeCamera>();
-
-		ResetCameraPosition();
-		m_Camera->SetActive(true);
-	}
-	else
-	{
-		m_Camera = nullptr;
+		OnDrawableCompiled();
 	}
 }
 
-void rageam::ModelSceneUI::DrawSceneGraphRecurse(const graphics::SceneNode* sceneNode)
+void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::SceneNode* sceneNode)
 {
 	if (!sceneNode)
 		return;
@@ -544,7 +241,7 @@ void rageam::ModelSceneUI::DrawSceneGraphRecurse(const graphics::SceneNode* scen
 	DrawSceneGraphRecurse(sceneNode->GetNextSibling());
 }
 
-void rageam::ModelSceneUI::DrawSceneGraph(const graphics::SceneNode* sceneNode)
+void rageam::integration::ModelScene::DrawSceneGraph(const graphics::SceneNode* sceneNode)
 {
 	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0, 0));
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 0));
@@ -559,12 +256,12 @@ void rageam::ModelSceneUI::DrawSceneGraph(const graphics::SceneNode* sceneNode)
 	ImGui::PopStyleVar(3);
 }
 
-void rageam::ModelSceneUI::DrawSkeletonGraph()
+void rageam::integration::ModelScene::DrawSkeletonGraph()
 {
 
 }
 
-void rageam::ModelSceneUI::DrawNodePropertiesUI(u16 nodeIndex) const
+void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex) const
 {
 	graphics::SceneNode* sceneNode = m_Context.GetScene()->GetNode(nodeIndex);
 
@@ -691,7 +388,7 @@ void rageam::ModelSceneUI::DrawNodePropertiesUI(u16 nodeIndex) const
 	ImGui::End();
 }
 
-void rageam::ModelSceneUI::DrawDrawableUI()
+void rageam::integration::ModelScene::DrawDrawableUI()
 {
 	m_JustSelectedNodeAttr = SceneNodeAttr_None;
 
@@ -724,18 +421,19 @@ void rageam::ModelSceneUI::DrawDrawableUI()
 			if (ImGui::InputFloat3("Scene Position", (float*)&scenePos, "%g"))
 			{
 				m_ScenePosition = scenePos;
-				UpdateScenePosition();
+				WarpEntityToScenePosition();
 			}
 
 			if (ImGui::Button("Pin scene to interior"))
 			{
-				scrInvoke([&]
-					{
-						SHV::Ped localPed = SHV::PLAYER::GET_PLAYER_PED(-1);
-						SHV::Hash room = SHV::INTERIOR::GET_ROOM_KEY_FROM_ENTITY(localPed);
-						SHV::Interior interior = SHV::INTERIOR::GET_INTERIOR_FROM_ENTITY(localPed);
-						SHV::INTERIOR::FORCE_ROOM_FOR_ENTITY((int)m_Context.ViewerState.EntityHandle, interior, room);
-					});
+				scrBegin();
+				{
+					SHV::Ped localPed = SHV::PLAYER::GET_PLAYER_PED(-1);
+					SHV::Hash room = SHV::INTERIOR::GET_ROOM_KEY_FROM_ENTITY(localPed);
+					SHV::Interior interior = SHV::INTERIOR::GET_INTERIOR_FROM_ENTITY(localPed);
+					SHV::INTERIOR::FORCE_ROOM_FOR_ENTITY(m_Context.EntityHandle, interior, room);
+				}
+				scrEnd();
 			}
 			ImGui::SameLine();
 			ImGui::HelpMarker("Force entity into current player interior room.");
@@ -745,11 +443,11 @@ void rageam::ModelSceneUI::DrawDrawableUI()
 
 		if (ImGui::BeginTabItem("Debug"))
 		{
-			ImGui::Text("Entity Handle: %u", m_Context.ViewerState.EntityHandle);
+			ImGui::Text("Entity Handle: %i", m_Context.EntityHandle);
 			char ptrBuf[64];
-			sprintf_s(ptrBuf, 64, "%p", m_Context.Drawable);
+			sprintf_s(ptrBuf, 64, "%p", m_Context.Drawable.get());
 			ImGui::InputText("Drawable Ptr", ptrBuf, 64, ImGuiInputTextFlags_ReadOnly);
-			sprintf_s(ptrBuf, 64, "%p", m_Context.ViewerState.EntityPtr);
+			sprintf_s(ptrBuf, 64, "%p", m_Context.EntityPtr);
 			ImGui::InputText("Entity Ptr", ptrBuf, 64, ImGuiInputTextFlags_ReadOnly);
 			ImGui::EndTabItem();
 		}
@@ -875,138 +573,24 @@ void rageam::ModelSceneUI::DrawDrawableUI()
 	//}
 }
 
-void rageam::ModelSceneUI::DrawStarBar()
+void rageam::integration::ModelScene::OnRender()
 {
-	if (SlGui::BeginToolWindow(ICON_AM_STAR" StarBar")) // Scene Toolbar / CameraStar
-	{
-		if (SlGui::ToggleButton(ICON_AM_CAMERA_GIZMO" Camera", m_CameraEnabled))
-			UpdateCamera();
+	UpdateContextAndHotReloading();
 
-		ImGui::PushStyleVar(ImGuiStyleVar_DisabledAlpha, 0.2f);
-		if (!m_CameraEnabled) ImGui::BeginDisabled();
-		{
-			if (ImGui::IsKeyPressed(ImGuiKey_O, false))
-			{
-				m_UseOrbitCamera = !m_UseOrbitCamera;
-				UpdateCamera();
-			}
-
-			if (SlGui::ToggleButton(ICON_AM_ORBIT" Orbit", m_UseOrbitCamera))
-				UpdateCamera();
-			ImGui::ToolTip("Use orbit camera instead of free");
-
-			if (SlGui::ToggleButton(ICON_AM_OBJECT " Isolate", m_IsolatedSceneActive))
-			{
-				UpdateScenePosition();
-				ResetCameraPosition();
-			}
-			ImGui::ToolTip("Isolates scene model");
-
-			// Separate toggle buttons from actions
-			if (!m_CameraEnabled) ImGui::EndDisabled(); // Draw separator without opacity
-			ImGui::Separator();
-			if (!m_CameraEnabled) ImGui::BeginDisabled();
-
-			if (SlGui::MenuButton(ICON_AM_HOME" Reset Cam"))
-				ResetCameraPosition();
-
-			if (SlGui::MenuButton(ICON_AM_PED_ARROW" Warp Ped"))
-			{
-				const rage::Vec3V pos = m_Camera->GetPosition();
-				scrInvoke([=]
-					{
-						float groundZ = pos.Z();
-						SHV::GAMEPLAY::GET_GROUND_Z_FOR_3D_COORD(pos.X(), pos.Y(), pos.Z(), &groundZ, FALSE);
-
-						SHV::Ped ped = SHV::PLAYER::PLAYER_PED_ID();
-						SHV::PED::SET_PED_COORDS_KEEP_VEHICLE(ped, pos.X(), pos.Y(), groundZ);
-					});
-			}
-			ImGui::ToolTip("Teleports player ped on surface to camera position.");
-		}
-
-		if (!m_CameraEnabled) ImGui::EndDisabled();
-		ImGui::PopStyleVar(1); // DisabledAlpha
-
-		// World / Local gizmo switch
-		ImGui::Separator();
-		bool useWorld = Im3D::GetGizmoUseWorld();
-		ConstString worldStr = ICON_AM_WORLD" World";
-		ConstString localStr = ICON_AM_LOCAL" World";
-		if (SlGui::ToggleButton(useWorld ? worldStr : localStr, useWorld))
-			Im3D::SetGizmoUseWorld(useWorld);
-		ImGui::ToolTip("Show edit gizmos in world or local space.");
-		ImGui::Separator();
-		if (ImGui::IsKeyPressed(ImGuiKey_Period, false)) // Hotkey switch
-			Im3D::SetGizmoUseWorld(!useWorld);
-
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1);
-		if (ImGui::BeginMenu(ICON_AM_VISIBILITY" Overlay"))
-		{
-			SlGui::Checkbox("Light Outlines", &m_LightEditor.ShowLightOutlines);
-			ImGui::SameLine();
-			SlGui::Checkbox("Only Selected", &m_LightEditor.ShowOnlySelectedLightOutline);
-			bool dummy;
-			SlGui::Checkbox("Drawable Bound Box", &dummy);
-			SlGui::Checkbox("Collision Mesh", &dummy);
-			SlGui::Checkbox("Skeleton Bones", &dummy);
-
-			ImGui::EndMenu();
-		}
-		ImGui::PopStyleVar(2); // WindowPadding, WindowBorderSize
-	}
-	SlGui::EndToolWindow();
-}
-
-void rageam::ModelSceneUI::UpdateScenePosition()
-{
-	m_ModelViewer->SetEntityPos(GetEntityScenePos());
-
-	scrInvoke([=]
-		{
-			bool display = !m_IsolatedSceneActive;
-			SHV::UI::DISPLAY_HUD(display);
-			SHV::UI::DISPLAY_RADAR(display);
-		});
-}
-
-void rageam::ModelSceneUI::OnRender()
-{
-	std::unique_lock lock(m_Mutex);
-
-	m_ModelViewer->GetState(m_Context.ViewerState);
-
-	DrawStarBar();
-
-	// We don't want camera controls interference imgui
-	if (m_Camera)
-	{
-		m_Camera->DisableControls(GImGui->HoveredWindow != nullptr);
-	}
-
-	// Switch camera with ']'
-	if (ImGui::IsKeyPressed(ImGuiKey_RightBracket))
-	{
-		m_CameraEnabled = !m_CameraEnabled;
-		UpdateCamera();
-	}
-
-	bool isModelLoading = m_Context.ViewerState.IsLoading;
+	bool isLoading = m_Context.IsDrawableLoading;
+	bool isSpawned = m_Context.EntityHandle != 0;
+	bool needUnload = false;
 
 	if (ImGui::Begin("Scene", 0, ImGuiWindowFlags_MenuBar))
 	{
-		if (isModelLoading) ImGui::BeginDisabled();
+		// Menu Bar
+		if (!isSpawned) ImGui::BeginDisabled();
 		if (ImGui::BeginMenuBar())
 		{
-			//if (ImGui::MenuItem(ICON_AM_LOAD_SCENE" Load"))
-			//{
-			//	m_ModelScene->SetupFor(m_AssetPath, GetEntityScenePos());
-			//}
-
+			// TODO: Should work via closing window?
 			if (ImGui::MenuItem(ICON_AM_CANCEL" Unload"))
 			{
-				m_ModelViewer->CleanUp();
+				needUnload = true;
 			}
 
 			if (ImGui::MenuItem(ICON_AM_BALL" Material Editor"))
@@ -1017,85 +601,129 @@ void rageam::ModelSceneUI::OnRender()
 
 			ImGui::EndMenuBar();
 		}
-		if (isModelLoading) ImGui::EndDisabled();
+		if (!isSpawned) ImGui::EndDisabled();
 
-		// Loading indicator
-		// TODO: Progress bar with status
-		if (isModelLoading)
+		// Display progress if loading
+		if (isLoading)
 		{
-			int type = (int)(ImGui::GetTime() * 5) % 3;
-			ConstString loadingText = ImGui::FormatTemp("Loading%s", type == 0 ? "." : type == 1 ? ".." : "...");
-			ImGui::TextCentered(loadingText, ImGuiTextCenteredFlags_Horizontal | ImGuiTextCenteredFlags_Vertical);
+			std::unique_lock lock(m_CompilerMutex);
+
+			// Leave space for progress bar
+			ImGui::ProgressBar(static_cast<float>(m_CompilerProgress));
+			float childHeight = 0;
+				//ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeight() - ImGui::GetStyle().FramePadding.y * 2;
+			if (ImGui::BeginChild("##COMPILER_PROGRESS", ImVec2(0, childHeight)))
+			{
+				for (ConstString msg : m_CompilerMessages)
+				{
+					ImGui::Text(msg);
+				}
+
+				if (rage::Math::AlmostEquals(ImGui::GetScrollY(), ImGui::GetScrollMaxY()))
+					ImGui::SetScrollY(ImGui::GetScrollMaxY());
+
+			}
+			ImGui::EndChild();
+
+			// Align progress bar to bottom of window
+			//ImGuiWindow* window = ImGui::GetCurrentWindow();
+			//window->DC.CursorPos = window->WorkRect.GetBL() - ImVec2(0, ImGui::GetFrameHeight());
+			//ImGui::ProgressBar(static_cast<float>(m_CompilerProgress));
 		}
 
-		if (m_Context.ViewerState.IsEntitySpawned)
+		if (isSpawned)
 		{
 			DrawDrawableUI();
 		}
 	}
 	ImGui::End(); // Scene
 
-	if (m_Context.ViewerState.IsEntitySpawned)
+	if (needUnload)
+	{
+		Unload();
+		return;
+	}
+
+	if (isSpawned)
 	{
 		m_LightEditor.Render();
 		m_MaterialEditor.Render();
 	}
-
-	m_Context.JustChangedTXD = -1;
 }
 
-void rageam::ModelSceneUI::OnDrawableLoaded(const asset::DrawableAssetPtr& asset, gtaDrawable* drawable)
+rageam::integration::ModelScene::ModelScene() : m_LightEditor(&m_Context), m_MaterialEditor(&m_Context)
 {
-	// Note: this callback is called from game thread
-	// std::unique_lock lock(m_Mutex); // TODO: This mutex causes deadlock...
+	m_Context = {};
+	m_DrawableStats = {};
+}
 
-	m_Context.Drawable = drawable;
-	m_Context.DrawableAsset = asset;
-	m_Context.Workspace = asset->WorkspaceTXD;
+void rageam::integration::ModelScene::Unload()
+{
+	m_GameEntity.Destroy();
+	m_SceneGlue.Destroy();
+	m_DrawableStats = {};
+	m_Context = {};
+	m_CompilerMessages.Clear();
+	m_CompilerProgress = 0.0;
+}
 
-	// Scan workspace TXDs
-	if (m_Context.Workspace)
-	{
-		AM_DEBUGF("ModelSceneUI::OnDrawableLoaded() -> %u TXDs in workspace", m_Context.Workspace->GetTexDictCount());
-		for (u16 i = 0; i < m_Context.Workspace->GetTexDictCount(); i++)
+void rageam::integration::ModelScene::LoadFromPatch(ConstWString path)
+{
+	Unload();
+
+	m_SceneGlue.Create();
+
+	std::unique_lock glueLock(m_SceneGlue->Mutex);
+
+	m_SceneGlue->HotDrawable = std::make_unique<asset::HotDrawable>(path);
+	// Setup callback to display progress in UI
+	m_SceneGlue->HotDrawable->CompileCallback = [&](ConstWString message, double progress)
 		{
-			const asset::TxdAssetPtr& texDict = m_Context.Workspace->GetTexDict(i);
-			AM_DEBUGF("ModelSceneUI::OnDrawableLoaded() -> %ls", texDict->GetAssetName());
-		}
+			std::unique_lock lock(m_CompilerMutex);
+			m_CompilerMessages.Construct(String::ToAnsiTemp(message));
+			m_CompilerProgress = progress;
+		};
+	m_SceneGlue->HotDrawable->Load();
+}
 
-		m_Context.CompileWorkspaceTXDs();
+void rageam::integration::ModelScene::SetIsolatedSceneOn(bool on)
+{
+	m_IsolatedSceneOn = on;
+	ResetCameraPosition();
+	WarpEntityToScenePosition();
+}
+
+void rageam::integration::ModelScene::ResetCameraPosition() const
+{
+	auto& camera = GameIntegration::GetInstance()->Camera;
+	if (camera == nullptr)
+		return;
+
+	rage::Vec3V camPos;
+	rage::Vec3V targetPos;
+	rage::Vec3V scenePos = m_IsolatedSceneOn ? SCENE_ISOLATED_POS : m_ScenePosition;
+
+	// Set view on drawable center if was spawned, otherwise just target scene position
+	if (m_Context.Drawable)
+	{
+		rage::rmcLodGroup& lodGroup = m_Context.Drawable->GetLodGroup();
+		auto& bb = lodGroup.GetBoundingBox();
+		auto& bs = lodGroup.GetBoundingSphere();
+
+		camPos = scenePos;
+		// Shift camera away to fully see bounding sphere + add light padding
+		camPos += rage::VEC_BACK * bs.GetRadius() * 1.5f;
+		// Entities are spawned with bottom of bounding box aligned to specified coord
+		targetPos = scenePos + rage::VEC_UP * bb.Height() * rage::S_HALF;
+	}
+	else
+	{
+		camPos = scenePos + rage::VEC_FORWARD + rage::VEC_UP;
+		targetPos = scenePos;
 	}
 
-	m_SelectedNodeIndex = -1;
-	m_SelectedNodeAttr = SceneNodeAttr_None;
-
-	m_LightEditor.Reset();
-	m_MaterialEditor.Reset();
-
-	UpdateDrawableStats();
+	camera->SetPosition(camPos);
+	camera->LookAt(targetPos);
 }
 
-rageam::ModelSceneUI::ModelSceneUI() : m_LightEditor(&m_Context), m_MaterialEditor(&m_Context)
-{
-	//// Temporary solution until we have explorer integration
-	//wchar_t* path;
-	//if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Desktop, 0, 0, &path)))
-	//{
-	//	m_AssetPath = path;
-	//	m_AssetPath /= L"rageAm.idr";
-
-	//	CoTaskMemFree(path);
-	//}
-
-	m_ModelViewer.Create();
-	m_ModelViewer->LoadCallback = [&](const asset::DrawableAssetPtr& asset, gtaDrawable* drawable)
-		{
-			OnDrawableLoaded(asset, drawable);
-		};
-}
-
-void rageam::ModelSceneUI::LoadFromPatch(ConstWString path)
-{
-	m_ModelViewer->SetupFor(path, GetEntityScenePos());
-}
 #endif
