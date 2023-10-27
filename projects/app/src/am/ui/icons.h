@@ -52,7 +52,8 @@ namespace rageam::ui
 		/**
 		 * \brief Gets image icon from path "data\icons\*.png"
 		 * \return Pointer to icon instance if file found; Otherwise nullptr.
+		 * \remarks Size is used only for .ico files
 		 */
-		Image* GetIcon(ConstString name, eIconSize size) const;
+		Image* GetIcon(ConstString name, eIconSize size = IconSize_256) const;
 	};
 }
