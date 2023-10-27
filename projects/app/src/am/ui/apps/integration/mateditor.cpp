@@ -1,5 +1,3 @@
-#include "am/asset/types/drawablehelpers.h"
-#include "am/ui/context.h"
 #ifdef AM_INTEGRATED
 
 #include "mateditor.h"
