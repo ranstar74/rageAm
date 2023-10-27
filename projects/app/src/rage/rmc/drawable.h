@@ -44,6 +44,9 @@ namespace rage
 		rmcLodGroup& GetLodGroup() { return m_LodGroup; }
 		grmShaderGroup* GetShaderGroup() const { return m_ShaderGroup.Get(); }
 
+		const auto& GetBoundingBox() const { return m_LodGroup.GetBoundingBox(); }
+		const auto& GetBoundingSphere() const { return m_LodGroup.GetBoundingSphere(); }
+
 		// After 'usetessellation' was altered in shader params this function must be
 		// called in order to update render masks & sort geometries
 		// Otherwise tessellation won't be applied

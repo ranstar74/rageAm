@@ -22,12 +22,14 @@ namespace rage
 		LOD_COUNT,
 	};
 
+	using grmModels = pgUPtrArray<grmModel>;
+
 	/**
 	 * \brief Collection of models belonging to particular drawable lod.
 	 */
 	class rmcLod
 	{
-		pgUPtrArray<grmModel> m_Models;
+		grmModels m_Models;
 
 	public:
 		rmcLod() = default;
@@ -37,8 +39,9 @@ namespace rage
 		}
 		rmcLod(const rmcLod& other) = default;
 
-		pgUPtrArray<grmModel>& GetModels() { return m_Models; }
-		grmModel* GetModel(u16 index) { return m_Models[index].Get(); }
+		auto GetModels() -> grmModels& { return m_Models; }
+		auto GetModels() const -> const grmModels& { return m_Models; }
+		auto GetModel(u16 index) -> grmModel* { return m_Models[index].Get(); }
 
 		u32 ComputeBucketMask(const grmShaderGroup* shaderGroup) const;
 	};

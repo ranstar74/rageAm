@@ -50,6 +50,8 @@ namespace rage
 		static pgUPtr<grmAABBGroup> Copy(const pgUPtr<grmAABBGroup>& other, u16 bbCount);
 	};
 
+	using grmGeometries = pgUPtrArray<grmGeometryQB>;
+
 	/**
 	 * \brief Also known as 'Mesh'. Model, just like mesh, may contain multiple primitives (Geometries).
 	 */
@@ -57,25 +59,25 @@ namespace rage
 	{
 		// NOTE: Native code uses names 'MatrixCount' 'MatrixIndex' for bones but I've decided that bone is simpler to understand
 
-		pgUPtrArray<grmGeometryQB>	m_Geometries;
+		grmGeometries			m_Geometries;
 		// For multiple bounding boxes there's the main one for all of them (basically model BB)
-		pgUPtr<grmAABBGroup>		m_AABBs;
-		pgCArray<u16>				m_GeometryToMaterial;
-		u8							m_BoneCount; // Num of bones linked to this skinned model
+		pgUPtr<grmAABBGroup>	m_AABBs;
+		pgCArray<u16>			m_GeometryToMaterial;
+		u8						m_BoneCount; // Num of bones linked to this skinned model
 		// 1 -	Relative transforms for skinning. Used on all models that use actual bone skinning (with bone weights)
 		//		If you don't set this, game will apply default bone transformations to the bones and they will appear offset
-		u8							m_Flags;
-		u8							m_Type;
+		u8						m_Flags;
+		u8						m_Type;
 		// Used for 'transform' skinning without weighting, which basically links model to bone without deformation
-		u8							m_BoneIndex;
-		u8							m_RenderFlags; // Old name - RenderMask
+		u8						m_BoneIndex;
+		u8						m_RenderFlags; // Old name - RenderMask
 		// IsSkinned - the lowest bit, the rest 7 high bits are number of geometries with tessellation
-		u8							m_TesselatedCountAndIsSkinned;
+		u8						m_TesselatedCountAndIsSkinned;
 		// Not sure why this variable exists in the first place because m_Geometries is atArray,
 		// but we must keep and maintain it anyway because game & other tools use it
 		// This possibly could be num of 'active' geometries
-		u16							m_GeometryCount;
-		u64							m_Unknown30;
+		u16						m_GeometryCount;
+		u64						m_Unknown30;
 
 		void SetTesselatedGeometryCount(u8 count)
 		{
@@ -97,7 +99,7 @@ namespace rage
 		const spdAABB& GetCombinedBoundingBox() const;
 		const spdAABB& GetGeometryBoundingBox(u16 geometryIndex) const;
 
-		const pgUPtrArray<grmGeometryQB>& GetGeometries() { return m_Geometries; }
+		const grmGeometries& GetGeometries() { return m_Geometries; }
 
 		u16 GetMaterialIndex(u16 geometryIndex) const;
 		void SetMaterialIndex(u16 geometryIndex, u16 materialIndex) const;
