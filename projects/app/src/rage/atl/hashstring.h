@@ -13,8 +13,6 @@
 
 namespace rage
 {
-	using atHashValue = u32;
-
 	/**
 	 * \brief Holds hash and sometimes original string.
 	 */
