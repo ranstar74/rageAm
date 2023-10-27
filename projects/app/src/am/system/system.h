@@ -13,7 +13,6 @@
 #include "am/task/worker.h"
 #include "am/ui/context.h"
 #include "exception/handler.h"
-#include "rage/grcore/fvf.h"
 
 #ifdef AM_INTEGRATED
 #include "am/integration/gamehooks.h"
@@ -28,6 +27,9 @@ namespace rageam
 	class System
 	{
 		amUniquePtr<render::Engine>	m_RenderEngine;
+#ifdef AM_INTEGRATED
+		amUniquePtr<integration::GameIntegration> m_Integration;
+#endif
 
 		bool m_UseWindowRender = false;
 		bool m_Initialized = false;
@@ -52,7 +54,8 @@ namespace rageam
 				m_RenderEngine->SetRenderFunction(nullptr);
 
 #ifdef AM_INTEGRATED
-			DestroyIntegrationContext();
+			m_Integration = nullptr;
+			integration::GameIntegration::SetInstance(nullptr);
 #endif
 			DestroyUIContext();
 			DestroyRenderContext();
@@ -88,8 +91,22 @@ namespace rageam
 		void Finalize()
 		{
 #ifdef AM_INTEGRATED
+			m_Integration = std::make_unique<integration::GameIntegration>();
+			integration::GameIntegration::SetInstance(m_Integration.get());
+#endif
+
+#ifdef AM_INTEGRATED
 			GameHooks::EnableAll();
 #endif
+
+			if (Gui)
+			{
+				m_RenderEngine->SetRenderFunction([this]
+					{
+						GRenderContext->OverlayRender.Render();
+						return Gui->Update();
+					});
+			}
 
 			m_Initialized = true;
 		}
@@ -134,9 +151,6 @@ namespace rageam
 			m_RenderEngine = std::make_unique<render::Engine>(useWindow);
 			render::Engine::SetInstance(m_RenderEngine.get());
 
-#ifdef AM_INTEGRATED
-			CreateIntegrationContext();
-#endif
 			CreateRenderContext();
 
 			AM_DEBUGF("System::InitRender() -> Render Started");
@@ -148,12 +162,6 @@ namespace rageam
 			AM_ASSERT(m_RenderEngine != nullptr, "System::InitUI() -> Render Engine must be initialized for UI!");
 
 			CreateUIContext();
-
-			m_RenderEngine->SetRenderFunction([this]
-				{
-					GRenderContext->OverlayRender.Render();
-					return Gui->Update();
-				});
 
 			AM_DEBUGF("System::InitUI() -> UI Started");
 		}
