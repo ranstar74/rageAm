@@ -278,32 +278,47 @@ rage::grcTextureDX11::grcTextureDX11(const datResource& rsc) : grcTexturePC(rsc)
 rage::grcTextureDX11::grcTextureDX11(const grcTextureDX11& other) : grcTexturePC(other)
 {
 	m_Format = other.m_Format;
+	m_Unknown80 = 0;
+	m_Unknown88 = 0;
 
-	pgSnapshotAllocator* pAllocator = pgRscCompiler::GetPhysicalAllocator();
-	AM_ASSERT(pAllocator, "grcTextureDX11 -> Copy constructor is not implemented.");
-
-	u32 dataSize = 0;
-	for (u8 i = 0; i < m_MipLevels; i++)
+	if (IsResourceCompiling())
 	{
-		u32 rowPitch;
-		u32 slicePitch;
-		ComputePitch(i, &rowPitch, &slicePitch);
+		pgSnapshotAllocator* snapshotAllocator = pgRscCompiler::GetPhysicalAllocator();
+		u32 dataSize = 0;
+		for (u8 i = 0; i < m_MipLevels; i++)
+		{
+			u32 rowPitch;
+			u32 slicePitch;
+			ComputePitch(i, &rowPitch, &slicePitch);
 
-		// TODO: Calculate it somewhere else
-		if (i == 0)
-			m_Stride = rowPitch;
+			// TODO: Calculate it somewhere else
+			if (i == 0)
+				m_Stride = rowPitch;
 
-		dataSize += slicePitch;
+			dataSize += slicePitch;
+		}
+
+		ConvertFormatToLegacy();
+
+		snapshotAllocator->AllocateRef(m_PixelData, dataSize);
+		memcpy(m_PixelData, other.m_PixelData, dataSize);
 	}
+	else
+	{
+		m_PixelData = nullptr;
+		m_ShaderView = other.m_ShaderView;
+		m_Resource = other.m_Resource;
 
-	ConvertFormatToLegacy();
-
-	pAllocator->AllocateRef(m_PixelData, dataSize);
-	memcpy(m_PixelData, other.m_PixelData, dataSize);
+		ID3D11Resource* resource = (ID3D11Resource*)m_Resource;
+		if (resource) resource->AddRef();
+	}
 }
 
 rage::grcTextureDX11::~grcTextureDX11()
 {
+	ID3D11Resource* resource = (ID3D11Resource*)m_Resource;
+	if (resource) resource->Release();
+
 	delete m_PixelData;
 }
 
