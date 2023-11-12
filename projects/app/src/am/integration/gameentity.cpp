@@ -5,6 +5,7 @@
 #include "am/integration/shvthread.h"
 #include "am/integration/memory/hook.h"
 #include "rage/streaming/assetstores.h"
+#include "am/graphics/render/engine.h"
 
 // dlDrawListMgr holds references on game assets (including fwArchetype)
 // and this cause issues if we want to unload archetype instantly
@@ -44,6 +45,11 @@ void rageam::integration::GameEntity::CreateIfNotCreated()
 	m_Archetype->InitArchetypeFromDefinition(rage::INVALID_STR_INDEX, m_ArchetypeDef.get(), true);
 	m_Archetype->RefreshDrawable(0);
 
+	// NOTE: Ugly hack! We set all buckets in drawable render mask to allow easier runtime editing
+	// because it is easier than updating render mask on entities
+	// RefreshDrawable recomputes render mask properly so we have to reset it again
+	m_Drawable->ComputeBucketMask(); // Internally sets render mask to 0xFFFF, at least at the moment
+
 	InitAddArchetypeHook();
 	s_IgnoredArchetypeIdx.Insert(m_Archetype->GetModelIndex());
 
@@ -74,7 +80,7 @@ bool rageam::integration::GameEntity::OnAbort()
 	// and can last up until next 'mid game update'. This means that if we're going to remove archetype&drawable RIGHT now
 	// render thread still MAY use it (although sometimes rendering can finish even before game early update)
 	// In order to make sure that drawable will not be rendered after destroyed we have to manually sync with render thread
-	render::Engine::GetInstance()->WaitRenderDone();
+	render::Engine::GetInstance()->WaitExecutingDone();
 
 	AM_DEBUGF("GameEntity destroyed; Handle:%i Ptr: %p", m_EntityHandle, m_Entity);
 

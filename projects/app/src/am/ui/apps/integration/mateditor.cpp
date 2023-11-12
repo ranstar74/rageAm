@@ -473,7 +473,7 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List(float 
 					navChangedPrevFrame = false;
 					ImGui::ScrollToItem();
 				}
-				
+
 				const ImRect& nodeRect = GImGui->LastItemData.Rect;
 
 				// Draw separator on bottom of node
@@ -510,7 +510,7 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List(float 
 				ScrollingLabel(textPos, textRect, texture);
 
 				// Pick texture using enter or click
-				if (texSelected && ImGui::IsKeyPressed(ImGuiKey_Enter) || 
+				if (texSelected && ImGui::IsKeyPressed(ImGuiKey_Enter) ||
 					ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::IsMouseHoveringRect(nodeRect.Min, nodeRect.Max))
 				{
 					pickedTexture = texture;
@@ -1091,42 +1091,91 @@ void rageam::integration::MaterialEditor::DrawMaterialList()
 	}
 	SlGui::ShadeItem(SlGuiCol_Bg);
 
-	rage::grmShaderGroup* shaderGroup = m_Context->Drawable->GetShaderGroup();
+	asset::DrawableTune& drawableTune = m_Context->DrawableAsset->GetDrawableTune();
+
+	auto materialEntry = [&](u16 i, bool orphans)
+		{
+			// Shader group directly map to material tune group
+			asset::MaterialTune& materialTune = *drawableTune.Materials.Get(i);
+
+			if (materialTune.NoLongerNeeded)
+				return;
+
+			// We draw all orphan (unused) materials later, grouped in the bottom of the list
+			if (materialTune.IsRemoved != orphans)
+				return;
+
+			ConstString materialName = materialTune.Name;
+
+			ConstString nodeName = ImGui::FormatTemp("%s###%s_%i", materialName, materialName, i);
+
+			if (orphans) ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.8f);
+			bool selected = m_SelectedMaterialIndex == i;
+			bool toggled;
+			SlGui::GraphTreeNode(nodeName, selected, toggled, SlGuiTreeNodeFlags_NoChildren);
+			if (selected && m_SelectedMaterialIndex != i)
+			{
+				m_SelectedMaterialIndex = i;
+			}
+			if (orphans) ImGui::PopStyleVar(); // Alpha
+
+			// Remove orphan button
+			if (orphans)
+			{
+				ImGui::SameLine(); // We draw node on the same line
+
+				// Align remove button to the right
+				float buttonWidth = ImGui::CalcTextSize(ICON_AM_CANCEL).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+				ImGuiWindow* window = ImGui::GetCurrentWindow();
+				window->DC.CursorPos.x = window->WorkRect.Max.x - buttonWidth;
+
+				if (SlGui::IconButton(ICON_AM_CANCEL))
+				{
+					// We use toggling to allow user to bring material back if clicked accidentally
+					materialTune.NoLongerNeeded = true; // TODO: Need undo here
+
+					if (m_SelectedMaterialIndex == i)
+						m_SelectedMaterialIndex = 0;
+				}
+			}
+		};
 
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-	for (u16 i = 0; i < shaderGroup->GetShaderCount(); i++)
 	{
-		rage::grmShader* shader = shaderGroup->GetShader(i);
-		rage::grcEffect* effect = shader->GetEffect();
+		rage::grmShaderGroup* shaderGroup = m_Context->Drawable->GetShaderGroup();
 
-		// TODO: Configuration what to use as material name if no map present
-		ConstString materialName = effect->GetName();
-
-		// Retrieve material name from scene
-		asset::DrawableAssetMap* drawableMap = m_Context->GetDrawableMap();
-		if (drawableMap)
+		bool hasUnusedMaterials = false;
+		// First we display all used materials (non orphans)
+		for (u16 i = 0; i < shaderGroup->GetShaderCount(); i++)
 		{
-			u16 sceneMaterialIndex = drawableMap->ShaderToSceneMaterial[i];
-			if (sceneMaterialIndex == u16(-1)) // Invalid index is used only for implicitly created default material
-			{
-				materialName = "Default";
-			}
-			else
-			{
-				graphics::Scene* scene = m_Context->GetScene();
-				graphics::SceneMaterial* sceneMaterial = scene->GetMaterial(sceneMaterialIndex);
-				materialName = sceneMaterial->GetName();
-			}
+			materialEntry(i, false);
+
+			asset::MaterialTune& materialTune = *drawableTune.Materials.Get(i);
+			if (materialTune.IsRemoved && !materialTune.NoLongerNeeded)
+				hasUnusedMaterials = true;
 		}
 
-		ConstString nodeName = ImGui::FormatTemp("%s###%s_%i", materialName, materialName, i);
-
-		bool selected = m_SelectedMaterialIndex == i;
-		bool toggled;
-		SlGui::GraphTreeNode(nodeName, selected, toggled, SlGuiTreeNodeFlags_NoChildren);
-		if (selected && m_SelectedMaterialIndex != i)
+		if(hasUnusedMaterials)
 		{
-			m_SelectedMaterialIndex = i;
+			// Unused text + remove all button
+			{
+				ImGui::Dummy(ImVec2(2, 0)); ImGui::SameLine(); // Padding before text
+				SlGui::CategoryText("Unused");
+
+				//ImGui::PushStyleColor(ImGuiCol_Button, 0);
+				//if (ImGui::Button("Remove all", ImVec2(-1, 0)))
+				//{
+				//	for (asset::MaterialTune& materialTune : drawableTune.MaterialGroup.Items)
+				//	{
+				//		if (materialTune.IsOrphan) materialTune.NoLongerNeeded = true;
+				//	}
+				//}
+				//ImGui::PopStyleColor();
+			}
+
+			// And now all unused materials
+			for (u16 i = 0; i < shaderGroup->GetShaderCount(); i++)
+				materialEntry(i, true);
 		}
 	}
 	ImGui::PopStyleVar(); // Item_Spacing

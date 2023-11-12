@@ -91,6 +91,7 @@ namespace rageam::integration
 		}
 
 		static inline bool* CTheScripts_sm_bUpdatingScriptThreads = nullptr;
+		static inline int sm_BeginEndCount = 0;
 	public:
 		static void Init()
 		{
@@ -103,6 +104,9 @@ namespace rageam::integration
 
 		static void Begin()
 		{
+			if (++sm_BeginEndCount != 1)
+				return;
+
 			u64 tls = *(u64*)((u64)NtCurrentTeb() + 0x58);
 			u64	v5 = *((u64*)tls);
 			*(u8*)(v5 + 0x850) = 1;
@@ -113,6 +117,9 @@ namespace rageam::integration
 
 		static void End()
 		{
+			if (--sm_BeginEndCount != 0)
+				return;
+
 			u64 tls = *(u64*)((u64)NtCurrentTeb() + 0x58);
 			u64	v5 = *((u64*)tls);
 			*(u8*)(v5 + 0x850) = 0;

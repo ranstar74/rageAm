@@ -13,6 +13,7 @@
 #include "am/asset/types/drawable.h"
 #include "rage/streaming/streaming.h"
 #include "rage/file/watcher.h"
+#include "am/system/datamgr.h"
 
 namespace rageam::integration
 {

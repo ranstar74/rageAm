@@ -15,6 +15,7 @@
 
 namespace rageam::integration
 {
+	class DrawList;
 	// TODO: Add color filling for light outlines so it's easier to see where light ends
 	// TODO: Bitmap hit detection (how to allow user to select small light that's inside of larger one? larger one is always in front)
 	// TODO: We should add IsSphereVisible in viewport to quickly cull out outlines
@@ -69,6 +70,9 @@ namespace rageam::integration
 		void SetCullPlaneFromLight(const LightDrawContext& ctx);
 
 		u32 GetOutlinerColor(bool isSelected, bool isHovered, bool isPrimary) const;
+
+		// Light outline draw list
+		DrawList& GetDrawList() const;
 
 		// Tests if screen mouse cursor intersects with light bounding sphere
 		graphics::ShapeHit ProbeLightSphere(const LightDrawContext& ctx) const;

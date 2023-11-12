@@ -1,4 +1,5 @@
 #pragma once
+#include "am/integration/components/drawablerender.h"
 
 #ifdef AM_INTEGRATED
 
@@ -15,17 +16,16 @@ namespace rageam::integration
 	// Data shared between all components of the scene (scene graph, light editor, material editor etc)
 	struct ModelSceneContext
 	{
-		bool					IsDrawableLoading;
-		int						EntityHandle;
-		Mat44V					EntityWorld;
-		pVoid					EntityPtr;			// fwEntity
-		amPtr<gtaDrawable>		Drawable;
-		asset::DrawableAssetPtr DrawableAsset;
-		AssetHotFlags			HotFlags;
-		asset::HotTxdSet*		TXDs;				// All texture dictionaries in the workspace + embed
-
-		auto GetDrawableMap() const { return DrawableAsset ? &DrawableAsset->CompiledDrawableMap : nullptr; }
-		auto GetScene() const { return DrawableAsset ? DrawableAsset->GetScene().get() : nullptr; }
+		bool					 IsDrawableLoading;
+		int						 EntityHandle;
+		Mat44V					 EntityWorld;
+		pVoid					 EntityPtr;			// fwEntity
+		amPtr<gtaDrawable>		 Drawable;
+		asset::DrawableAssetPtr	 DrawableAsset;
+		graphics::ScenePtr		 DrawableScene;
+		asset::DrawableAssetMap* DrawableAssetMap;
+		AssetHotFlags			 HotFlags;
+		asset::HotTxdSet*		 TXDs;				// All texture dictionaries in the workspace + embed
 	};
 
 	struct DrawableStats
@@ -43,7 +43,8 @@ namespace rageam::integration
 	};
 
 	static const Vec3V SCENE_ISOLATED_POS = { -1700, -6000, 310 };
-	static const Vec3V SCENE_POS = { -676, 167, 73.55f };
+	//static const Vec3V SCENE_POS = { -676, 167, 73.55f };
+	static const Vec3V SCENE_POS = { 285, -1580, 30 };
 	
 	struct SceneGlue : IUpdateComponent
 	{
@@ -76,24 +77,25 @@ namespace rageam::integration
 			"None", "Mesh", "Bone", "Collision", "Light"
 		};
 
-		ComponentOwner<SceneGlue>	m_SceneGlue;
-		ComponentOwner<GameEntity>	m_GameEntity;
-		amPtr<CBaseArchetypeDef>	m_ArchetypeDef;
-		ModelSceneContext			m_Context;
-		LightEditor					m_LightEditor;
-		MaterialEditor				m_MaterialEditor;
-		bool						m_IsolatedSceneOn = false;
-		Vec3V						m_ScenePosition = SCENE_POS; // NOTE: Can be overriden by user
+		ComponentOwner<DrawableRender>	m_DrawableRender;
+		ComponentOwner<SceneGlue>		m_SceneGlue;
+		ComponentOwner<GameEntity>		m_GameEntity;
+		amPtr<CBaseArchetypeDef>		m_ArchetypeDef;
+		ModelSceneContext				m_Context;
+		bool							m_IsolatedSceneOn = false;
+		Vec3V							m_ScenePosition = SCENE_POS; // NOTE: Can be overriden by user
 		// Graph View
-		s32							m_SelectedNodeIndex = -1;
-		eSceneNodeAttr				m_SelectedNodeAttr = SceneNodeAttr_None;
-		eSceneNodeAttr				m_JustSelectedNodeAttr = SceneNodeAttr_None; // In current frame
-		DrawableStats				m_DrawableStats;
-		SmallList<string>			m_CompilerMessages;
-		double						m_CompilerProgress = 0.0;
-		std::mutex					m_CompilerMutex;
+		s32								m_SelectedNodeIndex = -1;
+		eSceneNodeAttr					m_SelectedNodeAttr = SceneNodeAttr_None;
+		eSceneNodeAttr					m_JustSelectedNodeAttr = SceneNodeAttr_None; // In current frame
+		DrawableStats					m_DrawableStats;
+		SmallList<string>				m_CompilerMessages;
+		double							m_CompilerProgress = 0.0;
+		std::mutex						m_CompilerMutex;
+		bool							m_AssetTuneChanged = false; // Set by UI to post reload request on the end of frame
+		bool							m_ResetUIAfterCompiling = false; // We don't want to reset UI when just recompiling drawable
 
-		auto GetDrawableMap() const -> asset::DrawableAssetMap&;
+		auto GetDrawableMap() const -> const asset::DrawableAssetMap&;
 		auto GetDrawable() const { return m_Context.Drawable.get(); }
 		auto GetMeshAttr(u16 nodeIndex) const -> rage::grmModel*;
 		auto GetBoneAttr(u16 nodeIndex) const -> rage::crBoneData*;
@@ -112,7 +114,7 @@ namespace rageam::integration
 		void DrawSceneGraph(const graphics::SceneNode* sceneNode);
 		void DrawSkeletonGraph();
 
-		void DrawNodePropertiesUI(u16 nodeIndex) const;
+		void DrawNodePropertiesUI(u16 nodeIndex);
 		void DrawDrawableUI();
 		void OnRender() override;
 
@@ -128,6 +130,9 @@ namespace rageam::integration
 		bool IsIsolatedSceneOn() const { return m_IsolatedSceneOn; }
 		// Sets active debug camera (if there's any) position to target spawned prop
 		void ResetCameraPosition() const;
+
+		LightEditor		LightEditor;
+		MaterialEditor	MaterialEditor;
 	};
 }
 

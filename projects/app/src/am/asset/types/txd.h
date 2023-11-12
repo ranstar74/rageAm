@@ -39,8 +39,9 @@ namespace rageam::asset
 		static constexpr int MAX_NAME = 128;
 
 		// This is actual name that will be used in game after export, contains no extension and unicode characters
-		char Name[MAX_NAME];
-		TextureOptions Options;
+		char			Name[MAX_NAME];
+		u32				NameHash;
+		TextureOptions	Options;
 
 		bool IsPreCompressed; // For .dds we just use pixel data as-is without re-compressing
 
@@ -48,6 +49,7 @@ namespace rageam::asset
 		{
 			// TxdAsset::Refresh() will ensure that name has no unicode characters and conversion is valid
 			file::GetFileNameWithoutExtension(Name, MAX_NAME, String::ToAnsiTemp(fileName));
+			NameHash = rage::joaat(Name);
 
 			IsPreCompressed = String::Equals(file::GetExtension(fileName), L"dds", true);
 		}
@@ -70,6 +72,10 @@ namespace rageam::asset
 		TxdAsset(const file::WPath& path) : GameRscAsset(path) {}
 
 		bool CompileToGame(rage::grcTextureDictionary* ppOutGameFormat) override;
+		void ParseFromGame(rage::pgDictionary<rage::grcTexture>* object) override
+		{
+			AM_UNREACHABLE("TxdAsset::ParseFromGame() -> Not implemented.");
+		}
 		void Refresh() override;
 
 		ConstWString GetXmlName()			const override { return L"TextureDictionary"; }
@@ -110,6 +116,8 @@ namespace rageam::asset
 
 		// Gets error-checked texture name from absolute/relative texture file path
 		bool GetValidatedTextureName(const file::WPath& texturePath, file::Path& outName) const;
+
+		bool ContainsTexture(ConstString name) const;
 
 		// Compiles single texture from given path
 		rage::grcTexture* CompileTexture(const Texture* textureTune) const;

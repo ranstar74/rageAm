@@ -49,9 +49,9 @@ rageam::integration::DrawableStats rageam::integration::DrawableStats::ComputeFr
 	return stats;
 }
 
-rageam::asset::DrawableAssetMap& rageam::integration::ModelScene::GetDrawableMap() const
+const rageam::asset::DrawableAssetMap& rageam::integration::ModelScene::GetDrawableMap() const
 {
-	return m_Context.DrawableAsset->CompiledDrawableMap;
+	return *m_Context.DrawableAssetMap;
 }
 
 rage::grmModel* rageam::integration::ModelScene::GetMeshAttr(u16 nodeIndex) const
@@ -90,11 +90,14 @@ void rageam::integration::ModelScene::CreateArchetypeDefAndSpawnGameEntity()
 	m_ArchetypeDef = std::make_shared<CBaseArchetypeDef>();
 	m_ArchetypeDef->Name = ASSET_NAME_HASH;
 	m_ArchetypeDef->AssetName = ASSET_NAME_HASH;
+	m_ArchetypeDef->PhysicsDictionary = ASSET_NAME_HASH;
 	m_ArchetypeDef->LodDist = lodDistance;
 	m_ArchetypeDef->Flags = rage::ADF_STATIC | rage::ADF_BONE_ANIMS;
 
 	m_GameEntity.Create();
 	m_GameEntity->Spawn(m_Context.Drawable, m_ArchetypeDef, GetScenePosition());
+	m_DrawableRender.Create();
+	m_DrawableRender->SetEntity(m_GameEntity);
 }
 
 void rageam::integration::ModelScene::WarpEntityToScenePosition()
@@ -108,10 +111,14 @@ void rageam::integration::ModelScene::OnDrawableCompiled()
 	m_DrawableStats = DrawableStats::ComputeFrom(m_Context.Drawable.get());
 	m_CompilerMessages.Destroy();
 	m_CompilerProgress = 1.0;
-	m_SelectedNodeIndex = -1;
-	m_SelectedNodeAttr = SceneNodeAttr_None;
-	m_LightEditor.Reset();
-	m_MaterialEditor.Reset();
+
+	if(m_ResetUIAfterCompiling)
+	{
+		m_SelectedNodeIndex = -1;
+		m_SelectedNodeAttr = SceneNodeAttr_None;
+		LightEditor.Reset();
+		MaterialEditor.Reset();
+	}
 
 	CreateArchetypeDefAndSpawnGameEntity();
 }
@@ -134,6 +141,8 @@ void rageam::integration::ModelScene::UpdateContextAndHotReloading()
 	asset::HotDrawableInfo info = m_SceneGlue->HotDrawable->GetInfo();
 	m_Context.IsDrawableLoading = info.IsLoading;
 	m_Context.DrawableAsset = info.DrawableAsset;
+	m_Context.DrawableScene = info.DrawableScene;
+	m_Context.DrawableAssetMap = info.DrawableAssetMap;
 	m_Context.Drawable = info.Drawable;
 	m_Context.TXDs = info.TXDs;
 	// Entity will be NULL if drawable just compiled
@@ -221,7 +230,7 @@ void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::Scen
 		CLightAttr* lightAttr = GetLightAttr(nodeIndex);
 		if (attrButton(lightAttr, SceneNodeAttr_Light, ICON_AM_LIGHT))
 		{
-			m_LightEditor.SelectLight(m_Context.GetDrawableMap()->SceneNodeToLightAttr[nodeIndex]);
+			LightEditor.SelectLight(m_Context.DrawableAssetMap->SceneNodeToLightAttr[nodeIndex]);
 		}
 		ImGui::PopStyleVar(2); // ItemSpacing, FramePadding
 	}
@@ -261,9 +270,10 @@ void rageam::integration::ModelScene::DrawSkeletonGraph()
 
 }
 
-void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex) const
+void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex)
 {
-	graphics::SceneNode* sceneNode = m_Context.GetScene()->GetNode(nodeIndex);
+	graphics::SceneNode* sceneNode = m_Context.DrawableScene->GetNode(nodeIndex);
+	asset::ModelTune& modelTune = *m_Context.DrawableAsset->GetDrawableTune().Lods.Models.Get(nodeIndex);
 
 	ConstString title = ImGui::FormatTemp(
 		"%s Properties###DRAWABLE_ATTR_PROPERTIES", sceneNode->GetName());
@@ -287,8 +297,8 @@ void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex) const
 			// Node Properties
 			if (ImGui::BeginTabItem("Common"))
 			{
-				bool forceBone = false;
-				ImGui::Checkbox("Force create bone", &forceBone);
+				if (ImGui::Checkbox("Force create bone", &modelTune.CreateBone))
+					m_AssetTuneChanged = true;
 				ImGui::SameLine();
 				ImGui::HelpMarker(
 					"Note: we are referring to scene objects as 'Nodes'\n"
@@ -305,8 +315,8 @@ void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex) const
 
 				// TODO: We can create physical material for regular materials
 				// TODO: Shouldn't be visible if already a collider
-				bool collider = false;
-				ImGui::Checkbox("Create collider", &collider);
+				if (ImGui::Checkbox("Force create collider", &modelTune.UseAsBound))
+					m_AssetTuneChanged = true;
 
 				ImGui::EndTabItem();
 			}
@@ -405,7 +415,7 @@ void rageam::integration::ModelScene::DrawDrawableUI()
 			static int s_OutlineModeSelected = OutlineMode_Scene;
 			ImGui::Combo("Graph Mode", &s_OutlineModeSelected, s_OutlineModeDisplay, IM_ARRAYSIZE(s_OutlineModeDisplay));
 
-			graphics::SceneNode* rootNode = m_Context.GetScene()->GetFirstNode();
+			graphics::SceneNode* rootNode = m_Context.DrawableScene->GetFirstNode();
 			switch (s_OutlineModeSelected)
 			{
 			case OutlineMode_Scene:		DrawSceneGraph(rootNode);	break;
@@ -458,123 +468,12 @@ void rageam::integration::ModelScene::DrawDrawableUI()
 	{
 		DrawNodePropertiesUI(m_SelectedNodeIndex);
 	}
-
-	return;
-
-	//m_LightEditor.Render(entityWorld);
-
-	//if (ImGui::CollapsingHeader("Render Options"))
-	//{
-	//	graphics::DebugRender& debugRender = GRenderContext->DebugRender;
-	//	ImGui::Checkbox("Skeleton", &debugRender.bRenderSkeleton);
-	//	ImGui::Checkbox("Bound Mesh", &debugRender.bRenderBoundMesh);
-	//	ImGui::Text("Extents:");
-	//	ImGui::Checkbox("Lod Group", &debugRender.bRenderLodGroupExtents);
-	//	ImGui::Checkbox("Bound", &debugRender.bRenderBoundExtents);
-	//	ImGui::Checkbox("Geometry", &debugRender.bRenderGeometryExtents);
-	//}
-
-	//if (ImGui::CollapsingHeader("Stats", ImGuiTreeNodeFlags_DefaultOpen))
-	//{
-	//	ImGui::Text("Dimensions: ( %.02f, %.02f, %.02f )",
-	//		m_Dimensions.X, m_Dimensions.Y, m_Dimensions.Z);
-	//	ImGui::Text("LODs: %u", m_NumLods);
-	//	ImGui::Text("Models: %u", m_NumModels);
-	//	ImGui::Text("Geometries: %u", m_NumGeometries);
-	//	ImGui::Text("Vertices: %u", m_VertexCount);
-	//	ImGui::Text("Triangles: %u", m_TriCount);
-	//	ImGui::Text("Lights: %u", m_LightCount);
-	//}
-
-	////if (ImGui::CollapsingHeader("Skeleton", ImGuiTreeNodeFlags_DefaultOpen))
-	//if (SlGui::CollapsingHeader(ICON_AM_SKELETON" Skeleton", ImGuiTreeNodeFlags_DefaultOpen))
-	//{
-	//	rage::crSkeletonData* skeleton = drawable->GetSkeletonData();
-	//	if (skeleton)
-	//	{
-	//		ImGui::Text("Skeleton Bones");
-	//		if (ImGui::BeginTable("TABLE_SKELETON", 6, ImGuiTableFlags_Borders))
-	//		{
-	//			ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
-	//			ImGui::TableSetupColumn("Name");
-	//			ImGui::TableSetupColumn("Parent");
-	//			ImGui::TableSetupColumn("Sibling");
-	//			ImGui::TableSetupColumn("Child");
-	//			ImGui::TableSetupColumn("Tag");
-
-	//			ImGui::TableHeadersRow();
-
-	//			for (u16 i = 0; i < skeleton->GetBoneCount(); i++)
-	//			{
-	//				rage::crBoneData* bone = skeleton->GetBone(i);
-
-	//				ImGui::TableNextRow();
-
-	//				ImGui::TableNextColumn();
-	//				ImGui::Text("%u", i);
-	//				ImGui::TableNextColumn();
-	//				ImGui::Text("%s", bone->GetName());
-	//				ImGui::TableNextColumn();
-	//				ImGui::Text("%i", bone->GetParentIndex());
-	//				ImGui::TableNextColumn();
-	//				ImGui::Text("%i", bone->GetNextIndex());
-	//				ImGui::TableNextColumn();
-	//				ImGui::Text("%i", (s16)skeleton->GetFirstChildBoneIndex(i));
-	//				ImGui::TableNextColumn();
-	//				ImGui::Text("%i", bone->GetBoneTag());
-	//			}
-
-	//			ImGui::EndTable();
-	//		}
-
-
-	//		std::function<void(rage::crBoneData*)> recurseBone;
-	//		recurseBone = [&](const rage::crBoneData* bone)
-	//			{
-	//				if (!bone)
-	//					return;
-
-	//				ImGui::Indent();
-	//				while (bone)
-	//				{
-	//					ImGui::BulletText("%s", bone->GetName());
-	//					constexpr ImVec4 attrColor = ImVec4(0, 0.55, 0, 1);
-
-
-	//					if (GRenderContext->DebugRender.bRenderSkeleton)
-	//					{
-	//						rage::Mat44V boneWorld = skeleton->GetBoneWorldTransform(bone) * entityWorld;
-	//						Im3D::CenterNext();
-	//						Im3D::TextBg(boneWorld.Pos, "<%s; Tag: %u>", bone->GetName(), bone->GetBoneTag());
-	//					}
-
-	//					ImGui::SameLine();
-	//					ImGui::TextColored(attrColor, "Tag: %u", bone->GetBoneTag());
-
-	//					//rage::Vec3V pos, scale;
-	//					//rage::QuatV rot;
-	//					//const rage::Mat44V& mtx = skeleton->GetBoneTransform(bone->GetIndex());
-	//					//mtx.Decompose(&pos, &scale, &rot);
-
-	//					//ImGui::TextColored(attrColor, "Trans: %f %f %f", pos.X(), pos.Y(), pos.Z());
-	//					//ImGui::TextColored(attrColor, "Scale: %f %f %f", scale.X(), scale.Y(), scale.Z());
-	//					//ImGui::TextColored(attrColor, "Rot: %f %f %f %f", rot.X(), rot.Y(), rot.Z(), rot.W());
-
-	//					recurseBone(skeleton->GetFirstChildBone(bone->GetIndex()));
-
-	//					bone = skeleton->GetBone(bone->GetNextIndex());
-	//				}
-	//				ImGui::Unindent();
-	//			};
-
-	//		rage::crBoneData* root = skeleton->GetBone(0);
-	//		recurseBone(root);
-	//	}
-	//}
 }
 
 void rageam::integration::ModelScene::OnRender()
 {
+	m_AssetTuneChanged = false;
+
 	UpdateContextAndHotReloading();
 
 	bool isLoading = m_Context.IsDrawableLoading;
@@ -587,6 +486,15 @@ void rageam::integration::ModelScene::OnRender()
 		if (!isSpawned) ImGui::BeginDisabled();
 		if (ImGui::BeginMenuBar())
 		{
+			if(ImGui::MenuItem(ICON_AM_SAVE" Save"))
+			{
+				m_Context.DrawableAsset->ParseFromGame(m_Context.Drawable.get());
+				if(!m_Context.DrawableAsset->SaveConfig())
+				{
+					AM_ERRF("ModelScene::OnRender() -> Failed to save config...");
+				}
+			}
+
 			// TODO: Should work via closing window?
 			if (ImGui::MenuItem(ICON_AM_CANCEL" Unload"))
 			{
@@ -595,7 +503,7 @@ void rageam::integration::ModelScene::OnRender()
 
 			if (ImGui::MenuItem(ICON_AM_BALL" Material Editor"))
 			{
-				m_MaterialEditor.IsOpen = !m_MaterialEditor.IsOpen;
+				MaterialEditor.IsOpen = !MaterialEditor.IsOpen;
 				// TODO: We can split material editor on Graphics & Physical materials
 			}
 
@@ -646,12 +554,29 @@ void rageam::integration::ModelScene::OnRender()
 
 	if (isSpawned)
 	{
-		m_LightEditor.Render();
-		m_MaterialEditor.Render();
+		LightEditor.Render();
+		MaterialEditor.Render();
+	}
+
+	// Recompile drawable after changing tune
+	if (m_AssetTuneChanged)
+	{
+		// We must save existing changes (materials/lights)
+		m_Context.DrawableAsset->ParseFromGame(m_Context.Drawable.get());
+
+		m_DrawableRender.Destroy();
+		m_GameEntity.Destroy();
+		m_DrawableStats = {};
+		m_Context = {};
+		m_CompilerMessages.Clear();
+		m_CompilerProgress = 0.0;
+
+		m_ResetUIAfterCompiling = false;
+		m_SceneGlue->HotDrawable->LoadAndCompile(true);
 	}
 }
 
-rageam::integration::ModelScene::ModelScene() : m_LightEditor(&m_Context), m_MaterialEditor(&m_Context)
+rageam::integration::ModelScene::ModelScene() : LightEditor(&m_Context), MaterialEditor(&m_Context)
 {
 	m_Context = {};
 	m_DrawableStats = {};
@@ -659,6 +584,7 @@ rageam::integration::ModelScene::ModelScene() : m_LightEditor(&m_Context), m_Mat
 
 void rageam::integration::ModelScene::Unload()
 {
+	m_DrawableRender.Destroy();
 	m_GameEntity.Destroy();
 	m_SceneGlue.Destroy();
 	m_DrawableStats = {};
@@ -669,8 +595,6 @@ void rageam::integration::ModelScene::Unload()
 
 void rageam::integration::ModelScene::LoadFromPatch(ConstWString path)
 {
-	Unload();
-
 	m_SceneGlue.Create();
 
 	std::unique_lock glueLock(m_SceneGlue->Mutex);
@@ -683,7 +607,9 @@ void rageam::integration::ModelScene::LoadFromPatch(ConstWString path)
 			m_CompilerMessages.Construct(String::ToAnsiTemp(message));
 			m_CompilerProgress = progress;
 		};
-	m_SceneGlue->HotDrawable->Load();
+
+	m_ResetUIAfterCompiling = true;
+	m_SceneGlue->HotDrawable->LoadAndCompile(false); // TODO: We need unsaved changes dialog
 }
 
 void rageam::integration::ModelScene::SetIsolatedSceneOn(bool on)

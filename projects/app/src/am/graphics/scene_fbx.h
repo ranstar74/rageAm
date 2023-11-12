@@ -186,7 +186,7 @@ namespace rageam::graphics
 		SceneFbx() = default;
 		~SceneFbx() override;
 
-		bool Load(ConstWString path) override;
+		bool Load(ConstWString path, SceneLoadOptions& loadOptions) override;
 
 		u16 GetNodeCount() const override { return m_Nodes.GetSize(); }
 		SceneNode* GetNode(u16 index) const override { return m_Nodes[index].get(); }

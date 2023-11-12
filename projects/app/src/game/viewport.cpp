@@ -23,6 +23,13 @@ void CViewport::GetCamera(rage::Vec3V* front, rage::Vec3V* right, rage::Vec3V* u
 	if (pos) *pos = viewInverse.R[3];
 }
 
+rage::Vec3V CViewport::GetCameraPos()
+{
+	rage::Vec3V pos;
+	GetCamera(nullptr, nullptr, nullptr, &pos);
+	return pos;
+}
+
 rage::Mat44V CViewport::GetCameraMatrix()
 {
 	rage::Mat34V camera;

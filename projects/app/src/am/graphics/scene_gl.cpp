@@ -526,7 +526,7 @@ rageam::graphics::SceneGl::~SceneGl()
 	m_Data = nullptr;
 }
 
-bool rageam::graphics::SceneGl::Load(ConstWString path)
+bool rageam::graphics::SceneGl::Load(ConstWString path, SceneLoadOptions& loadOptions)
 {
 	if (!LoadGl(path))
 		return false;

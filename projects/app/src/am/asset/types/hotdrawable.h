@@ -44,10 +44,12 @@ namespace rageam::asset
 
 	struct HotDrawableInfo
 	{
-		HotTxdSet*			TXDs;			// All texture dictionaries in the workspace + embed
+		HotTxdSet*			TXDs;				// All texture dictionaries in the workspace + embed
 		DrawableAssetPtr	DrawableAsset;
+		DrawableAssetMap*	DrawableAssetMap;	// We store a copy because it's changed during drawable compiling (which is done in background thread)
+		graphics::ScenePtr	DrawableScene;
 		amPtr<gtaDrawable>	Drawable;
-		bool				IsLoading;		// Drawable asset compiling
+		bool				IsLoading;			// Drawable asset compiling
 	};
 
 	/**
@@ -72,11 +74,14 @@ namespace rageam::asset
 		std::mutex					m_ApplyChangesMutex;
 		bool						m_ApplyChangesWaiting = false;
 		bool						m_LoadRequested = false;
+		bool						m_CompileRequested = false;
 		bool						m_IsLoading = false;
 		amUniquePtr<file::Watcher>	m_Watcher;
 		file::WPath					m_AssetPath;
 		DrawableAssetPtr			m_Asset;
+		DrawableAssetMap			m_AssetMap;
 		amPtr<gtaDrawable>			m_Drawable;
+		graphics::ScenePtr			m_DrawableScene;
 		// Holds every compiled TXD from workspace including embed
 		// Key is the full wide path to the TXD
 		HotTxdSet					m_TXDs;
@@ -114,7 +119,7 @@ namespace rageam::asset
 		~HotDrawable();
 
 		// Flushes current state and fully reloads asset
-		void Load();
+		void LoadAndCompile(bool keepAsset);
 		// Must be called on early update/tick for synchronization of drawable changes
 		AssetHotFlags ApplyChanges();
 		HotDrawableInfo GetInfo();

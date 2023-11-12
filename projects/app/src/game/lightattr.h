@@ -34,6 +34,7 @@ enum eLightFlags : u32
 	LF_IGNORE_ARTIFICIAL_LIGHT_STATE = 1 << 4,				// Light will ignore SET_ARTIFICIAL_LIGHTS_STATE(FALSE) and keep rendering
 	LF_ENABLE_SHADOWS = 0x40 | 0x80 | 0x100 | 0x4000000,
 	LF_IGNORE_TIME = 1 << 9,								// Don't use light intensity based on game time (brighter at night, dimmer at day)
+	LF_ELECTRICAL_HUM = 1 << 11,							// Electrical hum/buzz sound (volume is pretty low)
 	LF_ENABLE_VOLUME = 1 << 12,								// Force enable volume ignoring timecycle
 	LF_NO_REFLECTION = 1 << 13,								// Don't reflect light in surfaces (contribute specular)
 	LF_ENABLE_CULLING_PLANE = 1 << 18,

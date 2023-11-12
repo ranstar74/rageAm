@@ -13,6 +13,7 @@
 #include "am/task/worker.h"
 #include "am/ui/context.h"
 #include "exception/handler.h"
+#include "rage/grcore/fvf.h"
 
 #ifdef AM_INTEGRATED
 #include "am/integration/gamehooks.h"
@@ -103,7 +104,6 @@ namespace rageam
 			{
 				m_RenderEngine->SetRenderFunction([this]
 					{
-						GRenderContext->OverlayRender.Render();
 						return Gui->Update();
 					});
 			}

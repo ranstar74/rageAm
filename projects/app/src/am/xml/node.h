@@ -233,11 +233,11 @@ public:
 	void GetValue(bool& v) const { FromString(GetText(), v); }
 	void GetValue(rage::atString& v) const { v = GetText(); }
 
-	void SetColorHex(u32 col) const { SetText(FormatTemp("#%x", col)); }
+	void SetColorHex(u32 col) const { SetText(FormatTemp("#%X", col)); }
 	void GetColorHex(u32& col) const
 	{
 		ConstString text = GetText();
-		Assert(sscanf_s(text, "#%x", &col) != 0, "Unable to parse hex color '%s', it must be in #000000 format.", text);
+		Assert(sscanf_s(text, "#%X", &col) != 0, "Unable to parse hex color '%s', it must be in #000000 format.", text);
 	}
 	u32 GetColorHex() const { u32 v; GetColorHex(v); return v; }
 

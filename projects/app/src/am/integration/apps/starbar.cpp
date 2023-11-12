@@ -39,7 +39,7 @@ void rageam::integration::StarBar::UpdateCamera() const
 		}
 
 		// Reset origin for orbit camera
-		if(m_UseOrbitCamera)
+		if (m_UseOrbitCamera)
 			camera->LookAt(camera->GetPosition() + camera->GetFront() * 3.0f);
 
 		camera->SetActive(true);
@@ -145,22 +145,33 @@ void rageam::integration::StarBar::OnRender()
 	if (ImGui::IsKeyPressed(ImGuiKey_Period, false)) // Hotkey switch
 		Im3D::SetGizmoUseWorld(!useWorld);
 
-	// TODO:
-	//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
-	//ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1);
-	//if (ImGui::BeginMenu(ICON_AM_VISIBILITY" Overlay"))
-	//{
-	//	SlGui::Checkbox("Light Outlines", &m_LightEditor.ShowLightOutlines);
-	//	ImGui::SameLine();
-	//	SlGui::Checkbox("Only Selected", &m_LightEditor.ShowOnlySelectedLightOutline);
-	//	bool dummy;
-	//	SlGui::Checkbox("Drawable Bound Box", &dummy);
-	//	SlGui::Checkbox("Collision Mesh", &dummy);
-	//	SlGui::Checkbox("Skeleton Bones", &dummy);
-
-	//	ImGui::EndMenu();
-	//}
-	//ImGui::PopStyleVar(2); // WindowPadding, WindowBorderSize
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1);
+	if (ImGui::BeginMenu(ICON_AM_VISIBILITY" Overlay"))
+	{
+		SlGui::CategoryText("Lights");
+		{
+			SlGui::Checkbox("Outlines", &m_ModelScene->LightEditor.ShowLightOutlines);
+			SlGui::Checkbox("Only Selected", &m_ModelScene->LightEditor.ShowOnlySelectedLightOutline);
+		}
+		SlGui::CategoryText("Collision");
+		{
+			SlGui::Checkbox("Visible", &DrawableRender::Collision);
+			if(SlGui::Checkbox("Wireframe", &integration->DrawListCollision.Wireframe))
+			{
+				// Wireframe must be unlit
+				integration->DrawListCollision.Unlit = integration->DrawListCollision.Wireframe;
+			}
+		}
+		SlGui::CategoryText("Drawable");
+		{
+			SlGui::Checkbox("Bounding Box", &DrawableRender::BoundingBox);
+			SlGui::Checkbox("Bounding Sphere", &DrawableRender::BoundingSphere);
+			SlGui::Checkbox("Skeleton", &DrawableRender::Skeleton);
+		}
+		ImGui::EndMenu();
+	}
+	ImGui::PopStyleVar(2); // WindowPadding, WindowBorderSize
 
 	SlGui::EndToolWindow();
 }

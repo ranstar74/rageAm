@@ -71,12 +71,19 @@ namespace rage
 		const spdAABB& GetBoundingBox() const { return m_BoundingBox; }
 		const spdSphere& GetBoundingSphere() const { return m_BoundingSphere; }
 
+		void SetBounds(const spdAABB& bb, const spdSphere& bs)
+		{
+			m_BoundingBox = bb;
+			m_BoundingSphere = bs;
+		}
+
 		// Merges lod model bucket masks into single lod mask
 		void ComputeBucketMask(const grmShaderGroup* shaderGroup);
 		// Sorts all lod model geometries for tessellation (non-tessellated models before tessellated)
 		void SortForTessellation(const grmShaderGroup* shaderGroup) const;
 		// Gets bucket mask for closest available to given lod
 		u32 GetBucketMask(int lod) const;
+		void SetRenderMask(u32 mask, int lod) { m_LodRenderMasks[lod] = mask; }
 
 		void DrawSingle(const grmShaderGroup* shaderGroup, const Mat34V& mtx, grcRenderMask mask, eDrawableLod lod) const
 		{

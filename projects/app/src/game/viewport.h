@@ -7,12 +7,14 @@
 //
 #pragma once
 
+#include "am/types.h"
 #include "rage/math/mtxv.h"
 
 class CViewport
 {
 public:
 	static void GetCamera(rage::Vec3V* front, rage::Vec3V* right, rage::Vec3V* up, rage::Vec3V* pos = nullptr);
+	static rage::Vec3V GetCameraPos();
 	static rage::Mat44V GetCameraMatrix();
 	static const rage::Mat44V& GetViewMatrix();
 	static const rage::Mat44V& GetViewProjectionMatrix();

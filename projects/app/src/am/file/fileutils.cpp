@@ -1,6 +1,7 @@
 #include "fileutils.h"
 
 #include "am/system/asserts.h"
+#include "helpers/win32.h"
 
 bool rageam::file::IsFileExists(const char* path)
 {
@@ -80,4 +81,21 @@ bool rageam::file::ReadAllBytes(const wchar_t* path, FileBytes& outFileBytes)
 bool rageam::file::IsDirectory(const wchar_t* path)
 {
 	return GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY;
+}
+
+u64 rageam::file::GetFileModifyTime(const wchar_t* path)
+{
+	if (!IsFileExists(path))
+		return false;
+
+	HANDLE hFile = OpenFile(path);
+	if (hFile == INVALID_HANDLE_VALUE)
+		return false;
+
+	FILETIME modifyTime = {};
+	GetFileTime(hFile, NULL, NULL, &modifyTime);
+
+	CloseHandle(hFile);
+
+	return TODWORD64(modifyTime.dwLowDateTime, modifyTime.dwHighDateTime);
 }

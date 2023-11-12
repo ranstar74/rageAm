@@ -8,6 +8,8 @@
 #include "am/ui/styled/slwidgets.h"
 #include "modelscene.h"
 #include "am/integration/im3d.h"
+#include "game/viewport.h"
+#include "rage/math/math.h"
 
 void rageam::integration::LightEditor::SetCullPlaneFromLight(const LightDrawContext& ctx)
 {
@@ -28,6 +30,11 @@ u32 rageam::integration::LightEditor::GetOutlinerColor(bool isSelected, bool isH
 	return col;
 }
 
+rageam::integration::DrawList& rageam::integration::LightEditor::GetDrawList() const
+{
+	return GameIntegration::GetInstance()->DrawListForeground;
+}
+
 rageam::graphics::ShapeHit rageam::integration::LightEditor::ProbeLightSphere(const LightDrawContext& ctx) const
 {
 	graphics::ShapeHit shapeHit;
@@ -38,11 +45,13 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::ProbeLightSphere(co
 
 rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner_Point(const LightDrawContext& ctx) const
 {
+	DrawList& drawList = GetDrawList();
+
 	// 3 Axis sphere
-	GRenderContext->OverlayRender.DrawSphere(ctx.PrimaryColor, ctx.Light->Falloff);
+	drawList.DrawSphere(ctx.PrimaryColor, ctx.Light->Falloff);
 
 	// Outer ring for falloff drag resizing, aligned to camera
-	GRenderContext->OverlayRender.DrawCircle(
+	drawList.DrawCircle(
 		rage::VEC_ORIGIN, ctx.CamFront, ctx.CamRight, ctx.Light->Falloff, ctx.SecondaryColor);
 
 	return ProbeLightSphere(ctx);
@@ -93,16 +102,18 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner_Spot(c
 			coneRight = coneLine.Rotate(frontNormal, theta);
 		};
 
+	DrawList& drawList = GetDrawList();
+
 	// Outer & Inner edges
 	float outerAngle = rage::Math::DegToRad(ctx.Light->ConeOuterAngle);
 	float innerAngle = rage::Math::DegToRad(ctx.Light->ConeInnerAngle);
 	rage::Vec3V coneOuterLeft, coneOuterRight, coneInnerLeft, coneInnerRight;
 	getLeftRight(outerAngle, coneOuterLeft, coneOuterRight);
 	getLeftRight(innerAngle, coneInnerLeft, coneInnerRight);
-	GRenderContext->OverlayRender.DrawLine(rage::VEC_ORIGIN, coneOuterLeft, ctx.PrimaryColor);
-	GRenderContext->OverlayRender.DrawLine(rage::VEC_ORIGIN, coneOuterRight, ctx.PrimaryColor);
-	GRenderContext->OverlayRender.DrawLine(rage::VEC_ORIGIN, coneInnerLeft, ctx.SecondaryColor);
-	GRenderContext->OverlayRender.DrawLine(rage::VEC_ORIGIN, coneInnerRight, ctx.SecondaryColor);
+	drawList.DrawLine(rage::VEC_ORIGIN, coneOuterLeft, ctx.PrimaryColor);
+	drawList.DrawLine(rage::VEC_ORIGIN, coneOuterRight, ctx.PrimaryColor);
+	drawList.DrawLine(rage::VEC_ORIGIN, coneInnerLeft, ctx.SecondaryColor);
+	drawList.DrawLine(rage::VEC_ORIGIN, coneInnerRight, ctx.SecondaryColor);
 
 	// Test #1: Base cone triangle
 	rage::Vec3V coneOuterLeftWorld = coneOuterLeft.Transform(ctx.LightWorld);
@@ -113,7 +124,7 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner_Spot(c
 	// Half sphere top circle
 	rage::Vec3V circleCenter = (coneOuterLeft + coneOuterRight) * rage::S_HALF;
 	rage::ScalarV circleRadius = circleCenter.DistanceTo(coneOuterLeft); // TODO: Is there better way to compute this?
-	GRenderContext->OverlayRender.DrawCircle(circleCenter, rage::VEC_UP, ctx.CamRight, circleRadius, ctx.PrimaryColor);
+	drawList.DrawCircle(circleCenter, rage::VEC_UP, ctx.CamRight, circleRadius, ctx.PrimaryColor);
 
 	// Test #2: Top of half sphere
 	if (shapeHit.DidHit && !anyHit)
@@ -143,7 +154,7 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner_Spot(c
 					segmentPosWorld = segmentPos.Transform(ctx.LightWorld);
 				if (i != 0)
 				{
-					GRenderContext->OverlayRender.DrawLine(prevSegmentPos, segmentPos, ctx.PrimaryColor);
+					drawList.DrawLine(prevSegmentPos, segmentPos, ctx.PrimaryColor);
 
 					// Test #3: Half sphere arc
 					testTriangle(prevSegmentPosWorld, segmentPosWorld, coneOuterLeftWorld);
@@ -166,31 +177,33 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner_Spot(c
 
 rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner_Capsule(const LightDrawContext& ctx) const
 {
+	DrawList& drawList = GetDrawList();
+
 	// Capsule light diagram: https://i.imgur.com/IdXEw2a.png
 
 	rage::ScalarV halfExtent = ctx.Light->Extent.X * 0.5f;
 	rage::Vec3V extentFrom = rage::VEC_UP * halfExtent;
 	rage::Vec3V extentTo = rage::VEC_DOWN * halfExtent;
 
-	GRenderContext->OverlayRender.DrawLine(extentFrom, extentTo, ctx.SecondaryColor);
+	drawList.DrawLine(extentFrom, extentTo, ctx.SecondaryColor);
 
 	float radius = ctx.Light->Falloff;
 
 	// Half sphere tops
-	GRenderContext->OverlayRender.DrawCircle(extentTo, rage::VEC_UP, rage::VEC_RIGHT, radius, ctx.PrimaryColor);
-	GRenderContext->OverlayRender.DrawCircle(extentFrom, rage::VEC_UP, rage::VEC_RIGHT, radius, ctx.PrimaryColor);
+	drawList.DrawCircle(extentTo, rage::VEC_UP, rage::VEC_RIGHT, radius, ctx.PrimaryColor);
+	drawList.DrawCircle(extentFrom, rage::VEC_UP, rage::VEC_RIGHT, radius, ctx.PrimaryColor);
 
 	// Draw two half spheres (arcs)
-	GRenderContext->OverlayRender.DrawCircle(extentTo, rage::VEC_FRONT, rage::VEC_RIGHT, radius, ctx.PrimaryColor, 0, rage::PI);
-	GRenderContext->OverlayRender.DrawCircle(extentTo, -rage::VEC_RIGHT, rage::VEC_FRONT, radius, ctx.PrimaryColor, 0, rage::PI);
-	GRenderContext->OverlayRender.DrawCircle(extentFrom, -rage::VEC_FRONT, rage::VEC_RIGHT, radius, ctx.PrimaryColor, 0, rage::PI);
-	GRenderContext->OverlayRender.DrawCircle(extentFrom, rage::VEC_RIGHT, rage::VEC_FRONT, radius, ctx.PrimaryColor, 0, rage::PI);
+	drawList.DrawCircle(extentTo, rage::VEC_FRONT, rage::VEC_RIGHT, radius, ctx.PrimaryColor, 0, rage::PI);
+	drawList.DrawCircle(extentTo, -rage::VEC_RIGHT, rage::VEC_FRONT, radius, ctx.PrimaryColor, 0, rage::PI);
+	drawList.DrawCircle(extentFrom, -rage::VEC_FRONT, rage::VEC_RIGHT, radius, ctx.PrimaryColor, 0, rage::PI);
+	drawList.DrawCircle(extentFrom, rage::VEC_RIGHT, rage::VEC_FRONT, radius, ctx.PrimaryColor, 0, rage::PI);
 
 	// Draw lines connecting half spheres (arcs)
-	GRenderContext->OverlayRender.DrawLine(extentTo + rage::VEC_FRONT * radius, extentFrom + rage::VEC_FRONT * radius, ctx.PrimaryColor);
-	GRenderContext->OverlayRender.DrawLine(extentTo + rage::VEC_RIGHT * radius, extentFrom + rage::VEC_RIGHT * radius, ctx.PrimaryColor);
-	GRenderContext->OverlayRender.DrawLine(extentTo - rage::VEC_FRONT * radius, extentFrom - rage::VEC_FRONT * radius, ctx.PrimaryColor);
-	GRenderContext->OverlayRender.DrawLine(extentTo - rage::VEC_RIGHT * radius, extentFrom - rage::VEC_RIGHT * radius, ctx.PrimaryColor);
+	drawList.DrawLine(extentTo + rage::VEC_FRONT * radius, extentFrom + rage::VEC_FRONT * radius, ctx.PrimaryColor);
+	drawList.DrawLine(extentTo + rage::VEC_RIGHT * radius, extentFrom + rage::VEC_RIGHT * radius, ctx.PrimaryColor);
+	drawList.DrawLine(extentTo - rage::VEC_FRONT * radius, extentFrom - rage::VEC_FRONT * radius, ctx.PrimaryColor);
+	drawList.DrawLine(extentTo - rage::VEC_RIGHT * radius, extentFrom - rage::VEC_RIGHT * radius, ctx.PrimaryColor);
 
 	// Hit test
 	graphics::ShapeHit shapeHit;
@@ -201,6 +214,8 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner_Capsul
 
 rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner(const LightDrawContext& ctx) const
 {
+	DrawList& drawList = GetDrawList();
+
 	if (!ShowLightOutlines)
 	{
 		bool drawThisLight = ShowOnlySelectedLightOutline && ctx.IsSelected;
@@ -208,7 +223,7 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner(const 
 			return graphics::ShapeHit(0, false);
 	}
 
-	GRenderContext->OverlayRender.SetCurrentMatrix(ctx.LightWorld);
+	drawList.SetTransform(ctx.LightWorld);
 
 	graphics::ShapeHit shapeHit = {};
 	switch (ctx.Light->Type)
@@ -219,7 +234,7 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner(const 
 	default: break;
 	}
 
-	GRenderContext->OverlayRender.ResetCurrentMatrix();
+	drawList.ResetTransform();
 
 	// Light name in 3D
 	// TODO: Use name from DrawableAssetMap
@@ -290,6 +305,8 @@ bool rageam::integration::LightEditor::DrawPointLightFalloffGizmo(const LightDra
 
 void rageam::integration::LightEditor::DrawCullPlaneEditGizmo(const LightDrawContext& ctx)
 {
+	DrawList& drawList = GetDrawList();
+
 	// See diagram: https://i.imgur.com/SyBQ591.png
 
 	rage::Vec4V lightPos(ctx.Light->Position, 0.0f);
@@ -298,11 +315,11 @@ void rageam::integration::LightEditor::DrawCullPlaneEditGizmo(const LightDrawCon
 	rage::Mat44V planeWorld = m_CullPlane * ctx.LightBoneWorld;
 	planeWorld.Pos += lightPos; // Cull plane ignores light orientation, use only position
 
-	GRenderContext->OverlayRender.DrawQuad(
+	drawList.DrawQuad(
 		planeWorld.Pos, planeWorld.Front, planeWorld.Right, rage::S_TWO, rage::S_ONE, graphics::COLOR_WHITE);
 
 	// Draw line that indicates culling area
-	GRenderContext->OverlayRender.DrawLine(
+	drawList.DrawLine(
 		planeWorld.Pos, planeWorld.Pos - planeWorld.Front, graphics::COLOR_RED);
 
 	// Debug cull info
@@ -461,6 +478,9 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 					ImGui::CheckboxFlags("Ignore Time", &light->Flags, LF_IGNORE_TIME);
 					ImGui::ToolTip("Don't use light intensity based on game time (brighter at night, dimmer at day)");
 
+					ImGui::CheckboxFlags("Electrical buzz/hum", &light->Flags, LF_ELECTRICAL_HUM);
+					ImGui::ToolTip("Plays electrical buzz sound near the light, note that volume is pretty low");
+
 					ImGui::CheckboxFlags("Render Underground", &light->Flags, LF_RENDER_UNDERGROUND);
 					ImGui::ToolTip("Draw light under map (in tunnels)");
 
@@ -618,13 +638,6 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 				}
 				ImGui::SameLine();
 				ImGui::HelpMarker("Cull (clip) plane allows to completely block light. Usually they are used to prevent light emitting through a wall.");
-				{
-					ConstString normal = ImGui::FormatTemp("%.02f %.02f, %.02f", 
-						light->CullingPlaneNormal.X, light->CullingPlaneNormal.Y, light->CullingPlaneNormal.Z);
-					ImGui::InputText("Normal", (char*)normal, 1, ImGuiInputTextFlags_ReadOnly);
-					ConstString offset = ImGui::FormatTemp("%.02f", light->CullingPlaneOffset);
-					ImGui::InputText("Offset", (char*)offset, 1, ImGuiInputTextFlags_ReadOnly);
-				}
 
 				SlGui::CategoryText(ICON_AM_SHADOW" Shadows");
 				ImGui::CheckboxFlags("Enable###ENABLE_SHADOWS", &light->Flags, LF_ENABLE_SHADOWS);

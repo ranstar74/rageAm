@@ -326,6 +326,17 @@ bool rageam::asset::TxdAsset::GetValidatedTextureName(const file::WPath& texture
 	return true;
 }
 
+bool rageam::asset::TxdAsset::ContainsTexture(ConstString name) const
+{
+	u32 nameHash = rage::joaat(name);
+	for(const Texture& textureTune : m_Textures)
+	{
+		if (textureTune.NameHash == nameHash)
+			return true;
+	}
+	return false;
+}
+
 rage::grcTexture* rageam::asset::TxdAsset::CompileTexture(const Texture* textureTune) const
 {
 	const file::WPath& texturePath = textureTune->GetFullPath();

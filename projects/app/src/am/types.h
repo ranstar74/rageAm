@@ -9,6 +9,7 @@
 #include "rage/math/vec.h"
 #include "rage/math/vecv.h"
 #include "rage/math/mtxv.h"
+#include "rage/spd/aabb.h"
 
 namespace rageam
 {
@@ -46,6 +47,8 @@ namespace rageam
 	template<typename TValue, typename THashFn = rage::atMapHashFn<TValue>>
 	using HashSet = rage::atSet<TValue, THashFn>;
 
+	using HashValue = rage::atHashValue;
+
 	constexpr u32 Hash(ConstString str) { return rage::joaat(str); }
 	constexpr u32 Hash(ConstWString str) { return rage::joaat(str); }
 
@@ -60,4 +63,6 @@ namespace rageam
 	using Vec4S = rage::Vector4;
 	using Mat34V = rage::Mat34V;
 	using Mat44V = rage::Mat44V;
+	using AABB = rage::spdAABB;
+	using Sphere = rage::spdSphere;
 }

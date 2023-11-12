@@ -6,6 +6,10 @@
 #include "am/ui/styled/slgui.h"
 #include "ImGuizmo.h"
 
+#ifdef AM_INTEGRATED
+#include "am/integration/integration.h"
+#endif
+
 void rageam::ui::UIContext::SetupImGui() const
 {
 	IMGUI_CHECKVERSION();
@@ -79,7 +83,18 @@ bool rageam::ui::UIContext::Update()
 			ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
 			ImGuizmo::SetRect(0, 0, GImGui->IO.DisplaySize.x, GImGui->IO.DisplaySize.y);
 			ImGuizmo::BeginFrame();
+
+			// Quick way to get rid of guizmo when game is paused / loading
+#ifdef AM_INTEGRATED
+			auto integration = integration::GameIntegration::GetInstance();
+			if (integration->IsPauseMenuActive())
+				ImGuizmo::SetRect(0, 0, 0, 0);
+#endif
+
 		}
+#ifdef AM_INTEGRATED
+		integration::GameIntegration::GetInstance()->ComponentMgr->UIUpdateAll();
+#endif
 		needContinue = Apps.UpdateAll();
 		Renderer.EndFrame();
 		Input.EndFrame();

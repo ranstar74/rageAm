@@ -31,7 +31,7 @@ void rageam::graphics::SceneNode::ComputeMatrices()
 	SceneNode* parent = GetParent();
 	while (parent)
 	{
-		world = parent->GetLocalTransform() * world;
+		world *= parent->GetLocalTransform();
 		parent = parent->GetParent();
 	}
 	m_WorldMatrix = rage::Mat44V(world);
@@ -118,24 +118,50 @@ void rageam::graphics::Scene::ComputeNodeMatrices() const
 	}
 }
 
-void rageam::graphics::Scene::ComputeStats()
-{
-	m_LightCount = 0;
-	for (u16 i = 0; i < GetNodeCount(); i++)
-	{
-		SceneNode* node = GetNode(i);
-		if (node->HasLight())
-			m_LightCount++;
-	}
-}
-
 void rageam::graphics::Scene::Init()
 {
 	FindTransformedModels();
 	FindNeedDefaultMaterial();
 	ScanForMultipleRootBones();
 	ComputeNodeMatrices();
-	ComputeStats();
+
+	// Get all light nodes
+	for (u16 i = 0; i < GetNodeCount(); i++)
+	{
+		SceneNode* node = GetNode(i);
+		if (node->HasLight())
+			m_LightNodes.Add(node);
+	}
+
+	// Build material map
+	u16 matCount = GetMaterialCount();
+	m_NameToMaterial.InitAndAllocate(matCount, false);
+	for (u16 i = 0; i < matCount; i++)
+	{
+		m_NameToMaterial.Insert(GetMaterial(i));
+	}
+
+	// Build name map
+	u16 nodeCount = GetNodeCount();
+	m_NameToNode.InitAndAllocate(nodeCount, false);
+	for(u16 i = 0; i < nodeCount; i++)
+	{
+		m_NameToNode.Insert(GetNode(i));
+	}
+}
+
+rageam::graphics::SceneNode* rageam::graphics::Scene::GetNodeByName(ConstString name) const
+{
+	SceneNode** ppNode = m_NameToNode.TryGetAt(SceneHashFn(name));
+	if (ppNode) return *ppNode;
+	return nullptr;
+}
+
+rageam::graphics::SceneMaterial* rageam::graphics::Scene::GetMaterialByName(ConstString name) const
+{
+	SceneMaterial** ppMat = m_NameToMaterial.TryGetAt(SceneHashFn(name));
+	if (ppMat) return *ppMat;
+	return nullptr;
 }
 
 void rageam::graphics::Scene::DebugPrint()
@@ -210,7 +236,7 @@ void rageam::graphics::Scene::DebugPrint()
 	logger->GetOptions().Set(LOG_OPTION_NO_PREFIX, false);
 }
 
-amPtr<rageam::graphics::Scene> rageam::graphics::SceneFactory::LoadFrom(ConstWString path)
+amPtr<rageam::graphics::Scene> rageam::graphics::SceneFactory::LoadFrom(ConstWString path, SceneLoadOptions* options)
 {
 	ConstWString extension = file::GetExtension(path);
 
@@ -231,7 +257,8 @@ amPtr<rageam::graphics::Scene> rageam::graphics::SceneFactory::LoadFrom(ConstWSt
 	if (!AM_VERIFY(scene != nullptr, "SceneFactory::LoadFrom() -> File %ls is not supported", extension))
 		return nullptr;
 
-	if (!scene->Load(path))
+	SceneLoadOptions dummyOptions = {};
+	if (!scene->Load(path, options ? *options : dummyOptions)) // Pass either given options or dummy
 		return nullptr;
 
 	wchar_t nameBuffer[64];

@@ -188,7 +188,7 @@ namespace rageam::graphics
 	public:
 		~SceneGl() override;
 
-		bool Load(ConstWString path) override;
+		bool Load(ConstWString path, SceneLoadOptions& loadOptions) override;
 
 		u16 GetNodeCount() const override;
 		SceneNode* GetNode(u16 index) const override;

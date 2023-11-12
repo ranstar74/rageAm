@@ -444,7 +444,7 @@ rageam::graphics::SceneFbx::~SceneFbx()
 	ufbx_free_scene(m_UScene);
 }
 
-bool rageam::graphics::SceneFbx::Load(ConstWString path)
+bool rageam::graphics::SceneFbx::Load(ConstWString path, SceneLoadOptions& loadOptions)
 {
 	constexpr ufbx_coordinate_axes axes =
 	{
@@ -458,6 +458,7 @@ bool rageam::graphics::SceneFbx::Load(ConstWString path)
 	opts.target_axes = axes;
 	//opts.target_camera_axes = axes;
 	opts.target_light_axes = axes;
+	opts.ignore_all_content = loadOptions.SkipMeshData;
 
 	ufbx_error error;
 	m_UScene = ufbx_load_file(String::ToUtf8Temp(path), &opts, &error);

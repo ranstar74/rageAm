@@ -47,7 +47,15 @@ void rageam::asset::HotDrawable::IterateDrawableTextures(const std::function<voi
 bool rageam::asset::HotDrawable::LoadAndCompileAsset()
 {
 	// We've got request, load asset & compile
-	DrawableAssetPtr asset = AssetFactory::LoadFromPath<DrawableAsset>(m_AssetPath);
+	DrawableAssetPtr asset;
+
+	// Use existing drawable asset or load if wasn't loaded before
+	if (m_Asset)
+		asset = m_Asset;
+	else
+		asset = AssetFactory::LoadFromPath<DrawableAsset>(m_AssetPath);
+
+	// Failed to load asset...
 	if (!asset)
 		return false;
 
@@ -92,6 +100,8 @@ bool rageam::asset::HotDrawable::LoadAndCompileAsset()
 		AM_DEBUGF(L"HotDrawable::LoadAndCompileAsset() -> Asset is not in workspace, initialized watcher for '%ls'", m_AssetPath.GetCStr());
 	}
 
+	m_AssetMap = DrawableAssetMap(*asset->CompiledDrawableMap);
+	m_DrawableScene = asset->GetScene();
 	m_Asset = std::move(asset);
 	m_Drawable = std::move(drawable);
 
@@ -354,15 +364,68 @@ void rageam::asset::HotDrawable::HandleChange_Texture(const file::DirectoryChang
 	return;
 }
 
-void rageam::asset::HotDrawable::HandleChange_Txd(const rageam::file::DirectoryChange& change)
+void rageam::asset::HotDrawable::HandleChange_Txd(const file::DirectoryChange& change)
 {
 	HotTxd* hotTxd = nullptr;
+
+	auto addTxd = [&](ConstWString path)
+		{
+			bool isEmbed = m_Asset->GetEmbedDictionaryPath() == path;
+			if (!isEmbed && !Workspace::IsInWorkspace(path))
+			{
+				AM_ERRF("HotDrawable::HandleChange() -> Added TXD is not in workspace,"
+					" make sure it's not under other asset directory.");
+				return;
+			}
+
+			TxdAssetPtr newTxdAsset = AssetFactory::LoadFromPath<TxdAsset>(path);
+			if (!newTxdAsset)
+			{
+				AM_ERRF("HotDrawable::HandleChange() -> Failed to load added TXD config.");
+				return;
+			}
+
+			HotTxd newHotTxd(newTxdAsset);
+			newHotTxd.TryCompile();
+			newHotTxd.IsEmbed = isEmbed;
+
+			WaitForApplyChangesSignal();
+			{
+				// Try to resolve missing textures if compiled successfully
+				if (newHotTxd.Dict)
+				{
+					for (u16 i = 0; i < newHotTxd.Dict->GetSize(); i++)
+					{
+						rage::grcTexture* addedTex = newHotTxd.Dict->GetValueAt(i);
+						ResolveMissingTextures(addedTex);
+					}
+				}
+
+				if (newHotTxd.IsEmbed)
+				{
+					m_Drawable->GetShaderGroup()->SetEmbedTextureDict(newHotTxd.Dict.Get());
+				}
+
+				m_TXDs.EmplaceAt(Hash(newHotTxd.Asset->GetDirectoryPath()), std::move(newHotTxd));
+			}
+			SignalApplyChannels();
+
+			AM_TRACEF(L"HotDrawable::HandleChange() -> Added new TXD '%ls'", path);
+		};
 
 	// Retrieve TXD from storage if it exists, in case if TXD was added it won't yet exist in cache
 	if (change.Action == file::ChangeAction_Removed || change.Action == file::ChangeAction_Renamed)
 	{
 		hotTxd = m_TXDs.TryGetAt(Hash(change.Path));
-		if (!hotTxd) // Shouldn't happen
+
+		// Non .itd was renamed in .itd
+		if (change.Action == file::ChangeAction_Renamed && AssetFactory::GetAssetType(change.NewPath) == AssetType_Txd)
+		{
+			addTxd(change.NewPath);
+			return;
+		}
+
+		if (!hotTxd)
 		{
 			AM_ERRF("HotDrawable::HandleChange() -> TXD was changed that is not in the list!");
 			return;
@@ -428,60 +491,45 @@ void rageam::asset::HotDrawable::HandleChange_Txd(const rageam::file::DirectoryC
 	// TXD was added
 	if (change.Action == file::ChangeAction_Added)
 	{
-		bool isEmbed = m_Asset->GetEmbedDictionaryPath() == change.Path;
-		if (!isEmbed && !Workspace::IsInWorkspace(change.Path))
-		{
-			AM_ERRF("HotDrawable::HandleChange() -> Added TXD is not in workspace,"
-				" make sure it's not under other asset directory.");
-			return;
-		}
-
-		TxdAssetPtr newTxdAsset = AssetFactory::LoadFromPath<TxdAsset>(change.Path);
-		if (!newTxdAsset)
-		{
-			AM_ERRF("HotDrawable::HandleChange() -> Failed to load added TXD config.");
-			return;
-		}
-
-		HotTxd newHotTxd(newTxdAsset);
-		newHotTxd.TryCompile();
-
-		newHotTxd.IsEmbed = isEmbed;
-
-		WaitForApplyChangesSignal();
-		{
-			// Try to resolve missing textures if compiled successfully
-			if (newHotTxd.Dict)
-			{
-				for (u16 i = 0; i < newHotTxd.Dict->GetSize(); i++)
-				{
-					rage::grcTexture* addedTex = newHotTxd.Dict->GetValueAt(i);
-					ResolveMissingTextures(addedTex);
-				}
-			}
-
-			if (isEmbed)
-			{
-				m_Drawable->GetShaderGroup()->SetEmbedTextureDict(newHotTxd.Dict.Get());
-			}
-
-			m_TXDs.EmplaceAt(Hash(newTxdAsset->GetDirectoryPath()), std::move(newHotTxd));
-		}
-		SignalApplyChannels();
+		addTxd(change.Path);
 		return;
 	}
 
 	return;
 }
 
-void rageam::asset::HotDrawable::HandleChange_Scene(const rageam::file::DirectoryChange& change)
+void rageam::asset::HotDrawable::HandleChange_Scene(const file::DirectoryChange& change)
 {
 	// File was modified, fully reload scene
 	if (change.Action == file::ChangeAction_Modified)
 	{
 		AM_DEBUGF("HotDrawable::HandleChange() -> Scene file was modified, reloading...");
-		Load();
-		// NOTE: Watcher with current thread is destroyed by Reload()
+		auto drawable = std::make_shared<gtaDrawable>();
+		//if(!m_Asset->SaveConfig())
+		//{
+		//	AM_ERRF("HotDrawable::HandleChange() -> Failed to save config, canceling reload...");
+		//	return;
+		//}
+
+		//m_Asset->Refresh();
+
+		if (!m_Asset->CompileToGame(drawable.get()))
+		{
+			AM_ERRF("HotDrawable::HandleChange() -> Failed to compile new scene...");
+			return;
+		}
+		WaitForApplyChangesSignal();
+		{
+			// TODO:
+			// We currently doing map & scene copy but it's not really best option,
+			// mainly that's required because when we're compiling drawable in background thread,
+			// it cannot be accessed in main one
+			m_AssetMap = DrawableAssetMap(*m_Asset->CompiledDrawableMap);
+			m_DrawableScene = m_Asset->GetScene();
+			m_Drawable = std::move(drawable);
+			m_HotChanges |= AssetHotFlags_DrawableCompiled;
+		}
+		SignalApplyChannels();
 		return;
 	}
 
@@ -539,7 +587,7 @@ void rageam::asset::HotDrawable::HandleChange(const file::DirectoryChange& chang
 	}
 
 	// A change was done to TXD directory itself
-	if (AssetFactory::GetAssetType(change.Path) == AssetType_Txd)
+	if (AssetFactory::GetAssetType(change.Path) == AssetType_Txd || AssetFactory::GetAssetType(change.NewPath) == AssetType_Txd)
 	{
 		HandleChange_Txd(change);
 		m_HotChanges |= AssetHotFlags_TxdModified;
@@ -667,13 +715,14 @@ rageam::asset::HotDrawable::~HotDrawable()
 	StopWatcherAndWorkerThread();
 }
 
-void rageam::asset::HotDrawable::Load()
+void rageam::asset::HotDrawable::LoadAndCompile(bool keepAsset)
 {
 	StopWatcherAndWorkerThread();
 
 	m_Drawable = nullptr;
-	m_Asset = nullptr;
 	m_LoadRequested = true;
+	if (!keepAsset)
+		m_Asset = nullptr;
 
 	ConstString threadName = String::FormatTemp("Hot Drawable %ls", file::GetFileName(m_AssetPath.GetCStr()));
 	m_WorkerThread = std::make_unique<Thread>(threadName, WorkerThreadEntryPoint, this);
@@ -703,6 +752,8 @@ rageam::asset::HotDrawableInfo rageam::asset::HotDrawable::GetInfo()
 	info.IsLoading = m_IsLoading;
 	info.Drawable = m_Drawable;
 	info.DrawableAsset = m_Asset;
+	info.DrawableAssetMap = &m_AssetMap;
+	info.DrawableScene = m_DrawableScene;
 	info.TXDs = &m_TXDs;
 
 	return info;

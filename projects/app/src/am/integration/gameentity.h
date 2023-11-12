@@ -51,6 +51,7 @@ namespace rageam::integration
 		auto GetWorldTransform() const -> const rage::Mat44V&;
 		auto GetHandle() const { return m_EntityHandle; }
 		auto GetEntityPointer() const { return m_Entity; }
+		auto GetDrawable() const { return m_Drawable.get(); }
 	};
 	using GameEntityOwner = ComponentOwner<GameEntity>;
 }

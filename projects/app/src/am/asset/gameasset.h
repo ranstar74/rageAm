@@ -154,6 +154,11 @@ namespace rageam::asset
 
 		// Compiles asset into game-compatible format for raw streaming.
 		virtual bool CompileToGame(TGameFormat* ppOutGameFormat) = 0;
+		// Creates config (or updates existing) from given game resource, basically decompiling.
+		// For drawable:
+		// In case if drawable was previously compiled,
+		// the map will be used to properly match existing tune with compiled resource
+		virtual void ParseFromGame(TGameFormat* object) = 0;
 	};
 
 	/**

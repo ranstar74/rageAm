@@ -31,6 +31,9 @@ namespace rageam::graphics
 	// For geometries that don't have material
 	static constexpr u16 DEFAULT_MATERIAL = u16(-1);
 
+	// Case-sensitive joaat
+	inline HashValue SceneHashFn(ConstString str) { return rage::joaat(str, false); }
+
 	/**
 	 * \brief Packed vertex channel data, (for e.g. 'Position' or 'Normal') or vertex indices.
 	 */
@@ -82,6 +85,10 @@ namespace rageam::graphics
 		virtual u32 GetNameHash() const = 0;
 
 		virtual ConstString GetTextureName(eMaterialTexture texture) const = 0;
+	};
+	struct SceneMaterialHashFn
+	{
+		u32 operator()(const SceneMaterial* mat) const { return SceneHashFn(mat->GetName()); }
 	};
 
 	/**
@@ -247,10 +254,15 @@ namespace rageam::graphics
 		SceneNode* GetNextSibling() const { return m_NextSibling; }
 		SceneNode* GetFirstChild() const { return m_FirstChild; }
 	};
+	struct SceneNodeHashFn
+	{
+		u32 operator()(const SceneNode* node) const { return SceneHashFn(node->GetName()); }
+	};
 
 	struct SceneLoadOptions
 	{
-		bool SkipMeshData; // No expensive vertex data will be loaded
+		// TODO: Not implemented in GLTF
+		bool SkipMeshData = false; // No expensive vertex data will be loaded
 	};
 
 	/**
@@ -258,20 +270,21 @@ namespace rageam::graphics
 	 */
 	class Scene
 	{
-		rage::atString m_Name;
+		rage::atString			m_Name;
+		bool					m_HasTransform;
+		bool					m_NeedDefaultMaterial;
+		bool					m_HasMultipleRootNodes;
+		bool					m_HasSkinning;
+		SmallList<SceneNode*>	m_LightNodes;
 
-		bool	m_HasTransform;
-		bool	m_NeedDefaultMaterial;
-		bool	m_HasMultipleRootNodes;
-		bool	m_HasSkinning;
-		u16		m_LightCount;
+		HashSet<SceneNode*, SceneNodeHashFn>			m_NameToNode;
+		HashSet<SceneMaterial*, SceneMaterialHashFn>	m_NameToMaterial;
 
 		void FindSkinnedNodes();
 		void FindTransformedModels();
 		void FindNeedDefaultMaterial();
 		void ScanForMultipleRootBones();
 		void ComputeNodeMatrices() const;
-		void ComputeStats();
 
 	public:
 		Scene() = default;
@@ -281,7 +294,7 @@ namespace rageam::graphics
 		virtual void Init();
 
 		// Loads model from file at given path
-		virtual bool Load(ConstWString path) = 0;
+		virtual bool Load(ConstWString path, SceneLoadOptions& loadOptions) = 0;
 
 		virtual u16 GetNodeCount() const = 0;
 		virtual SceneNode* GetNode(u16 index) const = 0;
@@ -307,8 +320,13 @@ namespace rageam::graphics
 		bool HasMultipleRootNodes() const { return m_HasMultipleRootNodes; }
 		// Whether any node in the scene use skinning
 		bool HasSkinning() const { return m_HasSkinning; }
-		// Total light count in this scene nodes
-		u16 GetLightCount() const { return m_LightCount; }
+		// Light nodes count
+		u16 GetLightCount() const { return m_LightNodes.GetSize(); }
+		SceneNode* GetLight(u16 index) const { return m_LightNodes[index]; }
+
+		// NOTE: Lookup is case sensitive!
+		SceneNode* GetNodeByName(ConstString name) const;
+		SceneMaterial* GetMaterialByName(ConstString name) const;
 
 		// Gets scene type such as 'GL' / 'FBX' / 'OBJ'
 		virtual ConstString GetTypeName() = 0;
@@ -321,7 +339,7 @@ namespace rageam::graphics
 	class SceneFactory
 	{
 	public:
-		static amPtr<Scene> LoadFrom(ConstWString path);
+		static amPtr<Scene> LoadFrom(ConstWString path, SceneLoadOptions* options = nullptr);
 		static bool IsSupportedFormat(ConstWString extension);
 	};
 }

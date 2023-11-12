@@ -1,5 +1,7 @@
 #include "drawable.h"
 
+#include "drawablehelpers.h"
+#include "hotdrawable.h"
 #include "am/asset/factory.h"
 #include "am/file/iterator.h"
 #include "am/graphics/buffereditor.h"
@@ -41,14 +43,14 @@ void rageam::asset::MaterialTune::Param::Deserialize(const XmlHandle& xml)
 	switch (Type)
 	{
 	case Unsupported:
-	case None:									break;
-	case String:	GET_VALUE(ConstString);		break;
-	case Bool:		GET_VALUE(bool);			break;
-	case Float:		GET_VALUE(float);			break;
-	case Vec2F:		GET_VALUE(rage::Vector2);	break;
-	case Vec3F:		GET_VALUE(rage::Vector3);	break;
-	case Vec4F:		GET_VALUE(rage::Vector4);	break;
-	case Color:		Value = xml.GetColorHex();	break;
+	case None:											break;
+	case Bool:		GET_VALUE(bool);					break;
+	case Float:		GET_VALUE(float);					break;
+	case Vec2F:		GET_VALUE(rage::Vector2);			break;
+	case Vec3F:		GET_VALUE(rage::Vector3);			break;
+	case Vec4F:		GET_VALUE(rage::Vector4);			break;
+	case Color:		Value = xml.GetColorHex();			break;
+	case String:	Value = string(xml.GetText(false)); break; // We allow empty/null strings
 	}
 
 #undef GET_VALUE
@@ -68,13 +70,21 @@ void rageam::asset::MaterialTune::Param::CopyValue(rage::grcInstanceVar* var)
 	case Vec4F:		Value = var->GetValue<rage::Vector4>();		break;
 	case Color:		Value = 0;									break;
 	}
+
+	// Retrieve texture name
+	if (var->IsTexture() && var->GetTexture())
+	{
+		Value = string(var->GetTexture()->GetName());
+	}
 }
 
-void rageam::asset::MaterialTune::Deserialize(const XmlHandle& xml)
+void rageam::asset::MaterialTune::Deserialize(const XmlHandle& node)
 {
-	XML_GET_ATTR(xml, Name);
-	XML_GET_ATTR(xml, Shader);
-	for (const XmlHandle& xParam : XmlIterator(xml, "Param"))
+	SceneTune::Deserialize(node);
+	XML_GET_ATTR(node, Effect);
+	XML_GET_ATTR(node, DrawBucket);
+	XML_GET_ATTR(node, IsDefault);
+	for (const XmlHandle& xParam : XmlIterator(node, "Param"))
 	{
 		Param param;
 		param.Deserialize(xParam);
@@ -82,23 +92,25 @@ void rageam::asset::MaterialTune::Deserialize(const XmlHandle& xml)
 	}
 }
 
-void rageam::asset::MaterialTune::Serialize(XmlHandle& xml) const
+void rageam::asset::MaterialTune::Serialize(XmlHandle& node) const
 {
-	XML_SET_ATTR(xml, Name);
-	XML_SET_ATTR(xml, Shader);
+	SceneTune::Serialize(node);
+	XML_SET_ATTR(node, Effect);
+	XML_SET_ATTR(node, DrawBucket);
+	XML_SET_ATTR(node, IsDefault);
 	for (const Param& param : Params)
 	{
-		XmlHandle xParam = xml.AddChild("Param");
+		XmlHandle xParam = node.AddChild("Param");
 		param.Serialize(xParam);
 	}
 }
 
 rage::grcEffect* rageam::asset::MaterialTune::LookupEffect() const
 {
-	rage::grcEffect* effect = rage::grcEffectMgr::FindEffectByHashKey(ShaderHash);
+	rage::grcEffect* effect = rage::grcEffectMgr::FindEffect(Effect);
 	if (!effect)
 	{
-		AM_ERRF("MaterialTune::LookupEffect() -> Shader effect with name '%s.fxc' doesn't exists.", Shader.GetCStr());
+		AM_ERRF("MaterialTune::LookupEffect() -> Shader effect with name '%s.fxc' doesn't exists.", Effect.GetCStr());
 		return nullptr;
 	}
 	return effect;
@@ -110,16 +122,23 @@ rage::grcEffect* rageam::asset::MaterialTune::LookupEffectOrUseDefault() const
 	if (!effect)
 	{
 		AM_WARNINGF("MaterialTune::LookupEffectOrUseDefault() -> Failed to find shader '%s'.fxc, using '%s'.fxc instead.",
-			Shader.GetCStr(), DEFAULT_SHADER);
+			Effect.GetCStr(), DEFAULT_SHADER);
 
 		effect = rage::grcEffectMgr::FindEffect(DEFAULT_SHADER);
 	}
 	return effect;
 }
 
-void rageam::asset::MaterialTune::InitFromShader()
+void rageam::asset::MaterialTune::InitFromEffect()
 {
+	// Initialize from effect shader template
 	rage::grcEffect* effect = LookupEffectOrUseDefault();
+	InitFromShader(&effect->GetInstanceDataTemplate());
+}
+
+void rageam::asset::MaterialTune::InitFromShader(const rage::grcInstanceData* shader)
+{
+	rage::grcEffect* effect = shader->GetEffect();
 
 	u16 effectVarCount = effect->GetVarCount();
 
@@ -129,15 +148,18 @@ void rageam::asset::MaterialTune::InitFromShader()
 	for (u16 i = 0; i < effectVarCount; i++)
 	{
 		rage::grcEffectVar* varInfo = effect->GetVarByIndex(i);
-		rage::grcInstanceVar* templateVar = effect->GetInstanceDataTemplate().GetVarByIndex(i);
+		rage::grcInstanceVar* var = shader->GetVarByIndex(i);
 
 		Param param;
 		param.Name = varInfo->GetName();
 		param.Type = grcEffectVarTypeToParamType[varInfo->GetType()];
-		param.CopyValue(templateVar);
+		param.CopyValue(var);
 
 		Params.Emplace(std::move(param));
 	}
+
+	Effect = effect->GetName();
+	DrawBucket = shader->GetDrawBucket();
 }
 
 void rageam::asset::MaterialTune::SetTextureNamesFromSceneMaterial(const graphics::SceneMaterial* sceneMaterial)
@@ -178,23 +200,285 @@ void rageam::asset::MaterialTune::SetTextureNamesFromSceneMaterial(const graphic
 	}
 }
 
-void rageam::asset::MaterialTuneGroup::Serialize(XmlHandle& node) const
+bool rageam::asset::MaterialTuneGroup::ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const
 {
-	for (MaterialTune& material : Materials)
-	{
-		XmlHandle xMaterial = node.AddChild("Item");
-		material.Serialize(xMaterial);
-	}
+	return scene->GetMaterialByName(tune->Name);
 }
 
-void rageam::asset::MaterialTuneGroup::Deserialize(const XmlHandle& node)
+rageam::asset::SceneTunePtr rageam::asset::MaterialTuneGroup::CreateTune() const
 {
-	for (const XmlHandle& xMaterial : XmlIterator(node, "Item"))
+	return std::make_shared<MaterialTune>();
+}
+
+rageam::asset::SceneTunePtr rageam::asset::MaterialTuneGroup::CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const
+{
+	amPtr<MaterialTune> materialTune;
+
+	// When default material is required we reserve the first index for it,
+	// so we have to shift index by 1 for other items
+	bool needDefaultMaterial = scene->NeedDefaultMaterial();
+	bool isDefault = needDefaultMaterial && itemIndex == 0;
+	if (needDefaultMaterial && isDefault)
 	{
-		MaterialTune material;
-		material.Deserialize(xMaterial);
-		Materials.Emplace(std::move(material));
+		materialTune = std::make_shared<MaterialTune>(DEFAULT_MATERIAL_NAME, true);
+		materialTune->InitFromEffect();
 	}
+	else
+	{
+		u16 materialIndex = needDefaultMaterial ? itemIndex - 1 : itemIndex;
+
+		graphics::SceneMaterial* sceneMaterial = scene->GetMaterial(materialIndex);
+		materialTune = std::make_shared<MaterialTune>(sceneMaterial->GetName(), false);
+		materialTune->InitFromEffect();
+		materialTune->SetTextureNamesFromSceneMaterial(sceneMaterial);
+	}
+
+	return materialTune;
+}
+
+ConstString rageam::asset::MaterialTuneGroup::GetItemName(graphics::Scene* scene, u16 itemIndex) const
+{
+	// Same as in CreateDefaultTune
+	bool needDefaultMaterial = scene->NeedDefaultMaterial();
+	bool isDefault = needDefaultMaterial && itemIndex == 0;
+	u16 materialIndex = needDefaultMaterial ? itemIndex - 1 : itemIndex;
+	return isDefault ? DEFAULT_MATERIAL_NAME : scene->GetMaterial(materialIndex)->GetName();
+}
+
+u16 rageam::asset::MaterialTuneGroup::GetSceneItemCount(graphics::Scene* scene) const
+{
+	// We add extra index for implicit default material, if required
+	u16 matCount = scene->GetMaterialCount();
+	return scene->NeedDefaultMaterial() ? matCount + 1 : matCount;
+}
+
+void rageam::asset::ModelTune::Serialize(XmlHandle& node) const
+{
+	SceneTune::Serialize(node);
+	XML_SET_CHILD_VALUE(node, UseAsBound);
+	XML_SET_CHILD_VALUE(node, CreateBone);
+}
+
+void rageam::asset::ModelTune::Deserialize(const XmlHandle& node)
+{
+	SceneTune::Deserialize(node);
+	XML_GET_CHILD_VALUE(node, UseAsBound);
+	XML_GET_CHILD_VALUE(node, CreateBone);
+}
+
+bool rageam::asset::ModelTuneGroup::ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const
+{
+	return scene->GetNodeByName(tune->Name) != nullptr;
+}
+
+rageam::asset::SceneTunePtr rageam::asset::ModelTuneGroup::CreateTune() const
+{
+	return std::make_shared<ModelTune>();
+}
+
+rageam::asset::SceneTunePtr rageam::asset::ModelTuneGroup::CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const
+{
+	return std::make_shared<ModelTune>();
+}
+
+ConstString rageam::asset::ModelTuneGroup::GetItemName(graphics::Scene* scene, u16 itemIndex) const
+{
+	return scene->GetNode(itemIndex)->GetName();
+}
+
+u16 rageam::asset::ModelTuneGroup::GetSceneItemCount(graphics::Scene* scene) const
+{
+	return scene->GetNodeCount();
+}
+
+void rageam::asset::LightTune::InitFromSceneLight(const graphics::SceneNode* lightNode)
+{
+	graphics::SceneLight* sceneLight = lightNode->GetLight();
+
+	switch (sceneLight->GetType())
+	{
+	case graphics::SceneLight_Point:	Type = Point;	break;
+	case graphics::SceneLight_Spot:		Type = Spot;	break;
+	}
+
+	ColorRGB = sceneLight->GetColor();
+	Falloff = Type == LIGHT_SPOT ? 8.0f : 2.5f; // Make light longer if spot light is chosen
+	FalloffExponent = 32;
+	ConeOuterAngle = rage::Math::RadToDeg(sceneLight->GetOuterConeAngle());
+	ConeInnerAngle = rage::Math::RadToDeg(sceneLight->GetInnerConeAngle());
+	Flags = LF_ENABLE_SHADOWS;
+	TimeFlags = LIGHT_TIME_ALWAYS_MASK;
+	CoronaZBias = 0.1;
+	CoronaSize = 5.0f;
+	Intensity = 75.0f;
+	CapsuleLength = 1.0f;
+	ShadowNearClip = 0.01;
+	CullingPlaneNormal = { 0, 1, 0 };
+	CullingPlaneOffset = 1;
+	VolumeOuterColorRGB = graphics::COLOR_WHITE;
+	VolumeOuterExponent = 1;
+	VolumeSizeScale = 1.0f;
+
+	Mat44V transform = lightNode->GetLocalTransform();
+	Position = rage::Vec3V(transform.Pos);
+	Direction = -rage::Vec3V(transform.Up);
+	Tangent = rage::Vector3(transform.Right);
+}
+
+void rageam::asset::LightTune::FromLightAttr(const CLightAttr* attr)
+{
+	Type = LightType(attr->Type); // Enum fully matches
+	Position = attr->Position;
+	Direction = attr->Direction;
+	Tangent = attr->Tangent;
+	ColorRGB = graphics::ColorU32(attr->ColorR, attr->ColorG, attr->ColorB);
+	Flashiness = attr->Flashiness;
+	Flags = attr->Flags;
+	TimeFlags = attr->TimeFlags;
+	Intensity = attr->Intensity;
+	Falloff = attr->Falloff;
+	FalloffExponent = attr->FallofExponent;
+	CullingPlaneNormal = attr->CullingPlaneNormal;
+	CullingPlaneOffset = attr->CullingPlaneOffset;
+	ShadowBlur = attr->ShadowBlur;
+	ShadowNearClip = attr->ShadowNearClip;
+	CoronaSize = attr->CoronaSize;
+	CoronaIntensity = attr->CoronaIntensity;
+	CoronaZBias = attr->CoronaZBias;
+	LightHash = attr->LightHash;
+	// ProjectedTexture = attr->ProjectedTexture;
+	LightFadeDistance = attr->LightFadeDistance;
+	ShadowFadeDistance = attr->ShadowFadeDistance;
+	SpecularFadeDistance = attr->SpecularFadeDistance;
+	VolumetricFadeDistance = attr->VolumetricFadeDistance;
+
+	VolumeIntensity = attr->VolumeIntensity;
+	VolumeSizeScale = attr->VolumeSizeScale;
+	VolumeOuterIntensity = attr->VolumeOuterIntensity;
+	VolumeOuterExponent = attr->VolumeOuterExponent;
+	VolumeOuterColorRGB = graphics::ColorU32(
+		attr->VolumeOuterColorR, attr->VolumeOuterColorG, attr->VolumeOuterColorB);
+	ConeInnerAngle = attr->ConeInnerAngle;
+	ConeOuterAngle = attr->ConeOuterAngle;
+
+	CapsuleLength = attr->Extent.X;
+}
+
+bool rageam::asset::LightTuneGroup::ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const
+{
+	graphics::SceneNode* sceneNode = scene->GetNodeByName(tune->Name);
+	return sceneNode && sceneNode->HasLight();
+}
+
+rageam::asset::SceneTunePtr rageam::asset::LightTuneGroup::CreateTune() const
+{
+	return std::make_shared<LightTune>();
+}
+
+rageam::asset::SceneTunePtr rageam::asset::LightTuneGroup::CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const
+{
+	amPtr<LightTune> lightTune = std::make_shared<LightTune>();
+	lightTune->InitFromSceneLight(scene->GetLight(itemIndex));
+	return lightTune;
+}
+
+ConstString rageam::asset::LightTuneGroup::GetItemName(graphics::Scene* scene, u16 itemIndex) const
+{
+	return scene->GetLight(itemIndex)->GetName();
+}
+
+u16 rageam::asset::LightTuneGroup::GetSceneItemCount(graphics::Scene* scene) const
+{
+	return scene->GetLightCount();
+}
+
+void rageam::asset::LightTune::Serialize(XmlHandle& node) const
+{
+	SceneTune::Serialize(node);
+
+	XML_SET_CHILD_VALUE(node, Type);
+	node.AddChild("Position").SetValue(Position);
+	node.AddChild("Direction").SetValue(Direction);
+	node.AddChild("Tangent").SetValue(Tangent);
+	node.AddChild("ColorRGB").SetColorHex(ColorRGB);
+	XML_SET_CHILD_VALUE(node, Flashiness);
+	node.AddChild("Flags", String::FormatTemp("%X", Flags));
+	node.AddChild("TimeFlags", String::FormatTemp("%X", TimeFlags));
+	XML_SET_CHILD_VALUE(node, Intensity);
+	XML_SET_CHILD_VALUE(node, Falloff);
+	XML_SET_CHILD_VALUE(node, FalloffExponent);
+	node.AddChild("CullingPlaneNormal").SetValue(CullingPlaneNormal);
+	XML_SET_CHILD_VALUE(node, CullingPlaneOffset);
+	XML_SET_CHILD_VALUE(node, ShadowBlur);
+	XML_SET_CHILD_VALUE(node, ShadowNearClip);
+	XML_SET_CHILD_VALUE(node, CoronaSize);
+	XML_SET_CHILD_VALUE(node, CoronaIntensity);
+	XML_SET_CHILD_VALUE(node, CoronaZBias);
+	//XML_SET_CHILD_VALUE(xLight, LightHash);
+	//XML_SET_CHILD_VALUE(xLight, ProjectedTexture);
+	XML_SET_CHILD_VALUE(node, LightFadeDistance);
+	XML_SET_CHILD_VALUE(node, ShadowFadeDistance);
+	XML_SET_CHILD_VALUE(node, SpecularFadeDistance);
+	XML_SET_CHILD_VALUE(node, VolumetricFadeDistance);
+
+	XML_SET_CHILD_VALUE(node, VolumeIntensity);
+	XML_SET_CHILD_VALUE(node, VolumeSizeScale);
+	XML_SET_CHILD_VALUE(node, VolumeOuterIntensity);
+	XML_SET_CHILD_VALUE(node, VolumeOuterExponent);
+	node.AddChild("VolumeOuterColorRGB").SetColorHex(VolumeOuterColorRGB);
+	XML_SET_CHILD_VALUE(node, ConeInnerAngle);
+	XML_SET_CHILD_VALUE(node, ConeOuterAngle);
+
+	XML_SET_CHILD_VALUE(node, CapsuleLength);
+}
+
+void rageam::asset::LightTune::Deserialize(const XmlHandle& node)
+{
+	SceneTune::Deserialize(node);
+
+	// TODO: This code is kinda bad
+
+	auto scanHex = [](ConstString str) -> u32
+		{
+			float val = 0;
+			AM_ASSERT(sscanf_s(str, "%X", &val) > 0, "LightTune::Deserialize() -> Failed to parse hex value '%s'", str);
+			return val;
+		};
+
+	XML_GET_CHILD_VALUE(node, Type);
+	node.GetChild("Position").GetValue(Position);
+	node.GetChild("Direction").GetValue(Direction);
+	node.GetChild("Tangent").GetValue(Tangent);
+	ColorRGB = node.GetChild("ColorRGB").GetColorHex();
+	XML_GET_CHILD_VALUE(node, Flashiness);
+	Flags = scanHex(node.GetChild("Flags").GetText());
+	TimeFlags = scanHex(node.GetChild("TimeFlags").GetText());
+	XML_GET_CHILD_VALUE(node, Intensity);
+	XML_GET_CHILD_VALUE(node, Falloff);
+	XML_GET_CHILD_VALUE(node, FalloffExponent);
+	node.GetChild("CullingPlaneNormal").SetValue(CullingPlaneNormal);
+	XML_GET_CHILD_VALUE(node, CullingPlaneOffset);
+	XML_GET_CHILD_VALUE(node, ShadowBlur);
+	XML_GET_CHILD_VALUE(node, ShadowNearClip);
+	XML_GET_CHILD_VALUE(node, CoronaSize);
+	XML_GET_CHILD_VALUE(node, CoronaIntensity);
+	XML_GET_CHILD_VALUE(node, CoronaZBias);
+	//XML_SET_CHILD_VALUE(xLight, LightHash);
+	//XML_SET_CHILD_VALUE(xLight, ProjectedTexture);
+	XML_GET_CHILD_VALUE(node, LightFadeDistance);
+	XML_GET_CHILD_VALUE(node, ShadowFadeDistance);
+	XML_GET_CHILD_VALUE(node, SpecularFadeDistance);
+	XML_GET_CHILD_VALUE(node, VolumetricFadeDistance);
+
+	XML_GET_CHILD_VALUE(node, VolumeIntensity);
+	XML_GET_CHILD_VALUE(node, VolumeSizeScale);
+	XML_GET_CHILD_VALUE(node, VolumeOuterIntensity);
+	XML_GET_CHILD_VALUE(node, VolumeOuterExponent);
+	VolumeOuterColorRGB = node.GetChild("VolumeOuterColorRGB").GetColorHex();
+	XML_GET_CHILD_VALUE(node, ConeInnerAngle);
+	XML_GET_CHILD_VALUE(node, ConeOuterAngle);
+
+	XML_GET_CHILD_VALUE(node, CapsuleLength);
 }
 
 void rageam::asset::LodGroupTune::Serialize(XmlHandle& node) const
@@ -206,11 +490,13 @@ void rageam::asset::LodGroupTune::Serialize(XmlHandle& node) const
 	rage::Vector4 lodThreshold;
 	lodThreshold.FromArray(LodThreshold);
 	xLodThreshold.SetValue(lodThreshold);
+
+	Models.Serialize(node);
 }
 
 void rageam::asset::LodGroupTune::Deserialize(const XmlHandle& node)
 {
-	// Serialize threshold from vector4
+	// Deserialize threshold from vector4
 	XmlHandle xLodThreshold = node.GetChild("LodThreshold");
 	rage::Vector4 lodThreshold;
 	xLodThreshold.GetValue(lodThreshold);
@@ -230,39 +516,43 @@ void rageam::asset::LodGroupTune::Deserialize(const XmlHandle& node)
 
 		LodThreshold[i + 1] = current;
 	}
+
+	Models.Deserialize(node);
 }
 
 void rageam::asset::DrawableTune::Serialize(XmlHandle& node) const
 {
-	XmlHandle xMaterialTuneGroup = node.AddChild("Materials");
-	MaterialTuneGroup.Serialize(xMaterialTuneGroup);
+	node.AddChild("SceneFile", String::ToUtf8Temp(SceneFileName));
 
 	XmlHandle xLodGroup = node.AddChild("LodGroup");
-	LodGroup.Serialize(xLodGroup);
+	Lods.Serialize(xLodGroup);
 
-	XmlHandle xLights = node.AddChild("Lights");
+	Materials.Serialize(node);
+	Lights.Serialize(node);
 }
 
 void rageam::asset::DrawableTune::Deserialize(const XmlHandle& node)
 {
-	XmlHandle xMaterialTuneGroup = node.GetChild("Materials");
-	MaterialTuneGroup.Deserialize(xMaterialTuneGroup);
+	ConstString fileName;
+	node.GetChildText("SceneFile", &fileName, false);
+	SceneFileName = String::Utf8ToWideTemp(fileName);
 
 	XmlHandle xLodGroup = node.GetChild("LodGroup");
-	LodGroup.Deserialize(xLodGroup);
+	Lods.Deserialize(xLodGroup);
 
-	XmlHandle xLights = node.GetChild("Lights");
+	Materials.Deserialize(node);
+	Lights.Deserialize(node);
 }
 
-rage::grmModel* rageam::asset::DrawableAssetMap::GetModelFromScene(rage::rmcDrawable* drawable, u16 sceneNodeIndex)
+rage::grmModel* rageam::asset::DrawableAssetMap::GetModelFromScene(rage::rmcDrawable* drawable, u16 sceneNodeIndex) const
 {
-	ModelHandle& handle = SceneNodeToModel[sceneNodeIndex];
+	const ModelHandle& handle = SceneNodeToModel[sceneNodeIndex];
 	if (handle.Index == u16(-1))
 		return nullptr;
 	return drawable->GetLodGroup().GetLod(handle.Lod)->GetModel(handle.Index);
 }
 
-rage::crBoneData* rageam::asset::DrawableAssetMap::GetBoneFromScene(const rage::rmcDrawable* drawable, u16 sceneNodeIndex)
+rage::crBoneData* rageam::asset::DrawableAssetMap::GetBoneFromScene(const rage::rmcDrawable* drawable, u16 sceneNodeIndex) const
 {
 	u16 boneIndex = SceneNodeToBone[sceneNodeIndex];
 	if (boneIndex == u16(-1))
@@ -270,7 +560,7 @@ rage::crBoneData* rageam::asset::DrawableAssetMap::GetBoneFromScene(const rage::
 	return drawable->GetSkeletonData()->GetBone(boneIndex);
 }
 
-rage::phBound* rageam::asset::DrawableAssetMap::GetBoundFromScene(const gtaDrawable* drawable, u16 sceneNodeIndex)
+rage::phBound* rageam::asset::DrawableAssetMap::GetBoundFromScene(const gtaDrawable* drawable, u16 sceneNodeIndex) const
 {
 	u16 boundIndex = SceneNodeToBound[sceneNodeIndex];
 	if (boundIndex == u16(-1))
@@ -278,7 +568,7 @@ rage::phBound* rageam::asset::DrawableAssetMap::GetBoundFromScene(const gtaDrawa
 	return ((rage::phBoundComposite*)drawable->GetBound())->GetBound(boundIndex).Get();
 }
 
-CLightAttr* rageam::asset::DrawableAssetMap::GetLightFromScene(gtaDrawable* drawable, u16 sceneNodeIndex)
+CLightAttr* rageam::asset::DrawableAssetMap::GetLightFromScene(gtaDrawable* drawable, u16 sceneNodeIndex) const
 {
 	u16 lightAttrIndex = SceneNodeToLightAttr[sceneNodeIndex];
 	if (lightAttrIndex == u16(-1))
@@ -290,21 +580,23 @@ bool rageam::asset::DrawableAsset::CacheEffects()
 {
 	m_EffectCache.Destruct();
 
-	MaterialTuneGroup& matGroup = m_DrawableTune.MaterialTuneGroup;
-	for (MaterialTune& material : matGroup.Materials)
+	MaterialTuneGroup& matGroup = m_DrawableTune.Materials;
+	for (const auto& material : matGroup)
 	{
+		u32 effectHash = Hash(material->Effect);
+
 		// Effect was already cached
-		if (m_EffectCache.ContainsAt(material.ShaderHash))
+		if (m_EffectCache.ContainsAt(effectHash))
 			continue;
 
-		rage::grcEffect* effect = rage::grcEffectMgr::FindEffectByHashKey(material.ShaderHash);
+		rage::grcEffect* effect = rage::grcEffectMgr::FindEffectByHashKey(effectHash);
 		if (!effect)
 		{
-			AM_ERRF("CollectMaterialInfo() -> Shader effect with name '%s.fxc' doesn't exists.", material.Shader.GetCStr());
+			AM_ERRF("CollectMaterialInfo() -> Shader effect with name '%s.fxc' doesn't exists.", material->Effect.GetCStr());
 			return false;
 		}
 
-		m_EffectCache.ConstructAt(material.ShaderHash, effect);
+		m_EffectCache.ConstructAt(effectHash, effect);
 	}
 	return true;
 }
@@ -318,18 +610,18 @@ void rageam::asset::DrawableAsset::PrepareForConversion()
 	m_NodeToBone.Resize(nodeCount);
 	m_EmbedDict = nullptr;
 
-	CompiledDrawableMap = {};
-	CompiledDrawableMap.SceneNodeToModel.Resize(nodeCount);
-	CompiledDrawableMap.SceneNodeToBound.Resize(nodeCount);
-	CompiledDrawableMap.SceneNodeToBone.Resize(nodeCount);
-	CompiledDrawableMap.SceneMaterialToShader.Resize(m_Scene->GetMaterialCount());
-	CompiledDrawableMap.SceneNodeToLightAttr.Resize(nodeCount);
+	CompiledDrawableMap = std::make_unique<DrawableAssetMap>();
+	CompiledDrawableMap->SceneNodeToModel.Resize(nodeCount);
+	CompiledDrawableMap->SceneNodeToBound.Resize(nodeCount);
+	CompiledDrawableMap->SceneNodeToBone.Resize(nodeCount);
+	CompiledDrawableMap->SceneMaterialToShader.Resize(m_Scene->GetMaterialCount());
+	CompiledDrawableMap->SceneNodeToLightAttr.Resize(nodeCount);
 	// Default everything to -1
-	for (auto& handle : CompiledDrawableMap.SceneNodeToModel)	handle = { u16(-1), u16(-1) };
-	for (u16& i : CompiledDrawableMap.SceneNodeToBound)			i = u16(-1);
-	for (u16& i : CompiledDrawableMap.SceneNodeToBone)			i = u16(-1);
-	for (u16& i : CompiledDrawableMap.SceneMaterialToShader)	i = u16(-1);
-	for (u16& i : CompiledDrawableMap.SceneNodeToLightAttr)		i = u16(-1);
+	for (auto& handle : CompiledDrawableMap->SceneNodeToModel)	handle = { u16(-1), u16(-1) };
+	for (u16& i : CompiledDrawableMap->SceneNodeToBound)		i = u16(-1);
+	for (u16& i : CompiledDrawableMap->SceneNodeToBone)			i = u16(-1);
+	for (u16& i : CompiledDrawableMap->SceneMaterialToShader)	i = u16(-1);
+	for (u16& i : CompiledDrawableMap->SceneNodeToLightAttr)	i = u16(-1);
 }
 
 void rageam::asset::DrawableAsset::CleanUpConversion()
@@ -347,7 +639,7 @@ rageam::List<rageam::asset::DrawableAsset::SplittedGeometry> rageam::asset::Draw
 
 	// Retrieve material & vertex declaration for scene geometry
 	const MaterialTune& material = GetGeometryMaterialTune(sceneGeometry);		// Material settings from tune.xml file (asset config)
-	const EffectInfo& effectInfo = m_EffectCache.GetAt(material.ShaderHash);	// Cached effect (.fxc shader file)
+	const EffectInfo& effectInfo = m_EffectCache.GetAt(Hash(material.Effect));	// Cached effect (.fxc shader file)
 
 	const graphics::VertexDeclaration& decl = skinned ? effectInfo.VertexDeclSkin : effectInfo.VertexDecl; // Description of vertex buffer format
 
@@ -440,10 +732,9 @@ u16 rageam::asset::DrawableAsset::GetSceneGeometryMaterialIndex(const graphics::
 	return nodeMaterial;
 }
 
-const rageam::asset::MaterialTune& rageam::asset::DrawableAsset::GetGeometryMaterialTune(
-	const graphics::SceneGeometry* sceneGeometry) const
+const rageam::asset::MaterialTune& rageam::asset::DrawableAsset::GetGeometryMaterialTune(const graphics::SceneGeometry* sceneGeometry) const
 {
-	return m_DrawableTune.MaterialTuneGroup.Materials[GetSceneGeometryMaterialIndex(sceneGeometry)];
+	return *m_DrawableTune.Materials.Get(GetSceneGeometryMaterialIndex(sceneGeometry));
 }
 
 rage::pgUPtr<rage::grmModel> rageam::asset::DrawableAsset::ConvertSceneModel(const graphics::SceneNode* sceneNode)
@@ -575,7 +866,7 @@ bool rageam::asset::DrawableAsset::GenerateSkeleton()
 		skeletonData->GetBone(0)->SetName(rootName);
 
 		// We have to add it to ensure valid indexing
-		CompiledDrawableMap.BoneToSceneNode.Add(u16(-1));
+		CompiledDrawableMap->BoneToSceneNode.Add(u16(-1));
 	}
 
 	// Setup bone for every scene node
@@ -602,8 +893,8 @@ bool rageam::asset::DrawableAsset::GenerateSkeleton()
 		bone->SetTransform(&trans, &scale, &rot);
 
 		// Map graphics::SceneNode -> crBoneData
-		CompiledDrawableMap.SceneNodeToBone[nodeIndex] = boneIndex;
-		CompiledDrawableMap.BoneToSceneNode.Add(nodeIndex);
+		CompiledDrawableMap->SceneNodeToBone[nodeIndex] = boneIndex;
+		CompiledDrawableMap->BoneToSceneNode.Add(nodeIndex);
 
 		boneIndex++;
 	}
@@ -706,6 +997,10 @@ bool rageam::asset::DrawableAsset::NeedAdditionalRootBone() const
 
 bool rageam::asset::DrawableAsset::CanBecameBone(const graphics::SceneNode* sceneNode) const
 {
+	bool forceBone = m_DrawableTune.Lods.Models.Get(sceneNode->GetIndex())->CreateBone;
+	if (forceBone)
+		return true;
+
 	if (IsCollisionNode(sceneNode))
 		return false;
 
@@ -721,16 +1016,6 @@ bool rageam::asset::DrawableAsset::CanBecameBone(const graphics::SceneNode* scen
 	// If any child node is a bone, this node becomes a bone too
 	if (sceneNode->HasTransformedChild())
 		return true;
-
-	if (m_DrawableTune.ForceGenerateSkeleton)
-		return true;
-
-	// TODO: We need option to check out nodes from participating in skeleton
-	// <Skeleton>
-	//	<ExcludeFromSkeleton>
-	//		<Node>NodeName</Node>
-	//	</ExcludeFromSkeleton>
-	// </Skeleton>
 
 	return false;
 }
@@ -766,7 +1051,7 @@ void rageam::asset::DrawableAsset::SetupLodModels()
 
 		// Map rage::grmModel -> graphics::SceneNode
 		u16 modelIndex = lodModels.GetSize();
-		CompiledDrawableMap.SceneNodeToModel[sceneNode->GetIndex()] = { 0, modelIndex }; // TODO: Specify lod
+		CompiledDrawableMap->SceneNodeToModel[sceneNode->GetIndex()] = { 0, modelIndex }; // TODO: Specify lod
 
 		lodModels.Emplace(ConvertSceneModel(sceneNode));
 	}
@@ -781,17 +1066,26 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 {
 	rage::grmShaderGroup* shaderGroup = m_Drawable->GetShaderGroup();
 
+	// Since we're using list to store materials, quick lookup table
+	HashSet<graphics::SceneMaterial*> matNameToSceneMat;
+	for (u16 i = 0; i < m_Scene->GetMaterialCount(); i++)
+	{
+		graphics::SceneMaterial* sceneMat = m_Scene->GetMaterial(i);
+		matNameToSceneMat.InsertAt(sceneMat->GetNameHash(), sceneMat);
+	}
+
 	// For each material tune param:
 	// - Try find parameter metadata (grcEffectVar) in grcEffect
 	// - Simply copy value for regular types, for texture we have to resolve it from string
-	for (MaterialTune& material : m_DrawableTune.MaterialTuneGroup.Materials)
+	for (const auto& matTune : m_DrawableTune.Materials)
 	{
-		const EffectInfo& effectInfo = m_EffectCache.GetAt(material.ShaderHash);
+		const EffectInfo& effectInfo = m_EffectCache.GetAt(Hash(matTune->Effect));
 
 		rage::grcEffect* effect = effectInfo.Effect;
 		rage::grmShader* shader = new rage::grmShader(effect);
+		shader->SetDrawBucket(matTune->DrawBucket);
 		shader->SetTessellated(false);
-		for (MaterialTune::Param& param : material.Params)
+		for (MaterialTune::Param& param : matTune->Params)
 		{
 			u16 varIndex;
 			rage::grcEffectVar* varInfo = effect->GetVar(param.Name, &varIndex);
@@ -800,7 +1094,7 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 			if (!varInfo)
 			{
 				AM_WARNINGF("Unable to find variable '%s' in shader effect '%s'.fxc",
-					param.Name.GetCStr(), material.Shader.GetCStr());
+					param.Name.GetCStr(), matTune->Effect.GetCStr());
 				continue;
 			}
 
@@ -815,13 +1109,13 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 				if (String::IsNullOrEmpty(textureName))
 				{
 					AM_WARNINGF("Texture is not specified for '%s' in material '%s'",
-						param.Name.GetCStr(), material.Name.GetCStr());
+						param.Name.GetCStr(), matTune->Name.GetCStr());
 					textureResolved = false;
 				}
 				else if (!ResolveAndSetTexture(var, textureName))
 				{
 					AM_WARNINGF("Texture '%s' is not found in any known dictionary in material '%s'.",
-						textureName.GetCStr(), material.Name.GetCStr());
+						textureName.GetCStr(), matTune->Name.GetCStr());
 					textureResolved = false;
 				}
 
@@ -848,34 +1142,70 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 			}
 		}
 
+		u16 shaderIndex = shaderGroup->GetShaderCount();
 		// Map graphics::SceneMaterial -> rage::grmShader
-		if (material.SceneMaterialIndex != u16(-1)) // Default implicit material has no scene material linkage
+		if (matTune->IsDefault || matTune->IsRemoved) // Default implicit & orphan materials have no scene material linkage
 		{
-			u16 shaderIndex = shaderGroup->GetShaderCount();
-			CompiledDrawableMap.SceneMaterialToShader[material.SceneMaterialIndex] = shaderIndex;
+			CompiledDrawableMap->ShaderToSceneMaterial.Add(u16(-1));
 		}
-		CompiledDrawableMap.ShaderToSceneMaterial.Add(material.SceneMaterialIndex);
-
+		else
+		{
+			u16 materialIndex = m_Scene->GetMaterialByName(matTune->Name)->GetIndex();
+			CompiledDrawableMap->SceneMaterialToShader[materialIndex] = shaderIndex;
+			CompiledDrawableMap->ShaderToSceneMaterial.Add(materialIndex);
+		}
 		shaderGroup->AddShader(shader);
 	}
 }
 
-bool rageam::asset::DrawableAsset::ResolveAndSetTexture(rage::grcInstanceVar* var, ConstString textureName) const
+bool rageam::asset::DrawableAsset::ResolveAndSetTexture(rage::grcInstanceVar* var, ConstString textureName)
 {
 	// Try to resolve first in embed dictionary (it has highest priority)
 	if (m_EmbedDict)
 	{
 		rage::grcTexture* embedTexture = m_EmbedDict->Find(textureName);
-		if(embedTexture)
+		if (embedTexture)
 		{
 			var->SetTexture(embedTexture);
 			return true;
 		}
 	}
 
-	// TODO:
-	// Advanced system for resolving textures, we support only embed dictionary right now
-	// For now we search only in embed dictionary
+	// Texture was not in embed dictionary, try to find it in workspace
+	for (u16 i = 0; i < WorkspaceTXD->GetTexDictCount(); i++)
+	{
+		const TxdAssetPtr& sharedTxdAsset = WorkspaceTXD->GetTexDict(i);
+
+		if (!sharedTxdAsset->ContainsTexture(textureName))
+			continue;
+
+		// Texture is used in this txd, first look if we compiled it before
+		HotTxd* cachedHotTxd = SharedTXDs.TryGetAt(sharedTxdAsset->GetHashKey());
+		if (!cachedHotTxd)
+		{
+			// TXD was not in cache, compile and add it there
+			HotTxd hotTxd(sharedTxdAsset);
+			if (!hotTxd.TryCompile()) // TODO: Ideally we should compile only single texture
+			{
+				AM_ERRF(L"DrawableAsset::ResolveAndSetTexture() -> Failed to compile dictionary with referenced texture '%ls'.",
+					sharedTxdAsset->GetAssetName());
+				break;
+			}
+
+			cachedHotTxd = &SharedTXDs.Emplace(std::move(hotTxd));
+		}
+
+		rage::grcTexture* sharedTexture = cachedHotTxd->Dict->Find(textureName);
+		if (sharedTexture)
+		{
+			var->SetTexture(sharedTexture);
+			return true;
+		}
+	}
+
+	// Texture was not found or failed to compile, mark it as missing...
+	var->SetTexture(CreateMissingTexture(textureName));
+
 	return false;
 }
 
@@ -942,7 +1272,7 @@ rageam::SmallList<rage::phBoundPtr> rageam::asset::DrawableAsset::CreateBoundsFr
 	return bounds;
 }
 
-void rageam::asset::DrawableAsset::CreateAndSetCompositeBound()
+void rageam::asset::DrawableAsset::CreateAndSetCompositeBound() const
 {
 	u16 nodeCount = m_Scene->GetNodeCount();
 
@@ -956,7 +1286,8 @@ void rageam::asset::DrawableAsset::CreateAndSetCompositeBound()
 		if (!sceneNode->HasMesh())
 			continue;
 
-		if (!IsCollisionNode(sceneNode))
+		bool forceUseAsBound = m_DrawableTune.Lods.Models.Get(i)->UseAsBound;
+		if (!forceUseAsBound && !IsCollisionNode(sceneNode))
 			continue;
 
 		auto nodeBounds = CreateBoundsFromNode(sceneNode);
@@ -969,8 +1300,8 @@ void rageam::asset::DrawableAsset::CreateAndSetCompositeBound()
 			boundToSceneIndex[boundIndex] = i;
 
 			// Map graphics::SceneNode -> rage::phBound
-			CompiledDrawableMap.SceneNodeToBound[i] = boundIndex;
-			CompiledDrawableMap.BoneToSceneNode.Add(i);
+			CompiledDrawableMap->SceneNodeToBound[i] = boundIndex;
+			CompiledDrawableMap->BoneToSceneNode.Add(i);
 		}
 
 		bounds.AddRange(std::move(nodeBounds));
@@ -1048,65 +1379,64 @@ void rageam::asset::DrawableAsset::GeneratePaletteTexture()
 
 void rageam::asset::DrawableAsset::CreateLights()
 {
-	for (u16 i = 0; i < m_Scene->GetNodeCount(); i++)
+	for (const auto& lightTune : m_DrawableTune.Lights)
 	{
-		graphics::SceneNode* sceneNode = m_Scene->GetNode(i);
-		if (!sceneNode->HasLight())
-			continue;
+		graphics::SceneNode* lightNode = m_Scene->GetNodeByName(lightTune->Name);
+
+		u16 lightNodeIndex = lightNode->GetIndex();
 
 		// Map graphics::SceneLight -> CLightAttr
 		u16 lightIndex = m_Drawable->GetLightCount();
-		CompiledDrawableMap.SceneNodeToLightAttr[sceneNode->GetIndex()] = lightIndex;
-		CompiledDrawableMap.LightAttrToSceneNode.Add(sceneNode->GetIndex());
+		CompiledDrawableMap->SceneNodeToLightAttr[lightNodeIndex] = lightIndex;
+		CompiledDrawableMap->LightAttrToSceneNode.Add(lightNodeIndex);
 
-		graphics::SceneLight* sceneLight = sceneNode->GetLight();
-		graphics::ColorU32 sceneLightColor = sceneLight->GetColor();
+		// Create light attribute
+		CLightAttr& light = m_Drawable->AddLight();
+		// light.SetMatrix(lightNode->GetLocalTransform());
 
-		CLightAttr& light = m_Drawable->m_Lights.Construct();;
-		light.FixupVft();
-
-		light.SetMatrix(sceneNode->GetLocalTransform());
-
-		switch (sceneLight->GetType())
-		{
-		case graphics::SceneLight_Point:	light.Type = LIGHT_POINT;	break;
-		case graphics::SceneLight_Spot:		light.Type = LIGHT_SPOT;	break;
-		}
-
-		light.ColorR = sceneLightColor.R;
-		light.ColorG = sceneLightColor.G;
-		light.ColorB = sceneLightColor.B;
-
-		light.Falloff = 2.5;
-		light.FallofExponent = 32;
-		if (light.Type == LIGHT_SPOT)
-			light.Falloff = 8.0f; // Make light longer if spot light is chosen
-
-		light.ConeOuterAngle = rage::Math::RadToDeg(sceneLight->GetOuterConeAngle());
-		light.ConeInnerAngle = rage::Math::RadToDeg(sceneLight->GetInnerConeAngle());
-
-		light.Flags = LF_ENABLE_SHADOWS;
-
-		light.CoronaZBias = 0.1;
-		light.CoronaSize = 5.0f;
-
-		light.Intensity = 75;
-		light.TimeFlags = LIGHT_TIME_ALWAYS_MASK;
-		light.Extent = { 1, 1 ,1 };
-		light.ProjectedTexture = 0;
-		light.ShadowNearClip = 0.01;
-		light.CullingPlaneNormal = { 0, 1, 0 };
-		light.CullingPlaneOffset = 1;
-
-		light.VolumeOuterColorR = 255;
-		light.VolumeOuterColorG = 255;
-		light.VolumeOuterColorB = 255;
-		light.VolumeOuterExponent = 1;
-		light.VolumeSizeScale = 1.0f;
+		// Convert general properties
+		light.Type = eLightType(lightTune->Type);
+		light.Position = lightTune->Position;
+		light.Direction = lightTune->Direction;
+		light.Tangent = lightTune->Tangent;
+		light.ColorR = lightTune->ColorRGB.R;
+		light.ColorG = lightTune->ColorRGB.G;
+		light.ColorB = lightTune->ColorRGB.B;
+		light.Flashiness = lightTune->Flashiness;
+		light.Intensity = lightTune->Intensity;
+		light.Flags = lightTune->Flags;
+		light.TimeFlags = lightTune->TimeFlags;
+		light.Falloff = lightTune->Falloff;
+		light.FallofExponent = lightTune->FalloffExponent;
+		light.CullingPlaneNormal = lightTune->CullingPlaneNormal;
+		light.CullingPlaneOffset = lightTune->CullingPlaneOffset;
+		light.ShadowBlur = lightTune->ShadowBlur;
+		light.ShadowNearClip = lightTune->ShadowNearClip;
+		light.CoronaSize = lightTune->CoronaSize;
+		light.CoronaIntensity = lightTune->CoronaIntensity;
+		light.CoronaZBias = lightTune->CoronaZBias;
+		light.LightHash = lightTune->LightHash;
+		// light.ProjectedTexture = Hash(lightTune->ProjectedTexture);
+		light.LightFadeDistance = lightTune->LightFadeDistance;
+		light.ShadowFadeDistance = lightTune->ShadowFadeDistance;
+		light.SpecularFadeDistance = lightTune->SpecularFadeDistance;
+		light.VolumetricFadeDistance = lightTune->VolumetricFadeDistance;
+		// Spot
+		light.VolumeIntensity = lightTune->VolumeIntensity;
+		light.VolumeSizeScale = lightTune->VolumeSizeScale;
+		light.VolumeOuterIntensity = lightTune->VolumeOuterIntensity;
+		light.VolumeOuterExponent = lightTune->VolumeOuterExponent;
+		light.VolumeOuterColorR = lightTune->VolumeOuterColorRGB.R;
+		light.VolumeOuterColorG = lightTune->VolumeOuterColorRGB.G;
+		light.VolumeOuterColorB = lightTune->VolumeOuterColorRGB.B;
+		light.ConeInnerAngle = lightTune->ConeInnerAngle;
+		light.ConeOuterAngle = lightTune->ConeOuterAngle;
+		// Capsule
+		light.Extent.X = lightTune->CapsuleLength;
 
 		// Locate first parent bone and link it with light
 		light.BoneTag = 0;
-		graphics::SceneNode* boneNode = sceneNode;
+		graphics::SceneNode* boneNode = lightNode;
 		while (boneNode)
 		{
 			rage::crBoneData* bone = m_NodeToBone[boneNode->GetIndex()];
@@ -1118,11 +1448,31 @@ void rageam::asset::DrawableAsset::CreateLights()
 			boneNode = boneNode->GetParent();
 		}
 	}
-	AM_DEBUGF("DrawableAsset::CreateLights() -> Created %u lights.", m_Drawable->m_Lights.GetSize());
+
+	AM_DEBUGF("DrawableAsset::CreateLights() -> Created %u lights.", m_Drawable->GetLightCount());
+}
+
+bool rageam::asset::DrawableAsset::ValidateScene() const
+{
+	// Validate that there's no material in the scene that has reversed default identifier
+	for (u16 i = 0; i < m_Scene->GetMaterialCount(); i++)
+	{
+		if(m_Scene->GetMaterial(i)->GetNameHash() == Hash(DEFAULT_MATERIAL_NAME))
+		{
+			AM_ERRF("DrawableAsset::TryCompileToGame() -> Material at index '%u' uses reserved name identifier for default material '%s'!", 
+			        i, DEFAULT_MATERIAL_NAME);
+			return false;
+		}
+	}
+	return true;
 }
 
 bool rageam::asset::DrawableAsset::TryCompileToGame()
 {
+	ReportProgress(L"Validating scene", 0.0);
+	if (!ValidateScene())
+		return false;
+
 	ReportProgress(L"Compiling embed dictionary", 0.0);
 	if (!CompileAndSetEmbedDict())
 	{
@@ -1139,6 +1489,13 @@ bool rageam::asset::DrawableAsset::TryCompileToGame()
 	AM_DEBUGF("DrawableAsset() -> Setting up lod models");
 	ReportProgress(L"Creating LODs", 0.2);
 	SetupLodModels();
+
+	// First lod must have at least one model! That's requirement of the game because it accesses it on creating entity
+	if (!m_Drawable->GetLodGroup().GetLod(0)->GetModels().Any())
+	{
+		AM_ERRF("DrawableAsset::TryCompileToGame() -> There must be a least one model in LOD0!");
+		return false;
+	}
 
 	AM_DEBUGF("DrawableAsset() -> Linking models to skeleton");
 	ReportProgress(L"Linking models to skeleton", 0.3);
@@ -1168,7 +1525,7 @@ bool rageam::asset::DrawableAsset::TryCompileToGame()
 	return true;
 }
 
-void rageam::asset::DrawableAsset::InitializeEmbedDict()
+void rageam::asset::DrawableAsset::RefreshEmbedDict()
 {
 	m_EmbedDictPath = GetDirectoryPath() / EMBED_DICT_NAME;
 	m_EmbedDictPath += ASSET_ITD_EXT;
@@ -1179,49 +1536,125 @@ void rageam::asset::DrawableAsset::InitializeEmbedDict()
 	}
 
 	// Order is important here because otherwise old embed dict would overwrite new one
+	// because otherwise old one will be destructed after new one is created
 	m_EmbedDictTune = nullptr;
 	m_EmbedDictTune = AssetFactory::LoadFromPath<TxdAsset>(m_EmbedDictPath);
 
 	GeneratePaletteTexture();
 }
 
-void rageam::asset::DrawableAsset::CreateMaterialTuneGroupFromScene()
-{
-	bool needDefaultMaterial = m_Scene->NeedDefaultMaterial();
-	if (needDefaultMaterial)
-	{
-		MaterialTune defaultMaterial("default", u16(-1));
-		defaultMaterial.InitFromShader();
-		m_DrawableTune.MaterialTuneGroup.Materials.Emplace(std::move(defaultMaterial));
-	}
+//void rageam::asset::DrawableAsset::CreateMaterialTuneGroupFromScene()
+//{
+//	bool needDefaultMaterial = m_Scene->NeedDefaultMaterial();
+//	if (needDefaultMaterial)
+//	{
+//		MaterialTune defaultMaterial("default", u16(-1));
+//		defaultMaterial.InitFromEffect();
+//		m_DrawableTune.Materials.Items.Emplace(std::move(defaultMaterial));
+//	}
+//
+//	for (u16 i = 0; i < m_Scene->GetMaterialCount(); i++)
+//	{
+//		graphics::SceneMaterial* sceneMaterial = m_Scene->GetMaterial(i);
+//
+//		MaterialTune material(sceneMaterial->GetName(), i);
+//		material.InitFromEffect();
+//		material.SetTextureNamesFromSceneMaterial(sceneMaterial);
+//		m_DrawableTune.Materials.Items.Emplace(std::move(material));
+//	}
+//}
 
-	for (u16 i = 0; i < m_Scene->GetMaterialCount(); i++)
-	{
-		graphics::SceneMaterial* sceneMaterial = m_Scene->GetMaterial(i);
-
-		MaterialTune material(sceneMaterial->GetName(), i);
-		material.InitFromShader();
-		material.SetTextureNamesFromSceneMaterial(sceneMaterial);
-		m_DrawableTune.MaterialTuneGroup.Materials.Emplace(std::move(material));
-	}
-}
-
-void rageam::asset::DrawableAsset::LoadTextureWorkspace()
+void rageam::asset::DrawableAsset::RefreshTXDWorkspace()
 {
 	// We need workspace only for TXDs
 	WorkspaceTXD = Workspace::FromPath(GetWorkspacePath(), WF_LoadTx);
 }
 
-rageam::asset::DrawableAsset::DrawableAsset(const file::WPath& path) : GameRscAsset(path), m_DrawableTune(this, path)
+bool rageam::asset::DrawableAsset::TryToFindFirstSceneFile(file::WPath& outPath) const
 {
-	InitializeEmbedDict();
+	file::Iterator iterator(GetDirectoryPath() / L"*.*");
+	file::FindData data;
+
+	// Take first supported model file
+	while (iterator.Next())
+	{
+		iterator.GetCurrent(data);
+		file::WPath extension = data.Path.GetExtension();
+
+		if (graphics::SceneFactory::IsSupportedFormat(extension))
+		{
+			outPath = data.Path;
+			return true;
+		}
+	}
+	return true;
+}
+
+bool rageam::asset::DrawableAsset::RefreshSceneFile()
+{
+	file::WPath scenePath = GetScenePath();
+
+	bool needModelRescan = false;
+	if (String::IsNullOrEmpty(m_DrawableTune.SceneFileName))
+	{
+		needModelRescan = true;
+		AM_DEBUGF("DrawableAsset::RefreshModel() -> Scanning model for the first time...");
+	}
+	else if (!IsFileExists(scenePath))
+	{
+		needModelRescan = true;
+		AM_DEBUGF("DrawableAsset::RefreshModel() -> Model file was not found! Trying to find any...");
+	}
+
+	// Model file is most likely fine (well it exists at least...)
+	if (!needModelRescan)
+		return true;
+
+	if (!TryToFindFirstSceneFile(scenePath))
+	{
+		AM_ERRF("DrawableAsset::RefreshModel() -> Failed to locate any 3D scene file.");
+		return false;
+	}
+
+	m_DrawableTune.SceneFileName = scenePath.GetFileName();
+
+	return true;
+}
+
+void rageam::asset::DrawableAsset::RefreshTuneFromScene()
+{
+	// It's a little bit complicated how we should handle certain changes in model scene,
+	// for example when node or material was removed but tune still exists
+	// Regular tune can be removed because it's not hard to setup,
+	// but for material tune we have to mark it as 'orphan' and let user to decide what to do
+	m_DrawableTune.Materials.Refresh(m_Scene.get());
+	m_DrawableTune.Lights.Refresh(m_Scene.get());
+	m_DrawableTune.Lods.Models.Refresh(m_Scene.get());
+}
+
+rageam::asset::DrawableAsset::DrawableAsset(const file::WPath& path) : GameRscAsset(path)
+{
+	RefreshEmbedDict();
 }
 
 bool rageam::asset::DrawableAsset::CompileToGame(gtaDrawable* ppOutGameFormat)
 {
-	// TODO: Move scene loading here, loading scene in refresh is ridiculous
-	if (!m_Scene)
-		return false;
+	Refresh();
+
+	file::WPath scenePath = GetScenePath();
+
+	// Scene is not loaded or outdated, attempt to load it
+	u64 sceneModifyTime = GetFileModifyTime(scenePath);
+	if (!m_Scene || sceneModifyTime != m_SceneFileTime)
+	{
+		m_SceneFileTime = sceneModifyTime;
+		m_Scene = graphics::SceneFactory::LoadFrom(scenePath);
+		if (!m_Scene)
+		{
+			AM_ERRF("DrawableAsset::CompileToGame() -> Failed to load scene file...");
+			return false;
+		}
+	}
 
 	m_Drawable = ppOutGameFormat;
 	ReportProgress(L"Preparing assets", 0.0);
@@ -1233,63 +1666,75 @@ bool rageam::asset::DrawableAsset::CompileToGame(gtaDrawable* ppOutGameFormat)
 	return result;
 }
 
-void rageam::asset::DrawableAsset::Refresh()
+void rageam::asset::DrawableAsset::ParseFromGame(gtaDrawable* object)
 {
-	// Nothing to refresh after config was setup first time
-	if (HasSavedConfig())
+	// Drawable was compiled before, just map drawable and restore values
+	if (CompiledDrawableMap)
 	{
-		// TODO: We still have to load scene from config file...
-	}
-
-	m_ScenePath = L"";
-
-	file::Iterator iterator(GetDirectoryPath() / L"*.*");
-	file::FindData data;
-
-	file::WPath modelPath;
-
-	// Take first supported model file
-	while (iterator.Next())
-	{
-		iterator.GetCurrent(data);
-		file::WPath extension = data.Path.GetExtension();
-
-		if (graphics::SceneFactory::IsSupportedFormat(extension))
+		// Materials
 		{
-			modelPath = data.Path;
-			break;
+			auto shaderGroup = object->GetShaderGroup();
+			auto& matTunes = m_DrawableTune.Materials;
+			for (u16 i = 0; i < matTunes.GetCount(); i++)
+			{
+				// rage::grmShader index directly map to MaterialTune
+				matTunes.Get(i)->InitFromShader(shaderGroup->GetShader(i));
+			}
+		}
+
+		// Lod Group
+		{
+
+		}
+
+		// Lights
+		{
+			auto& lightTunes = m_DrawableTune.Lights;
+			for (u16 i = 0; i < lightTunes.GetCount(); i++)
+			{
+				// CLightAttr index directly map to LightTune
+				lightTunes.Get(i)->FromLightAttr(object->GetLight(i));
+			}
 		}
 	}
-
-	if (String::IsNullOrEmpty(modelPath))
+	else
 	{
-		AM_ERRF(L"DrawableAsset::Refresh() -> No model file found in %ls", GetDirectoryPath().GetCStr());
+		// TODO:
+		// Main issue we have to figure out here is how do we handle converting mesh to obj/fbx,
+		// basically every asset kind will require such options (for example output texture format for YTD, with DDS as default)
+		AM_UNREACHABLE("DrawableAsset::ParseFromGame() -> Decompiling without source is not yet supported!");
+	}
+}
+
+void rageam::asset::DrawableAsset::Refresh()
+{
+	if (!RefreshSceneFile())
+		return;
+
+	graphics::SceneLoadOptions sceneLoadOptions = {};
+	sceneLoadOptions.SkipMeshData = true; // We need only metadata to refresh
+
+	m_Scene = graphics::SceneFactory::LoadFrom(GetScenePath(), &sceneLoadOptions);
+	if (!m_Scene)
+	{
+		AM_ERRF("DrawableAsset::Refresh() -> Failed to load scene medata.");
 		return;
 	}
 
-	m_Scene = graphics::SceneFactory::LoadFrom(modelPath);
-	m_ScenePath = modelPath;
+	RefreshTXDWorkspace();
+	RefreshEmbedDict();
+	RefreshTuneFromScene();
 
-	if (!m_Scene) // Failed to load model file
-		return;
-
-	LoadTextureWorkspace();
-	CreateMaterialTuneGroupFromScene();
-	InitializeEmbedDict();
+	// Since it only contains metadata, we don't need it anymore
+	m_Scene = nullptr;
 }
 
 void rageam::asset::DrawableAsset::Serialize(XmlHandle& node) const
 {
-	file::WPath fileName = file::GetFileName(m_ScenePath.GetCStr());
-
-	node.AddChild("FileName", String::ToUtf8Temp(fileName));
-
 	m_DrawableTune.Serialize(node);
 }
 
 void rageam::asset::DrawableAsset::Deserialize(const XmlHandle& node)
 {
-	ConstString fileName = node.GetChild("FileName", true).GetText();
-
-	m_ScenePath = String::ToWideTemp(fileName);
+	m_DrawableTune.Deserialize(node);
 }

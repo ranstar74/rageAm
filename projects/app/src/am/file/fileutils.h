@@ -27,4 +27,5 @@ namespace rageam::file
 	u64 GetFileSize64(const wchar_t* path);
 	bool ReadAllBytes(const wchar_t* path, FileBytes& outFileBytes);
 	bool IsDirectory(const wchar_t* path);
+	u64 GetFileModifyTime(const wchar_t* path);
 }
