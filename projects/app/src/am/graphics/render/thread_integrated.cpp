@@ -6,9 +6,13 @@
 #include "am/integration/memory/address.h"
 #include "am/integration/memory/hook.h"
 
-static rageam::render::ThreadIntegrated* s_RenderThreadInstance;
-
-static gmAddress s_gAddr_PresentImage;
+namespace
+{
+	rageam::render::ThreadIntegrated* s_RenderThreadInstance;
+	gmAddress s_gAddr_PresentImage;
+	gmAddress s_ExeñuteAndRemoveAllAddr;
+	std::atomic_bool s_IsExecuting = false;
+}
 
 void(*gImpl_grcSetup_PresentImage)();
 
@@ -26,6 +30,14 @@ void rageam::render::ThreadIntegrated::PresentCallback()
 	}
 
 	s_RenderThreadInstance->Render();
+}
+
+static void(*gImpl_ExecuteAndRemoveAll)(u64 arg);
+void aImpl_ExecuteAndRemoveAll(u64 arg)
+{
+	s_IsExecuting = true;
+	gImpl_ExecuteAndRemoveAll(arg);
+	s_IsExecuting = false;
 }
 
 void rageam::render::ThreadIntegrated::Render()
@@ -51,15 +63,27 @@ rageam::render::ThreadIntegrated::ThreadIntegrated(const TRenderFn& renderFn) : 
 {
 	s_gAddr_PresentImage = gmAddress::Scan(
 		"40 55 53 56 57 41 54 41 56 41 57 48 8B EC 48 83 EC 40 48 8B 0D", "rage::grcSetup::Present");
+	s_ExeñuteAndRemoveAllAddr = gmAddress::Scan("E8 ?? ?? ?? ?? 48 8B 4E 08 48 8B 01 FF 50").GetCall();
 
+	Hook::Create(s_ExeñuteAndRemoveAllAddr, aImpl_ExecuteAndRemoveAll, &gImpl_ExecuteAndRemoveAll, true);
 	Hook::Create(s_gAddr_PresentImage, PresentCallback, &gImpl_grcSetup_PresentImage);
 
 	s_RenderThreadInstance = this;
+}
+
+rageam::render::ThreadIntegrated::~ThreadIntegrated()
+{
+	Hook::Remove(s_ExeñuteAndRemoveAllAddr);
 }
 
 void rageam::render::ThreadIntegrated::WaitRenderDone()
 {
 	std::unique_lock lock(m_RenderDoneMutex);
 	m_RenderDoneCondition.wait(lock);
+}
+
+void rageam::render::ThreadIntegrated::WaitExecutingDone()
+{
+	while(s_IsExecuting) {}
 }
 #endif

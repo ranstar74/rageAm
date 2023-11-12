@@ -42,6 +42,7 @@ namespace rageam::render
 		~Engine();
 
 		void WaitRenderDone() const { m_RenderThread->WaitRenderDone(); }
+		void WaitExecutingDone() const { m_RenderThread->WaitExecutingDone(); }
 		void SetRenderFunction(const TRenderFn& fn);
 
 		void Stop();

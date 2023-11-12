@@ -15,7 +15,7 @@ static inline bool s_WorldGizmoMode = true;
 
 static auto GetDrawList()
 {
-	return ImGui::GetForegroundDrawList();
+	return ImGui::GetBackgroundDrawList();
 }
 
 bool Im3D::WorldToScreen(const ImVec3V& worldPos, ImVec2& screenPos)

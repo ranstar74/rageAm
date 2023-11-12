@@ -32,6 +32,7 @@ namespace rageam::render
 		virtual bool IsRunning() const = 0; // Whether thread still running or was stopped after calling RequestStop
 
 		virtual void WaitRenderDone() = 0;
+		virtual void WaitExecutingDone() = 0;
 
 		// Requests thread to release resources and stop, for e.g. integration has to revert custom viewport changes
 		void RequestStop() { m_StopRequested = true; }

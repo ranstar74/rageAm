@@ -1,16 +1,19 @@
 #include "updatecomponent.h"
+
+#include "integration.h"
 #ifdef AM_INTEGRATED
 
 #include "shvthread.h"
 
 namespace
 {
-	std::mutex s_Mutex;
+	std::recursive_mutex s_Mutex; // Recurse allows components to own other components (or reference them)
 }
 
 void rageam::integration::IUpdateComponent::Abort()
 {
 	m_AbortRequested = true;
+	ReleaseAllRefs();
 }
 
 bool rageam::integration::ComponentManager::HasAnyComponent() const
@@ -21,17 +24,15 @@ bool rageam::integration::ComponentManager::HasAnyComponent() const
 
 rageam::integration::ComponentManager* rageam::integration::ComponentManager::GetCurrent()
 {
-	std::unique_lock lock(s_Mutex);
 	return sm_Instance;
 }
 
 void rageam::integration::ComponentManager::SetCurrent(ComponentManager* instance)
 {
-	std::unique_lock lock(s_Mutex);
 	sm_Instance = instance;
 }
 
-std::mutex& rageam::integration::ComponentManager::GetLock()
+std::recursive_mutex& rageam::integration::ComponentManager::GetLock()
 {
 	return s_Mutex;
 }
@@ -108,6 +109,19 @@ void rageam::integration::ComponentManager::BeginAbortAll() const
 	{
 		// Wait until every component is aborted...
 	}
+}
+
+void rageam::integration::ComponentManager::UIUpdateAll() const
+{
+	if (GameIntegration::GetInstance()->IsPauseMenuActive())
+		return;
+
+	scrBegin();
+	for (amUniquePtr<IUpdateComponent>& component : m_UpdateComponents)
+	{
+		component->OnUiUpdate();
+	}
+	scrEnd();
 }
 
 #endif

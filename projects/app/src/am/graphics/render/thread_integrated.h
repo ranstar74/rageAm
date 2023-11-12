@@ -16,10 +16,9 @@ namespace rageam::render
 {
 	class ThreadIntegrated : public Thread
 	{
-		std::atomic_bool m_Stopped = false;
-
+		std::atomic_bool		m_Stopped = false;
 		std::condition_variable m_RenderDoneCondition;
-		std::mutex m_RenderDoneMutex;
+		std::mutex				m_RenderDoneMutex;
 
 		// This function is called instead of game present function
 		// so we can draw UI on top and then call game present function
@@ -27,9 +26,11 @@ namespace rageam::render
 		void Render();
 	public:
 		ThreadIntegrated(const TRenderFn& renderFn);
+		~ThreadIntegrated() override;
 
 		bool IsRunning() const override { return !m_Stopped; }
 		void WaitRenderDone() override;
+		void WaitExecutingDone() override;
 	};
 }
 #endif

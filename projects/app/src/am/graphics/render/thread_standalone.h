@@ -28,6 +28,7 @@ namespace rageam::render
 
 		bool IsRunning() const override { return m_Thread.IsRunning(); }
 		void WaitRenderDone() override;
+		void WaitExecutingDone() override { WaitRenderDone(); }
 	};
 }
 #endif

@@ -28,8 +28,9 @@ namespace rageam::integration
 	{
 		friend class ComponentManager;
 
-		bool				m_Initialized = false;
-		std::atomic_bool	m_AbortRequested = false;
+		bool					m_Initialized = false;
+		std::atomic_bool		m_AbortRequested = false;
+		std::atomic_uint32_t	m_RefCount = 0;
 
 	public:
 		virtual ~IUpdateComponent() = default;
@@ -37,11 +38,19 @@ namespace rageam::integration
 		virtual void OnStart() {}
 		virtual void OnEarlyUpdate() {}
 		virtual void OnLateUpdate() {}
+		// ImGui (including Im3D, at the moment) can't be safely used on game update, this function has to be used instead
+		// NOTE: UI update is not called when game is paused because it's mostly used to draw 3D text
+		virtual void OnUiUpdate() {}
 		// Must return true once all resources are released and instance is ready to be destructed
 		virtual bool OnAbort() { return true; }
+		// It takes some time to destroy component so all inner refs must be released in this function
+		virtual void ReleaseAllRefs() {}
 
 		// Aborted component will stop updating, current thread will wait stop of component execution
 		void Abort();
+
+		void AddRef() { ++m_RefCount; }
+		u32 Release() { return --m_RefCount; }
 	};
 
 	class ComponentManager
@@ -50,7 +59,7 @@ namespace rageam::integration
 
 		rage::atArray<amUniquePtr<IUpdateComponent>> m_UpdateComponents;
 
-		static std::mutex& GetLock();
+		static std::recursive_mutex& GetLock();
 
 		// Begins aborting of every existing component
 		void AbortAll() const;
@@ -62,6 +71,7 @@ namespace rageam::integration
 		void EarlyUpdateAll();
 		void LateUpdateAll() const;
 		void BeginAbortAll() const;
+		void UIUpdateAll() const;
 
 		template<typename T>
 		T* CreateComponent()
@@ -96,16 +106,21 @@ namespace rageam::integration
 
 	public:
 		ComponentOwner() = default;
-		ComponentOwner(const ComponentOwner&) = delete;
+		ComponentOwner(const ComponentOwner& other)
+		{
+			m_Component = other.m_Component;
+			m_Component->AddRef();
+		}
 		ComponentOwner(ComponentOwner&&) = default;
 		~ComponentOwner()
 		{
 			Destroy();
 		}
 
+		// TODO: Rename to Release
 		void Destroy()
 		{
-			if (m_Component)
+			if (m_Component && m_Component->Release() == 0)
 			{
 				ComponentManager::GetCurrent()->DestroyComponent(m_Component);
 				m_Component = nullptr;
@@ -118,6 +133,7 @@ namespace rageam::integration
 		{
 			Destroy();
 			m_Component = ComponentManager::GetCurrent()->CreateComponent<T>();
+			m_Component->AddRef();
 		}
 
 		// Creates instance of the base class
@@ -129,8 +145,12 @@ namespace rageam::integration
 		bool operator!() const { return !m_Component; }
 		bool operator==(std::nullptr_t) const { return m_Component == nullptr; }
 		ComponentOwner& operator=(std::nullptr_t) { Destroy(); return *this; }
-
-		ComponentOwner& operator=(const ComponentOwner&) = delete;
+		ComponentOwner& operator=(const ComponentOwner& other)
+		{
+			m_Component = other.m_Component;
+			m_Component->AddRef();
+			return *this;
+		}
 		ComponentOwner& operator=(ComponentOwner&&) = default;
 	};
 }
