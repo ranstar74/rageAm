@@ -1,5 +1,7 @@
 #include "drawlist.h"
 
+#ifdef AM_INTEGRATED
+
 #include "am/integration/gameentity.h"
 #include "am/graphics/buffereditor.h"
 #include "am/graphics/render/engine.h"
@@ -717,3 +719,5 @@ void rageam::integration::DrawListExecutor::Execute(DrawList& drawList)
 	}
 	RestoreOldState(oldState);
 }
+
+#endif

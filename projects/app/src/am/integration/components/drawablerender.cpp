@@ -1,5 +1,7 @@
 #include "drawablerender.h"
 
+#ifdef AM_INTEGRATED
+
 #include "am/integration/im3d.h"
 #include "rage/physics/bounds/composite.h"
 #include "scripthook/shvnatives.h"
@@ -145,3 +147,5 @@ void rageam::integration::DrawableRender::OnUiUpdate()
 		boneLabelRecurse(skel->GetBone(0));
 	}
 }
+
+#endif

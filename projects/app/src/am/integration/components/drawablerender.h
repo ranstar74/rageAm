@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef AM_INTEGRATED
+
 #include "am/integration/gameentity.h"
 #include "am/integration/integration.h"
 #include "am/integration/updatecomponent.h"
@@ -34,3 +36,5 @@ namespace rageam::integration
 		static inline bool Collision = true;
 	};
 }
+
+#endif

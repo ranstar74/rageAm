@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef AM_INTEGRATED
+
 #include "am/types.h"
 #include "am/graphics/color.h"
 #include "rage/math/math.h"
@@ -269,3 +271,5 @@ namespace rageam::integration
 		static void SetCurrent(DrawListExecutor* dl) { s_Current = dl; }
 	};
 }
+
+#endif
