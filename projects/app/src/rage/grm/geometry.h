@@ -21,7 +21,7 @@ namespace rage
 		pVoid				Vertices;
 		grcIndices_t		Indices;
 		u32					VertexCount;
-		u16					IndexCount;
+		u32					IndexCount;
 		grcVertexFormatInfo	Info;
 	};
 
