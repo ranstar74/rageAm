@@ -20,9 +20,11 @@ static constexpr u32 LIGHT_TIME_ALWAYS_MASK = LIGHT_TIME_NIGHT_MASK | LIGHT_TIME
 
 enum eLightType : u8
 {
-	LIGHT_POINT = 1,
-	LIGHT_SPOT = 2,
-	LIGHT_CAPSULE = 4,
+	LIGHT_TYPE_POINT = 1,
+	LIGHT_TYPE_SPOT = 2,
+	LIGHT_TYPE_CAPSULE = 4,
+	LIGHT_TYPE_DIRECTIONAL = 8,
+	LIGHT_TYPE_AO_VOLUME = 16,
 };
 
 enum eLightFlags : u32
@@ -47,9 +49,11 @@ inline ConstString GetLightTypeName(eLightType type)
 {
 	switch (type)
 	{
-	case LIGHT_POINT:	return "Point";
-	case LIGHT_SPOT:	return "Spot";
-	case LIGHT_CAPSULE: return "Capsule";
+	case LIGHT_TYPE_POINT:	return "Point";
+	case LIGHT_TYPE_SPOT:	return "Spot";
+	case LIGHT_TYPE_CAPSULE: return "Capsule";
+	case LIGHT_TYPE_DIRECTIONAL: return "Directional";
+	case LIGHT_TYPE_AO_VOLUME: return "AO Volume";
 	default:
 		AM_UNREACHABLE("GetLightTypeName() -> Type %u is not defined.", type);
 	}

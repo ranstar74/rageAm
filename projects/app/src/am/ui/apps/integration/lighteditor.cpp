@@ -228,9 +228,11 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner(const 
 	graphics::ShapeHit shapeHit = {};
 	switch (ctx.Light->Type)
 	{
-	case LIGHT_POINT:	shapeHit = DrawOutliner_Point(ctx); break;
-	case LIGHT_SPOT:	shapeHit = DrawOutliner_Spot(ctx); break;
-	case LIGHT_CAPSULE:	shapeHit = DrawOutliner_Capsule(ctx); break;
+	case LIGHT_TYPE_SPOT:		shapeHit = DrawOutliner_Spot(ctx);		break;
+	case LIGHT_TYPE_CAPSULE:	shapeHit = DrawOutliner_Capsule(ctx);	break;
+	case LIGHT_TYPE_POINT:
+	case LIGHT_TYPE_DIRECTIONAL:
+	case LIGHT_TYPE_AO_VOLUME:	shapeHit = DrawOutliner_Point(ctx);		break;
 	default: break;
 	}
 
@@ -395,11 +397,15 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 	if (ImGui::Begin(windowName))
 	{
 		// Type picker
-		static ConstString s_LightNames[] = { "Point", "Spot (Cone)", "Capsule" };
-		static eLightType s_LightTypes[] = { LIGHT_POINT, LIGHT_SPOT, LIGHT_CAPSULE };
-		static int s_LightTypeToIndex[] = { -1, 0, 1, -1, 2 };
+		static ConstString s_LightNames[] = { "Point", "Spot (Cone)", "Capsule", "Directional", "AO Volume"};
+		static eLightType s_LightTypes[] = { LIGHT_TYPE_POINT, LIGHT_TYPE_SPOT, LIGHT_TYPE_CAPSULE, LIGHT_TYPE_DIRECTIONAL, LIGHT_TYPE_AO_VOLUME};
+		static int s_LightTypeToIndex[] = 
+		{
+			// Light types are 1 2 4 8 16
+			-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4
+		};
 		int lightTypeIndex = s_LightTypeToIndex[light->Type];
-		if (ImGui::Combo("Type", &lightTypeIndex, s_LightNames, 3))
+		if (ImGui::Combo("Type", &lightTypeIndex, s_LightNames, 5))
 			light->Type = s_LightTypes[lightTypeIndex];
 
 		if (m_EditingCullPlane) ImGui::BeginDisabled();
@@ -453,7 +459,7 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 				ImGui::DragFloat("Intensity###LIGHT_INTENSITY", &light->Intensity, 1.0f, 0.0f, 1000, "%.1f");
 				editFadeDistance("Fade", light->LightFadeDistance);
 
-				if (light->Type == LIGHT_CAPSULE)
+				if (light->Type == LIGHT_TYPE_CAPSULE)
 				{
 					SlGui::CategoryText(ICON_AM_CAPSULE" Capsule");
 					ImGui::DragFloat("Length", &light->Extent.X, 0.1f, 0.0f, 25.0f, " %.1f");
@@ -658,7 +664,7 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 				ImGui::EndTabItem();
 			}
 
-			if (light->Type == LIGHT_SPOT)
+			if (light->Type == LIGHT_TYPE_SPOT)
 			{
 				if (ImGui::BeginTabItem(ICON_AM_SPOT_LIGHT" Volume"))
 				{
@@ -727,7 +733,7 @@ void rageam::integration::LightEditor::DrawLightTransformGizmo(const LightDrawCo
 
 void rageam::integration::LightEditor::DrawCustomGizmos(const LightDrawContext& ctx)
 {
-	if (ctx.Light->Type == LIGHT_POINT)
+	if (ctx.Light->Type == LIGHT_TYPE_POINT)
 	{
 		DrawPointLightFalloffGizmo(ctx);
 	}

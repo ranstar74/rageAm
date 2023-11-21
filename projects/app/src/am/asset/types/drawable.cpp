@@ -302,7 +302,7 @@ void rageam::asset::LightTune::InitFromSceneLight(const graphics::SceneNode* lig
 	}
 
 	ColorRGB = sceneLight->GetColor();
-	Falloff = Type == LIGHT_SPOT ? 8.0f : 2.5f; // Make light longer if spot light is chosen
+	Falloff = Type == LIGHT_TYPE_SPOT ? 8.0f : 2.5f; // Make light longer if spot light is chosen
 	FalloffExponent = 32;
 	ConeOuterAngle = rage::Math::RadToDeg(sceneLight->GetOuterConeAngle());
 	ConeInnerAngle = rage::Math::RadToDeg(sceneLight->GetInnerConeAngle());
