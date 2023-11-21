@@ -25,7 +25,12 @@ namespace rageam::file
 	HANDLE OpenFile(const wchar_t* path);
 	HANDLE CreateNew(const wchar_t* path);
 	u64 GetFileSize64(const wchar_t* path);
+	u32 GetFileSize(const wchar_t* path);
 	bool ReadAllBytes(const wchar_t* path, FileBytes& outFileBytes);
 	bool IsDirectory(const wchar_t* path);
 	u64 GetFileModifyTime(const wchar_t* path);
+
+	// Stream I/O Helpers
+	FILE* OpenFileStream(const wchar_t* path, const wchar_t* mode);
+	void CloseFileStream(FILE* file);
 }

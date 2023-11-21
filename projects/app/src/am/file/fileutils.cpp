@@ -44,6 +44,11 @@ u64 rageam::file::GetFileSize64(const wchar_t* path)
 	return fileSize.QuadPart;
 }
 
+u32 rageam::file::GetFileSize(const wchar_t* path)
+{
+	return static_cast<u32>(GetFileSize64(path));
+}
+
 bool rageam::file::ReadAllBytes(const wchar_t* path, FileBytes& outFileBytes)
 {
 	if (!AM_VERIFY(IsFileExists(path), L"ReadAllBytes() -> File at path %ls doesn't exists.", path))
@@ -98,4 +103,16 @@ u64 rageam::file::GetFileModifyTime(const wchar_t* path)
 	CloseHandle(hFile);
 
 	return TODWORD64(modifyTime.dwLowDateTime, modifyTime.dwHighDateTime);
+}
+
+FILE* rageam::file::OpenFileStream(const wchar_t* path, const wchar_t* mode)
+{
+	FILE* file = nullptr;
+	(void)_wfopen_s(&file, path, mode);
+	return file;
+}
+
+void rageam::file::CloseFileStream(FILE* file)
+{
+	fclose(file);
 }

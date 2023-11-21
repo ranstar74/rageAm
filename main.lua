@@ -140,12 +140,15 @@ project "rageAm"
 		"cgltf",
 		"ufbx",
 		"hwbreakpoint",
+		"stb_image",
+		"bc7enc",
+		"avir",
 	}
-	links { "Comctl32.lib" } -- TaskDialog
-	links { "dbghelp" } -- StackTrace
+	links { "Comctl32.lib" } 	-- TaskDialog
+	links { "dbghelp" } 		-- StackTrace
 	links { "d3d11.lib" }
-	links { "Shlwapi.lib" } -- PathMatchSpecA
-	links { "dxguid.lib" } -- Reflection
+	links { "Shlwapi.lib" } 	-- PathMatchSpecA
+	links { "dxguid.lib" } 		-- Reflection
 
 	filter "files:**.natvis"
 		buildaction "Natvis"
