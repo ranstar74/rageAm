@@ -111,7 +111,7 @@ namespace rageam::graphics
 		file::WPath m_CacheDirectory;
 
 		// Computes unique hash based on pixel data and compression options
-		HashValue ComputeImageHash(const ImageData* imageData, u32 imageDataSize, const ImageCompressorOptions& options) const;
+		HashValue ComputeImageHash(const PixelData imageData, u32 imageDataSize, const ImageCompressorOptions& options) const;
 
 	public:
 		ImageCompressorCache()
@@ -119,8 +119,8 @@ namespace rageam::graphics
 			
 		}
 
-		amPtr<Image_DDS> GetFromCache(const ImageData* imageData, u32 imageDataSize, const ImageCompressorOptions& options) const;
-		void Cache(const ImageData* imageData, u32 imageDataSize, const ImageCompressorOptions& options);
+		amPtr<Image_DDS> GetFromCache(const PixelData imageData, u32 imageDataSize, const ImageCompressorOptions& options) const;
+		void Cache(const PixelData imageData, u32 imageDataSize, const ImageCompressorOptions& options);
 	};
 
 	/**
@@ -134,14 +134,11 @@ namespace rageam::graphics
 		pVoid GetImagePixelBlock(
 			int width, int height, 
 			int blockX, int blockY,
-			const ImageData* pixelData, ImagePixelFormat pixelFmt) const;
+			const PixelData pixelData, ImagePixelFormat pixelFmt) const;
 
 		int ComputeMipCount(int width, int height, const ImageCompressorOptions& options);
 
 	public:
-		// Only images with resolution of power-of-two and greater or equal than 4x4 can be block compressed
-		static bool CanBeCompressed(int width, int height);
-
 		// Compresses given image with given options and returns newly created image(s)
 		amPtr<Image_DDS> Compress(const ImagePtr& img, const ImageCompressorOptions& options);
 	};

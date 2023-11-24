@@ -6,6 +6,7 @@
 #include "am/file/fileutils.h"
 #include "am/file/pathutils.h"
 #include "am/system/enum.h"
+#include "am/graphics/render/engine.h"
 
 #include "stb_image_write.h"
 
@@ -30,10 +31,41 @@ DXGI_FORMAT rageam::graphics::ImagePixelFormatToDXGI(ImagePixelFormat fmt)
 	AM_UNREACHABLE("ImagePixelFormatToDXGI() -> Format '%s' is not implemented.", Enum::GetName(fmt));
 }
 
-u32 rageam::graphics::ComputeImageByteWidth(int width, int height, ImagePixelFormat pixelFormat)
+u32 rageam::graphics::ComputeImageSlicePitch(int width, int height, ImagePixelFormat pixelFormat)
+{
+	return ComputeImageStride(width, height, pixelFormat) * height;
+}
+
+u32 rageam::graphics::ComputeImageStride(int width, int height, ImagePixelFormat pixelFormat)
 {
 	u32 pixelStride = ImagePixelFormatToSize[pixelFormat];
-	return pixelStride * width * height;
+	return pixelStride * width;
+}
+
+bool rageam::graphics::IsResolutionValidForMipMapsAndCompression(int width, int height)
+{
+	if (!IsResolutionValidForMipMaps(width, height))
+		return false;
+
+	// Not enough pixels for block compression
+	if (MIN(width, height) < 4)
+		return false;
+
+	return true;
+}
+
+bool rageam::graphics::IsResolutionValidForMipMaps(int width, int height)
+{
+	return IS_POWER_OF_TWO(width) && IS_POWER_OF_TWO(height);
+}
+
+int rageam::graphics::GetMaximumMipCountForResolution(int width, int height)
+{
+	if (!IsResolutionValidForMipMapsAndCompression(width, height))
+		return 1;
+
+	// -1 to make 4x4 be minimum possible mip level
+	return BitScanR32(MIN(width, height)) - 1;
 }
 
 bool rageam::graphics::WriteImageStb(ConstWString path, ImageKind kind, int w, int h, int c, pVoid data)
@@ -66,28 +98,100 @@ bool rageam::graphics::WriteImageStb(ConstWString path, ImageKind kind, int w, i
 void rageam::graphics::IImage::PostLoadCompute()
 {
 	ImageInfo info = GetInfo();
-	m_ByteWidth = ComputeImageByteWidth(info.Width, info.Height, info.PixelFormat);
+	m_Slice = ComputeImageSlicePitch(info.Width, info.Height, info.PixelFormat);
+	m_Stride = ComputeImageStride(info.Width, info.Height, info.PixelFormat);
+}
+
+rageam::graphics::PixelDataOwner rageam::graphics::IImage::CreatePixelDataWithMips(bool generateMips) const
+{
+	ImageInfo info = GetInfo();
+
+	AM_ASSERT(!IsCompressedPixelFormat[info.PixelFormat],
+		"IImage::CreatePixelDataWithMips() -> Format is compressed, this should never happen!");
+
+	// No mip maps needed, just return original pixel data
+	if (!generateMips)
+		return GetPixelData();
+
+	if (!IsResolutionValidForMipMaps(info.Width, info.Height))
+	{
+		AM_WARNINGF(
+			L"IImage::CreatePixelDataWithMips() -> Image '%ls' resolution is not power of two, mip maps will not be generated.",
+			GetDebugName());
+
+		// Mips cannot be generated, return original pixel data
+		return GetPixelData();
+	}
+	
+
 }
 
 bool rageam::graphics::IImage::CanBeCompressed() const
 {
 	ImageInfo info = GetInfo();
-	return ImageCompressor::CanBeCompressed(info.Width, info.Height);
+	return IsResolutionValidForMipMapsAndCompression(info.Width, info.Height);
 }
 
 amPtr<rageam::graphics::IImage> rageam::graphics::IImage::Resize(int newWidth, int newHeight) const
 {
 	// Allocate buffer for rescaled image, resize it and create new image from this buffer
 	ImageInfo info = GetInfo();
-	u32 newSize = ComputeImageByteWidth(newWidth, newHeight, info.PixelFormat);
+	u32 newSize = ComputeImageSlicePitch(newWidth, newHeight, info.PixelFormat);
 	char* buffer = new char[newSize];
-	ImageResizer::Resample(GetPixelData(), buffer, info.PixelFormat, info.Width, info.Height, newWidth, newHeight);
+	ImageResizer::Resample(GetPixelData().Data, buffer, info.PixelFormat, info.Width, info.Height, newWidth, newHeight);
 	return ImageFactory::CreateFromMemory(buffer, info.PixelFormat, newWidth, newHeight, true); // Pass pointer ownership
 }
 
-bool rageam::graphics::IImage::CreateDX11Resource(amComPtr<ID3D11ShaderResourceView>& view, amComPtr<ID3D11Texture2D>* tex)
+bool rageam::graphics::IImage::CreateDX11Resource(
+	const ShaderResourceOptions& options, amComPtr<ID3D11ShaderResourceView>& view, amComPtr<ID3D11Texture2D>* tex) const
 {
-	return false; // TODO: ...
+	HRESULT code;
+	ImageInfo info = GetInfo();
+	ID3D11Device* device = render::GetDevice();
+
+	D3D11_TEXTURE2D_DESC texDesc = {};
+	texDesc.Format = ImagePixelFormatToDXGI(info.PixelFormat);
+	texDesc.ArraySize = 1;
+	texDesc.MipLevels = info.MipCount;
+	texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	texDesc.Width = info.Width;
+	texDesc.Height = info.Height;
+	texDesc.SampleDesc.Count = 1;
+	texDesc.SampleDesc.Quality = 0;
+
+	D3D11_SUBRESOURCE_DATA texData = {};
+	PixelDataOwner texPixelData = CreatePixelDataWithMips(options.CreateMips);
+
+	ID3D11Texture2D* pTex;
+	code = device->CreateTexture2D(&texDesc, &texData, &pTex);
+	if (code != S_OK)
+	{
+		AM_ERRF(L"IImage::CreateDX11Resource() -> Failed to create Texture2D for '%ls', error code: %u", code, GetDebugName());
+		return false;
+	}
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC viewDesc = {};
+	viewDesc.Format = texDesc.Format;
+	viewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	viewDesc.Texture2D.MipLevels = texDesc.MipLevels;
+	viewDesc.Texture2D.MostDetailedMip = 0;
+
+	ID3D11ShaderResourceView* pView;
+	code = device->CreateShaderResourceView(pTex, &viewDesc, &pView);
+
+	// Texture is not needed anymore and out param is NULL, we can release it now
+	if (!tex) pTex->Release();
+
+	if (code != S_OK)
+	{
+		AM_ERRF(L"IImage::CreateDX11Resource() -> Failed to create ShaderResourceView for '%ls', error code: %u", code, GetDebugName());
+		return false;
+	}
+
+	if (tex) *tex = pTex;
+	view = pView;
+
+	return true;
 }
 
 rageam::graphics::ImageMemory::ImageMemory(pVoid pixelData, ImagePixelFormat fmt, int width, int height, bool moveMemory)
@@ -96,17 +200,18 @@ rageam::graphics::ImageMemory::ImageMemory(pVoid pixelData, ImagePixelFormat fmt
 	m_Height = height;
 	m_PixelFormat = fmt;
 
+	IImage::PostLoadCompute();
+
 	if (moveMemory)
 	{
 		m_PixelData = amUniquePtr<char>(static_cast<char*>(pixelData));
 	}
 	else
 	{
-		u32 sliceWidth = GetByteWidth();
+		u32 sliceWidth = GetSlicePitch();
 		m_PixelData = amUniquePtr<char>(new char[sliceWidth]);
 		memcpy(m_PixelData.get(), pixelData, sliceWidth);
 	}
-	IImage::PostLoadCompute();
 }
 
 bool rageam::graphics::ImageMemory::Save(ConstWString path, ImageKind kind)
@@ -118,16 +223,16 @@ bool rageam::graphics::ImageMemory::Save(ConstWString path, ImageKind kind)
 
 rageam::graphics::ImageInfo rageam::graphics::ImageMemory::GetInfo() const
 {
-	ImageInfo info;
+	ImageInfo info = {};
 	info.Width = m_Width;
 	info.Height = m_Height;
 	info.PixelFormat = m_PixelFormat;
 	return info;
 }
 
-rageam::graphics::ImageData* rageam::graphics::ImageMemory::GetPixelData() const
+rageam::graphics::PixelDataOwner rageam::graphics::ImageMemory::GetPixelData(int mipIndex) const
 {
-	return reinterpret_cast<ImageData*>(m_PixelData.get());
+	return PixelDataOwner::CreateUnowned(m_PixelData.get());
 }
 
 rageam::graphics::Image_Stb::~Image_Stb()
@@ -194,14 +299,21 @@ rageam::graphics::ImageInfo rageam::graphics::Image_Stb::GetInfo() const
 	return info;
 }
 
-rageam::graphics::ImageData* rageam::graphics::Image_Stb::GetPixelData() const
+rageam::graphics::PixelDataOwner rageam::graphics::Image_Stb::GetPixelData(int mipIndex) const
 {
-	return reinterpret_cast<ImageData*>(m_PixelData);
+	return PixelDataOwner::CreateUnowned(m_PixelData);
 }
 
 rageam::graphics::Image_DDS::Image_DDS(pVoid pixelData, ImagePixelFormat fmt, int width, int height, int mipCount, bool moveMemory)
 {
 
+}
+
+rageam::graphics::PixelDataOwner rageam::graphics::Image_DDS::CreatePixelDataWithMips(bool generateMips) const
+{
+	// TODO: ...
+	return {};
+	// return PixelDataOwner::CreateUnowned();
 }
 
 rageam::graphics::ImagePtr rageam::graphics::ImageFactory::LoadFromPath(ConstWString path, bool onlyMeta)
@@ -251,6 +363,8 @@ rageam::graphics::ImagePtr rageam::graphics::ImageFactory::LoadFromPath(ConstWSt
 		return nullptr;
 
 	image->m_Kind = kind;
+	image->SetDebugName(file::GetFileName(path));
+
 	return image;
 }
 

@@ -33,7 +33,7 @@ void rageam::graphics::BlockCompressor_bc7enc::CompressBlock(pVoid in, pVoid out
 }
 
 rageam::HashValue rageam::graphics::ImageCompressorCache::ComputeImageHash(
-	const ImageData* imageData, u32 imageDataSize, const ImageCompressorOptions& options) const
+	const PixelData imageData, u32 imageDataSize, const ImageCompressorOptions& options) const
 {
 	u32 hash;
 	hash = rage::atDataHash(imageData, imageDataSize);
@@ -42,7 +42,7 @@ rageam::HashValue rageam::graphics::ImageCompressorCache::ComputeImageHash(
 }
 
 amPtr<rageam::graphics::Image_DDS> rageam::graphics::ImageCompressorCache::GetFromCache(
-	const ImageData* imageData, u32 imageDataSize, const ImageCompressorOptions& options) const
+	const PixelData imageData, u32 imageDataSize, const ImageCompressorOptions& options) const
 {
 	u32 hash = ComputeImageHash(imageData, imageDataSize, options);
 
@@ -52,13 +52,13 @@ amPtr<rageam::graphics::Image_DDS> rageam::graphics::ImageCompressorCache::GetFr
 }
 
 void rageam::graphics::ImageCompressorCache::Cache(
-	const ImageData* imageData, u32 imageDataSize, const ImageCompressorOptions& options)
+	const PixelData imageData, u32 imageDataSize, const ImageCompressorOptions& options)
 {
 	// TODO: ...
 }
 
 pVoid rageam::graphics::ImageCompressor::GetImagePixelBlock(
-	int width, int height, int blockX, int blockY, const ImageData* pixelData, ImagePixelFormat pixelFmt) const
+	int width, int height, int blockX, int blockY, const PixelData pixelData, ImagePixelFormat pixelFmt) const
 {
 	u32 elementWidth = ImagePixelFormatToSize[pixelFmt];
 	u32 lineStride = width * elementWidth;
@@ -68,7 +68,7 @@ pVoid rageam::graphics::ImageCompressor::GetImagePixelBlock(
 
 	u32 byteOffset = lineStride * pixelY + elementWidth * pixelX;
 
-	return static_cast<char*>(pixelData->Bytes) + byteOffset;
+	return pixelData->Bytes + byteOffset;
 }
 
 int rageam::graphics::ImageCompressor::ComputeMipCount(int width, int height, const ImageCompressorOptions& options)
@@ -76,19 +76,7 @@ int rageam::graphics::ImageCompressor::ComputeMipCount(int width, int height, co
 	if (!options.GenerateMipMaps)
 		return 1;
 
-	int wBit = BitScanR32(width);
-	int hBit = BitScanR32(height);
-
-	return 1; // TODO:
-}
-
-bool rageam::graphics::ImageCompressor::CanBeCompressed(int width, int height)
-{
-	if (width < 4 || height < 4)
-		return false;
-	if (!IS_POWER_OF_TWO(width) || !IS_POWER_OF_TWO(height))
-		return false;
-	return true;
+	return GetMaximumMipCountForResolution(width, height);
 }
 
 amPtr<rageam::graphics::Image_DDS> rageam::graphics::ImageCompressor::Compress(
@@ -99,7 +87,7 @@ amPtr<rageam::graphics::Image_DDS> rageam::graphics::ImageCompressor::Compress(
 	ImageInfo imgInfo = img->GetInfo();
 
 	// Attempt to retrieve image from cache
-	amPtr<Image_DDS> compressedImage = m_Cache.GetFromCache(img->GetPixelData(), img->GetByteWidth(), options);
+	amPtr<Image_DDS> compressedImage = m_Cache.GetFromCache(img->GetPixelData().Data, img->GetSlicePitch(), options);
 	if (compressedImage)
 		return compressedImage;
 
@@ -125,7 +113,7 @@ amPtr<rageam::graphics::Image_DDS> rageam::graphics::ImageCompressor::Compress(
 	{
 		int mipWidth = imgInfo.Width >> i;
 		int mipHeight = imgInfo.Height >> i;
-		totalCompressedSize += ComputeImageByteWidth(mipWidth, mipHeight, compressedPixelFormat);
+		totalCompressedSize += ComputeImageSlicePitch(mipWidth, mipHeight, compressedPixelFormat);
 	}
 	char* mipsPixelBlock = new char[totalCompressedSize];
 
@@ -148,7 +136,7 @@ amPtr<rageam::graphics::Image_DDS> rageam::graphics::ImageCompressor::Compress(
 			{
 				// Get 4x4 block to compress from source mip image
 				pVoid sourcePixels = GetImagePixelBlock(
-					mipInfo.Width, mipInfo.Height, x, y, mipImg->GetPixelData(), mipInfo.PixelFormat);
+					mipInfo.Width, mipInfo.Height, x, y, mipImg->GetPixelData().Data, mipInfo.PixelFormat);
 
 				pVoid destPixels = 0; // TODO: ...
 
@@ -164,7 +152,7 @@ amPtr<rageam::graphics::Image_DDS> rageam::graphics::ImageCompressor::Compress(
 	timer.Stop();
 	if (timer.GetElapsedMilliseconds() > 50)
 	{
-		m_Cache.Cache(img->GetPixelData(), img->GetByteWidth(), options);
+		m_Cache.Cache(img->GetPixelData().Data, img->GetSlicePitch(), options);
 	}
 
 	// Create DDS image from compressed pixel data

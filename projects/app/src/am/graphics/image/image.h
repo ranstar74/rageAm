@@ -12,7 +12,7 @@
 
 #include "stb_image.h"
 #include "am/system/ptr.h"
-#include "common/types.h"
+#include "am/types.h"
 
 namespace rageam::graphics
 {
@@ -50,19 +50,38 @@ namespace rageam::graphics
 		ImagePixelFormat_BC5,
 		ImagePixelFormat_BC7,
 	};
+
 	// Num bytes
 	static constexpr u32 ImagePixelFormatToSize[] = 
 	{
-		0,			// None
-		4, 3, 2, 1,	// U32, U24, U16, U8
+		0,					// None
+		4, 3, 2, 1,			// U32, U24, U16, U8
 		// TODO:
+	};
+
+	static constexpr bool IsCompressedPixelFormat[] =
+	{
+		0,					// None
+		0, 0, 0, 0,			// U32, U24, U16, U8
+		1, 1, 1, 1, 1, 1	// BC1, BC2, BC3, BC4, BC5
 	};
 
 	// NOTE: Not every pixel format (such as U24) can be converted to DXGI,
 	// DXGI_FORMAT_UNKNOWN will be returned for such
 	DXGI_FORMAT ImagePixelFormatToDXGI(ImagePixelFormat fmt);
 
-	u32 ComputeImageByteWidth(int width, int height, ImagePixelFormat pixelFormat);
+	// Total number of bytes image takes with given resolution and format
+	u32 ComputeImageSlicePitch(int width, int height, ImagePixelFormat pixelFormat);
+	// Total number of bytes one pixel row (scanline) takes with given resolution and format
+	u32 ComputeImageStride(int width, int height, ImagePixelFormat pixelFormat);
+
+	// Makes sure that resolution is power of two and greater than 4x4 (lowest size for block compression)
+	bool IsResolutionValidForMipMapsAndCompression(int width, int height);
+	// Non-power of two images canno't be properly scaled down
+	bool IsResolutionValidForMipMaps(int width, int height);
+
+	// Gets num of mip maps up until 4x4 (lowest size for block compression)
+	int GetMaximumMipCountForResolution(int width, int height);
 
 	// Helper utility for stb_image_write
 	// If kind is ImageKind_None, it is defaulted to ImageKind_PNG
@@ -70,29 +89,75 @@ namespace rageam::graphics
 
 	struct ImageInfo
 	{
-		ImagePixelFormat	PixelFormat; // For correctly interpreting ImageData
+		ImagePixelFormat	PixelFormat;	// For correctly interpreting PixelData
 		int					Width;
 		int					Height;
+		int					MipCount = 1;	// Used on DDS and Ico
 	};
 	
-	union ImageData
+	union PixelData_
 	{
 		u8		U32[4][1];
 		u8		U24[3][1];
 		u8		U16[2][1];
 		u8		U8[1][1];
-		pVoid	Bytes;
+		pChar	Bytes;
+	};
+	using PixelData = PixelData_*;
+
+	// Options for creating ID3D11Texture2D and ID3D11ShaderResourceView
+	struct ShaderResourceOptions
+	{
+		// Mip maps will be created only if they don't exist 
+		// already and pixel format is not compressed (BC#)
+		bool CreateMips;
+	};
+
+	// In some cases we may pass pixel data without moving ownership (for example if it's stack allocated)
+	// NOTE: Pointer must be allocated via operator new[]
+	struct PixelDataOwner
+	{
+		PixelData	Data;
+		bool		Owned;
+
+		~PixelDataOwner()
+		{
+			if (!Owned) delete[] Data;
+			Data = nullptr;
+			Owned = false;
+		}
+
+		// Passed pixel data ownership remains untouched
+		static PixelDataOwner CreateUnowned(pVoid data)
+		{
+			PixelDataOwner owner;
+			owner.Owned = false;
+			owner.Data = reinterpret_cast<PixelData>(data);
+			return owner;
+		}
+
+		// Passed pixel data ownership moves to this class instance 
+		// and pointer will be deleted on destruction
+		static PixelDataOwner CreateOwned(pVoid data)
+		{
+			PixelDataOwner owner;
+			owner.Owned = true;
+			owner.Data = reinterpret_cast<PixelData>(data);
+			return owner;
+		}
 	};
 
 	class IImage
 	{
 		friend class ImageFactory;
 
-		u32			m_ByteWidth = 0;
+		u32			m_Stride = 0;
+		u32			m_Slice = 0;
 		ImageKind	m_Kind = ImageKind_None;
+		wstring		m_DebugName = L"None";
 
 	protected:
-		// Must be called after width/height/pixelformat changed
+		// Must be called after any image property was changed
 		virtual void PostLoadCompute();
 
 	public:
@@ -105,18 +170,33 @@ namespace rageam::graphics
 		// NOTE: Given file extension in path is ignored and replaced to format one!
 		// If kind is ImageKind_None, image format is chosen automatically
 		virtual bool Save(ConstWString path, ImageKind kind = ImageKind_None) = 0;
-		// Metadata information of the image file
-		virtual auto GetInfo() const -> ImageInfo = 0;
-		// NOTE: Might be null if pixel data was not loaded / previously failed to load 
-		virtual auto GetPixelData() const -> ImageData* = 0;
+		// Full metadata information of the image file
+		virtual ImageInfo GetInfo() const = 0;
+		virtual int GetWidth() const = 0;
+		virtual int GetHeight() const = 0;
+		// NOTE: Might be null if pixel data was not loaded / previously failed to load
+		// In case of DDS and Ico, mip maps are placed next to each other
+		virtual PixelDataOwner GetPixelData(int mipIndex = 0) const = 0;
 		// Image is block compressed (DDS)
 		virtual bool IsCompressed() const { return false; }
+		// If generateMips is true, attempts to generate them (if possible)
+		// Generating mip maps will fail if image resolution is not power-of-two
+		// NOTE: DDS and Ico do not generate mip maps
+		// Generated mip data is not cached anywhere and created every call
+		virtual PixelDataOwner CreatePixelDataWithMips(bool generateMips) const;
 
-		// See ImageCompressor::CanBeCompressed
+		// By default set to image file name with extension. 
+		// For memory images, 'None' is default
+		ConstWString GetDebugName() const { return m_DebugName; }
+		void SetDebugName(ConstWString newName) { m_DebugName = newName; }
+
+		// See IsResolutionValidForMipMapsAndCompression
 		bool CanBeCompressed() const;
 
+		// Number of bytes one pixel row (scanline) takes
+		auto GetStride() const { m_Stride; }
 		// Number of bytes whole image takes
-		auto GetByteWidth() const { return m_ByteWidth; }
+		auto GetSlicePitch() const { return m_Slice; }
 		// Kind of loaded image (png/jpeg/dds)
 		auto GetKind() const { return m_Kind; }
 
@@ -125,8 +205,9 @@ namespace rageam::graphics
 
 		// tex is optional parameter and reference is released if set to NULL
 		bool CreateDX11Resource(
+			const ShaderResourceOptions& options,
 			amComPtr<ID3D11ShaderResourceView>& view, 
-			amComPtr<ID3D11Texture2D>* tex = nullptr);
+			amComPtr<ID3D11Texture2D>* tex = nullptr) const;
 	};
 	using ImagePtr = amPtr<IImage>;
 
@@ -161,7 +242,9 @@ namespace rageam::graphics
 		bool Save(ConstWString path, ImageKind kind = ImageKind_None) override;
 
 		ImageInfo GetInfo() const override;
-		ImageData* GetPixelData() const override;
+		int GetWidth() const override { return m_Width; }
+		int GetHeight() const override { return m_Height; }
+		PixelDataOwner GetPixelData(int mipIndex = 0) const override;
 	};
 
 	/**
@@ -179,12 +262,22 @@ namespace rageam::graphics
 
 		// Not supported types: DDS, PSD
 		// Automatic format: PNG
-		bool Save(ConstWString path, ImageKind kind) override;
+		bool Save(ConstWString path, ImageKind kind = ImageKind_None) override;
 
 		bool LoadPixelData(ConstWString path) override;
 		bool LoadMetaData(ConstWString path) override;
 		ImageInfo GetInfo() const override;
-		ImageData* GetPixelData() const override;
+		int GetWidth() const override { return m_Width; }
+		int GetHeight() const override { return m_Height; }
+		PixelDataOwner GetPixelData(int mipIndex) const override;
+	};
+
+	/**
+	 * \brief Windows .ico files, only 32 bit PNG is supported + mip maps.
+	 */
+	class Image_Ico : public IImageFile
+	{
+		// TODO:
 	};
 
 	class Image_Webp : public IImageFile
@@ -192,6 +285,9 @@ namespace rageam::graphics
 		// TODO: 
 	};
 
+	/**
+	 * \brief Block compressed (in most cases) image format that includes mip maps.
+	 */
 	class Image_DDS : public IImageFile
 	{
 	public:
@@ -199,6 +295,8 @@ namespace rageam::graphics
 		Image_DDS(pVoid pixelData, ImagePixelFormat fmt, int width, int height, int mipCount, bool moveMemory);
 
 		bool IsCompressed() const override { return true; }
+
+		PixelDataOwner CreatePixelDataWithMips(bool generateMips) const override;
 	};
 
 	class ImageFactory
