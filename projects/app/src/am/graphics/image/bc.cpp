@@ -1,13 +1,11 @@
 #include "bc.h"
 
-#include "bc7enc.h"
-#include "resize.h"
-#include "rgbcx.h"
 #include "am/system/enum.h"
-#include "common/logger.h"
-#include "helpers/align.h"
 #include "rage/atl/datahash.h"
 #include "rage/math/math.h"
+
+#include <bc7enc.h>
+#include <rgbcx.h>
 
 rageam::graphics::BlockCompressor_bc7enc::BlockCompressor_bc7enc(const ImageCompressorOptions& options)
 	: IBlockCompressor(options)
@@ -58,17 +56,20 @@ void rageam::graphics::ImageCompressorCache::Cache(
 }
 
 pVoid rageam::graphics::ImageCompressor::GetImagePixelBlock(
-	int width, int height, int blockX, int blockY, const PixelData pixelData, ImagePixelFormat pixelFmt) const
+	int width, int height,
+	int blockX, int blockY,
+	PixelData pixelData, ImagePixelFormat pixelFmt) const
 {
-	u32 elementWidth = ImagePixelFormatToSize[pixelFmt];
-	u32 lineStride = width * elementWidth;
+	//u32 pixelWidth = ImagePixelFormatToSize[pixelFmt];
+	//u32 lineStride = width * pixelWidth;
 
-	int pixelX = blockX * 4;
-	int pixelY = blockY * 4;
+	//int pixelX = blockX * 4;
+	//int pixelY = blockY * 4;
 
-	u32 byteOffset = lineStride * pixelY + elementWidth * pixelX;
+	//u32 byteOffset = lineStride * pixelY + pixelWidth * pixelX;
 
-	return pixelData->Bytes + byteOffset;
+	//return pixelData->Bytes + byteOffset;
+	return nullptr;
 }
 
 int rageam::graphics::ImageCompressor::ComputeMipCount(int width, int height, const ImageCompressorOptions& options)
@@ -76,7 +77,7 @@ int rageam::graphics::ImageCompressor::ComputeMipCount(int width, int height, co
 	if (!options.GenerateMipMaps)
 		return 1;
 
-	return GetMaximumMipCountForResolution(width, height);
+	return ComputeMaximumMipCountForResolution(width, height);
 }
 
 amPtr<rageam::graphics::Image_DDS> rageam::graphics::ImageCompressor::Compress(
@@ -87,7 +88,7 @@ amPtr<rageam::graphics::Image_DDS> rageam::graphics::ImageCompressor::Compress(
 	ImageInfo imgInfo = img->GetInfo();
 
 	// Attempt to retrieve image from cache
-	amPtr<Image_DDS> compressedImage = m_Cache.GetFromCache(img->GetPixelData().Data, img->GetSlicePitch(), options);
+	amPtr<Image_DDS> compressedImage = m_Cache.GetFromCache(img->GetPixelData().Data(), img->GetSlicePitch(), options);
 	if (compressedImage)
 		return compressedImage;
 
@@ -136,7 +137,7 @@ amPtr<rageam::graphics::Image_DDS> rageam::graphics::ImageCompressor::Compress(
 			{
 				// Get 4x4 block to compress from source mip image
 				pVoid sourcePixels = GetImagePixelBlock(
-					mipInfo.Width, mipInfo.Height, x, y, mipImg->GetPixelData().Data, mipInfo.PixelFormat);
+					mipInfo.Width, mipInfo.Height, x, y, mipImg->GetPixelData().Data(), mipInfo.PixelFormat);
 
 				pVoid destPixels = 0; // TODO: ...
 
@@ -152,7 +153,7 @@ amPtr<rageam::graphics::Image_DDS> rageam::graphics::ImageCompressor::Compress(
 	timer.Stop();
 	if (timer.GetElapsedMilliseconds() > 50)
 	{
-		m_Cache.Cache(img->GetPixelData().Data, img->GetSlicePitch(), options);
+		m_Cache.Cache(img->GetPixelData().Data(), img->GetSlicePitch(), options);
 	}
 
 	// Create DDS image from compressed pixel data

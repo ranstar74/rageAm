@@ -8,15 +8,62 @@
 #pragma once
 
 #include <memory>
-#include <wrl/client.h>
+#include "helpers/com.h"
 
 template<typename T>
-class amComPtr : public Microsoft::WRL::ComPtr<T>
+class amComPtr
 {
+	T* m_Ptr = nullptr;
 public:
-	using TCom = Microsoft::WRL::ComPtr<T>;
+	amComPtr() = default;
 
-	using TCom::TCom;
+	amComPtr(T* t)
+	{
+		m_Ptr = t;
+		SAFE_ADDREF(m_Ptr);
+	}
+
+	amComPtr(const amComPtr& other)
+	{
+		SAFE_RELEASE(m_Ptr);
+		m_Ptr = other.m_Ptr;
+		SAFE_ADDREF(m_Ptr);
+	}
+
+	amComPtr(amComPtr&& other) noexcept
+	{
+		std::swap(m_Ptr, other.m_Ptr);
+	}
+
+	~amComPtr()
+	{
+		Reset();
+	}
+
+	void Reset()
+	{
+		SAFE_RELEASE(m_Ptr);
+		m_Ptr = nullptr;
+	}
+
+	T* Get() const { return m_Ptr; }
+
+	amComPtr& operator=(const amComPtr& other)
+	{
+		SAFE_RELEASE(m_Ptr);
+		m_Ptr = other.m_Ptr;
+		SAFE_ADDREF(m_Ptr);
+		return *this;
+	}
+
+	amComPtr& operator=(amComPtr&& other) noexcept
+	{
+		std::swap(m_Ptr, other.m_Ptr);
+		return *this;
+	}
+
+	bool operator!() const { return !m_Ptr; }
+	operator bool() const { return m_Ptr; }
 };
 
 template<typename T>

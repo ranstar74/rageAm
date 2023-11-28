@@ -112,6 +112,11 @@ FILE* rageam::file::OpenFileStream(const wchar_t* path, const wchar_t* mode)
 	return file;
 }
 
+size_t rageam::file::ReadFileSteam(char* buffer, size_t bufferSize, size_t readSize, FILE* fs)
+{
+	return fread_s(buffer, bufferSize, sizeof(char), readSize, fs);
+}
+
 void rageam::file::CloseFileStream(FILE* file)
 {
 	fclose(file);

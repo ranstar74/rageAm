@@ -52,6 +52,7 @@ namespace rageam::graphics
 		bool		GenerateMipMaps = true;		// Creates mip maps up to 4x4
 		bool		CutoutAlpha = false;		// All pixels with alpha less than threshold are made transparent, otherwise fully opaque
 		int			CutoutAlphaThreshold = 90;
+		bool		AlphaTestCoverage = false;	// Makes sure that % of alpha is preserved on mip maps, incompatible with cutout alpha
 	};
 
 	/**
@@ -134,7 +135,7 @@ namespace rageam::graphics
 		pVoid GetImagePixelBlock(
 			int width, int height, 
 			int blockX, int blockY,
-			const PixelData pixelData, ImagePixelFormat pixelFmt) const;
+			PixelData pixelData, ImagePixelFormat pixelFmt) const;
 
 		int ComputeMipCount(int width, int height, const ImageCompressorOptions& options);
 

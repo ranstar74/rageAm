@@ -32,5 +32,6 @@ namespace rageam::file
 
 	// Stream I/O Helpers
 	FILE* OpenFileStream(const wchar_t* path, const wchar_t* mode);
+	size_t ReadFileSteam(char* buffer, size_t bufferSize, size_t readSize, FILE* fs);
 	void CloseFileStream(FILE* file);
 }

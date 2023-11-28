@@ -191,7 +191,9 @@ HRESULT rage::grcTextureDX11::CreateFromData(const std::shared_ptr<D3D11_SUBRESO
 
 	if (result == S_OK)
 	{
-		result = device->CreateShaderResourceView((ID3D11Resource*)m_Resource, &viewDesk, &m_ShaderView);
+		ID3D11ShaderResourceView* resourceView;
+		result = device->CreateShaderResourceView((ID3D11Resource*)m_Resource, &viewDesk, &resourceView);
+		m_ShaderView = resourceView;
 	}
 
 	// Also can be seen as flag removal &= ~0x80u;

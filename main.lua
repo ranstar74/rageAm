@@ -5,7 +5,7 @@ function default_config()
 	targetdir "bin/%{cfg.buildcfg}"
 
 	cppdialect "C++20"
-	vectorextensions "SSE2" -- seems to be ignored
+	vectorextensions "AVX2"
 	architecture "x64"
 	flags { "MultiProcessorCompile" }
 
@@ -30,11 +30,11 @@ function add_launcher_events(build_dir)
 	-- Make sure all paths are quoted!
 	build_dir = os.realpath(build_dir)
 	
-	local scylla = quote_path(os.realpath("tools/scyllahide.dll"))
+	-- local scylla = quote_path(os.realpath("tools/scyllahide.dll"))
 	local launcher = quote_path(build_dir .. "Launcher.exe")
 	local rageAm = quote_path(build_dir .. "rageAm.dll")
 
-	local base_command = launcher .. " -exe GTA5.exe -dll " .. rageAm .. " -scylla " .. scylla
+	local base_command = launcher .. " -exe GTA5.exe -dll " .. rageAm -- .. " -scylla " .. scylla
 	prebuildcommands { base_command .. " -unload" }
 	
 	buildcommands { base_command .. " -load" }
@@ -142,7 +142,7 @@ project "rageAm"
 		"hwbreakpoint",
 		"stb_image",
 		"bc7enc",
-		"avir",
+		"libwebp",
 	}
 	links { "Comctl32.lib" } 	-- TaskDialog
 	links { "dbghelp" } 		-- StackTrace

@@ -79,6 +79,12 @@ namespace rageam
 			return m_Holder.Value;
 		}
 
+		const T& GetValue() const
+		{
+			AM_ASSERT(m_HasValue, "Nullable::GetValue() -> Has no value! Use HasValue().");
+			return m_Holder.Value;
+		}
+
 		/**
 		 * \brief You must check if there's value before accessing it!
 		 */
