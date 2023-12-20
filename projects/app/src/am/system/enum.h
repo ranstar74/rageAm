@@ -25,7 +25,7 @@ namespace rageam
 	{
 	public:
 		template<typename TEnum>
-		static bool TryParse(ConstString value, TEnum& outValue)
+		static constexpr bool TryParse(ConstString value, TEnum& outValue)
 		{
 			auto enumValue = magic_enum::enum_cast<TEnum>(value);
 			if (!enumValue.has_value())
@@ -35,7 +35,7 @@ namespace rageam
 		}
 
 		template<typename TEnum>
-		static TEnum Parse(ConstString value)
+		static constexpr TEnum Parse(ConstString value)
 		{
 			TEnum outValue;
 			if (!TryParse(value, outValue))
@@ -46,15 +46,21 @@ namespace rageam
 		}
 
 		template<typename TEnum>
-		static ConstString GetName()
+		static constexpr ConstString GetName()
 		{
 			return magic_enum::enum_type_name<TEnum>().data();
 		}
 
 		template<typename TEnum>
-		static ConstString GetName(TEnum value)
+		static constexpr ConstString GetName(TEnum value)
 		{
 			return magic_enum::enum_name(value).data();
+		}
+
+		template<typename TEnum>
+		static constexpr int GetCount()
+		{
+			return magic_enum::enum_count<TEnum>();
 		}
 	};
 }
