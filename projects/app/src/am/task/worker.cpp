@@ -38,19 +38,20 @@ DWORD rageam::BackgroundWorker::ThreadProc(LPVOID lpParam)
 			sm_Jobs.RemoveAt(0);
 		}
 
-		Timer timer;
-
-		timer.Start();
+		Timer timer = Timer::StartNew();
 		job->GetTask()->m_State = TASK_STATE_RUNNING;
 		bool success = job->GetLambda()();
 		timer.Stop();
 		job->GetTask()->m_State = success ? TASK_STATE_SUCCESS : TASK_STATE_FAILED;
 
 		wchar_t buffer[256];
-		swprintf_s(buffer, 256, L"[%ls] -> %hs, %llu ms", job->GetName(), success ? "Done" : "Failed", timer.GetElapsedMilliseconds());
+		if (String::IsNullOrEmpty(job->GetName()))
+			swprintf_s(buffer, 256, L"%hs, %llu ms", success ? "OK" : "FAIL", timer.GetElapsedMilliseconds());
+		else
+			swprintf_s(buffer, 256, L"[%ls] %hs, %llu ms", job->GetName(), success ? "OK" : "FAIL", timer.GetElapsedMilliseconds());
 
-		AM_DEBUGF(L"BackgroundWorker -> (WorkerID: %llu) -> %s", workerId, buffer);
-		
+		AM_DEBUGF(L"[BG Task] wID:%llu, %s", workerId, buffer);
+
 		if (TaskCallback)
 			TaskCallback(buffer);
 	}
@@ -119,7 +120,7 @@ amPtr<rageam::BackgroundTask> rageam::BackgroundWorker::Run(const TLambda& lambd
 
 amPtr<rageam::BackgroundTask> rageam::BackgroundWorker::Run(const TLambda& lambda)
 {
-	return Run(lambda, L"Background task");
+	return Run(lambda, L"");
 }
 
 bool rageam::BackgroundWorker::WaitFor(const Tasks& tasks)

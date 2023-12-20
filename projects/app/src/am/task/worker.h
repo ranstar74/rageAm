@@ -97,7 +97,7 @@ namespace rageam
 			ConstWString GetName() const { return m_Name; }
 		};
 
-		static constexpr u32 MAX_BACKGROUND_THREADS = 8;
+		static constexpr u32 MAX_BACKGROUND_THREADS = 16;
 
 		static HANDLE sm_ThreadPool[];
 		static rage::atArray<amUniquePtr<BackgroundJob>> sm_Jobs;
