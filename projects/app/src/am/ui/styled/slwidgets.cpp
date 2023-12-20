@@ -530,7 +530,7 @@ bool SlGui::RenamingSelectable(SlRenamingSelectableState& state, SlGuiRenamingSe
 
 	ImGui::ColumnsEndBackground();
 
-	window->DrawList->AddImage(state.Icon, iconMin, iconMax);
+	window->DrawList->AddImage(state.Icon, iconMin, iconMax, { 0.0f, 0.0f }, state.IconUV2);
 
 	// In 'Renaming' state we display input field, in regular state we display just text
 	if (renamingActive)

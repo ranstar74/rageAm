@@ -5,7 +5,7 @@ rageam::graphics::RenderContext* GRenderContext = nullptr;
 void CreateRenderContext()
 {
 	GRenderContext = new rageam::graphics::RenderContext();
-	GRenderContext->Init();
+	//GRenderContext->Init();
 }
 
 void DestroyRenderContext()

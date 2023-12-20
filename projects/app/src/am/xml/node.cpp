@@ -93,7 +93,7 @@ ConstString XmlHandle::GetText(bool errorOnNull) const
 
 	ConstString text = m_Element->GetText();
 	if (!errorOnNull)
-		return text;
+		return text ? text : "";
 
 	if (text && strcmp(text, "") != 0) // Not Null & Not Empty
 		return text;

@@ -22,7 +22,7 @@ namespace rageam::ui
 	static constexpr eIconSize ExplorerEntrySmallIcon = IconSize_16;
 	static constexpr eIconSize ExplorerEntryLargeIcon = IconSize_256;
 
-	class Image;
+	class AsyncImage;
 	class IExplorerEntry;
 	using ExplorerEntryPtr = amPtr<IExplorerEntry>;
 
@@ -115,8 +115,8 @@ namespace rageam::ui
 		virtual void Sort(ImGuiTableSortSpecs* specs) = 0;
 
 		virtual void SetIconOverride(ConstString name) = 0;
-		virtual const Image& GetIcon() const = 0;			// 16x16
-		virtual const Image& GetLargeIcon() const = 0;		// At least 256x256
+		virtual const AsyncImage& GetIcon() const = 0;			// 16x16
+		virtual const AsyncImage& GetLargeIcon() const = 0;		// At least 256x256
 
 		virtual bool IsAsset() const = 0;
 		virtual asset::AssetPtr GetAsset() = 0;
@@ -229,9 +229,9 @@ namespace rageam::ui
 		asset::AssetPtr		m_Asset;						// We load & store asset here to easily open it from explorer folder view
 
 		ConstString m_IconOverride = nullptr;
-		Image m_DynamicIcon;								// Dynamic file icon for images
-		Image* m_StaticIcon = nullptr;						// Static icon from 'data/icons'
-		Image* m_StaticLargeIcon = nullptr;
+		AsyncImage m_DynamicIcon;								// Dynamic file icon for images
+		AsyncImage* m_StaticIcon = nullptr;						// Static icon from 'data/icons'
+		AsyncImage* m_StaticLargeIcon = nullptr;
 
 		void ScanSubFolders();
 		void SetPath(const file::U8Path& path, rage::fiDevice* parentDevice = nullptr);
@@ -270,8 +270,8 @@ namespace rageam::ui
 		bool Rename(ConstString newName) override;
 
 		void SetIconOverride(ConstString name) override;
-		const Image& GetIcon() const override { return m_StaticIcon != nullptr ? *m_StaticIcon : m_DynamicIcon; }
-		const Image& GetLargeIcon() const override { return m_StaticLargeIcon != nullptr ? *m_StaticLargeIcon : m_DynamicIcon; }
+		const AsyncImage& GetIcon() const override { return m_StaticIcon != nullptr ? *m_StaticIcon : m_DynamicIcon; }
+		const AsyncImage& GetLargeIcon() const override { return m_StaticLargeIcon != nullptr ? *m_StaticLargeIcon : m_DynamicIcon; }
 
 		bool IsAsset() const override { return m_IsAsset; }
 		asset::AssetPtr GetAsset() override;
@@ -290,8 +290,8 @@ namespace rageam::ui
 		u32		m_HashKey;				// Name joaat
 		bool	m_HasSubDirs = false;
 
-		Image* m_Icon;
-		Image* m_LargeIcon;
+		AsyncImage* m_Icon;
+		AsyncImage* m_LargeIcon;
 
 		void ScanSubDirs();
 	public:
@@ -333,8 +333,8 @@ namespace rageam::ui
 		asset::AssetPtr GetAsset() override { AM_UNREACHABLE("ExplorerEntryUser::GetAsset() -> Not supported."); }
 
 		void SetIconOverride(ConstString name) override { SetIcon(name); }
-		Image& GetIcon() const override { return *m_Icon; }
-		Image& GetLargeIcon() const override { return *m_LargeIcon; }
+		AsyncImage& GetIcon() const override { return *m_Icon; }
+		AsyncImage& GetLargeIcon() const override { return *m_LargeIcon; }
 
 		ExplorerEntryType GetEntryType() override { return ExplorerEntryType_User; }
 

@@ -7,39 +7,52 @@
 //
 #pragma once
 
-#include <d3d11.h>
-#include <DirectXTex.h>
-#include <stb_image.h>
-
+#include "am/graphics/color.h"
+#include "am/system/nullable.h"
 #include "am/system/ptr.h"
 #include "am/types.h"
 
+#include <d3d11.h>
+
+#include "am/system/enum.h"
+
+// TODO:
+// - Brightness / contrast
+// - Large allocator for images, currently we use malloc
+// - Grayscale format for DDS (used for specular/height)
+//
+// Formats
+// - TIFF
+
 namespace rageam::graphics
 {
-	// TODO:
-	// - Cutout alpha
-	// - Resize threading
-	// - Alpha test coverage
-	// - We can't track memory allocated by stb/webp/dds loaders
-	// - tiff
-	// - 'Large' allocator for images?
-
-#define AM_IMAGE_USE_AVX2_RESIZE
-
+	struct ImageCompressorToken;
+	struct CompressedImageInfo;
+	struct ImageCompressorOptions;
 	class PixelDataOwner;
 
-	static constexpr int MAX_IMAGE_RESOLUTION = 1 << 14;	// Maximum supported by DX11
-	static constexpr int MAX_MIP_MAPS = 13;					// 16384 -> 4
+	// Enables mix of SSE and AVX2 image processing
+	// AVX2 (AM_IMAGE_USE_AVX2) is enabled if project is created with --avx2 options
+	// NOTE: Third party libraries will use SSE2 regardless! This option exists only for testing / benchmarking
+#define AM_IMAGE_USE_SIMD
 
-	// Those allocation functions must be used for correct memory use tracking
+	static constexpr int IMAGE_MAX_RESOLUTION = 1 << 14;	// Maximum supported by DX11
+	static constexpr int IMAGE_MAX_MIP_MAPS = 14;			// 16384 -> 1
+	static constexpr size_t IMAGE_RGBA_PITCH = 4;
+	static constexpr size_t IMAGE_RGB_PITCH = 3;
+
+	// We use those memory allocation functions because system heap is limited and not suitable for this
+
 	pVoid ImageAlloc(u32 size);
 	pVoid ImageAllocTemp(u32 size);
+	pVoid ImageReAlloc(pVoid block, u32 newSize);
+	pVoid ImageReAllocTemp(pVoid block, u32 newSize);
 	void ImageFree(pVoid block);
 	void ImageFreeTemp(pVoid block);
 
-	enum ImageKind
+	enum ImageFileKind
 	{
-		ImageKind_None,			// Not loaded or created from memory
+		ImageKind_None,
 		ImageKind_WEBP,
 		ImageKind_JPEG,
 		ImageKind_JPG,
@@ -49,12 +62,10 @@ namespace rageam::graphics
 		ImageKind_PSD,
 		ImageKind_DDS,
 		ImageKind_ICO,
-
-		ImageKind_COUNT
 	};
 
 	// Formats that are supported for writing (saving) to file
-	static constexpr u32 WriteableImageKinds =
+	static constexpr u32 ImageWriteableKinds =
 		1 << ImageKind_WEBP |
 		1 << ImageKind_JPEG |
 		1 << ImageKind_JPG |
@@ -90,6 +101,7 @@ namespace rageam::graphics
 		ImagePixelFormat_U24,	// RGB			U8[3]
 		ImagePixelFormat_U16,	// Gray Alpha	U8[2]
 		ImagePixelFormat_U8,	// Gray			U8[1]
+		ImagePixelFormat_A8,	// Alpha		U8[1]
 
 		// All compressed formats are UNORM
 
@@ -101,17 +113,51 @@ namespace rageam::graphics
 		ImagePixelFormat_BC7,
 	};
 
+	static constexpr u32 ImagePixelFormatToFourCC[] =
+	{
+		0, 0, 0, 0, 0, 0,			// None, U32, U24, U16, U8, A8
+		FOURCC('D', 'X', 'T', '1'),	// BC1
+		FOURCC('D', 'X', 'T', '2'), // BC2
+		FOURCC('D', 'X', 'T', '5'), // BC3
+		FOURCC('A', 'T', 'I', '1'), // BC4
+		FOURCC('A', 'T', 'I', '2'), // BC5
+		0							// BC7
+	};
+
 	static constexpr int ImagePixelFormatBitsPerPixel[] =
 	{
 		0,
-		32, 24, 16, 8,			// U32, U24, U16, U8
+		32, 24, 16, 8, 8,		// U32, U24, U16, U8, A8
 		4, 8, 8, 4, 8, 8,		// BC1, BC2, BC3, BC4, BC5, BC7
 	};
 
+	static_assert(Enum::GetCount<ImagePixelFormat>() == sizeof(ImagePixelFormatToFourCC) / sizeof(u32));
+	static_assert(Enum::GetCount<ImagePixelFormat>() == sizeof(ImagePixelFormatBitsPerPixel) / sizeof(int));
+
+	enum ResolutionScalingMode
+	{
+		ResolutionScalingMode_Fill,
+		ResolutionScalingMode_Fit,
+		ResolutionScalingMode_Stretch,
+	};
+
+	enum ImageSwizzle
+	{
+		ImageSwizzle_R,
+		ImageSwizzle_G,
+		ImageSwizzle_B,
+		ImageSwizzle_A,
+	};
+
+	// Scales given resolution used specified constraints, mostly used for UI
+	void ImageScaleResolution(int wIn, int hIn, int wTo, int hTo, int& wOut, int& hOut, ResolutionScalingMode mode);
+	// If rectSize is equal to 0, original size is returned
+	void ImageFitInRect(int wIn, int hIn, int rectSize, int& wOut, int& hOut);
+
 	// Gets whether given format is one of ImagePixelFormat_BC (block compressed)
-	bool IsCompressedPixelFormat(ImagePixelFormat fmt);
+	bool ImageIsCompressedFormat(ImagePixelFormat fmt);
 	// Gets whether format supports alpha channel
-	bool IsAlphaPixelFormat(ImagePixelFormat fmt);
+	bool ImageIsAlphaFormat(ImagePixelFormat fmt);
 
 	// NOTE: Not every pixel format (such as U24) can be converted to DXGI,
 	// DXGI_FORMAT_UNKNOWN will be returned for such
@@ -119,74 +165,117 @@ namespace rageam::graphics
 	ImagePixelFormat ImagePixelFormatFromDXGI(DXGI_FORMAT fmt);
 
 	// Total number of bytes image takes with given resolution and format
-	u32 ComputeImageSlicePitch(int width, int height, ImagePixelFormat pixelFormat);
+	u32 ImageComputeSlicePitch(int width, int height, ImagePixelFormat pixelFormat);
 	// Total number of bytes one pixel row (scanline) takes with given resolution and format
 	// Also known as 'stride'
-	u32 ComputeImageRowPitch(int width, ImagePixelFormat pixelFormat);
+	u32 ImageComputeRowPitch(int width, ImagePixelFormat pixelFormat);
 	// Accumulates total size of image and mip maps
-	u32 ComputeImageSizeWithMips(int width, int height, int mipCount, ImagePixelFormat pixelFormat);
+	u32 ImageComputeTotalSizeWithMips(int width, int height, int mipCount, ImagePixelFormat pixelFormat);
 
 	// Makes sure that resolution is power of two and greater than 4x4 (lowest size for block compression)
-	bool IsResolutionValidForMipMapsAndCompression(int width, int height);
+	bool ImageIsResolutionValidForMipMapsAndCompression(int width, int height);
 	// Non-power of two images cannot be properly scaled down
-	bool IsResolutionValidForMipMaps(int width, int height);
+	bool ImageIsResolutionValidForMipMaps(int width, int height);
 
 	// Gets num of mip maps up until 4x4 (lowest size for block compression)
-	int ComputeMaximumMipCountForResolution(int width, int height);
+	int ImageComputeMaxMipCount(int width, int height);
 
 	// Checks if any pixel has transparent alpha value (non 255)
-	// TODO: BC Decoding
-	bool ScanPixelsForAlpha(pVoid data, int width, int height, ImagePixelFormat fmt);
+	// BC formats are not supported
+	bool ImageScanAlpha(pVoid data, int width, int height, ImagePixelFormat fmt);
 
 	// Helper utility for stb_image_write
 	// If kind is ImageKind_None, it is defaulted to ImageKind_PNG
 	// Quality is only used on JPEG
-	bool WriteImageStb(ConstWString path, ImageKind kind, int w, int h, int c, pVoid data, int quality = 100);
-	// NOTE: Data must be in RGBA U32 or RGB U24 format! If quality is 100.0, lossless format is used
-	bool WriteImageWebp(ConstWString path, int w, int h, pVoid data, bool hasAlpha, float quality = 100.0f);
-	
+	bool ImageWriteStb(ConstWString path, ImageFileKind kind, int w, int h, int c, pVoid data, int quality = 100);
+	// NOTE: Data must be in RGBA U32 or RGB U24 format (hasAlpha param)! If quality is 100.0, lossless format is used
+	bool ImageWriteWebp(ConstWString path, int w, int h, pVoid data, bool hasAlpha, float quality = 100.0f);
+	bool ImageWriteDDS(ConstWString path, int w, int h, int mips, ImagePixelFormat fmt, pVoid data);
+
+	bool ImageReadStb(ConstWString path, int& w, int& h, ImagePixelFormat& fmt, bool onlyMeta, PixelDataOwner* pixels);
+	// Decoded format is always RGBA
+	bool ImageReadWebp(ConstWString path, int& w, int& h, ImagePixelFormat& fmt, bool onlyMeta, PixelDataOwner* pixels);
+	bool ImageReadDDS(ConstWString path, int& w, int& h, int& mips, ImagePixelFormat& fmt, bool onlyMeta, PixelDataOwner* pixels);
+
+	// Out pixels must not be NULL if onlyMeta is set to false
+	// NOTE: This function does not support ICO!
+	bool ImageRead(ConstWString path, int& w, int& h, int& mips, ImagePixelFormat& fmt, ImageFileKind* outKind, bool onlyMeta, PixelDataOwner* outPixels);
+	// NOTE: Image extension in path is ignored! Image type is picked based on 'kind' parameter
+	// Mip count is ignored for every format except DDS
+	bool ImageWrite(ConstWString path, int w, int h, int mips, ImagePixelFormat fmt, const PixelDataOwner& pixelData, ImageFileKind kind, float quality = 0.95f);
+
 	// Low level function to resize array of image pixels
-	// Images without alpha are faster to process
-	void ResizeImagePixels(
-		pVoid dst, pVoid src, ResizeFilter filter, ImagePixelFormat fmt, 
+	// Images without alpha are faster to process because alpha channel is processed separately and can be ignored
+	void ImageResize(
+		pVoid dst, pVoid src, ResizeFilter filter, ImagePixelFormat fmt,
 		int xFrom, int yFrom, int xTo, int yTo, bool hasAlphaPixels);
+
+	// Only for non-compressed formats
+	char* ImageGetPixel(char* pixelData, int x, int y, int width, ImagePixelFormat fmt);
+
+	// Converts any pixel format (including block compressed formats) color to RGBA32
+	ColorU32 ImageGetPixelColor(char* pixelData, int x, int y, int width, ImagePixelFormat fmt);
 
 	// Converts pixels from one format to another, BC formats are not supported
 	// Currently implemented:
 	// RGBA -> RGB
 	// RGB -> RGBA
-	void ConvertImagePixels(pVoid dst, pVoid src, ImagePixelFormat fromFmt, ImagePixelFormat toFmt, int width, int height);
+	// Gray Alpha -> RGBA
+	// Gray -> RGB
+	void ImageConvertPixelFormat(pVoid dst, pVoid src, ImagePixelFormat fromFmt, ImagePixelFormat toFmt, int width, int height);
+
+	// Flips image upside down
+	void ImageFlipY(char* pixels, int width, int height, ImagePixelFormat fmt);
+
+	// Swaps RGBA pixel component in given order
+	void ImageDoSwizzle(char* pixelData, int width, int height, ImageSwizzle r, ImageSwizzle g, ImageSwizzle b, ImageSwizzle a);
+
+	// NOTE: Following functions with 'RGBA' postfix expect input pixels in RGBA 32 bit format
+
+	void ImageAdjustBrightnessAndConstrastRGBA(char* pixels, int width, int height, int brightness, int contrast);
+	// Sets all pixels below threshold to 0 and all greater or equal to 255
+	// Threshold must be between 0 and 255
+	void ImageCutoutAlphaRGBA(char* pixelData, int width, int height, int threshold);
+	void ImageScaleAlphaRGBA(char* pixelData, int width, int height, float alphaScale);
+	// http://the-witness.net/news/2010/09/computing-alpha-mipmaps/
+	float ImageAlphaTestCoverageRGBA(char* pixelData, int width, int height, int threshold, float alphaScale = 1.0f);
+	// Uses brute force method to find most optimal alpha scaling to achieve desired coverage, idea is taken from NVTT
+	float ImageAlphaTestFindBestScaleRGBA(char* pixelData, int width, int height, int threshold, float desiredCoverage);
 
 	struct ImageInfo
 	{
-		ImagePixelFormat	PixelFormat;	// For correctly interpreting PixelData
+		ImagePixelFormat	PixelFormat;
 		int					Width;
 		int					Height;
-		int					MipCount = 1;	// Used on DDS and Ico
+		int					MipCount;
 	};
 
-	union PixelData_
+	union ImagePixelData_
 	{
 		u8		U32[1][4];
 		u8		U24[1][3];
 		u8		U16[1][2];
 		u8		U8[1][1];
 		char	Bytes[1];
+		u32		RGBA[1];
 	};
-	using PixelData = PixelData_*;
+	using ImagePixelData = ImagePixelData_*;
 
 	// Options for creating ID3D11Texture2D and ID3D11ShaderResourceView
-	struct ShaderResourceOptions
+	struct ImageDX11ResourceOptions
 	{
 		// Mip maps will be created only if they don't exist 
 		// already and pixel format is not compressed (BC#)
-		bool			CreateMips;
-		// For .Ico mip maps are not really 'scaled' down versions of the image,
-		// if we use them as actual 'mip maps', they would look really, really, weird
-		// As solution for this we generate mip maps based on specified mip index
-		int				BaseMipIndex = -1;
+		bool			CreateMips = true;
+		// Image will be fit into given size rect
+		int				MaxResolution = 0;
 		// Filter for generating mip maps, Box is good and fast option
 		ResizeFilter	MipFilter = ResizeFilter_Box;
+		// Image will be converted to suitable for displaying format if needed,
+		// for example BC encoded images with size non power of two, or RGB images
+		// Those needs to be converted to RGBA before creating DX resource
+		bool			AllowImageConversion = true;
+		bool			PadToPowerOfTwo = false;
 	};
 
 	// Optionally ref counted pixel data pointer
@@ -209,7 +298,7 @@ namespace rageam::graphics
 		PixelDataOwner(PixelDataOwner&& other) noexcept;
 		~PixelDataOwner() { Release(); }
 
-		PixelData Data() const { return reinterpret_cast<PixelData>(m_Data); }
+		ImagePixelData Data() const { return reinterpret_cast<ImagePixelData>(m_Data); }
 		bool IsOwner() const { return m_Owned; }
 
 		// Releases ref counter if owns memory and deletes pointer if ref count became 0
@@ -232,217 +321,147 @@ namespace rageam::graphics
 		std::function<void(pVoid block)> DeleteFn;
 	};
 
-	class IImage
+	class Image
 	{
 		friend class ImageFactory;
 
-		u32			m_Stride = 0;
-		u32			m_Slice = 0;
-		u32			m_SizeWithMips = 0;
-		ImageKind	m_Kind = ImageKind_None;
-		wstring		m_DebugName = L"None";
-		bool		m_HasAlpha = false;
-
-	protected:
-		// Must be called after any image property was changed
-		void PostLoadCompute();
-		// forceHasAlpha allows to directly set value without scanning
-		void ComputeHasAlpha(const bool* forceHasAlpha = nullptr);
+		wstring				m_DebugName;
+		file::WPath			m_FilePath;			// In case if image was loaded from file
+		int					m_Width;
+		int					m_Height;
+		int					m_MipCount;
+		ImagePixelFormat	m_PixelFormat;
+		PixelDataOwner		m_PixelData;
+		Nullable<bool>		m_HasAlphaPixels;
 
 	public:
-		virtual ~IImage() = default;
+		Image(const PixelDataOwner& pixelData, ImagePixelFormat pixelFormat, int width, int height, int mipCount, bool copyPixels = false);
+		Image(const PixelDataOwner& pixelData, const ImageInfo& imageInfo, bool copyPixels = false);
+		Image(const Image& other) = delete;
+		Image(Image&&) = default;
 
-		// Full metadata information of the image file
-		virtual ImageInfo GetInfo() const = 0;
-		virtual int GetWidth() const = 0;
-		virtual int GetHeight() const = 0;
-		// NOTE: Might be null if pixel data was not loaded / previously failed to load
-		// In case of DDS and Ico, mip maps are placed next to each other
-		virtual PixelDataOwner GetPixelData(int mipIndex = 0) const = 0;
-		// If generateMips is true, attempts to generate them (if possible)
-		// Generating mip maps will fail if image resolution is not power-of-two
-		// NOTE: DDS and Ico do not generate mip maps
-		// Generated mip data is not cached anywhere and created every call
-		virtual PixelDataOwner CreatePixelDataWithMips(bool generateMips, ResizeFilter mipFilter, int& outMipCount) const;
+		ImageInfo GetInfo() const;
+		int GetWidth() const { return m_Width; }
+		int GetHeight() const { return m_Height; }
+		ImagePixelFormat GetPixelFormat() const { return m_PixelFormat; }
 
-		// Image may not have pixel data if loading failed
-		bool HasPixelData() const { return GetPixelData().Data() != nullptr; }
+		u32 ComputeRowPitch() const { return ImageComputeRowPitch(m_Width, m_PixelFormat); }
+		u32 ComputeSlicePitch() const { return ImageComputeSlicePitch(m_Width, m_Height, m_PixelFormat); }
+		u32 ComputeTotalSizeWithMips() const { return ImageComputeTotalSizeWithMips(m_Width, m_Height, m_MipCount, m_PixelFormat); }
 
-		// By default set to image file name with extension. 
+		// Set to image file name with extension by default
 		// For memory images, 'None' is default
 		ConstWString GetDebugName() const { return m_DebugName; }
 		void SetDebugName(ConstWString newName) { m_DebugName = newName; }
 
-		// See IsResolutionValidForMipMapsAndCompression
-		bool CanBeCompressed() const;
-		// See IsResolutionValidForMipMaps
-		bool CanGenerateMips() const;
+		// NOTE: Might be null if pixel data was not loaded / previously failed to load
+		// In case of DDS mip maps are placed next to each other
+		PixelDataOwner GetPixelData(int mipIndex = 0) const;
 
-		// Number of bytes one pixel row (scanline) takes
-		auto GetStride() const { return m_Stride; }
-		// Number of bytes whole image takes
-		auto GetSlicePitch() const { return m_Slice; }
-		// Number of bytes all mip maps take, will be different from GetSlicePitch()
-		// only for DDS and Ico because they may have multiple mip maps
-		auto GetSizeWithMips() const { return m_SizeWithMips; }
-		// Kind of loaded image (png/jpeg/dds)
-		auto GetKind() const { return m_Kind; }
-		// Whether at least one pixel has non 255 alpha value
-		// NOTE: This function will always return false for DDS!
-		bool HasAlpha() const { return m_HasAlpha; }
+		// Allows to lazy-load pixel data after loading image with just metadata
+		bool EnsurePixelDataLoaded();
+
+		// Path image was loaded from, only present if loaded using ImageFactory::LoadFromFile,
+		// otherwise empty string (not null) will be returned
+		ConstWString GetFilePath() const { return m_FilePath; }
+
+		// Image may not have pixel data if loading failed
+		bool HasPixelData() const { return GetPixelData().Data() != nullptr; }
+		// Shortcut for GetPixelData().Data.Bytes
+		char* GetPixelDataBytes(int mipIndex = 0) const { return GetPixelData(mipIndex).Data()->Bytes; }
+
+		// See IsResolutionValidForMipMapsAndCompression
+		bool CanBeCompressed() const { return ImageIsResolutionValidForMipMapsAndCompression(m_Width, m_Height); }
+		// See IsResolutionValidForMipMaps
+		bool CanGenerateMips() const { return ImageIsResolutionValidForMipMaps(m_Width, m_Height); }
+
+		// Scans image for at least one non-opaque (transparent) pixel
+		// BC formats are not currently supported, returned value is cached
+		bool ScanAlpha();
+
+		// Gets color of pixel at given coordinates,
+		// works with any image format (including block compressed)
+		ColorU32 GetPixel(int x, int y, int mipIndex = 0) const;
 
 		// Creates a new image resized using specified method (filter)
-		amPtr<IImage> Resize(int newWidth, int newHeight, ResizeFilter resizeFilter = ResizeFilter_Mitchell) const;
+		// NOTE: This image will create a new image even if dimensions match!
+		amPtr<Image> Resize(int newWidth, int newHeight, ResizeFilter resizeFilter = ResizeFilter_Mitchell);
 		// For cases when we want to generate mip maps for image that has non power-of-two resolution
 		// (which is the case for most regular pictures from for e.g. internet)
 		// the solution is to add empty padding pixels and draw using adjusted UV coordinates
-		amPtr<IImage> PadToPowerOfTwo(Vec2S& outUvExtent) const;
+		// If image is already sized power of two, clone is returned
+		amPtr<Image> PadToPowerOfTwo(Vec2S& outUvExtent) const;
+		Vec2S ComputePadExtent() const;
+		// If format matches current, shallow clone is returned
+		amPtr<Image> ConvertPixelFormat(ImagePixelFormat formatTo) const;
+		// Will return existing pixel data if image already have more than 1 mip map or pixels are block compressed
+		amPtr<Image> GenerateMipMaps(ResizeFilter mipFilter = ResizeFilter_Box);
+		// Makes sure that image resolution is smaller equal to given constraint,
+		// If maximumResolution is set to 0, shallow clone is returned
+		amPtr<Image> FitMaximumResolution(int maximumResolution, ResizeFilter filter = ResizeFilter_Box);
+
+		// NOTE: This operation alters pixel data of THIS image!
+		void Swizzle(ImageSwizzle r, ImageSwizzle g, ImageSwizzle b, ImageSwizzle a) const;
 
 		// tex is optional parameter and reference is released if set to NULL
 		bool CreateDX11Resource(
-			const ShaderResourceOptions& options,
-			amComPtr<ID3D11ShaderResourceView>& view,
-			amComPtr<ID3D11Texture2D>* tex = nullptr) const;
+			amComPtr<ID3D11ShaderResourceView>& outView,
+			const ImageDX11ResourceOptions& options = {},
+			Vec2S* outUV2 = nullptr,
+			amComPtr<ID3D11Texture2D>* outTex = nullptr);
+
+		Image& operator=(const Image& other) const = delete;
+		Image& operator=(Image&&) = default;
 	};
-	using ImagePtr = amPtr<IImage>;
-
-	/**
-	 * \brief Image that can be loaded from file system.
-	 */
-	class IImageFile : public IImage
-	{
-	public:
-		virtual bool LoadPixelData(ConstWString path) = 0;
-		// Loads ONLY meta information from image file,
-		// much faster way if pixel data is not required
-		virtual bool LoadMetaData(ConstWString path) = 0;
-	};
-
-	/**
-	 * \brief Image created from pixel array.
-	 */
-	class ImageMemory : public IImage
-	{
-		PixelDataOwner		m_PixelData;
-		int					m_Width;
-		int					m_Height;
-		ImagePixelFormat	m_PixelFormat;
-	public:
-		ImageMemory(const PixelDataOwner& pixelData, ImagePixelFormat fmt, int width, int height, bool copyPixels = false);
-
-		ImageInfo GetInfo() const override;
-		int GetWidth() const override { return m_Width; }
-		int GetHeight() const override { return m_Height; }
-		PixelDataOwner GetPixelData(int mipIndex = 0) const override;
-	};
-
-	/**
-	 * \brief stb_image.h wrapper, supported formats: JPEG, PNG, TGA, BMP, PSD.
-	 */
-	class Image_Stb : public IImageFile
-	{
-		stbi_uc* m_PixelData = nullptr;
-
-		int m_Width = 0;
-		int m_Height = 0;
-		int m_NumChannels = 0;
-	public:
-		~Image_Stb() override;
-
-		bool LoadPixelData(ConstWString path) override;
-		bool LoadMetaData(ConstWString path) override;
-		ImageInfo GetInfo() const override;
-		int GetWidth() const override { return m_Width; }
-		int GetHeight() const override { return m_Height; }
-		PixelDataOwner GetPixelData(int mipIndex) const override;
-	};
-
-	/**
-	 * \brief Windows .ico files, only 32 bit PNG is supported + mip maps.
-	 */
-	class Image_Ico : public IImageFile
-	{
-		// TODO:
-	};
-
-	class Image_Webp : public IImageFile
-	{
-		static constexpr ImagePixelFormat WEBP_PIXEL_FORMAT = ImagePixelFormat_U32; // RGBA
-
-		int				m_Width = 0;
-		int				m_Height = 0;
-		PixelDataOwner	m_PixelData;
-	public:
-
-		bool LoadMetaData(ConstWString path) override;
-		bool LoadPixelData(ConstWString path) override;
-		ImageInfo GetInfo() const override;
-		int GetWidth() const override { return m_Width; }
-		int GetHeight() const override { return m_Height; }
-		PixelDataOwner GetPixelData(int mipIndex) const override { return m_PixelData; }
-	};
-
-	/**
-	 * \brief Block compressed (in most cases) image format that includes mip maps.
-	 */
-	class Image_DDS : public IImageFile
-	{
-		int						m_Width = 0;
-		int						m_Height = 0;
-		int						m_MipCount = 0;
-		ImagePixelFormat		m_PixelFormat = ImagePixelFormat_None;
-		PixelDataOwner			m_PixelData;	// When created from memory
-		DirectX::ScratchImage	m_ScratchImage;	// When loaded from .DDS file
-		bool					m_LoadedFromFile = false;
-
-		void SetFromMetadata(const DirectX::TexMetadata& meta);
-
-	public:
-		Image_DDS() = default;
-		Image_DDS
-		(const PixelDataOwner& pixelData, ImagePixelFormat fmt,
-			int width, int height, int mipCount, bool copyPixels = false);
-
-		bool LoadMetaData(ConstWString path) override;
-		bool LoadPixelData(ConstWString path) override;
-
-		ImageInfo GetInfo() const override;
-		int GetWidth() const override { return m_Width; }
-		int GetHeight() const override { return m_Height; }
-
-		PixelDataOwner GetPixelData(int mipIndex = 0) const override;
-		PixelDataOwner CreatePixelDataWithMips(bool generateMips, ResizeFilter mipFilter, int& outMipCount) const override;
-	};
+	using ImagePtr = amPtr<Image>;
 
 	/**
 	 * \brief Image creator functions, must be used instead of calling constructor directly.
 	 */
 	class ImageFactory
 	{
-		// Makes sure that image resolution is less or equal than MAX_IMAGE_RESOLUTION, such images are not supported
-		static bool VerifyImageSize(const ImagePtr& img);
+		// Makes sure that image resolution is less or equal than IMAGE_MAX_RESOLUTION, such images are not supported
+		static bool VerifyImageSize(const ImagePtr& image);
 		static ImagePtr TryLoadFromPath(ConstWString path, bool onlyMeta);
 
 	public:
 		// Checks if image format (e.g. 'PNG') is supported and can be loaded,
 		// given path may contain full absolute path or just file extension
-		static ImageKind GetImageKindFromPath(ConstWString path);
+		static ImageFileKind GetImageKindFromPath(ConstWString path);
 		// See GetImageKindFromPath
 		static bool IsSupportedImageFormat(ConstWString path) { return GetImageKindFromPath(path) != ImageKind_None; }
 
-		// Loads image from file system
-		static ImagePtr LoadFromPath(ConstWString path, bool onlyMeta = false);
+		// Loads image from file system, cache option keeps image in memory
+		// See tl_ImagePreferredIcoResolution for ICO files
+		static ImagePtr LoadFromPath(ConstWString path, bool onlyMeta = false, bool useCache = true);
+
+		// Helper to load compressed image, at first it loads only image metadata to find matching compressed image in cache
+		// without fully loading image, and loads image only in case if it's not in cache
+		// NOTE: Pixels loaded from DDS, even uncompressed (for example RGBA) are returned as is!
+		static ImagePtr LoadFromPathAndCompress(
+			ConstWString path, const ImageCompressorOptions& compOptions, CompressedImageInfo* outCompInfo = nullptr, ImageCompressorToken* token = nullptr);
+
+		// Exists as separate loader because format does not quite fit in existing architecture
+		// Only PNG and 32Bit BMP formats are supported
+		static bool LoadIco(ConstWString path, List<ImagePtr>& icons);
 
 		// Copying pixels is only reasonable if given buffer data is temporary and may change
-		static ImagePtr CreateFromMemory(
-			const PixelDataOwner& pixelData, ImagePixelFormat fmt, int width, int height, bool copyPixels = false);
+		static ImagePtr Create(const PixelDataOwner& pixelData, ImagePixelFormat fmt, int width, int height, bool copyPixels = false);
 
-		// False is returned if:
-		// - Pixel data is NULL
-		// - Given format was incompatible
-		// - Failed to open file for writing
-		// NOTE: Given file extension in path is ignored and replaced to format one!
-		//
+		// Creates image with reference on the existing pixel data without copying
+		static ImagePtr Clone(const Image& image);
+		// Copies pixel data, creating fully independent instance
+		static ImagePtr Copy(const Image& image);
+
+		// Purple/black tile, just like in source engine
+		static ImagePtr CreateChecker_NotFound(int size = 512, int tileSize = 8) { return CreateChecker(COLOR_BLACK, COLOR_PINK, size, tileSize); }
+		// Checker from photoshop / paint.net
+		static ImagePtr CreateChecker_Opacity(int size = 512, int tileSize = 8) { return CreateChecker(COLOR_GRAY, COLOR_WHITE, size, tileSize); }
+		static ImagePtr CreateChecker(ColorU32 color0, ColorU32 color1, int size = 512, int tileSize = 8);
+
+		// Joaat of path mixed with file modify time
+		static u32 GetFastHashKey(ConstWString path);
+
 		// Format specific information:
 		// - DDS:
 		// Quality is ignored if given image is DDS and save file type is DDS.
@@ -453,8 +472,64 @@ namespace rageam::graphics
 		// - WEBP, lossless encoding if 1.0 is specified
 		// - JPEG/JPEG
 		//
-		// If kind is ImageKind_None, image format is attempt to be parsed from given path, if failed, original image format is used
+		// If kind is ImageKind_None, image format will be parsed from given path
 		// See WritableImageKinds for supported saving formats
-		static bool SaveImage(const ImagePtr& img, ConstWString path, ImageKind toKind = ImageKind_None, float quality = 0.95f);
+		static bool SaveImage(ImagePtr img, ConstWString path, ImageFileKind toKind = ImageKind_None, float quality = 0.95f);
+
+		// Hint for image resolution to load from .ICO file using LoadFromPath / LoadFromPathAndCompress function's
+		// If there's no such resolution, closest one is picked
+		// If 0 is specified, largest available layer is selected
+		static inline thread_local int tl_ImagePreferredIcoResolution = 0;
 	};
+
+#ifdef AM_IMAGE_USE_SIMD
+	static const __m128i IMAGE_MASK_ALL = _mm_set_epi8(
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1);
+	static const __m128i IMAGE_RGBA_ALPHA_MASK = _mm_set_epi8(
+		-1, 0, 0, 0,
+		-1, 0, 0, 0,
+		-1, 0, 0, 0,
+		-1, 0, 0, 0
+	);
+	static const __m128i IMAGE_RGBA_RGB_MASK = _mm_set_epi8(
+		0, -1, -1, -1,
+		0, -1, -1, -1,
+		0, -1, -1, -1,
+		0, -1, -1, -1
+	);
+	static const __m128i IMAGE_RGB_TO_RGBA_SHUFFLE = _mm_set_epi8(
+		// Alpha value doesn't matter here
+		0, 11, 10, 9,
+		0, 8, 7, 6,
+		0, 5, 4, 3,
+		0, 2, 1, 0
+	);
+	static const __m128i IMAGE_RGBA_TO_RGB_SHUFFLE = _mm_set_epi8(
+		// Remainder from 4 alpha channels
+		0, 0, 0, 0,
+		14, 13, 12,
+		10, 9, 8,
+		6, 5, 4,
+		2, 1, 0
+	);
+#ifdef AM_IMAGE_USE_AVX2
+	static const __m256i IMAGE_RGBA_TO_RGB_SHUFFLE_256 = _mm256_set_epi8(
+		// Remainder from 8 alpha channels
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+
+		30, 29, 28,
+		26, 25, 24,
+		22, 21, 20,
+		18, 17, 16,
+		14, 13, 12,
+		10, 9, 8,
+		6, 5, 4,
+		2, 1, 0
+	);
+#endif // AM_IMAGE_USE_AVX2
+#endif // AM_IMAGE_USE_SIMD
 }

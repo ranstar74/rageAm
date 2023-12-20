@@ -25,7 +25,7 @@ namespace cli
 
 	void ExportYtds(ConstWString searchDir, ConstWString outDir)
 	{
-		rageam::file::WPath path = searchDir;
+		/*rageam::file::WPath path = searchDir;
 		path /= L"*.ytd";
 
 		rageam::file::Iterator iterator(path);
@@ -42,7 +42,7 @@ namespace cli
 				rage::grcTextureDX11* texture = (rage::grcTextureDX11*)ytd->GetValueAt(i);
 				texture->ExportTextureTo(outDir, false);
 			}
-		}
+		}*/
 	}
 }
 

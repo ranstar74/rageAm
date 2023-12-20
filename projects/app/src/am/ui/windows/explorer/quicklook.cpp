@@ -1,6 +1,5 @@
 #include "quicklook.h"
 
-#include "am/graphics/texture/imageformat.h"
 #include "am/ui/styled/slgui.h"
 #include "helpers/format.h"
 #include "rage/math/math.h"
@@ -8,8 +7,7 @@
 rageam::ui::QuickLookImage::QuickLookImage(const ExplorerEntryPtr& entry) : QuickLookType(entry)
 {
 	file::WPath path = file::PathConverter::Utf8ToWide(m_Entry->GetPath());
-
-	image.LoadAsync(path, 0, false /* We want best quality preview */);
+	image.LoadAsync(path);
 }
 
 void rageam::ui::QuickLookImage::Render()
@@ -44,12 +42,12 @@ void rageam::ui::QuickLookImage::Render()
 
 void rageam::ui::QuickLook::Open(const ExplorerEntryPtr& entry)
 {
-	// TODO: Better way to register file types
 	ConstString ext = entry->GetType();
 
-	if (texture::IsImageFormat(ext))
+	if (graphics::ImageFactory::IsSupportedImageFormat(String::ToWideTemp(ext)))
 		m_LookType = std::make_unique<QuickLookImage>(entry);
-	else return;
+	else 
+		return;
 
 	m_Opening = true;
 	ImGui::OpenPopup(POPUP_NAME);

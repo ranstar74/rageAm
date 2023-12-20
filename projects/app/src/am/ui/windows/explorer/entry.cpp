@@ -1,11 +1,10 @@
 #include "entry.h"
 
 #include "am/asset/factory.h"
-#include "am/graphics/texture/imageformat.h"
 #include "am/ui/extensions.h"
 #include "am/ui/icons.h"
 #include "am/ui/styled/slwidgets.h"
-#include "am/ui/image.h"
+#include "am/ui/AsyncImage.h"
 #include "rage/file/iterator.h"
 
 namespace
@@ -325,9 +324,10 @@ void rageam::ui::ExplorerEntryFi::UpdateIcon()
 	}
 
 	// Retrieve 'dynamic' icon for image
-	if (texture::IsImageFormat(type))
+	if (graphics::ImageFactory::IsSupportedImageFormat(String::ToWideTemp(type)))
 	{
-		m_DynamicIcon.LoadAsync(PATH_TO_WIDE(GetPath()));
+		// TODO: How do we pick max resolution correctly? ...
+		m_DynamicIcon.LoadAsync(PATH_TO_WIDE(GetPath()), 16);
 		return;
 	}
 

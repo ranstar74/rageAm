@@ -10,12 +10,9 @@
 #include <cstdio>
 
 #include "common/types.h"
-#include "rage/atl/string.h"
 
-/**
- * \brief Formats size (in bytes) with appropriate units (Bytes, KB, MB, GB),
- * and writes to given buffer in format '512 Bytes', '1.21 KB', '1.21 MB', '1.21 GB'
- */
+// Formats size (in bytes) with appropriate units (Bytes, KB, MB, GB),
+// and writes to given buffer in format '512 Bytes', '1.21 KB', '1.21 MB', '1.21 GB'
 template<typename TSize>
 void FormatBytes(char* buffer, u32 bufferSize, TSize size)
 {
@@ -32,10 +29,12 @@ void FormatBytes(char* buffer, u32 bufferSize, TSize size)
 		sprintf_s(buffer, bufferSize, "%.2f GB", sizeF / 1024.0f / 1024.0f / 1024.0f);
 }
 
+// Formats into thread-local buffer
+// There are 2 internal buffers
 template<typename TSize>
-rage::atString FormatBytes(TSize size)
+ConstString FormatBytesTemp(TSize size, int bufferIndex = 0)
 {
-	char buffer[16];
-	FormatBytes(buffer, 16, size);
-	return rage::atString(buffer);
+	static thread_local char buffer[2][128];
+	FormatBytes(buffer[bufferIndex], 128, size);
+	return buffer[bufferIndex];
 }

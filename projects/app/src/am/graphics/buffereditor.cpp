@@ -1,6 +1,6 @@
 #include "buffereditor.h"
 
-#include "utils.h"
+#include "dxgi_utils.h"
 
 void rageam::graphics::VertexBufferEditor::AllocateBuffer(u32 vertexCount)
 {
@@ -204,10 +204,10 @@ void rageam::graphics::VertexBufferEditor::SetColor(u32 semanticIndex, pVoid col
 		return;
 	}
 
-	size_t inStride = FormatStride(inFormat);
+	u32 inStride = DXGI::BytesPerPixel(inFormat);
 	for (u32 i = 0; i < m_VertexCount; i++)
 	{
-		char* inColor = static_cast<char*>(colors) + inStride * i;
+		char* inColor = static_cast<char*>(colors) + static_cast<size_t>(inStride * i);
 		ConvertAndSetColor(i, attr, attr->Format, inFormat, inColor);
 	}
 	SetSemantic(COLOR, semanticIndex);
@@ -224,10 +224,10 @@ void rageam::graphics::VertexBufferEditor::SetBlendWeights(pVoid weights, DXGI_F
 		return;
 	}
 
-	size_t inStride = FormatStride(inFormat);
+	u32 inStride = DXGI::BytesPerPixel(inFormat);
 	for (u32 i = 0; i < m_VertexCount; i++)
 	{
-		char* inWeight = static_cast<char*>(weights) + inStride * i;
+		char* inWeight = static_cast<char*>(weights) + static_cast<size_t>(inStride * i);
 		ConvertAndSetBlendWeights(i, attr, attr->Format, inFormat, inWeight);
 	}
 	SetSemantic(BLENDWEIGHT, 0);
@@ -244,10 +244,10 @@ void rageam::graphics::VertexBufferEditor::SetBlendIndices(pVoid indices, DXGI_F
 		return;
 	}
 
-	size_t inStride = FormatStride(inFormat);
+	u32 inStride = DXGI::BytesPerPixel(inFormat);
 	for (u32 i = 0; i < m_VertexCount; i++)
 	{
-		char* inIndices = static_cast<char*>(indices) + inStride * i;
+		char* inIndices = static_cast<char*>(indices) + static_cast<size_t>(inStride * i);
 		ConvertAndSetBlendIndices(i, attr, attr->Format, inFormat, inIndices);
 	}
 	SetSemantic(BLENDINDICES, 0);

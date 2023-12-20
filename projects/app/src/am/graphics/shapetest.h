@@ -14,6 +14,12 @@
 
 namespace rageam::graphics
 {
+	struct Ray
+	{
+		rage::Vec3V Pos;
+		rage::Vec3V Dir;
+	};
+
 	struct ShapeHit
 	{
 		rage::ScalarV	Distance;

@@ -1,8 +1,8 @@
 #pragma once
 
 #include <dxgiformat.h>
-#include <DirectXTex.h>
 
+#include "dxgi_utils.h"
 #include "am/types.h"
 #include "rage/grcore/fvf.h"
 #include "rage/grcore/effect/effect.h"
@@ -82,7 +82,7 @@ namespace rageam::graphics
 				attr.SemanticIndex = desc.SemanticIndex;
 				attr.Semantic = SemanticFromGrc(rage::GetVertexSemanticFromName(desc.SemanticName));
 				attr.Offset = GrcInfo.Decl->GetElementOffset(i);
-				attr.SizeInBytes = DirectX::BitsPerPixel(desc.Format) / 8;
+				attr.SizeInBytes = DXGI::BytesPerPixel(desc.Format);
 
 				Attributes.Add(attr);
 			}

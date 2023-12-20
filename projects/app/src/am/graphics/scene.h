@@ -7,7 +7,6 @@
 //
 #pragma once
 
-#include "color.h"
 #include "vertexdeclaration.h"
 #include "am/system/ptr.h"
 #include "rage/atl/string.h"
@@ -15,6 +14,7 @@
 #include "rage/math/mtxv.h"
 #include "rage/math/quatv.h"
 #include "rage/spd/aabb.h"
+#include "color.h"
 
 // TODO: Progress reporting
 
@@ -316,7 +316,7 @@ namespace rageam::graphics
 		bool NeedDefaultMaterial() const { return m_NeedDefaultMaterial; }
 		// Whether there is at least one model with non-zero transform
 		bool HasTransform() const { return m_HasTransform; }
-		// Whether there's not single root node in scene
+		// Whether there is multiple nodes on root level
 		bool HasMultipleRootNodes() const { return m_HasMultipleRootNodes; }
 		// Whether any node in the scene use skinning
 		bool HasSkinning() const { return m_HasSkinning; }
@@ -324,7 +324,7 @@ namespace rageam::graphics
 		u16 GetLightCount() const { return m_LightNodes.GetSize(); }
 		SceneNode* GetLight(u16 index) const { return m_LightNodes[index]; }
 
-		// NOTE: Lookup is case sensitive!
+		// NOTE: Lookup is case-sensitive!
 		SceneNode* GetNodeByName(ConstString name) const;
 		SceneMaterial* GetMaterialByName(ConstString name) const;
 

@@ -1,11 +1,9 @@
 #include "slgui.h"
 
-#include "nvtt.h"
 #include "am/file/fileutils.h"
 #include "am/file/iterator.h"
-#include "am/graphics/texture/pngutils.h"
+#include "am/graphics/image/image.h"
 #include "am/system/datamgr.h"
-#include "am/ui/color_hsl.h"
 #include "am/ui/extensions.h"
 #include "am/ui/font_icons/icons_awesome.h"
 #include "misc/freetype/imgui_freetype.h"
@@ -137,85 +135,58 @@ void SlGui::AddCustomIcons()
 		iconIterator.GetCurrent(findData);
 		imageFiles.Add(findData.Path);
 
-		auto [iconWidth, iconHeight] = rageam::texture::GetPNGResolution(findData.Path);
+		rageam::graphics::ImagePtr image = rageam::graphics::ImageFactory::LoadFromPath(findData.Path, true);
+		if (!image)
+			continue;
+
+		rageam::graphics::ImageInfo imageInfo = image->GetInfo();
 
 		ImWchar iconId = customIconBegin + iconIds.GetSize(); // Unicode ID
 
-		iconIds.Add(io.Fonts->AddCustomRectFontGlyph(
-			customIconFont, iconId, (int)iconWidth, (int)iconHeight, (float)iconWidth));
+		iconIds.Add(io.Fonts->AddCustomRectFontGlyph(customIconFont, iconId, imageInfo.Width, imageInfo.Height, imageInfo.Width));
 	}
 
 	// 2: Finish layout and build atlas
 	io.Fonts->Build();
 
 	// 3: Copy texture pixel data to pixel rectangle on atlas
-	unsigned char* tex_pixels = nullptr;
-	int tex_width, tex_height;
-	io.Fonts->GetTexDataAsRGBA32(&tex_pixels, &tex_width, &tex_height);
+	unsigned char* atlasPixels = nullptr;
+	int atlastWidth, atlasHeight;
+	io.Fonts->GetTexDataAsRGBA32(&atlasPixels, &atlastWidth, &atlasHeight);
+
+	// TODO: Why in the world are we using hardcoded color? Must be theme accent
+	float bgH, bgS, bgL;
+	rageam::graphics::ColorConvertRGBtoHSL(43, 43, 43, bgH, bgS, bgL);
 
 	u16 iconId = 0;
 	for (rageam::file::WPath& path : imageFiles)
 	{
-		nvtt::Surface iconSurface;
-		if (!iconSurface.load(PATH_TO_UTF8(path)))
+		rageam::graphics::ImagePtr image = rageam::graphics::ImageFactory::LoadFromPath(path);
+		if (!image)
 			continue;
 
-		const float* r = iconSurface.channel(nvtt::Red);
-		const float* g = iconSurface.channel(nvtt::Green);
-		const float* b = iconSurface.channel(nvtt::Blue);
-		const float* a = iconSurface.channel(nvtt::Alpha);
+		image = image->ConvertPixelFormat(rageam::graphics::ImagePixelFormat_U32);
 
 		const ImFontAtlasCustomRect* rect = io.Fonts->GetCustomRectByIndex(iconIds[iconId++]);
 
 		ImmutableWString imageFileName = rageam::file::GetFileName(path.GetCStr());
 		bool adjustColors = !imageFileName.StartsWith('_'); // We use '_' prefix to indicate that image colors needs to be used as is
 
+		rageam::graphics::ColorU32* imagePixel = reinterpret_cast<rageam::graphics::ColorU32*>(image->GetPixelData().Data());
+
 		// Write pixels to atlas region from png icon
-		for (int y = 0; y < iconSurface.height(); y++)
+		for (int y = 0; y < image->GetHeight(); y++)
 		{
-			ImU32* p = reinterpret_cast<ImU32*>(tex_pixels) + (rect->Y + y) * tex_width + rect->X; // NOLINT(bugprone-implicit-widening-of-multiplication-result)
-			for (int x = 0; x < iconSurface.width(); x++)
+			ImU32* atlasPixel = reinterpret_cast<ImU32*>(atlasPixels) + (rect->Y + y) * atlastWidth + rect->X;
+			for (int x = 0; x < image->GetWidth(); x++)
 			{
-				int colR = (int)(*r++ * 255);
-				int colG = (int)(*g++ * 255);
-				int colB = (int)(*b++ * 255);
-				int colA = (int)(*a++ * 255);
+				rageam::graphics::ColorU32 imagePixelColor = *imagePixel;
+				if (adjustColors)
+					ColorTransformLuminosity(imagePixelColor, bgL);
+				*atlasPixel = imagePixelColor;
 
-				if (!adjustColors)
-				{
-					*p++ = IM_COL32(colR, colG, colB, colA);
-				}
-				else
-				{
-					// See https://learn.microsoft.com/en-us/VisualStudio/extensibility/ux-guidelines/images-and-icons-for-visual-studio?view=vs-2022
-					// 'Color inversion for dark themes'
-
-					// https://stackoverflow.com/questions/36778989/vs2015-icon-guide-color-inversion
-
-					ImU32 bg = IM_COL32(0, 0, 0, 255);
-					ImU32 halo = IM_COL32(246, 246, 246, 255);
-					float haloH, haloS, haloL;
-					ImGui::ColorConvertRGBtoHSL(246, 246, 246, haloH, haloS, haloL);
-
-					float colH, colS, colL;
-					ImGui::ColorConvertRGBtoHSL(colR, colG, colB, colH, colS, colL);
-
-					float bgH, bgS, bgL;
-					ImGui::ColorConvertRGBtoHSL(43, 43, 43, bgH, bgS, bgL);
-					if (bgL < 0.5f)
-					{
-						haloL = 1.0f - haloL;
-						colL = 1.0f - colL;
-					}
-
-					if (colL < haloL)
-						colL = bgL * colL / haloL;
-					else
-						colL = (1.0f - bgL) * (colL - 1.0f) / (1.0f - haloL) + 1.0f;
-
-					ImGui::ColorConvertHSLtoRGB(colH, colS, colL, colR, colG, colB);
-					*p++ = IM_COL32(colR, colG, colB, colA);
-				}
+				imagePixel++;
+				atlasPixel++;
 			}
 		}
 	}
@@ -255,7 +226,7 @@ void SlGui::LoadFonts()
 	// Load fonts from "data/fonts"
 
 	const auto& fonts = rageam::DataManager::GetFontsFolder();
-	
+
 	// TODO: We support only latin & cyrillic & chinese for now
 	static const ImWchar fontRange[] =
 	{

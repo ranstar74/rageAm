@@ -5,17 +5,24 @@ function default_config()
 	targetdir "bin/%{cfg.buildcfg}"
 
 	cppdialect "C++20"
-	vectorextensions "AVX2"
 	architecture "x64"
 	flags { "MultiProcessorCompile" }
-
 	symbols "On"
+
+	filter { "options:avx2" }
+		vectorextensions "AVX2"
+		defines { "AM_IMAGE_USE_AVX2" }
+	
+	filter { "not options:avx2" }
+		vectorextensions "SSE2"
+
 	filter "configurations:Debug"
 		defines { "DEBUG" }
+		intrinsics "On"
 
 	filter "configurations:Release"
 		defines { "NDEBUG" }
-		optimize "Full"
+		optimize "Speed"
 		intrinsics "On"
 
 	filter {}
@@ -30,14 +37,14 @@ function add_launcher_events(build_dir)
 	-- Make sure all paths are quoted!
 	build_dir = os.realpath(build_dir)
 	
-	-- local scylla = quote_path(os.realpath("tools/scyllahide.dll"))
 	local launcher = quote_path(build_dir .. "Launcher.exe")
 	local rageAm = quote_path(build_dir .. "rageAm.dll")
-
-	local base_command = launcher .. " -exe GTA5.exe -dll " .. rageAm -- .. " -scylla " .. scylla
-	prebuildcommands { base_command .. " -unload" }
 	
+	local exeName = _OPTIONS["exe"]
+	local base_command = launcher .. " -exe " .. exeName .. " -dll " .. rageAm
+	prebuildcommands { base_command .. " -unload" }
 	buildcommands { base_command .. " -load" }
+	
 	-- Hack to make visual studio execute build command even if there's nothing to build.
 	-- It will execute command if file not found (meaning everytime). Please don't put GTAVI in compile directory.
 	buildoutputs { "GTAVI.exe" }
@@ -56,6 +63,27 @@ newoption {
 newoption {
    trigger = "nostacksymbols",
    description = "Disables .pdb symbols in stack trace."
+}
+
+newoption {
+	trigger = "avx2",
+	description = "Enables AVX2 SIMD instruction set.",
+}
+
+newoption {
+	trigger = "integrated",
+	description = "Enables game-specific hooks and integration components.",
+}
+
+newoption {
+	trigger = "injected",
+	description = "Compiles project as DLL to inject in running game instance.",
+}
+
+newoption {
+	trigger = "exe",
+	description = "Name of game executable to inject DLL in.",
+	default = "GTA5.exe",
 }
 
 workspace "rageAm"
@@ -90,11 +118,13 @@ project "rageAm"
 		kind "ConsoleApp"
 		defines { "AM_STANDALONE" }
 	
-	filter { "not options:standalone", "not options:unittests" }
-		kind "SharedLib"
-		add_launcher_events("bin/%{cfg.buildcfg}" .. "/")
+	filter { "options:integrated" }
 		defines { "AM_INTEGRATED" }
 
+	filter { "options:injected" }
+		kind "SharedLib"
+		add_launcher_events("bin/%{cfg.buildcfg}" .. "/")
+	
 	filter { "not options:nostacksymbols" }
 		defines { "AM_STACKTRACE_SYMBOLS" }
 
@@ -121,7 +151,7 @@ project "rageAm"
 	defines { "AM_DEFAULT_DATA_DIR=" .. "LR\"(" .. (os.realpath("data")) .. ")\"" }
 	defines { "AM_DATA_DIR=L\"data\"" }
 	
-	filter { "not options:standalone" }
+	filter { "options:integrated" }
 		include_vendors { "shv" }
 	filter{}
 	
@@ -131,18 +161,16 @@ project "rageAm"
 		"implot",
 		"tinyxml2",
 		"minhook",
-		"directxtex",
-		"directxtk",
 		"freetype",
 		"zlib",
-		"nvtt",
 		"magic_enum",
 		"cgltf",
 		"ufbx",
 		"hwbreakpoint",
 		"stb_image",
-		"bc7enc",
+		"bc7enc_rdo",
 		"libwebp",
+		"icbc",
 	}
 	links { "Comctl32.lib" } 	-- TaskDialog
 	links { "dbghelp" } 		-- StackTrace

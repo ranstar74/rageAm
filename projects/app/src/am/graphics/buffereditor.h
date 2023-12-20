@@ -7,7 +7,6 @@
 //
 #pragma once
 
-#include "DirectXTex.h"
 #include "scene.h"
 #include "vertexdeclaration.h"
 #include "am/system/enum.h"

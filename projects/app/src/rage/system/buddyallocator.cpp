@@ -3,6 +3,7 @@
 #include "am/system/asserts.h"
 
 #include "memory.h"
+#include "am/system/errordisplay.h"
 
 #include "helpers/align.h"
 #include "helpers/bits.h"
@@ -633,14 +634,21 @@ pVoid rage::sysMemGrowBuddyAllocator::Allocate(u64 size, u64 align, u32 type)
 			if (block)
 			{
 				m_ActiveAllocatorIndex = i;
-				break;
+				return block;
 			}
 		}
-		// All allocators are full, we're out of memory
 
-		// Native implementation doesn't throw in any scenario most likely because
-		// it's used only for resources with real-time streaming, this need more investigation.
-		return nullptr;
+		s32 grownIndex = DoGrow();
+		if (grownIndex == -1)
+		{
+			// All allocators are full, we're out of memory
+			// Native implementation doesn't throw in any scenario most likely because
+			// it's used only for resources with real-time streaming, this need more investigation
+			return nullptr;
+		}
+
+		m_ActiveAllocatorIndex = grownIndex;
+		return m_Allocators[m_ActiveAllocatorIndex].Allocate(size);
 	}
 	return block;
 }

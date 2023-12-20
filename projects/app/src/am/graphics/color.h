@@ -5,6 +5,25 @@
 
 namespace rageam::graphics
 {
+	union ColorU32;
+
+	// https://stackoverflow.com/questions/2353211/hsl-to-rgb-color-conversion
+	void ColorConvertRGBtoHSL(u8 r, u8 g, u8 b, float& h, float& s, float& l);
+	void ColorConvertHSLtoRGB(float h, float s, float l, u8& r, u8& g, u8& b);
+
+	// Technique used in visual studio to adjust icons for white/dark theme
+	ColorU32 ColorTransformLuminosity(ColorU32 color, float themeBackgroundLuminosity);
+
+	constexpr float ColorRGBToLuminosity(u8 r, u8 g, u8 b)
+	{
+		float rf = static_cast<float>(r) / 255.0f;
+		float gf = static_cast<float>(g) / 255.0f;
+		float bf = static_cast<float>(b) / 255.0f;
+		float max = rf > gf && rf > bf ? rf : gf > bf ? gf : bf;
+		float min = rf < gf && rf < bf ? rf : gf < bf ? gf : bf;
+		return (max + min) / 2.0f;
+	}
+
 	/**
 	 * \brief Represents RGBA 32-bit color with each component packed in 8 bits.
 	 */
@@ -58,26 +77,34 @@ namespace rageam::graphics
 
 		static ColorU32 FromFloat4(const float vec[4])
 		{
-			return FromVec4(*(rage::Vector4*)vec);
+			return FromVec4(*(const rage::Vector4*)vec);
 		}
 
 		static ColorU32 FromFloat3(const float vec[3])
 		{
-			return FromVec3(*(rage::Vector3*)vec);
+			return FromVec3(*(const rage::Vector3*)vec);
+		}
+
+		u8 operator[](int index) const
+		{
+			AM_DEBUG_ASSERTS(index < 3);
+			return reinterpret_cast<const u8*>(this)[index];
 		}
 
 		operator u32() const { return Value; }
 	};
 
-	static const ColorU32 COLOR_WHITE = { 255, 255, 255, 255 };
-	static const ColorU32 COLOR_BLACK = { 0, 0, 0, 255 };
-	static const ColorU32 COLOR_RED = { 255, 0, 0, 255 };
-	static const ColorU32 COLOR_GREEN = { 0, 255, 0, 255 };
-	static const ColorU32 COLOR_BLUE = { 0, 0, 255, 255 };
-	static const ColorU32 COLOR_YELLOW = { 255, 255, 0, 255 };
-	static const ColorU32 COLOR_MAGENTA = { 255, 0, 255, 255 };
-	static const ColorU32 COLOR_PURPLE = { 144, 0, 144, 255 };
-	static const ColorU32 COLOR_CYAN = { 0, 255, 255, 255 };
-	static const ColorU32 COLOR_ORANGE = { 255, 170, 0, 255 };
-	static const ColorU32 COLOR_NAVY = { 0, 0, 128, 255 };
+	static const ColorU32 COLOR_WHITE = { 255, 255, 255 };
+	static const ColorU32 COLOR_GRAY = { 193, 193, 193 };
+	static const ColorU32 COLOR_BLACK = { 0, 0, 0 };
+	static const ColorU32 COLOR_RED = { 255, 0, 0 };
+	static const ColorU32 COLOR_GREEN = { 0, 255, 0 };
+	static const ColorU32 COLOR_BLUE = { 0, 0, 255 };
+	static const ColorU32 COLOR_YELLOW = { 255, 255, 0 };
+	static const ColorU32 COLOR_MAGENTA = { 255, 0, 255 };
+	static const ColorU32 COLOR_PURPLE = { 144, 0, 144 };
+	static const ColorU32 COLOR_CYAN = { 0, 255, 255 };
+	static const ColorU32 COLOR_ORANGE = { 255, 170, 0 };
+	static const ColorU32 COLOR_NAVY = { 0, 0, 128 };
+	static const ColorU32 COLOR_PINK = { 255, 0, 255 };
 }

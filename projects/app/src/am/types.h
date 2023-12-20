@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rage/atl/array.h"
+#include "rage/atl/datahash.h"
 #include "rage/atl/fixedarray.h"
 #include "rage/atl/map.h"
 #include "rage/atl/set.h"
@@ -49,8 +50,9 @@ namespace rageam
 
 	using HashValue = rage::atHashValue;
 
-	constexpr u32 Hash(ConstString str) { return rage::joaat(str); }
-	constexpr u32 Hash(ConstWString str) { return rage::joaat(str); }
+	constexpr u32 Hash(ConstString str, u32 seed = 0) { return rage::joaat(str, seed); }
+	constexpr u32 Hash(ConstWString str, u32 seed = 0) { return rage::joaat(str, seed); }
+	inline u32 DataHash(pConstVoid data, u32 dataSize, u32 seed = 0) { return rage::atDataHash(data, dataSize, seed); }
 
 	// Math
 

@@ -105,7 +105,7 @@ bool rageam::ui::Apps::UpdateAll()
 
 	if (ImGui::BeginPopupModal(ABOUT_POPUP_ID, 0, ImGuiWindowFlags_AlwaysAutoResize))
 	{
-		static Image* amIcon = Gui->Icons.GetIcon("am", IconSize_256);
+		static AsyncImage* amIcon = Gui->Icons.GetIcon("am", IconSize_256);
 		static int currentYear = DateTime::Now().Year();
 
 		SlGui::PushFont(SlFont_Medium);

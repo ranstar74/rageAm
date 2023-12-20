@@ -1,4 +1,4 @@
-//
+﻿//
 // File: bc.h
 //
 // Copyright (C) 2023 ranstar74. All rights violated.
@@ -8,34 +8,53 @@
 #pragma once
 
 #include "image.h"
-#include "am/types.h"
-#include "am/file/path.h"
-#include "common/types.h"
+
+#ifdef AM_IMAGE_USE_AVX2
+#include <bc7e_ispc_avx2.h>
+#else
+#include <bc7e_ispc_sse2.h>
+#endif
 
 namespace rageam::graphics
 {
+	// Used terms:
+	// BC - Block compression
+	// Encoded / Enc - same as compressed
+	// Region / Reg - part of image defined by pixel row range
+
+	// https://en.wikipedia.org/wiki/S3_Texture_Compression
+
 	// Block compression methods and common use:
 	//
-	// Color / Specular			DXT1, BC7
-	// Color maps w opacity		DXT1, DXT3, DXT5, BC7
-	// Normal					DXT1, BC5
-	//
-	// DXT3 better fits for images that have very sharp opacity (cutout), while for DXT5 opacity has to be slowly faded
+	// Color / Specular			BC1, BC7
+	// Color maps w opacity		BC1, BC2, BC3, BC7
+	// Grayscale				BC4
+	// Normal					BC1, BC5
+
+#define IMAGE_BC_USE_MULTITHREADING
+
+#ifdef IMAGE_BC_USE_MULTITHREADING
+	static constexpr int IMAGE_BC_MULTITHREAD_MAX_REGIONS = 32;	// Max threads
+	static constexpr int IMAGE_BC_MULTITHREAD_MIN_REGION_SIZE = 32;
+#else
+	static constexpr int IMAGE_BC_MULTITHREAD_MAX_REGIONS = 1;
+	static constexpr int IMAGE_BC_MULTITHREAD_MIN_REGION_SIZE = IMAGE_MAX_RESOLUTION / 4;
+#endif
 
 	enum BlockFormat // We keep it as separate enumeration from pixel formats to prevent using non-compressed formats in compressor
 	{
-		BlockFormat_None,
-		BlockFormat_BC1,
-		BlockFormat_BC2,
-		BlockFormat_BC3,
-		BlockFormat_BC4,
-		BlockFormat_BC5,
-		BlockFormat_BC7,
+		BlockFormat_None,	// Raw RGBA32, not recommended, BC7 offers almost the same quality
+		BlockFormat_BC1,	// DXT1
+		BlockFormat_BC2,	// DXT3
+		BlockFormat_BC3,	// DXT5
+		BlockFormat_BC4,	// ATI1
+		BlockFormat_BC5,	// ATI2
+		BlockFormat_BC7,	// At this point they finally realized that giving weird names to formats is not a good idea
 	};
 
-	static constexpr ImagePixelFormat BlockCompressorFormatToPixelFormat[] =
+	static constexpr ImagePixelFormat BlockFormatToPixelFormat[] =
 	{
-		ImagePixelFormat_None,
+		ImagePixelFormat_U32,
 		ImagePixelFormat_BC1,
 		ImagePixelFormat_BC2,
 		ImagePixelFormat_BC3,
@@ -43,104 +62,191 @@ namespace rageam::graphics
 		ImagePixelFormat_BC5,
 		ImagePixelFormat_BC7,
 	};
+	BlockFormat ImagePixelFormatToBlockFormat(ImagePixelFormat fmt);
+
+	// 4x4 block of RGBA pixels
+	static constexpr size_t IMAGE_BC_BLOCK_SLICE_PITCH = IMAGE_RGBA_PITCH * 4 * 4;
+	static constexpr size_t IMAGE_BC_BLOCK_ROW_PITCH = IMAGE_RGBA_PITCH * 4;
+
+	// All convert a 4×4 block of pixels to a 64-bit or 128-bit quantity,
+	// resulting in compression ratios of 6:1 with 24-bit RGB input data or 4:1 with 32-bit RGBA input data
+	static constexpr u32 IMAGE_BC_1_4_BLOCK_SIZE = 8;		// BC1 and BC4 compress 4x4 pixel block to 64 bits
+	static constexpr u32 IMAGE_BC_2_3_5_7_BLOCK_SIZE = 16;	// BC2, BC3, BC5 and BC7 compress 4x4 pixel block to 128 bits
+
+	enum class BlockCompressorImpl
+	{
+		None,			// RGBA / To choose implementation automatically
+		bc7enc_rdo,		// BC1, BC3, BC4, BC5, BC7
+		icbc,			// BC1
+	};
+
+	static constexpr BlockCompressorImpl BlockFormatToDefaultCompressorImpl[] =
+	{
+		BlockCompressorImpl::None,			// RGBA
+		BlockCompressorImpl::bc7enc_rdo,	// BC1
+		BlockCompressorImpl::None,			// BC2
+		BlockCompressorImpl::bc7enc_rdo,	// BC3
+		BlockCompressorImpl::bc7enc_rdo,	// BC4
+		BlockCompressorImpl::bc7enc_rdo,	// BC5
+		BlockCompressorImpl::bc7enc_rdo,	// BC7
+	};
+
+	// Size of encoded 4x4 pixel block in bytes
+	static constexpr u32 BlockFormatToBlockSize[] =
+	{
+		4,	// RGBA, for consistency
+		8,	// BC1
+		16,	// BC2
+		16, // BC3
+		8,	// BC4
+		16,	// BC5
+		16,	// BC7
+	};
+
+	// All except BC2
+	static constexpr int IMAGE_BC7ENC_RDO_FORMATS =
+		1 << BlockFormat_BC1 | 1 << BlockFormat_BC3 | 1 << BlockFormat_BC4 | 1 << BlockFormat_BC5 | 1 << BlockFormat_BC7;
+
+	// Only BC1
+	static constexpr int IMAGE_ICBC_FORMATS = 1 << BlockFormat_BC1;
+
+	PixelDataOwner ImageDecodeBCToRGBA(const PixelDataOwner& pixels, int width, int height, ImagePixelFormat format);
 
 	struct ImageCompressorOptions
 	{
-		BlockFormat Format = BlockFormat_BC7;
-		float		Quality = 0.65f;			// 0 - Worst, fastest; 1 - Best, slowest
-		int			MaxResolution = 0;			// Down-scales base image resolution to specified one, 0 to use original
-		bool		GenerateMipMaps = true;		// Creates mip maps up to 4x4
-		bool		CutoutAlpha = false;		// All pixels with alpha less than threshold are made transparent, otherwise fully opaque
-		int			CutoutAlphaThreshold = 90;
-		bool		AlphaTestCoverage = false;	// Makes sure that % of alpha is preserved on mip maps, incompatible with cutout alpha
+		BlockCompressorImpl CompressorImpl = BlockCompressorImpl::None;
+		BlockFormat			Format = BlockFormat_BC7;
+		ResizeFilter		MipFilter = ResizeFilter_Box;
+		float				Quality = 0.65f;			// 0 - Worst, fastest; 1 - Best, slowest
+		int					MaxResolution = 0;			// Down-scales base image resolution to specified one, 0 to use original
+		bool				GenerateMipMaps = true;		// Creates mip maps up to 4x4
+		bool				CutoutAlpha = false;		// All pixels with alpha less than threshold are made transparent, otherwise fully opaque
+		int					CutoutAlphaThreshold = 127;
+		bool				AlphaTestCoverage = false;	// Makes sure that % of alpha is preserved on mip maps
+		int					AlphaTestThreshold = 170;
+		bool				PadToPowerOfTwo = false;
 	};
 
-	/**
-	 * \brief Image block compressor (encoder).
-	 */
-	class IBlockCompressor
+	struct EncoderData_bc7enc_rdo
 	{
-		const ImageCompressorOptions& m_Options;
-	public:
-		IBlockCompressor(const ImageCompressorOptions& options) : m_Options(options) {}
-		virtual ~IBlockCompressor() = default;
-
-		/**
-		 * \brief Formats supported by particular compressor implementation.
-		 */
-		enum Features_
-		{
-			Features_BC1 = 1 << 0, // DXT1
-			Features_BC2 = 1 << 1, // DXT3
-			Features_BC3 = 1 << 3, // DXT5
-			Features_BC4 = 1 << 4, // ATI1
-			Features_BC5 = 1 << 5, // ATI2
-			Features_BC7 = 1 << 6, // At this point they finally realized that giving weird names to formats is not a good idea
-		};
-		using Features = int;
-
-		virtual ConstString GetDebugName() = 0;
-		virtual Features GetFeatures() = 0;
-		virtual void CompressBlock(pVoid in, pVoid out) = 0;
+		u32	 RgbxLevel; // Quality for RGBX BC1 and BC3. 0 - worst, fastest; 18 - best, slowest
+		bool RgbxHq345; // High quality encoding for RGBX BC3, BC4, BC5
+		// 0 - ultra-fast
+		// 1 - very-fast
+		// 2 - fast
+		// 3 - basic
+		// 4 - slow
+		// 5 - very-slow
+		// 6 - slowest
+		int	Bc7Quality;
 	};
 
-	class BlockCompressor_bc7enc : public IBlockCompressor
+	struct EncoderData_icbc
 	{
-	public:
-		BlockCompressor_bc7enc(const ImageCompressorOptions& options);
-		void CompressBlock(pVoid in, pVoid out) override;
+		int Quality;
+	};
 
-		ConstString GetDebugName() override { return "bc7enc"; }
+	// Information about compressed image
+	struct CompressedImageInfo
+	{
+		ImageInfo				ImageInfo;
+		ResizeFilter			MipFilter;
+		bool					CutoutAlpha;
+		int						CutoutAlphaThreshold;
+		bool					AlphaTestCoverage;
+		int						AlphaTestThreshold;
+		BlockCompressorImpl		EncoderImpl;
+		EncoderData_bc7enc_rdo	EncoderData_bc7enc_rdo;
+		EncoderData_icbc		EncoderData_icbc;
+		Vec2S					UV2 = { 1.0f, 1.0f };
+	};
 
-		Features GetFeatures() override
+	struct ImageCompressorToken
+	{
+		// Mutex is not required for reading and for canceling
+
+		// If set to true, compressor will attempt to stop processing as soon as possible
+		bool		Canceled;
+		int			ProcessedBlockLines;
+		int			TotalBlockLines;
+		std::mutex	Mutex;
+
+		void Reset()
 		{
-			// No BC2
-			return Features_BC1 | Features_BC3 | Features_BC4 | Features_BC5 | Features_BC7;
+			Canceled = false;
+			ProcessedBlockLines = 0;
+			TotalBlockLines = 0;
 		}
 	};
+	using ImageCompressorTokenPtr = ImageCompressorToken*;
 
 	/**
-	 * \brief Two level cache - in memory and in file system.
-	 */
-	class ImageCompressorCache
-	{
-		// TODO: We should let user to set size and directory
-
-		static constexpr u32 MEMORY_STORE_BUDGET = 256u * 1024u * 1024u; // 256MB
-		static constexpr u32 FILESYSTEM_STORE_BUDGET = 2048u * 1024u * 1024u; // 2GB
-
-		file::WPath m_CacheDirectory;
-
-		// Computes unique hash based on pixel data and compression options
-		HashValue ComputeImageHash(const PixelData imageData, u32 imageDataSize, const ImageCompressorOptions& options) const;
-
-	public:
-		ImageCompressorCache()
-		{
-			
-		}
-
-		amPtr<Image_DDS> GetFromCache(const PixelData imageData, u32 imageDataSize, const ImageCompressorOptions& options) const;
-		void Cache(const PixelData imageData, u32 imageDataSize, const ImageCompressorOptions& options);
-	};
-
-	/**
-	 * \brief DDS Image encoder with internal caching.
+	 * \brief BC Image encoder with internal caching.
 	 */
 	class ImageCompressor
 	{
-		ImageCompressorCache m_Cache;
+		struct Region
+		{
+			pChar SrcPixels;
+			pChar DstPixels;
+		};
 
-		// Retrieves starting position of 4x4 block in given image
-		pVoid GetImagePixelBlock(
-			int width, int height, 
-			int blockX, int blockY,
-			PixelData pixelData, ImagePixelFormat pixelFmt) const;
+		// Note: the way this struct is designed, only one mip allowed to be compressed at the time!
+		// No multithreaded mip compression is possible
+		struct EncoderState
+		{
+			ImageCompressorTokenPtr				Token;
+			ImagePtr							Image;
+			ImageInfo							ImageInfo;
+			CompressedImageInfo					EncodeInfo;
+			// Pointer to compressed pixel data buffer
+			pChar								DstPixels;
+			ImagePixelFormat					DstPixelFormat;
+			u32									SrcPixelPitch;
+			u32									DstPixelPitch;
+			u32									SrcRowPitch;
+			u32									DstRowPitch;
+			BlockCompressorImpl					EncoderImpl;
+			// Storage for all regions shared by parallel threads
+			Region								Regions[IMAGE_BC_MULTITHREAD_MAX_REGIONS];
+			int									BlockCountX;
+			int									BlockCountY;
+			int									RegionBlocksCount;
+			float								DesiredAlphaCoverage;
+			float								AlphaCoverageScale;
+			ispc::bc7e_compress_block_params	bc7enc_rdo_params;
+		};
 
-		int ComputeMipCount(int width, int height, const ImageCompressorOptions& options);
+		static void CompressBlocks(const EncoderState& encoderState, int numBlocks, char* dstBlocks, char* srcBlocks);
+		static void CompressMipRegion(const EncoderState& encoderState, const Region& region);
+		static void CompressMip(EncoderState& imgEncData);
+
+		// Does not perform actual compression but only computes metadata of (potential) compressed image
+		// NOTE: Either pixelHashOverride or pixelData must be provided!
+		static CompressedImageInfo GetInfoAndHash(
+			const ImageInfo& imgInfo,
+			const ImageCompressorOptions& options,
+			u32& outHash,
+			const u32* pixelHashOverride = nullptr,
+			ImagePixelData pixelData = nullptr,
+			u32 pixelDataSize = 0);
 
 	public:
-		// Compresses given image with given options and returns newly created image(s)
-		amPtr<Image_DDS> Compress(const ImagePtr& img, const ImageCompressorOptions& options);
+		// Compresses given image with given options and returns newly created image
+		// pixelHashOverride is used to compute the final hash sum of the image, iterating over pixel data is a bit expensive,
+		// so something else (such as hash sum of image modify time + path) can be provided instead, as long as it is unique to the image
+		static ImagePtr Compress(
+			const ImagePtr& img,
+			const ImageCompressorOptions& options,
+			const u32* pixelHashOverride = nullptr,
+			CompressedImageInfo* outCompInfo = nullptr,
+			ImageCompressorToken* token = nullptr);
+
+		// Decodes BC pixels to RGBA
+		// If given image format is already RGBA32, a reference to original pixel data will be returned
+		static ImagePtr Decompress(const ImagePtr& img, int mipIndex = 0);
+
+		// Decodes single block of given format and outputs 4x4 RGBA pixels
+		static void DecompressBlock(const char* inBlock, char* outPixels, ImagePixelFormat fmt);
 	};
 }

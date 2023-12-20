@@ -7,7 +7,7 @@
 //
 #pragma once
 
-#include "am/ui/image.h"
+#include "am/ui/AsyncImage.h"
 #include "rage/atl/set.h"
 
 namespace rageam::ui
@@ -42,7 +42,7 @@ namespace rageam::ui
 		struct Icon
 		{
 			bool IsIco = false;
-			Image Images[IconSize_COUNT];
+			AsyncImage Images[IconSize_COUNT];
 		};
 
 		rage::atSet<Icon> m_Icons;
@@ -54,6 +54,6 @@ namespace rageam::ui
 		 * \return Pointer to icon instance if file found; Otherwise nullptr.
 		 * \remarks Size is used only for .ico files
 		 */
-		Image* GetIcon(ConstString name, eIconSize size = IconSize_256) const;
+		AsyncImage* GetIcon(ConstString name, eIconSize size = IconSize_256) const;
 	};
 }

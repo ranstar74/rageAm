@@ -5,7 +5,6 @@
 #include "modelscene.h"
 #include "widgets.h"
 #include "am/algorithms/fuzzysearch.h"
-#include "am/graphics/texture/imagefit.h"
 #include "am/integration/hooks/streaming.h"
 #include "am/string/splitter.h"
 #include "am/ui/font_icons/icons_am.h"
@@ -219,7 +218,7 @@ ImTextureID rageam::integration::MaterialEditor::GetTexID(const rage::grcTexture
 {
 	if (asset::IsMissingTexture(tex))
 		return Gui->Icons.GetIcon("no_tex_ui")->GetID();
-	return ImTextureID(tex->GetResourceView());
+	return ImTextureID(tex->GetTextureView());
 }
 
 ImU32 rageam::integration::MaterialEditor::GetTexLabelCol(const rage::grcTexture* tex) const
@@ -297,8 +296,8 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_Grid(bool g
 
 			float iconSizeMax = ImGui::GetFrameHeight() * 4.0f * iconScale;
 
-			auto [iconWidth, iconHeight] =
-				Resize(texture->GetWidth(), texture->GetHeight(), iconSizeMax, iconSizeMax, texture::ScalingMode_Fit);
+			int iconWidth, iconHeight;
+			graphics::ImageFitInRect(texture->GetWidth(), texture->GetHeight(), iconSizeMax, iconWidth, iconHeight);
 
 			// Hide label when icons are very tiny
 			bool showLabel = iconScale > 0.7;
@@ -490,8 +489,8 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List(float 
 
 					float iconSizeY = nodeRect.GetHeight() - iconPad.y * 2;
 					float iconSizeX = iconSizeY * 2.0f; // We have much more space horizontally, let icon span on Y Axis
-					auto [width, height] =
-						Resize(texture->GetWidth(), texture->GetHeight(), iconSizeX, iconSizeY, texture::ScalingMode_Fit);
+					int width, height;
+					ImageScaleResolution(texture->GetWidth(), texture->GetHeight(), iconSizeX, iconSizeY, width, height, graphics::ResolutionScalingMode_Fit);
 
 					// We take coord from window because node X is intended
 					ImVec2 min = nodeRect.GetTR();
@@ -520,7 +519,10 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List(float 
 				if (texSelected)
 				{
 					constexpr float previewSize = 96.0f;
-					auto [width, height] = Resize(texture->GetWidth(), texture->GetHeight(), previewSize, previewSize, texture::ScalingMode_Fit);
+
+					int width, height;
+					graphics::ImageFitInRect(texture->GetWidth(), texture->GetHeight(), previewSize, width, height);;
+
 					ImVec2 min = ImGui::GetCurrentWindow()->ParentWindow->OuterRectClipped.GetTL() - ImVec2(width, 0);
 					ImVec2 max = min + ImVec2(width, height);
 
@@ -616,9 +618,11 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 
 		if (currentTexture)
 		{
-			pVoid textureView = currentTexture->GetResourceView();
-			auto [width, height] =
-				Resize(currentTexture->GetWidth(), currentTexture->GetHeight(), previewIconSize, previewIconSize, texture::ScalingMode_Fit);
+			pVoid textureView = currentTexture->GetTextureView();
+			int width, height;
+			graphics::ImageFitInRect(
+				currentTexture->GetWidth(), currentTexture->GetHeight(), previewIconSize, width, height);
+
 			ImGui::Image(ImTextureID(textureView), ImVec2(width, height));
 		}
 		else

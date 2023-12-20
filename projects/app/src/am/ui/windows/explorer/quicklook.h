@@ -8,7 +8,7 @@
 #pragma once
 
 #include "entry.h"
-#include "am/ui/image.h"
+#include "am/ui/AsyncImage.h"
 
 namespace rageam::ui
 {
@@ -26,7 +26,7 @@ namespace rageam::ui
 
 	class QuickLookImage : public QuickLookType
 	{
-		Image image;
+		AsyncImage image;
 	public:
 		QuickLookImage(const ExplorerEntryPtr& entry);
 

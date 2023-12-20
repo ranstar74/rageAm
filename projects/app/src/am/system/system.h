@@ -8,6 +8,7 @@
 #pragma once
 
 #include "am/desktop/window.h"
+#include "am/graphics/image/imagecache.h"
 #include "am/graphics/render/context.h"
 #include "am/graphics/render/engine.h"
 #include "am/task/worker.h"
@@ -31,6 +32,8 @@ namespace rageam
 #ifdef AM_INTEGRATED
 		amUniquePtr<integration::GameIntegration> m_Integration;
 #endif
+
+		amUniquePtr<graphics::ImageCache> m_ImageCompressorCache;
 
 		bool m_UseWindowRender = false;
 		bool m_Initialized = false;
@@ -77,6 +80,9 @@ namespace rageam
 
 			asset::AssetFactory::Shutdown();
 
+			graphics::ImageCache::SetInstance(nullptr);
+			m_ImageCompressorCache.reset();
+
 			BackgroundWorker::Shutdown();
 			ExceptionHandler::Shutdown();
 
@@ -112,10 +118,13 @@ namespace rageam
 		}
 
 		// Initializes exception handler and core syb-systems, must be done before doing anything
-		void InitCore() const
+		void InitCore()
 		{
 			ExceptionHandler::Init();
 			asset::AssetFactory::Init();
+
+			m_ImageCompressorCache = std::make_unique<graphics::ImageCache>();
+			graphics::ImageCache::SetInstance(m_ImageCompressorCache.get());
 
 #ifdef AM_INTEGRATED
 			GameHooks::Init();

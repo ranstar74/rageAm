@@ -157,6 +157,7 @@ void rageam::ui::FolderView::CreateEditableState(const ExplorerEntryPtr& entry, 
 	const EntrySelection& selection = GetSelectedEntries();
 
 	state.Icon = entry->GetIcon().GetID();
+	state.IconUV2 = entry->GetIcon().GetUV2();
 	state.Buffer = m_RenameBuffer;
 	state.BufferSize = IM_ARRAYSIZE(m_RenameBuffer);
 	state.Selected = selection.IsSelected(entry);

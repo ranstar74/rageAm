@@ -59,6 +59,7 @@ struct SlRenamingSelectableState
 	ImTextureID Icon;
 	ConstString TextDisplay; // Text that will be shown usually
 	ConstString TextEditable; // Text that will be shown in edit mode
+	ImVec2 IconUV2 = { 1.0f, 1.0f };
 
 	// In & Out
 
