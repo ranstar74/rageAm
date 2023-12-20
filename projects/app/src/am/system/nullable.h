@@ -7,6 +7,10 @@
 //
 #pragma once
 
+#include <utility>
+#include <memory>
+#include "asserts.h"
+
 namespace rageam
 {
 	/**
