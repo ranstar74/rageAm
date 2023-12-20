@@ -29,9 +29,17 @@ namespace rageam
 }
 
 #ifndef AM_UNIT_TESTS
-#define AM_ASSERT(expr, fmt, ...)	rageam::AssertHandler(expr, #expr, __FILE__, __LINE__, fmt, __VA_ARGS__)
-#define AM_VERIFY(expr, fmt, ...)	rageam::VerifyHandler(expr, #expr, __FILE__, __LINE__, fmt, __VA_ARGS__)
-#define AM_UNREACHABLE(fmt, ...)	rageam::Unreachable(__FILE__, __LINE__, fmt, __VA_ARGS__)
+#ifdef DEBUG
+#define AM_DEBUG_ASSERT(expr, fmt, ...)	rageam::AssertHandler(expr, #expr, __FILE__, __LINE__, fmt, __VA_ARGS__)
+#define AM_DEBUG_ASSERTS(expr)			rageam::AssertHandler(expr, #expr, __FILE__, __LINE__, "")
+#else
+#define AM_DEBUG_ASSERT(expr, fmt, ...)
+#define AM_DEBUG_ASSERTS(expr)
+#endif // DEBUG
+#define AM_ASSERTS(expr, fmt, ...)		rageam::AssertHandler(expr, #expr, __FILE__, __LINE__, "")
+#define AM_ASSERT(expr, fmt, ...)		rageam::AssertHandler(expr, #expr, __FILE__, __LINE__, fmt, __VA_ARGS__)
+#define AM_VERIFY(expr, fmt, ...)		rageam::VerifyHandler(expr, #expr, __FILE__, __LINE__, fmt, __VA_ARGS__)
+#define AM_UNREACHABLE(fmt, ...)		rageam::Unreachable(__FILE__, __LINE__, fmt, __VA_ARGS__)
 #else
 
 namespace unit_testing
@@ -40,7 +48,10 @@ namespace unit_testing
 	PRINTF_ATTR(2, 3) AM_NOINLINE	bool AssertHandler(bool expression, const char* fmt, ...);
 }
 #include <cstdlib> // std::exit
-#define AM_ASSERT(expr, fmt, ...)	unit_testing::AssertHandler(expr, fmt, __VA_ARGS__)
-#define AM_VERIFY(expr, fmt, ...)	unit_testing::AssertHandler(expr, fmt, __VA_ARGS__ /* We take everything seriously in unit testing */ )
-#define AM_UNREACHABLE(fmt, ...)	unit_testing::AssertHandler(false, fmt, __VA_ARGS__); std::exit(-1)
-#endif
+#define AM_DEBUG_ASSERT(expr, fmt, ...)	unit_testing::AssertHandler(expr, fmt, __VA_ARGS__)
+#define AM_DEBUG_ASSERTS(expr)			unit_testing::AssertHandler(expr, "")
+#define AM_ASSERTS(expr)				unit_testing::AssertHandler(expr, "")
+#define AM_ASSERT(expr, fmt, ...)		unit_testing::AssertHandler(expr, fmt, __VA_ARGS__)
+#define AM_VERIFY(expr, fmt, ...)		unit_testing::AssertHandler(expr, fmt, __VA_ARGS__ /* We take everything seriously in unit testing */ )
+#define AM_UNREACHABLE(fmt, ...)		unit_testing::AssertHandler(false, fmt, __VA_ARGS__); std::exit(-1)
+#endif // AM_UNIT_TESTS

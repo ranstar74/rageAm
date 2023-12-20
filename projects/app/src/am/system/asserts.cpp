@@ -109,7 +109,7 @@ void rageam::Unreachable(ConstString file, int line, ConstString fmt, ...)
 	vsprintf_s(formatBuffer, ASSERT_MAX, fmt, args);
 	va_end(args);
 
-	Unreachable(file, line, L"%s", formatBuffer);
+	Unreachable(file, line, L"%hs", formatBuffer);
 }
 
 #ifdef AM_UNIT_TESTS
