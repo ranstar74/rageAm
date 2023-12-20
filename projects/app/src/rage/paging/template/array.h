@@ -19,19 +19,19 @@ namespace rage
 	template<typename T, typename TSize>
 	struct pgArrayAllocate
 	{
-		static void Allocate(T** ppItems, TSize capacity, TSize size)
+		static void Allocate(T** ppItems, TSize capacity)
 		{
 			pgSnapshotAllocator* pAllocator = pgRscCompiler::GetVirtualAllocator();
-			if (!pAllocator) // We're doing regular allocator, resource compiler isn't active
+			if (!pAllocator) // We're doing regular allocation, resource compiler isn't active
 			{
-				atArrayAllocate<T, TSize>::Allocate(ppItems, capacity, size);
+				atArrayAllocate<T, TSize>::Allocate(ppItems, capacity);
 				return;
 			}
 
 			// Resource is being compiled...
 			// Note that we used size here instead of capacity,
 			// we don't want extra unused memory to be in resource.
-			pAllocator->AllocateRefArray(*ppItems, size);
+			pAllocator->AllocateRefArray(*ppItems, capacity);
 		}
 
 		static void Free(T* pItems)

@@ -26,12 +26,12 @@ namespace rage
 	template<typename T, typename TSize>
 	struct atArrayAllocate
 	{
-		// This exist because pgArray handles allocation differently during resource compiling, for more details see paging/pgArray.h
+		// This exists because pgArray handles allocation differently during resource compiling, for more details see paging/pgArray.h
 
-		static void Allocate(T** ppItems, TSize capacity, TSize size)
+		static void Allocate(T** ppItems, TSize capacity)
 		{
 			// By default, C++ invoke constructor and destructor on new/delete for every item
-			// of the array, we pre-allocate memory without constructing items so we have
+			// of the array, we pre-allocate memory without constructing items, so we have
 			// to delete them without destructing too, casting to void* does the job
 			*ppItems = static_cast<T*>(operator new[](capacity * sizeof T));
 		}
@@ -94,10 +94,14 @@ namespace rage
 			m_Capacity = 0;
 			m_Size = 0;
 		}
-		atArray(const atArray& other) : atArray(other.GetCapacity())
+		atArray(const atArray& other)
 		{
+			if (other.m_Size == 0)
+				return;
+
+			Reserve(other.m_Size);
 			m_Size = other.m_Size;
-			Reserve(other.m_Capacity);
+
 			// Copy all items
 			for (u32 i = 0; i < m_Size; i++)
 			{
@@ -130,7 +134,6 @@ namespace rage
 					AM_UNREACHABLE("atArray::Copy() -> Type %s can't be copied.", typeid(T).name());
 				}
 			}
-			//atArrayCopy(m_Items, other.m_Items, m_Size);
 		}
 		atArray(atArray&& other) noexcept : atArray(0)
 		{
@@ -455,7 +458,7 @@ namespace rage
 
 			// Allocate new buffer and simply copy all items to it
 			T* oldItems = m_Items;
-			TAllocate::Allocate(&m_Items, m_Capacity, m_Size);
+			TAllocate::Allocate(&m_Items, m_Capacity);
 			if (!oldItems)
 				return;
 
