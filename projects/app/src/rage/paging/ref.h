@@ -48,19 +48,31 @@ namespace rage
 		// This makes identical smart pointer copy without accounting refs.
 		void Snapshot(const pgPtrBase& other, bool physical = false)
 		{
-			if constexpr (std::is_abstract_v<T>)
+			pgSnapshotAllocator* allocator =
+				physical ? pgRscCompiler::GetPhysicalAllocator() : pgRscCompiler::GetVirtualAllocator();
+
+			// We use snapshot function to resolve derived classes
+			constexpr bool hasSnapshotFn = requires(T t)
+			{
+				T::Snapshot(allocator, &t);
+			};
+
+			if constexpr (hasSnapshotFn)
+			{
+				m_Pointer = static_cast<T*>(T::Snapshot(allocator, other.m_Pointer));
+				allocator->AddRef(m_Pointer);
+			}
+			else if constexpr (std::is_abstract_v<T>)
 			{
 				AM_UNREACHABLE("Cannot be used on abstract classes");
 			}
 			else
 			{
-				if (other.m_Pointer == nullptr)
-					return;
-
-				pgSnapshotAllocator* pAllocator =
-					physical ? pgRscCompiler::GetPhysicalAllocator() : pgRscCompiler::GetVirtualAllocator();
-				pAllocator->AllocateRef(m_Pointer);
-				new (m_Pointer) T(*other.m_Pointer);
+				if (other.m_Pointer != nullptr)
+				{
+					allocator->AllocateRef(m_Pointer);
+					new (m_Pointer) T(*other.m_Pointer);
+				}
 			}
 		}
 

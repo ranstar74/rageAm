@@ -29,6 +29,9 @@ bool rage::pgRscBuilder::ReadAndDecompressChunks(datResourceMap& map, fiDevice* 
 		pVoid	chunkDest = chunk.GetAllocatedAddress();
 		u32		chunkSize = static_cast<u32>(chunk.Size);
 		bool	done = false;
+
+		AM_ASSERT(chunkSize < 100'000'000, "pgRscBuilder::ReadAndDecompressChunks() -> Max supported chunk size by streaming loader is 100MB.");
+
 		while (!done)
 		{
 			u32 sizeReaded = 0;

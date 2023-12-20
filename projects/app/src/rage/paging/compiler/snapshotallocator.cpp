@@ -34,7 +34,7 @@ rage::pgSnapshotAllocator::Node::Node(u32 size)
 
 #ifdef ENABLE_SNAPSHOT_OVERRUN_DETECTION
 	// Protect from array overrun
-	HWBreakpoint::Set(&Guard, BP_Write, 8 /* Guard + Size */);
+	HWBreakpoint::Set(&Guard, BP_Write, sizeof Node);
 #endif
 }
 
@@ -119,20 +119,19 @@ rage::pgSnapshotAllocator::Node* rage::pgSnapshotAllocator::GetRootNode() const
 void rage::pgSnapshotAllocator::SanityCheck() const
 {
 #ifdef DEBUG
-	if (m_NodeCount == 0)
-		return;
-
-	u32 nodeCount = 0;
-	Node* node = (Node*)m_Heap;
-	while (node)
+	if (m_NodeCount > 0)
 	{
-		node->AssertGuard();
+		u32 nodeCount = 0;
+		Node* node = (Node*)m_Heap;
+		while (node)
+		{
+			node->AssertGuard();
 
-		nodeCount++;
-		node = node->GetNext();
+			nodeCount++;
+			node = node->GetNext();
+		}
+		AM_ASSERT(nodeCount == m_NodeCount, "pgSnapshotAllocator::SanityCheck() -> Node count mismatch.");
 	}
-
-	AM_ASSERT(nodeCount == m_NodeCount, "pgSnapshotAllocator::SanityCheck() -> Node count mismatch.");
 #endif
 }
 
@@ -165,12 +164,9 @@ pVoid rage::pgSnapshotAllocator::Allocate(u32 size)
 {
 	SanityCheck();
 
-	if (size == 0)
-	{
-		AM_WARNINGF("pgSnapshotAllocator::Allocate() -> Request size is zero, defaulting to 1.");
-		size = 16;
-	}
-
+	AM_ASSERT(size != 0, "pgSnapshotAllocator::Allocate() -> Request size is zero!");
+	
+	size = MAX(size, 16);
 	size = ALIGN_16(size);
 
 	pVoid block = (pVoid)((u64)m_Heap + m_Offset);

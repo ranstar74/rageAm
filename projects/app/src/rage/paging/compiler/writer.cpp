@@ -154,9 +154,9 @@ void rage::pgRscWriter::ResetWriteStats()
 void rage::pgRscWriter::PrintWriteStats() const
 {
 	AM_TRACEF(L"pgRscWriter -> Exported resource %ls", m_Path);
-	AM_TRACEF("Raw Size: %s", FormatBytes(m_RawSize).GetCStr());
-	AM_TRACEF("File Size: %s", FormatBytes(m_FileSize).GetCStr());
-	AM_TRACEF("Alloc Size: %s", FormatBytes(m_AllocSize).GetCStr());
+	AM_TRACEF("Raw Size: %s", FormatBytesTemp(m_RawSize));
+	AM_TRACEF("File Size: %s", FormatBytesTemp(m_FileSize));
+	AM_TRACEF("Alloc Size: %s", FormatBytesTemp(m_AllocSize));
 }
 
 bool rage::pgRscWriter::Write(const wchar_t* path, const datCompileData& writeData)

@@ -10,6 +10,7 @@
 #include "assetstore.h"
 #include "streamengine.h"
 #include "game/drawable.h"
+#include "rage/grcore/texturepc.h"
 
 namespace rage
 {

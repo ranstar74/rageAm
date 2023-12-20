@@ -36,10 +36,11 @@ namespace rage
 				u32 Offset;
 			};
 
-			u32 Guard;
-			u32 Size;
-			atArray<void**> Refs;
-			atArray<OffsetRef> OffsetRefs;
+			u32					Guard;
+			u32					Size;
+			atArray<void**>		Refs;
+			atArray<OffsetRef>	OffsetRefs;
+			u32					Padding; // For multiple of 16 size
 
 			Node(u32 size);
 			~Node();
@@ -156,7 +157,8 @@ namespace rage
 		template<typename T>
 		void AllocateRef(T*& block, u32 size = sizeof(T))
 		{
-			block = static_cast<T*>(Allocate(size));
+			void* p = Allocate(size);
+			block = static_cast<T*>(p);
 			AddRef(block);
 		}
 

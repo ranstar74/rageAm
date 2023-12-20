@@ -110,8 +110,8 @@ void rage::grcVertexProgram::Deserialize(const fiStreamPtr& stream, ConstString 
 	[[maybe_unused]] u8 shaderModelOnes = stream->ReadU8();
 	[[maybe_unused]] u8 shaderModelTenths = stream->ReadU8();
 
-	m_Shader = static_cast<ID3D11VertexShader*>(
-		grcCreateProgramByTypeCached(GetName(), GRC_PROGRAM_VERTEX, m_Bytecode, m_BytecodeSize));
+	m_Shader = amComPtr(static_cast<ID3D11VertexShader*>(
+		grcCreateProgramByTypeCached(GetName(), GRC_PROGRAM_VERTEX, m_Bytecode, m_BytecodeSize)));
 	m_Shader_ = m_Shader; // They're identical in release build
 }
 
@@ -205,8 +205,8 @@ void rage::grcFragmentProgram::Deserialize(const fiStreamPtr& stream, ConstStrin
 	[[maybe_unused]] u8 shaderModelOnes = stream->ReadU8();
 	[[maybe_unused]] u8 shaderModelTenths = stream->ReadU8();
 
-	m_Shader = static_cast<ID3D11PixelShader*>(
-		grcCreateProgramByTypeCached(GetName(), GRC_PROGRAM_PIXEL, bytecode, m_BytecodeSize));
+	m_Shader = amComPtr(static_cast<ID3D11PixelShader*>(
+		grcCreateProgramByTypeCached(GetName(), GRC_PROGRAM_PIXEL, bytecode, m_BytecodeSize)));
 	m_Shader_ = m_Shader; // They're identical in release build
 
 	rage_free(bytecode);
@@ -224,8 +224,8 @@ void rage::grcComputeProgram::Deserialize(const fiStreamPtr& stream, ConstString
 	stream->Read(bytecode, m_BytecodeSize);
 
 	// TODO: Game does hardware support check before creating it
-	m_Shader = static_cast<ID3D11ComputeShader*>(
-		grcCreateProgramByTypeCached(GetName(), GRC_PROGRAM_COMPUTE, bytecode, m_BytecodeSize));
+	m_Shader = amComPtr(static_cast<ID3D11ComputeShader*>(
+		grcCreateProgramByTypeCached(GetName(), GRC_PROGRAM_COMPUTE, bytecode, m_BytecodeSize)));
 	m_Shader_ = m_Shader; // They're identical in release build
 
 	rage_free(bytecode);
@@ -243,8 +243,8 @@ void rage::grcDomainProgram::Deserialize(const fiStreamPtr& stream, ConstString 
 	stream->Read(bytecode, m_BytecodeSize);
 
 	// TODO: Game does hardware support check before creating it
-	m_Shader = static_cast<ID3D11DomainShader*>(
-		grcCreateProgramByTypeCached(GetName(), GRC_PROGRAM_DOMAIN, bytecode, m_BytecodeSize));
+	m_Shader = amComPtr(static_cast<ID3D11DomainShader*>(
+		grcCreateProgramByTypeCached(GetName(), GRC_PROGRAM_DOMAIN, bytecode, m_BytecodeSize)));
 	m_Shader_ = m_Shader; // They're identical in release build
 
 	rage_free(bytecode);
@@ -288,8 +288,8 @@ void rage::grcGeometryProgram::Deserialize(const fiStreamPtr& stream, ConstStrin
 
 	if (m_UnknownDataCount == 0) // TODO: Figure out why
 	{
-		m_Shader = static_cast<ID3D11GeometryShader*>(
-			grcCreateProgramByTypeCached(GetName(), GRC_PROGRAM_GEOMETRY, bytecode, m_BytecodeSize));
+		m_Shader = amComPtr(static_cast<ID3D11GeometryShader*>(
+			grcCreateProgramByTypeCached(GetName(), GRC_PROGRAM_GEOMETRY, bytecode, m_BytecodeSize)));
 		m_Shader_ = m_Shader;
 	}
 
@@ -308,8 +308,8 @@ void rage::grcHullProgram::Deserialize(const fiStreamPtr& stream, ConstString fi
 	stream->Read(bytecode, m_BytecodeSize);
 
 	// TODO: Game does hardware support check before creating it
-	m_Shader = static_cast<ID3D11HullShader*>(
-		grcCreateProgramByTypeCached(GetName(), GRC_PROGRAM_HULL, bytecode, m_BytecodeSize));
+	m_Shader = amComPtr(static_cast<ID3D11HullShader*>(
+		grcCreateProgramByTypeCached(GetName(), GRC_PROGRAM_HULL, bytecode, m_BytecodeSize)));
 	m_Shader_ = m_Shader; // They're identical in release build
 
 	rage_free(bytecode);

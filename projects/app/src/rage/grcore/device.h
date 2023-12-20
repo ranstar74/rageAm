@@ -54,6 +54,26 @@ namespace rage
 		static void SetWorldMtx(const Mat34V& mtx);
 
 		static void GetScreenSize(u32& width, u32& height);
+		
+		enum MSAAModeEnum
+		{
+			MSAA_None = 0x0,
+			MSAA_NonMaskAble = 0x1,
+			MSAA_2 = 0x2,
+			MSAA_4 = 0x4,
+			MSAA_8 = 0x8,
+			MSAA_2xMS = 0x2,
+			MSAA_Centered4xMS = 0x4,
+			MSAA_Rotated4xMS = 0x8,
+		};
+		struct MSAAMode { MSAAModeEnum Mode; };
+
+		enum class Stereo_t
+		{
+			MONO = 0x0,
+			STEREO = 0x1,
+			AUTO = 0x2,
+		};
 	};
 
 	// Extra draw functions

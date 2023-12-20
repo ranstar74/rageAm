@@ -67,11 +67,15 @@ void rage::pgBase::FreeMemory(const datResourceMap& map) const
 	// first destructor is called, where it will free up all the things and then
 	// this function, which will do basically nothing because everything been already cleaned up
 
-	sysMemAllocator* allocator = GetMultiAllocator()->GetAllocator(ALLOC_TYPE_VIRTUAL);
+	sysMemAllocator* virtualAllocator = GetMultiAllocator()->GetAllocator(ALLOC_TYPE_VIRTUAL);
 	for (u8 i = 0; i < map.VirtualChunkCount; i++)
-		allocator->Free(reinterpret_cast<void*>(map.Chunks[i].DestAddr));
-
+		virtualAllocator->Free(reinterpret_cast<void*>(map.Chunks[i].DestAddr));
 	AM_DEBUGF("pgBase::FreeMemory() -> Deallocated %u virtual chunk(s).", map.VirtualChunkCount);
+
+	sysMemAllocator* physicalAllocator = GetMultiAllocator()->GetAllocator(ALLOC_TYPE_PHYSICAL);
+	for (u32 i = map.VirtualChunkCount - 1; i < map.GetChunkCount(); i++)
+		physicalAllocator->Free(reinterpret_cast<void*>(map.Chunks[i].DestAddr));
+	AM_DEBUGF("pgBase::FreeMemory() -> Deallocated %u physical chunk(s).", map.VirtualChunkCount);
 }
 
 rage::pgBase::pgBase()

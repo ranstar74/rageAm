@@ -1,7 +1,8 @@
 #include "device.h"
 
 #include "buffer.h"
-#include "DirectXTex.h"
+#include "am/graphics/dxgi_utils.h"
+#include "am/graphics/vertexbufferiterator.h"
 #include "am/graphics/render/engine.h"
 #include "am/integration/memory/address.h"
 
@@ -46,7 +47,7 @@ rage::grcVertexDeclaration* rage::grcDevice::CreateVertexDeclaration(const grcVe
 		// Straight copy elements to vertex declaration
 		grcVertexElementDesc& element = decl->Elements[i] = elementDescs[i];
 
-		u32 elementSize = DirectX::BitsPerPixel(element.Format) / 8;
+		u32 elementSize = rageam::graphics::DXGI::BytesPerPixel(element.Format);
 		decl->Stride += elementSize;
 	}
 	return decl;

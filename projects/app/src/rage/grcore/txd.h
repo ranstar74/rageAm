@@ -1,5 +1,5 @@
 //
-// File: texturedict.h
+// File: txd.h
 //
 // Copyright (C) 2023 ranstar74. All rights violated.
 //
@@ -7,13 +7,13 @@
 //
 #pragma once
 
-#include "texturedx11.h"
+#include "texture.h"
 #include "rage/paging/template/dictionary.h"
 
-namespace rage
+namespace rage 
 {
 	using grcTextureDictionary = pgDictionary<grcTexture>;
 	using grcTextureDictionaryPtr = pgPtr<grcTextureDictionary>;
-	using grcTexturePtr = pgPtr<grcTextureDX11>;
-	using grcTextureUPtr = pgUPtr<grcTextureDX11>;
+	using grcTexturePtr = pgPtr<grcTexture>;
+	using grcTextureUPtr = pgUPtr<grcTexture>;
 }

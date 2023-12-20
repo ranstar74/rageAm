@@ -9,8 +9,8 @@
 
 #include "rage/dat/base.h"
 #include "rage/grcore/effect/effect.h"
-#include "rage/grcore/texture/texturedict.h"
 #include "rage/paging/resource.h"
+#include "rage/grcore/txd.h"
 
 namespace rage
 {

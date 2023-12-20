@@ -172,7 +172,8 @@ u8 rage::pgRscPacker::TryPack(u8 startBucket, u8 sizeShift)
 		const SortedBlock& block = m_SortedBlocks[i];
 
 		// Not enough free space in chunk, we have to move to either next chunk or next bucket
-		if (packedSize + block.Size > chunkSize)
+		if (packedSize + block.Size > chunkSize &&
+			bucket + 1 < PG_MAX_BUCKETS)
 		{
 			packedSize = 0;
 			chunkIndex++;
@@ -233,7 +234,7 @@ u8 rage::pgRscPacker::TryPack(u8 startBucket, u8 sizeShift)
 
 		// See 'move to next bucket' optimization in while loop above (the last one)
 		if (bucket != oldBucket)
-			AM_DEBUGF("pgRscPacker::TryPack() -> Moving by %u buckets to reduce fragmentation...", bucket - oldBucket);
+			AM_DEBUGF("pgRscPacker::TryPack() -> Moving by %u bucket(s) to reduce fragmentation...", bucket - oldBucket);
 
 		packedSize += block.Size;
 		m_Buckets[bucket][chunkIndex].Add(block.Index);

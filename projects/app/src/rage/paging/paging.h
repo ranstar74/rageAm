@@ -47,6 +47,9 @@ namespace rage
 	// Not sure what's exact purpose of shifting possible range from (2KB - 268MB) to (131KB - 4294MB)
 	// Could it be a mistake? Because if we interpret 0x2000 as 2000, it gives range from 20KB to 100MB
 	// and 100MB is maximum allowed chunk size by pgReader
+	// NEW: grcTexture stores physical size with mask 0x7FFFF80, highest bit is 0x400'0000 too,
+	// it seems to be used for debug metrics and for searching low-resolution images in CDTV class
+	// Another NOTE: This limit seems to be as simple as sane check.
 	static constexpr u32 PG_MIN_SIZE_SHIFT = 4;
 
 	static constexpr u32 PG_MAX_CHUNKS = 128;

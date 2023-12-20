@@ -1,6 +1,6 @@
 #include "effect.h"
 
-#include "rage/grcore/texture/texturedx11.h"
+#include "rage/grcore/txd.h"
 
 ConstString rage::EffectValueTypeToString(grcEffectVarType e)
 {
@@ -35,8 +35,10 @@ rage::grcInstanceVar::grcInstanceVar(const datResource& rsc)
 		// Implement actual grcTextureFactoryDX11::PlaceTexture,
 		// this does support regular textures only now
 
-		grcTextureDX11* texture = GetValuePtr<grcTextureDX11>();
-		rsc.Place(texture);
+		/*grcTextureDX11* texture = GetValuePtr<grcTextureDX11>();
+		rsc.Place(texture);*/
+
+		grcTexture::Place(rsc, GetValuePtr<grcTexture>());
 	}
 }
 

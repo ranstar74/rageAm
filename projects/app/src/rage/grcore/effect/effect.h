@@ -13,7 +13,7 @@
 #include "rage/crypto/joaat.h"
 #include "rage/file/stream.h"
 #include "rage/grcore/program.h"
-#include "rage/grcore/texture/texture.h"
+#include "rage/grcore/texture.h"
 #include "rage/math/vecv.h"
 
 #define TECHNIQUE_DRAW "draw"

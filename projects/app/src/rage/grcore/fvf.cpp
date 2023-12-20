@@ -1,9 +1,10 @@
 #include "fvf.h"
 
 #include "device.h"
-#include "DirectXTex.h" // For BitsPerPixel
 #include "fvfchannels.h"
 #include "program.h"
+#include "am/graphics/dxgi_utils.h"
+#include "am/graphics/vertexbufferiterator.h"
 #include "effect/effect.h"
 #include "rage/atl/datahash.h"
 #include "rage/crypto/joaat.h"
@@ -144,7 +145,7 @@ u32 rage::grcVertexDeclaration::GetElementOffset(u32 index) const
 	for (u32 i = 0; i < index; i++)
 	{
 		DXGI_FORMAT format = Elements[i].Format;
-		offset += DirectX::BitsPerPixel(format) / 8;
+		offset += rageam::graphics::DXGI::BytesPerPixel(format);
 	}
 	return offset;
 }

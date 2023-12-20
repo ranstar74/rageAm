@@ -24,11 +24,12 @@ namespace rage
 		// Native implementation uses pgReader which does resource reading in parallel thread,
 		// we don't need that yet (because we are not streaming resources in real-time) so we can read resource in caller thread.
 
-		static bool ReadAndDecompressChunks(datResourceMap& map, fiDevice* device, ConstString path);
 		static bool PerformReadInMainThread(ConstString path, u32 version, datResourceMap& map, datResourceInfo& info);
 		static void ConstructName(char* buffer, u32 bufferSize, const char* path);
 
 	public:
+		static bool ReadAndDecompressChunks(datResourceMap& map, fiDevice* device, ConstString path);
+
 		static pgBase* LoadBuild(ConstString path, u32 version, datResourceMap& map, datResourceInfo& info);
 		/**
 		 * \brief Frees up physical chunks.
@@ -43,7 +44,7 @@ namespace rage
 		 * \param version	Resource version to resolve.
 		 */
 		template<typename TPaged>
-		static void Load(TPaged** ppPaged, ConstString path, u32 version)
+		static void Load(TPaged** ppPaged, ConstString path, u32 version, bool cleanUpPhysical = true)
 		{
 			static rageam::Logger logger("resource_builder");
 			rageam::Logger::Push(&logger);
@@ -63,7 +64,9 @@ namespace rage
 			{
 				AM_ERRF("pgRscBuilder::Load(%s, %u) -> Failed to load resource!", path, version);
 			}
-			Cleanup(map);
+
+			if(cleanUpPhysical)
+				Cleanup(map);
 
 			timer.Stop();
 			AM_TRACEF("pgRscBuilder::Load() -> Job finished in %llums", timer.GetElapsedMilliseconds());
