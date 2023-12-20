@@ -631,20 +631,20 @@ void rageam::integration::DrawListExecutor::Init()
 		// Default
 		{
 			AM_ASSERT_D3D(device->CreateRasterizerState(&rsDesc, &rasterizerState));
-			m_RS = rasterizerState;
+			m_RS = amComPtr(rasterizerState);
 		}
 		// Two sided
 		{
 			rsDesc.CullMode = D3D11_CULL_NONE;
 			AM_ASSERT_D3D(device->CreateRasterizerState(&rsDesc, &rasterizerState));
-			m_RSTwoSided = rasterizerState;
+			m_RSTwoSided = amComPtr(rasterizerState);
 		}
 		// Wireframe
 		{
 			rsDesc.CullMode = D3D11_CULL_BACK;
 			rsDesc.FillMode = D3D11_FILL_WIREFRAME;
 			AM_ASSERT_D3D(device->CreateRasterizerState(&rsDesc, &rasterizerState));
-			m_RSWireframe = rasterizerState;
+			m_RSWireframe = amComPtr(rasterizerState);
 		}
 	}
 
@@ -657,9 +657,9 @@ void rageam::integration::DrawListExecutor::Init()
 		ID3D11VertexShader* vs;
 		ID3D11PixelShader* ps;
 		CreateShaders(&vs, &ps, &vsBlob, L"deferred_vs.hlsl", L"deferred_ps.hlsl");
-		m_Effect.CB = cb;
-		m_Effect.VS = vs;
-		m_Effect.PS = ps;
+		m_Effect.CB = amComPtr(cb);
+		m_Effect.VS = amComPtr(vs);
+		m_Effect.PS = amComPtr(ps);
 
 		D3D11_INPUT_ELEMENT_DESC inputDesc[] =
 		{
@@ -670,7 +670,7 @@ void rageam::integration::DrawListExecutor::Init()
 		ID3D11InputLayout* vsLayout;
 		AM_ASSERT_D3D(device->CreateInputLayout(inputDesc, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &vsLayout));
 		SAFE_RELEASE(vsBlob);
-		m_Effect.VSLayout = vsLayout;
+		m_Effect.VSLayout = amComPtr(vsLayout);
 	}
 }
 

@@ -17,10 +17,10 @@ class amComPtr
 public:
 	amComPtr() = default;
 
-	amComPtr(T* t)
+	explicit amComPtr(T* t)
 	{
 		m_Ptr = t;
-		SAFE_ADDREF(m_Ptr);
+		//SAFE_ADDREF(m_Ptr);
 	}
 
 	amComPtr(const amComPtr& other)
@@ -62,8 +62,20 @@ public:
 		return *this;
 	}
 
+	amComPtr& operator=(std::nullptr_t)
+	{
+		SAFE_RELEASE(m_Ptr);
+		return *this;
+	}
+
+	T* operator->() { return m_Ptr; }
+	const T* operator->() const { return m_Ptr; }
+
 	bool operator!() const { return !m_Ptr; }
 	operator bool() const { return m_Ptr; }
+
+	bool operator==(std::nullptr_t) const { return m_Ptr == nullptr; }
+	bool operator==(const amComPtr& other) const { return m_Ptr == other.m_Ptr; }
 };
 
 template<typename T>

@@ -69,7 +69,7 @@ namespace rageam::integration
 			TVertex					Vertices[VertexCapacity] = {};
 			u32						VertexCount = 0;
 
-			VertexBuffer() { Resource = CreateBuffer(sizeof TVertex, VertexCapacity, true); }
+			VertexBuffer() { Resource = amComPtr(CreateBuffer(sizeof TVertex, VertexCapacity, true)); }
 			void AddVertex(const TVertex& vertex) { Vertices[VertexCount++] = vertex; }
 			void Upload() const { UploadBuffer(Resource, Vertices, sizeof TVertex * VertexCount); }
 			void Bind() const
@@ -90,7 +90,7 @@ namespace rageam::integration
 			index_t					Indices[IndexCapacity] = {};
 			u32						IndexCount = 0;
 
-			IndexBuffer() { Resource = CreateBuffer(sizeof index_t, IndexCapacity, false); }
+			IndexBuffer() { Resource = amComPtr(CreateBuffer(sizeof index_t, IndexCapacity, false)); }
 			void AddIndex(const index_t& index) { Indices[IndexCount++] = index; }
 			void Upload() const { UploadBuffer(Resource, Indices, sizeof index_t * IndexCount); }
 			void Bind() const { render::GetDeviceContext()->IASetIndexBuffer(Resource.Get(), DXGI_FORMAT_R16_UINT, 0); }

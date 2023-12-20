@@ -34,7 +34,7 @@ void rage::grcBufferD3D11::Create(const void* data, u32 elementCount, u32 stride
 		return;
 	}
 
-	m_Object = buffer;
+	m_Object = amComPtr(buffer);
 
 	// Make data copy if present
 	if (keepData && data)
