@@ -111,7 +111,7 @@ void rage::fwArchetype::Shutdown()
 	fn(this);
 }
 
-void rage::fwArchetype::SetPhysics(phArchetype* physics)
+void rage::fwArchetype::SetPhysics(const pgPtr<phArchetype>& physics)
 {
 	if (!physics)
 	{
@@ -122,8 +122,8 @@ void rage::fwArchetype::SetPhysics(phArchetype* physics)
 	CreateDynamicComponentIfMissing();
 	m_DynamicComponent->Physics = physics;
 
-	phBound* bound = physics->GetBound();
-	if (bound) UpdateBoundingVolumes(bound);
+	const phBoundPtr& bound = physics->GetBound();
+	if (bound) UpdateBoundingVolumes(bound.Get());
 }
 
 bool rage::fwArchetype::SetDrawableOrFragmentFile(u32 nameHash, strLocalIndex txdSlot, bool skipDrawable)

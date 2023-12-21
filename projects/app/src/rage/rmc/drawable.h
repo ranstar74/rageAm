@@ -39,8 +39,8 @@ namespace rage
 		rmcDrawable(const rmcDrawable& other);
 		~rmcDrawable() override;
 
-		crSkeletonData* GetSkeletonData() const { return m_SkeletonData.Get(); }
-		void SetSkeletonData(crSkeletonData* skeleton) { m_SkeletonData = skeleton; }
+		const pgPtr<crSkeletonData>& GetSkeletonData() const { return m_SkeletonData; }
+		void SetSkeletonData(const pgPtr<crSkeletonData>& skeleton) { m_SkeletonData = skeleton; }
 		rmcLodGroup& GetLodGroup() { return m_LodGroup; }
 		grmShaderGroup* GetShaderGroup() const { return m_ShaderGroup.Get(); }
 

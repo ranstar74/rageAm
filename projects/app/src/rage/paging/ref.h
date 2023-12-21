@@ -129,9 +129,13 @@ namespace rage
 	public:
 		using pgPtrBase<T>::pgPtrBase;
 
-		pgPtr(T* ptr) : pgPtrBase<T>(ptr)
+		explicit pgPtr(T* ptr) : pgPtrBase<T>(ptr)
 		{
-			SAFE_ADDREF(this->m_Pointer);
+
+		}
+		pgPtr(nullptr_t) : pgPtrBase<T>(nullptr)
+		{
+			
 		}
 		pgPtr(const pgPtr& other)
 		{
@@ -171,6 +175,13 @@ namespace rage
 				this->m_Pointer = other.m_Pointer;
 				SAFE_ADDREF(this->m_Pointer);
 			}
+			return *this;
+		}
+
+		pgPtr& operator=(nullptr_t)
+		{
+			SAFE_RELEASE(this->m_Pointer);
+			this->m_Pointer = nullptr;
 			return *this;
 		}
 	};

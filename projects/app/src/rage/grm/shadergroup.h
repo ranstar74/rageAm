@@ -57,7 +57,7 @@ namespace rage
 	{
 		grcTextureDictionaryPtr			m_EmbedTextures;
 		pgUPtrArray<grmShader, false>	m_Shaders;
-
+		
 		u64		m_Unknown20;
 		u16		m_Unknown28;
 		u16		m_Unknown2A;
@@ -90,8 +90,8 @@ namespace rage
 		void RemoveShader(const grmShader* shader);
 		void RemoveShaderAt(u16 index);
 
-		grcTextureDictionary* GetEmbedTextureDictionary() const { return m_EmbedTextures.Get(); }
-		void SetEmbedTextureDict(grcTextureDictionary* dict) { m_EmbedTextures = dict; }
+		const pgPtr<grcTextureDictionary>& GetEmbedTextureDictionary() const { return m_EmbedTextures; }
+		void SetEmbedTextureDict(const pgPtr<grcTextureDictionary>& dict) { m_EmbedTextures = dict; }
 
 		// Those two are used by rmcDrawable to re-allocate shader group in memory container
 

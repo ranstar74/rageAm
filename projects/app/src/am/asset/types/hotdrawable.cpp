@@ -6,14 +6,15 @@ bool rageam::asset::HotTxd::TryCompile()
 {
 	Dict = nullptr;
 
-	rage::grcTextureDictionaryPtr dict = new rage::grcTextureDictionary();
-	if (!Asset->CompileToGame(dict.Get()))
+	rage::grcTextureDictionary* dict = new rage::grcTextureDictionary();
+	if (!Asset->CompileToGame(dict))
 	{
 		AM_ERRF(L"HotTxd::TryCompile() -> Failed to compile workspace TXD '%ls'", Asset->GetDirectoryPath().GetCStr());
+		delete dict;
 		return false;
 	}
 
-	Dict = std::move(dict);
+	Dict = rage::pgPtr(dict);
 	return true;
 }
 
@@ -181,7 +182,7 @@ void rageam::asset::HotDrawable::HandleChange_Texture(const file::DirectoryChang
 	}
 
 	// Find changed texture in asset
-	Texture* textureTune = hotTxd->Asset->TryFindTextureTuneFromPath(change.Path);
+	TextureTune* textureTune = hotTxd->Asset->TryFindTextureTuneFromPath(change.Path);
 	if (!textureTune)
 	{
 		// Case 0: Texture was first renamed to incompatible name and now renamed back!

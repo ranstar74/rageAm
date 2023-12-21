@@ -65,8 +65,8 @@ namespace rage
 
 		}
 
-		void SetBound(phBound* bound) { m_Bound = bound; }
-		phBound* GetBound() const { return m_Bound.Get(); }
+		void SetBound(const pgPtr<phBound>& bound) { m_Bound = bound; }
+		const pgPtr<phBound>& GetBound() const { return m_Bound; }
 
 		virtual void Erase();
 		virtual void LoadData()

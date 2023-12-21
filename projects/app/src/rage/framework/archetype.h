@@ -193,7 +193,7 @@ namespace rage
 		virtual int Func2() { return 0; }
 		virtual int Func3() { return 0; }
 
-		virtual void SetPhysics(phArchetype* physics);
+		virtual void SetPhysics(const pgPtr<phArchetype>& physics);
 
 		// If skipDrawable is set, file will be only looked up in fragment store
 		// Otherwise both drawable&fragments store will be checked

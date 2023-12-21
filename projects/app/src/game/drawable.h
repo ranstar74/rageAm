@@ -40,8 +40,8 @@ public:
 		return light;
 	}
 
-	void SetBound(rage::phBound* bound) { m_Bound = bound; }
-	rage::phBound* GetBound() const { return m_Bound.Get(); }
+	void SetBound(const rage::phBoundPtr& bound) { m_Bound = bound; }
+	const rage::phBoundPtr& GetBound() const { return m_Bound; }
 
 	void Draw(const rage::Mat34V& mtx, rage::grcRenderMask mask, rage::eDrawableLod lod) override
 	{

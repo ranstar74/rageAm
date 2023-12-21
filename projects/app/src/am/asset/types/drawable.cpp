@@ -855,7 +855,7 @@ bool rageam::asset::DrawableAsset::GenerateSkeleton()
 		return false;
 	}
 
-	rage::crSkeletonData* skeletonData = new rage::crSkeletonData();
+	rage::pgPtr skeletonData = rage::pgPtr(new rage::crSkeletonData());
 	skeletonData->Init(boneCount);
 
 	// Setup root bone
@@ -1267,7 +1267,7 @@ rageam::SmallList<rage::phBoundPtr> rageam::asset::DrawableAsset::CreateBoundsFr
 		geometryBound->SetMesh(
 			sceneGeom->GetAABB(), vertices.GetBufferAs<rage::Vector3>(), indices.GetBufferAs<u16>(), sceneGeom->GetVertexCount(), sceneGeom->GetIndexCount());
 
-		bounds.Add(geometryBound);
+		bounds.Add(rage::phBoundPtr(geometryBound));
 	}
 	return bounds;
 }
@@ -1342,7 +1342,7 @@ void rageam::asset::DrawableAsset::CreateAndSetCompositeBound() const
 	}
 
 	composite->CalculateExtents(); // TODO: Should we include matrices in composite bound extents?
-	m_Drawable->SetBound(composite);
+	m_Drawable->SetBound(rage::phBoundPtr(composite));
 }
 
 bool rageam::asset::DrawableAsset::IsCollisionNode(const graphics::SceneNode* sceneNode) const
