@@ -1,256 +1,345 @@
 #include "txd.h"
 
 #include "am/file/iterator.h"
-#include "am/graphics/texture/imageformat.h"
-#include "am/graphics/texture/surface.h"
 #include "am/string/string.h"
-#include "am/system/enum.h"
-#include "am/task/worker.h"
+#include "am/system/worker.h"
 #include "am/xml/iterator.h"
+#include "rage/grcore/texturepc.h"
 #include "helpers/format.h"
-#include "rage/atl/set.h"
+#include "texpresets.h"
 
-void rageam::asset::TextureOptions::GetCompressionOptions(texture::CompressionOptions& outOptions) const
+#include <semaphore>
+
+void rageam::asset::TextureOptions::SerializeChanged(const XmlHandle& node, const TextureOptions& options) const
 {
-	outOptions.MipMaps = GenerateMips;
-	outOptions.MaxResolution = MaxSize;
-	outOptions.Format = Format;
-	outOptions.MipFilter = MipFilter;
-	outOptions.ResizeFilter = ResizeFilter;
-	outOptions.Quality = Quality;
+#define TEX_SET_IF_CHANGED(field) \
+	if (options.CompressorOptions.field != CompressorOptions.field) XML_SET_CHILD_VALUE(node, CompressorOptions.field);
+
+	TEX_SET_IF_CHANGED(Format);
+	TEX_SET_IF_CHANGED(MipFilter);
+	TEX_SET_IF_CHANGED(Quality);
+	TEX_SET_IF_CHANGED(MaxResolution);
+	TEX_SET_IF_CHANGED(GenerateMipMaps);
+	TEX_SET_IF_CHANGED(CutoutAlpha);
+	TEX_SET_IF_CHANGED(CutoutAlphaThreshold);
+	TEX_SET_IF_CHANGED(AlphaTestCoverage);
+	TEX_SET_IF_CHANGED(AlphaTestThreshold);
+	TEX_SET_IF_CHANGED(AllowRecompress);
+
+#undef TEX_SET_IF_CHANGED
 }
 
 void rageam::asset::TextureOptions::Serialize(XmlHandle& node) const
 {
-	XML_SET_CHILD_VALUE(node, MaxSize);
-	XML_SET_CHILD_VALUE(node, GenerateMips);
-	XML_SET_CHILD_VALUE(node, Format);
-	XML_SET_CHILD_VALUE(node, MipFilter);
-	XML_SET_CHILD_VALUE(node, ResizeFilter);
-	XML_SET_CHILD_VALUE(node, Quality);
+	XML_SET_CHILD_VALUE(node, CompressorOptions.Format);
+	XML_SET_CHILD_VALUE(node, CompressorOptions.MipFilter);
+	XML_SET_CHILD_VALUE(node, CompressorOptions.Quality);
+	XML_SET_CHILD_VALUE(node, CompressorOptions.MaxResolution);
+	XML_SET_CHILD_VALUE(node, CompressorOptions.GenerateMipMaps);
+	XML_SET_CHILD_VALUE(node, CompressorOptions.CutoutAlpha);
+	XML_SET_CHILD_VALUE(node, CompressorOptions.CutoutAlphaThreshold);
+	XML_SET_CHILD_VALUE(node, CompressorOptions.AlphaTestCoverage);
+	XML_SET_CHILD_VALUE(node, CompressorOptions.AlphaTestThreshold);
+	XML_SET_CHILD_VALUE(node, CompressorOptions.AllowRecompress);
 }
 
 void rageam::asset::TextureOptions::Deserialize(const XmlHandle& node)
 {
-	XML_GET_CHILD_VALUE(node, MaxSize);
-	XML_GET_CHILD_VALUE(node, GenerateMips);
-	XML_GET_CHILD_VALUE(node, Format);
-	XML_GET_CHILD_VALUE(node, MipFilter);
-	XML_GET_CHILD_VALUE(node, ResizeFilter);
-	XML_GET_CHILD_VALUE(node, Quality);
+	XML_GET_CHILD_VALUE(node, CompressorOptions.Format);
+	XML_GET_CHILD_VALUE(node, CompressorOptions.MipFilter);
+	XML_GET_CHILD_VALUE(node, CompressorOptions.Quality);
+	XML_GET_CHILD_VALUE(node, CompressorOptions.MaxResolution);
+	XML_GET_CHILD_VALUE(node, CompressorOptions.GenerateMipMaps);
+	XML_GET_CHILD_VALUE(node, CompressorOptions.CutoutAlpha);
+	XML_GET_CHILD_VALUE(node, CompressorOptions.CutoutAlphaThreshold);
+	XML_GET_CHILD_VALUE(node, CompressorOptions.AlphaTestCoverage);
+	XML_GET_CHILD_VALUE(node, CompressorOptions.AlphaTestThreshold);
+	XML_GET_CHILD_VALUE(node, CompressorOptions.AllowRecompress);
 }
 
-void rageam::asset::Texture::Serialize(XmlHandle& node) const
+rageam::asset::TextureTune::TextureTune(AssetBase* parent, ConstWString fileName) : AssetSource(parent, fileName)
 {
-	Options.Serialize(node);
+
 }
 
-void rageam::asset::Texture::Deserialize(const XmlHandle& node)
+rageam::asset::TxdAsset* rageam::asset::TextureTune::GetTXD() const
 {
-	Options.Deserialize(node);
+	return reinterpret_cast<TxdAsset*>(GetParent());
 }
 
-bool rageam::asset::TxdAsset::CompileToGame(rage::grcTextureDictionary* ppOutGameFormat)
+rageam::asset::TextureOptions& rageam::asset::TextureTune::GetCustomOptionsOrFromPreset(amPtr<TexturePreset>* outPreset)
 {
-	ReportProgress(L"- Compressing textures", 0);
-
-	u32 textureCount = m_Textures.GetNumUsedSlots();
-
-	// Step 1: Compress all textures in parallel threads
-	struct CompressJob
+	// Take options either from tune (if it has them) or find matching texture preset
+	if (Options.HasValue())
 	{
-		char* PixelData;
-		texture::CompressedInfo Info;
-		const Texture* Texture;
-	};
+		return Options.GetValue();
+	}
 
-	Tasks compressTasks;
-	rage::atArray<CompressJob> compressJobs;
+	TexturePresetPtr texPreset = MatchPreset();
+	if (outPreset) *outPreset = texPreset;
+	return texPreset->Options;
+}
 
-	compressTasks.Reserve(textureCount);
-	compressJobs.Resize(textureCount);
+rageam::asset::TexturePresetPtr rageam::asset::TextureTune::MatchPreset() const
+{
+	TexturePresetStore* presetStore = TexturePresetStore::GetInstance();
+	return presetStore->MatchPreset(*this, OverridePreset);
+}
 
-	// For calculating % of completion
-	std::atomic_int doneTextures = 0;
-
-	u32 index = 0;
-	for (const Texture& texture : m_Textures)
+void rageam::asset::TextureTune::Serialize(XmlHandle& node) const
+{
+	node.SetAttribute("OverridePreset", OverridePreset);
+	if (Options.HasValue())
 	{
-		// Take pointer so it can be used in lambda
-		const Texture* pTexture = &texture;
+		node.SetAttribute("HasCompressorOptions", true);
+		Options.GetValue().Serialize(node);
+	}
+}
 
-		ConstWString fmt = pTexture->IsPreCompressed ? L"[TxdAsset] Load %ls" : L"[TxdAsset] Compress %ls";
+void rageam::asset::TextureTune::Deserialize(const XmlHandle& node)
+{
+	bool hasOptions;
+	if (node.GetAttribute("HasCompressorOptions", hasOptions, true) && hasOptions)
+	{
+		TextureOptions options;
+		options.Deserialize(node);
+		Options = options;
+	}
+}
 
-		compressTasks.Emplace(BackgroundWorker::Run(
-			[this, pTexture, &doneTextures, textureCount, &compressJobs, index]
+rageam::asset::TxdAsset::TxdAsset(const file::WPath& path) : GameRscAsset(path)
+{
+
+}
+
+bool rageam::asset::TxdAsset::CompileToGame(rage::grcTextureDictionary* object)
+{
+	ReportProgress(L"Compressing textures", 0);
+
+	rage::grcTextureDictionary& txd = *object;
+
+	std::counting_semaphore<ASSET_TXD_BACKGROUND_THREADS_MAX> sema(ASSET_TXD_BACKGROUND_THREADS_MAX);
+	std::mutex mutex;
+
+	u32 textureCount = m_TextureTunes.GetSize();
+	u32 texturesDoneCount = 0; // For progress reporting
+
+	Tasks tasks;
+	tasks.Reserve(textureCount);
+
+	for (u32 i = 0; i < m_TextureTunes.GetSize(); i++)
+	{
+		tasks.Emplace(BackgroundWorker::Run([&, i]
 			{
-				file::WPath texturePath = pTexture->GetFullPath();
+				TextureTune& tune = m_TextureTunes[i];
 
-				CompressJob& job = compressJobs[index];
-				job.Texture = pTexture;
+				sema.acquire();
+				TexturePresetPtr usedPreset;
+				rage::grcTexture* gameTexture = CompileSingleTexture(tune, true, &usedPreset);
+				sema.release();
 
-				texture::CompressionOptions options;
-				pTexture->Options.GetCompressionOptions(options);
-
-				texture::Surface surface;
-				surface.SetCompressOptions(options);
-				if (!surface.LoadToRam(texturePath, &job.PixelData))
+				if (!gameTexture)
 					return false;
 
-				job.Info = surface.GetInfo();
-
-				// Accumulate and report progress
-				if (CompileCallback)
+				mutex.lock();
+				// For sanity check, we must ensure that there are no multiple textures with the same name
+				if (!txd.Contains(gameTexture->GetName()))
 				{
-					++doneTextures;
-
-					double progress = static_cast<double>(doneTextures) / textureCount;
-
-					char sizeText[32];
-					FormatBytes(sizeText, 32, job.Info.Size);
-
-					CompileCallback(String::FormatTemp(L"Texture %i/%u: %hs -> %hs",
-						doneTextures.load(), textureCount, pTexture->Name, sizeText), progress);
+					AM_ERRF("TxdAsset::CompileToGame() -> Found 2 textures with the same name ('%s'), this cannot continue.",
+						gameTexture->GetName());
+					return false;
 				}
 
+				// Insert baked texture into dictionary
+				txd.Insert(gameTexture->GetName(), gameTexture);
+
+				// Progress report
+				if (CompileCallback)
+				{
+					ConstString presetName = usedPreset ? usedPreset->Name.GetCStr() : "-";
+					texturesDoneCount++;
+					double progress = static_cast<double>(texturesDoneCount) / textureCount;
+					ConstWString message = String::FormatTemp(L"%i/%u %hs (size: %hs, preset: %hs)",
+						texturesDoneCount,
+						textureCount,
+						gameTexture->GetName(),
+						FormatSize(gameTexture->GetPhysicalSize()),
+						presetName);
+					CompileCallback(message, progress);
+				}
+				mutex.unlock();
+
 				return true;
-			}, fmt, pTexture->GetFileName()));
-		index++;
+			}));
 	}
 
-	// Step 2: Wait compression tasks to finish
-	if (!BackgroundWorker::WaitFor(compressTasks))
-		return false;
+	return BackgroundWorker::WaitFor(tasks);
+}
 
-	// Step 3: Create grcTexture's
-	rage::grcTextureDictionary& txd = *ppOutGameFormat;
-	for (CompressJob& job : compressJobs)
+void rageam::asset::TxdAsset::ParseFromGame(rage::grcTextureDictionary* object)
+{
+	m_TextureTunes.Clear();
+
+	for (u16 i = 0; i < object->GetSize(); i++)
 	{
-		texture::CompressedInfo& info = job.Info;
+		rage::grcTextureDX11* tex = (rage::grcTextureDX11*)(object->GetValueAt(i));
 
-		ConstString textureName = job.Texture->Name;
-		auto gameTexture = new rage::grcTextureDX11(
-			info.Width, info.Height, 1, info.MipCount, info.Format, job.PixelData);
-		gameTexture->SetName(textureName);
+		pVoid pixelData = tex->GetBackingStore();
+		AM_ASSERT(pixelData, "TxdAsset::ParseFromGame() -> No pixel data in the ram");
 
-		txd.Insert(textureName, gameTexture);
+		// Format path to .dds file in asset directory
+		file::WPath texPath = GetDirectoryPath() / String::ToWideTemp(tex->GetName()) + L".dds";
+
+		AddTune(texPath);
 	}
-
-	return true;
 }
 
 void rageam::asset::TxdAsset::Refresh()
 {
-	// Scan existing textures
-	rage::atSet<rage::atWideString> imageFiles;
-	rage::atSet<u32> imageNames; // To check if there's two textures with same name and different extension
+	HashSet<u32> scannedTuneHashes;
+
 	file::FindData entry;
 	file::Iterator it(GetDirectoryPath() / L"*.*");
 	while (it.Next())
 	{
 		it.GetCurrent(entry);
 
-		ConstWString extension = file::GetExtension<wchar_t>(entry.Path);
-		if (!texture::IsImageFormat(extension))
+		// Ignore tune.xml and other files...
+		if (!IsSupportedImageFile(entry.Path))
 			continue;
 
-		rage::atWideString fileName = file::GetFileName<wchar_t>(entry.Path);
+		// Find existing tune or crate new one
+		TextureTune* tune = TryFindTuneFromPath(entry.Path);
+		if (!tune)
+			tune = &m_TextureTunes.Construct(this, entry.Path);;
 
-		// Check if we already parsed image file with such name (but different extension)
-		u32 nameHash = rage::joaat(entry.Path.GetFileNameWithoutExtension());
-		if (imageNames.Contains(nameHash))
-		{
-			AM_WARNINGF(
-				L"TxdAsset::Refresh() -> Found 2 image files with the same name but different extension, ignoring last occurence: %ls",
-				fileName.GetCStr());
-			continue;
-		}
-
-		if (!ValidateTextureName(fileName))
-			continue;
-
-		imageNames.Insert(nameHash);
-		imageFiles.Emplace(std::move(fileName));
+		scannedTuneHashes.Insert(tune->GetHashKey());
 	}
 
-	// Find and remove image files that were deleted
-	rage::atArray<u32> imagesToRemove; // Store temp array because we can't alter collection (m_Textures) we're iterating
-	for (const Texture& texture : m_Textures)
+	// Find textures that were removed and get rid of their tunes
+	List<u32> tuneIndicesToRemove;
+	int tunesToRemoveCount = m_TextureTunes.GetSize() - scannedTuneHashes.GetNumUsedSlots();
+
+	// No texture was removed/renamed
+	if (tunesToRemoveCount == 0)
+		return;
+
+	// Find indices of removed texture tunes
+	for (u32 i = 0; i < m_TextureTunes.GetSize(); i++)
 	{
-		u32 key = texture.GetHashKey();
+		// Texture that tune refers to wasn't scanned, meaning it was removed/renamed
+		if (!scannedTuneHashes.Contains(m_TextureTunes[i].GetHashKey()))
+		{
+			// Insert in beginning to remove from end to beginning (in reversed order)
+			// so indices don't invalidate because of element shifting after removal
+			tuneIndicesToRemove.Insert(0, i);
+		}
 
-		// Image is not in directory, file was removed
-		if (!imageFiles.ContainsAt(key))
-		{
-			imagesToRemove.Add(key);
-			AM_TRACEF(L"TxdAsset::Refresh() -> Image file %ls was removed.", texture.GetFileName());
-		}
-		// Both config and image file are present, don't do anything to it
-		else
-		{
-			imageFiles.RemoveAt(key);
-		}
+		// We found all indices we have to remove
+		if (tunesToRemoveCount == tuneIndicesToRemove.GetSize())
+			break;
 	}
 
-	// Now we can safely clean up removes images
-	for (u32 key : imagesToRemove)
-		m_Textures.RemoveAt(key);
-
-	// Add new images (that didn't exist before)
-	for (const rage::atWideString& imageName : imageFiles)
-	{
-		m_Textures.ConstructAt(joaat(imageName), this, imageName);
-	}
+	// Remove 'em all
+	for (u32 i : tuneIndicesToRemove)
+		m_TextureTunes.RemoveAt(i);
 }
 
 void rageam::asset::TxdAsset::Serialize(XmlHandle& node) const
 {
-	for (const Texture& texture : m_Textures)
+	for (const TextureTune& texture : m_TextureTunes)
 	{
+		file::Path fileName = PATH_TO_UTF8(file::GetFileName(texture.GetFilePath()));
+
 		XmlHandle xTexture = node.AddChild("Texture");
-		xTexture.SetAttribute("File", String::ToUtf8Temp(texture.GetFileName()));
+		xTexture.SetAttribute("File", fileName);
 		texture.Serialize(xTexture);
 	}
 }
 
 void rageam::asset::TxdAsset::Deserialize(const XmlHandle& node)
 {
-	for (XmlHandle xTexture : XmlIterator(node, "Texture"))
+	for (const XmlHandle& xTexture : XmlIterator(node, "Texture"))
 	{
 		ConstString fileName;
 		xTexture.GetAttribute("File", fileName);
 
-		ConstWString texturePath = String::ToWideTemp(fileName);
-		u32 hashKey = rage::joaat(texturePath); // AssetSource::GetHashKey() is file name hash
+		file::WPath filePath = GetDirectoryPath() / PATH_TO_WIDE(fileName);
 
-		Texture& texture = m_Textures.ConstructAt(hashKey, this, texturePath);
-		texture.Deserialize(xTexture);
+		TextureTune& tune = m_TextureTunes.Construct(this, filePath);
+		tune.Deserialize(xTexture);
 	}
 }
 
-bool rageam::asset::TxdAsset::RenameTextureTune(const Texture& textureTune, const file::WPath& newFileName)
+rageam::asset::TextureTune& rageam::asset::TxdAsset::AddTune(ConstWString filePath)
 {
-	file::Path newName;
-	if (!GetValidatedTextureName(newFileName, newName))
+	return m_TextureTunes.Construct(this, filePath);
+}
+
+bool rageam::asset::TxdAsset::GetValidatedTextureName(const file::WPath& texturePath, file::Path& outName, bool showWarningMessage) const
+{
+	outName = "";
+
+	file::WPath fileName = texturePath.GetFileNameWithoutExtension();
+	if (!ValidateTextureName(fileName, showWarningMessage))
 		return false;
 
-	// We have to make copy because original texture tune will be destroyed on Remove
-	Texture textureTuneCopy = textureTune;
-	String::Copy(textureTuneCopy.Name, Texture::MAX_NAME, newName);
-	textureTuneCopy.SetFileName(newFileName);
-
-	// We have to reinsert tune in set with new name, remove it first
-	m_Textures.Remove(textureTune);
-
-	// Now it was renamed, we can insert it back
-	m_Textures.Emplace(std::move(textureTuneCopy));
-
+	outName = String::ToAnsiTemp(fileName);
 	return true;
 }
 
-void rageam::asset::TxdAsset::RemoveTextureTune(const Texture& textureTune)
+bool rageam::asset::TxdAsset::ContainsTextureWithName(ConstString name) const
 {
-	m_Textures.Remove(textureTune);
+	file::WPath lhsName = file::PathConverter::Utf8ToWide(name);
+	for (TextureTune& tune : m_TextureTunes)
+	{
+		file::WPath rhsName = tune.GetFilePath();
+		rhsName = rhsName.GetFileNameWithoutExtension();
+
+		if (String::Equals(lhsName, rhsName))
+			return true;
+	}
+	return false;
+}
+
+rageam::asset::TextureTune* rageam::asset::TxdAsset::TryFindTuneFromPath(ConstWString path) const
+{
+	u32 hashKey = TextureTune::ComputeHashKey(path);
+	for (TextureTune& tune : m_TextureTunes)
+	{
+		if (tune.GetHashKey() == hashKey)
+			return &tune;
+	}
+	return nullptr;
+}
+
+rage::grcTexture* rageam::asset::TxdAsset::CompileSingleTexture(TextureTune& tune, bool storeData, amPtr<TexturePreset>* outPreset) const
+{
+	// Ensure that texture name is valid before compression
+	ConstWString filePath = tune.GetFilePath();
+	file::Path validatedName;
+	if (!GetValidatedTextureName(filePath, validatedName))
+		return nullptr;
+
+	TextureOptions& texOptions = tune.GetCustomOptionsOrFromPreset(outPreset);
+
+	graphics::CompressedImageInfo encodedInfo;
+	graphics::ImagePtr compressedImage = graphics::ImageFactory::LoadFromPathAndCompress(
+		filePath, texOptions.CompressorOptions, &encodedInfo);
+	if (!compressedImage)
+		return nullptr;
+
+	graphics::ImageInfo& imageInfo = encodedInfo.ImageInfo;
+	rage::grcTextureDX11* gameTexture = new rage::grcTextureDX11(
+		imageInfo.Width,
+		imageInfo.Height,
+		imageInfo.MipCount,
+		ImagePixelFormatToDXGI(imageInfo.PixelFormat),
+		compressedImage->GetPixelDataBytes(),
+		storeData);
+	gameTexture->SetName(validatedName);
+
+	return gameTexture;
 }
 
 bool rageam::asset::TxdAsset::ValidateTextureName(ConstWString fileName, bool showWarningMessage)
@@ -266,7 +355,7 @@ bool rageam::asset::TxdAsset::ValidateTextureName(ConstWString fileName, bool sh
 		if (showWarningMessage)
 		{
 			AM_WARNINGF(
-				L"TxdAsset::ValidateTextureName() -> Found non ASCII symbol in %ls (%lc)! Name cannot be converted safely, skipping!",
+				L"TxdAsset::ValidateTextureName() -> Found non ASCII symbol in %ls (%lc)! Name cannot be converted safely!",
 				fileName, c);
 		}
 
@@ -275,90 +364,7 @@ bool rageam::asset::TxdAsset::ValidateTextureName(ConstWString fileName, bool sh
 	return true;
 }
 
-bool rageam::asset::TxdAsset::IsAssetTexture(const file::WPath& texturePath)
+bool rageam::asset::TxdAsset::IsSupportedImageFile(ConstWString texturePath)
 {
-	file::WPath assetPath;
-	if (!GetTxdAssetPathFromTexture(texturePath, assetPath)) 
-		return false; // Not in asset directory
-	return IsSupportedTextureExtension(texturePath);
-}
-
-bool rageam::asset::TxdAsset::GetTxdAssetPathFromTexture(const file::WPath& texturePath, file::WPath& path)
-{
-	path = GetTxdAssetPathFromTexture(texturePath);
-	return ImmutableWString(path).EndsWith(ASSET_ITD_EXT);
-}
-
-rageam::file::WPath rageam::asset::TxdAsset::GetTxdAssetPathFromTexture(const file::WPath& texturePath)
-{
-	return texturePath.GetParentDirectory();
-}
-
-bool rageam::asset::TxdAsset::IsSupportedTextureExtension(const file::WPath& texturePath)
-{
-	return texture::IsImageFormat(texturePath.GetExtension());
-}
-
-rageam::asset::Texture* rageam::asset::TxdAsset::TryFindTextureTuneFromPath(const file::WPath& texturePath) const
-{
-	ConstWString fileName = file::GetFileName<wchar_t>(texturePath);
-	return m_Textures.TryGetAt(rage::joaat(fileName));
-}
-
-rageam::asset::Texture* rageam::asset::TxdAsset::CreateTuneForPath(const file::WPath& texturePath)
-{
-	if (!IsSupportedTextureExtension(texturePath))
-		return nullptr;
-
-	Texture newTune(this, texturePath.GetFileName());
-	return &m_Textures.Insert(newTune);
-}
-
-bool rageam::asset::TxdAsset::GetValidatedTextureName(const file::WPath& texturePath, file::Path& outName) const
-{
-	outName = "";
-
-	file::WPath fileName = texturePath.GetFileNameWithoutExtension();
-	if (!ValidateTextureName(fileName))
-		return false;
-
-	outName = String::ToAnsiTemp(fileName);
-	return true;
-}
-
-bool rageam::asset::TxdAsset::ContainsTexture(ConstString name) const
-{
-	u32 nameHash = rage::joaat(name);
-	for(const Texture& textureTune : m_Textures)
-	{
-		if (textureTune.NameHash == nameHash)
-			return true;
-	}
-	return false;
-}
-
-rage::grcTexture* rageam::asset::TxdAsset::CompileTexture(const Texture* textureTune) const
-{
-	const file::WPath& texturePath = textureTune->GetFullPath();
-
-	texture::CompressionOptions options;
-	textureTune->Options.GetCompressionOptions(options);
-
-	char* pixelData;
-
-	texture::Surface surface;
-	surface.SetCompressOptions(options);
-	if (!surface.LoadToRam(texturePath, &pixelData))
-	{
-		delete[] pixelData;
-		return nullptr;
-	}
-
-	const texture::CompressedInfo& info = surface.GetInfo();
-	rage::grcTexture* gameTexture = new rage::grcTextureDX11(info.Width, info.Height, 1, info.MipCount, info.Format, pixelData);
-
-	const file::WPath& textureName = texturePath.GetFileNameWithoutExtension();
-	gameTexture->SetName(String::ToAnsiTemp(textureName));
-
-	return gameTexture;
+	return graphics::ImageFactory::IsSupportedImageFormat(texturePath);
 }

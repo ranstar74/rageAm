@@ -1,7 +1,7 @@
 //
 // File: workspace.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
@@ -12,14 +12,16 @@
 
 namespace rageam::asset
 {
+	// TODO: Build configurations, integrated with texture presets
+
+	// Workspace is project directory, it defines visibility scope for resources
+	// (for example textures that can be picked in drawable material editor)
+	// and also holds project specific settings
+
 	class TxdAsset;
 	class DrawableAsset;
-	// Workspace were introduced mainly as solution of 'visibility scope' issue,
-	// for example what textures do we show to in material editor picker?
-	// Logical answer - every texture in project directory, this is what workspace is
-	// Eventually workspace will compile into .rpf
 
-	static constexpr ConstWString WORKSPACE_EXT = L".pack";
+	static constexpr ConstWString WORKSPACE_EXT = L".ws";
 
 	// NOTE: We use following abbreviations for asset types:
 	// TD - Texture Dictionary
@@ -76,7 +78,7 @@ namespace rageam::asset
 		// Gets if closest parent directory in hierarchy is workspace and not an asset
 		static bool IsInWorkspace(ConstWString filePath);
 
-		// Gets 'x:/dlc.pack' from 'x:/dlc.pack/props'
+		// Gets 'x:/dlc.ws' from 'x:/dlc.ws/props'
 		// Returns whether path is within a workspace
 		// Out path is set to empty string if workspace was not found
 		static bool GetParentWorkspacePath(ConstWString assetPath, file::WPath& outPath);

@@ -1,64 +1,57 @@
 //
 // File: txd.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
 #pragma once
 
 #include "am/asset/gameasset.h"
-#include "am/graphics/texture/compressor.h"
-#include "rage/grcore/texture/texturedict.h"
-#include "rage/atl/set.h"
+#include "am/graphics/image/bc.h"
+#include "rage/grcore/txd.h"
 
 namespace rageam::asset
 {
+	// Maximum num of texture compressing in background in parallel
+	static constexpr int ASSET_TXD_BACKGROUND_THREADS_MAX = 12;
+
 	// Version History:
 	// 0: Initial
+
+	struct TexturePreset;
+	class TxdAsset;
 
 	struct TextureOptions : IXml
 	{
 		XML_DEFINE(TextureOptions);
 
-		texture::CompressorQuality	Quality = texture::COMPRESSOR_QUALITY_NORMAL;
-		texture::ResizeFilter		ResizeFilter = texture::RESIZE_FILTER_KRAISER;
-		texture::MipFilter			MipFilter = texture::MIP_FILTER_KRAISER;
-		DXGI_FORMAT					Format = texture::TEXTURE_FORMAT_AUTO;
-		u32							MaxSize = texture::MAX_RESOLUTION;
-		bool						GenerateMips = true;
+		graphics::ImageCompressorOptions CompressorOptions;
 
-		void GetCompressionOptions(texture::CompressionOptions& outOptions) const;
-
+		void SerializeChanged(const XmlHandle& node, const TextureOptions& options) const;
 		void Serialize(XmlHandle& node) const override;
 		void Deserialize(const XmlHandle& node) override;
+
+		bool operator==(const TextureOptions&) const = default;
 	};
 
-	struct Texture : AssetSource
+	struct TextureTune : AssetSource
 	{
-		static constexpr int MAX_NAME = 128;
+		// By default, options are parsed from template and not saved to tune file
+		Nullable<TextureOptions>	Options;
+		// Empty string for unspecified
+		string						OverridePreset;
 
-		// This is actual name that will be used in game after export, contains no extension and unicode characters
-		char			Name[MAX_NAME];
-		u32				NameHash;
-		TextureOptions	Options;
+		TextureTune(AssetBase* parent, ConstWString fileName);
 
-		bool IsPreCompressed; // For .dds we just use pixel data as-is without re-compressing
-
-		Texture(AssetBase* parent, ConstWString fileName) : AssetSource(parent, fileName)
-		{
-			// TxdAsset::Refresh() will ensure that name has no unicode characters and conversion is valid
-			file::GetFileNameWithoutExtension(Name, MAX_NAME, String::ToAnsiTemp(fileName));
-			NameHash = rage::joaat(Name);
-
-			IsPreCompressed = String::Equals(file::GetExtension(fileName), L"dds", true);
-		}
+		TxdAsset* GetTXD() const;
+		TextureOptions& GetCustomOptionsOrFromPreset(amPtr<TexturePreset>* outPreset = nullptr);
+		amPtr<TexturePreset> MatchPreset() const;
 
 		void Serialize(XmlHandle& node) const override;
 		void Deserialize(const XmlHandle& node) override;
 	};
-	struct TextureHashFn { u32 operator()(const Texture& texture) const { return texture.GetHashKey(); } };
-	using Textures = rage::atSet<Texture, TextureHashFn>;
+	using Textures = List<TextureTune>;
 
 	/**
 	 * \brief Texture Dictionary
@@ -66,16 +59,13 @@ namespace rageam::asset
 	 */
 	class TxdAsset : public GameRscAsset<rage::grcTextureDictionary>
 	{
-		Textures m_Textures;
+		Textures m_TextureTunes;
 
 	public:
-		TxdAsset(const file::WPath& path) : GameRscAsset(path) {}
+		TxdAsset(const file::WPath& path);
 
-		bool CompileToGame(rage::grcTextureDictionary* ppOutGameFormat) override;
-		void ParseFromGame(rage::pgDictionary<rage::grcTexture>* object) override
-		{
-			AM_UNREACHABLE("TxdAsset::ParseFromGame() -> Not implemented.");
-		}
+		bool CompileToGame(rage::grcTextureDictionary* object) override;
+		void ParseFromGame(rage::grcTextureDictionary* object) override;
 		void Refresh() override;
 
 		ConstWString GetXmlName()			const override { return L"TextureDictionary"; }
@@ -92,35 +82,27 @@ namespace rageam::asset
 
 		// ---------- Asset Related ----------
 
-		Textures& GetTextures() { return m_Textures; }
-		u32 GetTextureCount() const { return m_Textures.GetNumUsedSlots(); }
-
-		// After renaming old texture tune won't be valid anymore!
-		bool RenameTextureTune(const Texture& textureTune, const file::WPath& newFileName);
-		void RemoveTextureTune(const Texture& textureTune);
-
-		// Verify that texture name has no non-ascii symbols because
-		// they can't be converted into const char* and user will have issues later
-		static bool ValidateTextureName(ConstWString fileName, bool showWarningMessage = true);
-
-		// Checks if texture is placed in a TXD asset and have supported extension
-		static bool IsAssetTexture(const file::WPath& texturePath);
-		static bool GetTxdAssetPathFromTexture(const file::WPath& texturePath, file::WPath& path);
-		static file::WPath GetTxdAssetPathFromTexture(const file::WPath& texturePath);
-		static bool IsSupportedTextureExtension(const file::WPath& texturePath);
-
-		// Path can be full or not but it must contain texture name
-		Texture* TryFindTextureTuneFromPath(const file::WPath& texturePath) const;
-		// Returns NULL if given path is not valid
-		Texture* CreateTuneForPath(const file::WPath& texturePath);
+		TextureTune& AddTune(ConstWString filePath);
+		Textures& GetTextureTunes() { return m_TextureTunes; }
+		u32 GetTextureTuneCount() const { return m_TextureTunes.GetSize(); }
 
 		// Gets error-checked texture name from absolute/relative texture file path
-		bool GetValidatedTextureName(const file::WPath& texturePath, file::Path& outName) const;
+		bool GetValidatedTextureName(const file::WPath& texturePath, file::Path& outName, bool showWarningMessage = true) const;
+		bool ContainsTextureWithName(ConstString name) const;
 
-		bool ContainsTexture(ConstString name) const;
+		TextureTune* TryFindTuneFromPath(ConstWString path) const;
 
-		// Compiles single texture from given path
-		rage::grcTexture* CompileTexture(const Texture* textureTune) const;
+		// storeData is passed in grcTexture constructor, copies pixel data to local RAM storage
+		// not needed in all cases except for compiling in resource binary
+		// NOTE: Texture must be either deleted manually via operator delete or wrapped in pgPtr!
+		// outPreset will be set to used preset, if any
+		rage::grcTexture* CompileSingleTexture(
+			TextureTune& tune, bool storeData = false, amPtr<TexturePreset>* outPreset = nullptr) const;
+
+		// Verifies that texture name has no non-ascii symbols because
+		// they can't be converted into const char* and user will have issues later
+		static bool ValidateTextureName(ConstWString fileName, bool showWarningMessage = true);
+		static bool IsSupportedImageFile(ConstWString texturePath);
 	};
 	using TxdAssetPtr = amPtr<TxdAsset>;
 }

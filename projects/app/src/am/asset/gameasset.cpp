@@ -1,7 +1,7 @@
 #include "gameasset.h"
 
 #include "workspace.h"
-#include "am/time/datetime.h"
+#include "am/system/datetime.h"
 #include "am/xml/doc.h"
 
 rageam::asset::AssetBase::AssetBase(const file::WPath& path)
@@ -14,8 +14,11 @@ void rageam::asset::AssetBase::SetNewPath(ConstWString newPath, bool updateWorks
 {
 	m_Directory = newPath;
 	m_HashKey = Hash(newPath);
-	if(updateWorkspace)
+	if (updateWorkspace)
+	{
 		Workspace::GetParentWorkspacePath(newPath, m_WorkspaceDirectory);
+		m_WorkspaceDirectoryHash = Hash(m_WorkspaceDirectory);
+	}
 }
 
 bool rageam::asset::AssetBase::LoadConfig()
@@ -29,7 +32,9 @@ bool rageam::asset::AssetBase::LoadConfig()
 	if (!IsFileExists(configPath))
 	{
 		Refresh();
-		return AM_VERIFY(SaveConfig(), "Unable to save just created config");
+		// Don't save config on first asset opening, let user do this
+		// return AM_VERIFY(SaveConfig(), "Unable to save just created config");
+		return true;
 	}
 
 	try
@@ -75,7 +80,8 @@ bool rageam::asset::AssetBase::SaveConfig() const
 {
 	const file::WPath& configPath = GetConfigPath();
 
-	// Create root element with asset-specific name, (for txd its TextureDictionary). It will help to detect errors in xml file faster.
+	// Create root element with asset-specific name, (for txd its TextureDictionary).
+	// It will help to detect errors in xml file faster.
 	XmlDoc xDoc(String::ToAnsiTemp(GetXmlName()));
 
 	// Add asset format version
@@ -101,8 +107,14 @@ bool rageam::asset::AssetBase::SaveConfig() const
 	return true;
 }
 
-void rageam::asset::AssetSource::SetFileName(ConstWString fileName)
+rageam::asset::AssetSource::AssetSource(AssetBase* parent, ConstWString filePath)
 {
-	m_FileName = fileName;
-	m_HashKey = Hash(m_FileName);
+	m_Parent = parent;
+	SetFilePath(filePath);
+}
+
+void rageam::asset::AssetSource::SetFilePath(ConstWString path)
+{
+	m_FilePath = path;
+	m_HashKey = ComputeHashKey(path);
 }

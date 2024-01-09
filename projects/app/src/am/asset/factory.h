@@ -34,6 +34,8 @@ namespace rageam::asset
 		static void Shutdown();
 
 		static AssetPtr LoadFromPath(const file::WPath& path);
+		// Converts compiled game asset to asset
+		static AssetPtr ParseFromPath(const file::WPath& path);
 
 		template<typename TAsset>
 		static amPtr<TAsset> LoadFromPath(const file::WPath& path)

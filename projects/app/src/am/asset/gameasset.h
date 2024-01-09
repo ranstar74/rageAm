@@ -1,13 +1,17 @@
 #pragma once
 
+#include "am/types.h"
 #include "am/file/fileutils.h"
 #include "am/file/path.h"
 #include "am/system/ptr.h"
 #include "am/xml/serialize.h"
-#include "common/types.h"
-#include "rage/atl/set.h"
-#include "rage/crypto/joaat.h"
 #include "rage/paging/compiler/compiler.h"
+
+// TODO:
+// - Cache system
+//		When compiling large problems, we don't want to recompile unchanged asset many times
+//		for caching we will need to correctly compute hash of an asset, for TXD
+//		we have to account texture files hash-sum + resolved templates
 
 namespace rageam::asset
 {
@@ -39,14 +43,14 @@ namespace rageam::asset
 	 */
 	class AssetBase : public IXml
 	{
-		file::WPath m_Directory;			// Path to directory where asset-specific files are located
-		file::WPath m_WorkspaceDirectory;	// Path to workspace that holds current asset, empty string if none
+		file::WPath m_Directory;				// Path to directory where asset-specific files are located
+		file::WPath m_WorkspaceDirectory;		// Path to workspace that holds current asset, empty string if none
+		HashValue	m_WorkspaceDirectoryHash;
 		bool		m_HasSavedConfig;
 		u32			m_HashKey;
 
 	public:
 		AssetBase(const file::WPath& path);
-
 		~AssetBase() override = default;
 
 		// If directory was renamed, workspace has to be updated if directory was moved
@@ -77,6 +81,7 @@ namespace rageam::asset
 		const file::WPath& GetDirectoryPath() const { return m_Directory; }
 		// Path to workspace that holds current asset, empty string if none
 		const file::WPath& GetWorkspacePath() const { return m_WorkspaceDirectory; }
+		HashValue GetWorkspacePathHash() const { return m_WorkspaceDirectoryHash; }
 		// Gets name in format 'adder.itd'
 		ConstWString GetAssetName() const { return file::GetFileName(m_Directory.GetCStr()); }
 		// Gets full path to asset config 'x:/assets/adder.itd/config.xml', config name is defined by ASSET_CONFIG_NAME
@@ -92,12 +97,15 @@ namespace rageam::asset
 			return path;
 		}
 
+		
+		virtual HashValue ComputeHashKey() { return 0; }
+
 		virtual eAssetType GetType() const = 0;
 
 		// Invoked by asset during compilation process, sort of:
 		// - adder_badges,	11%
 		// - adder_lights,	23%
-		// Note: This is not thread-safe function! Most likely gonna be invoked from BackgroundWorker threads.
+		// Note: This is not thread-safe function! Most likely going to be invoked from BackgroundWorker threads.
 		std::function<AssetCompileCallback> CompileCallback;
 
 	protected:
@@ -112,36 +120,28 @@ namespace rageam::asset
 
 	/**
 	 * \brief File that is being part of resource.
-	 * For texture dictionary such file will be an image.
-	 * \remarks Asset may have multiple source files, of course.
+	 * For texture dictionary such file will be an image file.
 	 */
 	class AssetSource : IXml
 	{
-		AssetBase* m_Parent;
-
-		file::WPath m_FileName; // File name including extension
-		u32			m_HashKey;	// Joaat of file name 
+		AssetBase*  m_Parent;
+		file::WPath m_FilePath; // Full file path including extension
+		u32			m_HashKey;
 
 	public:
-		AssetSource(AssetBase* parent, ConstWString fileName)
-		{
-			m_Parent = parent;
-			SetFileName(fileName);
-		}
-
+		AssetSource(AssetBase* parent, ConstWString filePath);
+		AssetSource(const AssetSource&) = default;
 		~AssetSource() override = default;
 
-		void SetFileName(ConstWString fileName);
-		// Gets base asset resource this source file belongs to.
+		// Gets base asset resource this source file belongs to
 		AssetBase* GetParent() const { return m_Parent; }
-		// Gets file name including extension.
-		ConstWString GetFileName() const { return m_FileName; }
-		// Gets absolute (full) path to this source file.
-		file::WPath GetFullPath() const { return m_Parent->GetDirectoryPath() / m_FileName; }
-		// Joaat of file name
+
+		void SetFilePath(ConstWString path);
+		ConstWString GetFilePath() const { return m_FilePath; }
 		u32 GetHashKey() const { return m_HashKey; }
+
+		static u32 ComputeHashKey(ConstWString path) { return Hash(path); }
 	};
-	using AssetSourcePtr = amPtr<AssetSource>;
 
 	/**
 	 * \brief Base class for game assets.

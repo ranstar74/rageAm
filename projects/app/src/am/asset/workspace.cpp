@@ -116,14 +116,14 @@ bool rageam::asset::Workspace::IsInWorkspace(ConstWString filePath)
 
 bool rageam::asset::Workspace::GetParentWorkspacePath(ConstWString assetPath, file::WPath& outPath)
 {
-	int extIndex = StringWrapper(assetPath).LastIndexOf(WORKSPACE_EXT);
+	int extIndex = StringWrapper(assetPath).IndexOf(WORKSPACE_EXT);
 	if (extIndex == -1)
 	{
 		outPath = L"";
 		return false;
 	}
 
-	extIndex += 5; // To include '.pack'
+	extIndex += 3; // To include '.ws'
 
 	// Copy and trim path
 	wchar_t buffer[MAX_PATH];

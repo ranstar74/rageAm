@@ -38,6 +38,11 @@ rageam::asset::AssetPtr rageam::asset::AssetFactory::LoadFromPath(const file::WP
 	return AssetPtr(asset);
 }
 
+rageam::asset::AssetPtr rageam::asset::AssetFactory::ParseFromPath(const file::WPath& path)
+{
+	AM_UNREACHABLE("AssetFactory::ParseFromPath() -> Not implemented.");
+}
+
 bool rageam::asset::AssetFactory::IsAsset(const file::WPath& path)
 {
 	return TryGetDefinition(path) != nullptr;
