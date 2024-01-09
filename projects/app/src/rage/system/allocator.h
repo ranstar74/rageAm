@@ -40,6 +40,9 @@ namespace rage
 	static constexpr u8 SYS_MEM_MAX_MEMORY_BUCKETS = 16;
 	static constexpr u8 SYS_MEM_INVALID_BUCKET = -1;
 
+	// Sets the allocator in Master/Current/Container slots of current thread
+	void sysMemInitCurrentThread();
+
 	inline rageam::Logger* GetMemoryLogger()
 	{
 		static rageam::Logger logger("memory");
