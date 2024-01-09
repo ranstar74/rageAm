@@ -1,3 +1,4 @@
+#include "am/ui/slwidgets.h"
 #ifdef AM_INTEGRATED
 
 #include "modelscene.h"
@@ -5,7 +6,6 @@
 #include "widgets.h"
 #include "am/integration/integration.h"
 #include "am/ui/font_icons/icons_am.h"
-#include "am/ui/styled/slwidgets.h"
 
 rageam::integration::DrawableStats rageam::integration::DrawableStats::ComputeFrom(gtaDrawable* drawable)
 {

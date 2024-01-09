@@ -2,12 +2,10 @@
 
 #ifdef AM_INTEGRATED
 
-#include "imgui_internal.h"
-#include "am/integration/hooks/gameinput.h"
 #include "am/integration/memory/address.h"
 #include "am/integration/memory/hook.h"
-#include "rage/framework/pool.h"
 #include "am/integration/im3d.h"
+#include "rage/framework/pool.h"
 
 void rageam::integration::ICameraComponent::SetActive(bool active)
 {

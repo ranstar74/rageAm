@@ -24,7 +24,7 @@ static void InitAddArchetypeHook()
 	init = true;
 
 	gmAddress addr = gmAddress::Scan("45 33 D2 3B 15 ?? ?? ?? ?? 7D 31");
-	Hook::Create(addr, aImpl_CDrawListMgr_AddArchetypeRef, &gImpl_CDrawListMgr_AddArchetypeRef, true);
+	Hook::Create(addr, aImpl_CDrawListMgr_AddArchetypeRef, &gImpl_CDrawListMgr_AddArchetypeRef);
 }
 
 void rageam::integration::GameEntity::CreateIfNotCreated()

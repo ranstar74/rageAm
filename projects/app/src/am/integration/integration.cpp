@@ -2,13 +2,11 @@
 
 #include "integration.h"
 
-#include "scriptcommands.h"
 #include "am/ui/imglue.h"
 #include "memory/address.h"
 #include "memory/hook.h"
-
-#include "am/ui/apps/integration/modelscene.h"
-#include "apps/starbar.h"
+#include "script/core.h"
+#include "script/commands.h"
 
 namespace
 {
@@ -103,8 +101,8 @@ void rageam::integration::GameIntegration::ShutdownComponentManager()
 void rageam::integration::GameIntegration::RegisterApps() const
 {
 	ui::ImGlue* ui = ui::GetUI();
-	ui->AddApp(new StarBar());
-	ui->AddApp(new ModelScene());
+	//ui->AddApp(new StarBar());
+	//ui->AddApp(new ModelScene());
 }
 
 void rageam::integration::GameIntegration::InitializeDrawLists()

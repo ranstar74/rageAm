@@ -1,10 +1,10 @@
+#include "am/ui/slwidgets.h"
 #ifdef AM_INTEGRATED
 
 #include "lighteditor.h"
 #include "ImGuizmo.h"
 #include "am/graphics/shapetest.h"
 #include "am/ui/font_icons/icons_am.h"
-#include "am/ui/styled/slwidgets.h"
 #include "modelscene.h"
 #include "am/integration/im3d.h"
 #include "game/viewport.h"

@@ -15,6 +15,7 @@
 #include "rage/math/math.h"
 #include "game/drawable.h"
 #include "updatecomponent.h"
+#include "am/integration/gameentity.h"
 
 #include <d3d11.h>
 

@@ -3,7 +3,7 @@
 #ifdef AM_INTEGRATED
 
 #include "integration.h"
-#include "script.h"
+#include "script/core.h"
 
 namespace
 {

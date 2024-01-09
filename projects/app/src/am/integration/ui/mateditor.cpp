@@ -1,5 +1,6 @@
 #include "am/string/fuzzysearch.h"
 #include "am/ui/imglue.h"
+#include "am/ui/slwidgets.h"
 #ifdef AM_INTEGRATED
 
 #include "mateditor.h"
@@ -10,8 +11,6 @@
 #include "am/integration/hooks/streaming.h"
 #include "am/string/splitter.h"
 #include "am/ui/font_icons/icons_am.h"
-#include "am/ui/styled/slgui.h"
-#include "am/ui/styled/slwidgets.h"
 #include "am/xml/doc.h"
 #include "am/xml/iterator.h"
 #include "rage/streaming/assetstore.h"
@@ -317,7 +316,7 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_Grid(bool g
 
 		bool dictOpen = true;
 		if (groupByDict)
-			dictOpen = SlGui::CollapsingHeader(search.DictName, ImGuiTreeNodeFlags_DefaultOpen);
+			dictOpen = ImGui::CollapsingHeader(search.DictName, ImGuiTreeNodeFlags_DefaultOpen);
 
 		if (dictOpen)
 		{
@@ -922,7 +921,7 @@ void rageam::integration::MaterialEditor::DrawShaderSearchListItem(u16 index)
 
 	// TODO: Show selected shader
 
-	SlGui::PushFont(SlFont_Small);
+	ImGui::PushFont(ImFont_Small);
 	ImGui::PushStyleColor(ImGuiCol_Button, buttonColor);
 	ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.0f, 0.5f)); // Align left
 	if (ImGui::ButtonEx(preset.Name, buttonSize))
@@ -935,7 +934,7 @@ void rageam::integration::MaterialEditor::DrawShaderSearchListItem(u16 index)
 	}
 	ImGui::PopStyleVar();	// ButtonTextAlign
 	ImGui::PopStyleColor(); // Button
-	SlGui::PopFont();
+	ImGui::PopFont();
 }
 
 void rageam::integration::MaterialEditor::DrawShaderSearchList()
@@ -954,7 +953,7 @@ void rageam::integration::MaterialEditor::DrawShaderSearchList()
 	// Shaders
 	if (ImGui::BeginChild("SHADER_LIST", ImVec2(0, height)))
 	{
-		SlGui::ShadeItem(SlGuiCol_Bg);
+		//SlGui::ShadeItem(SlGuiCol_Bg);
 
 		// Display either search result or all presets
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 1));
@@ -987,7 +986,7 @@ void rageam::integration::MaterialEditor::DrawShaderSearchFilters()
 
 	// ShaderCategories
 	SlGui::CategoryText("Categories");
-	SlGui::PushFont(SlFont_Small);
+	ImGui::PushFont(ImFont_Small);
 	if (ImGui::BeginTable("SHADER_CATEGORIES_TABLE", 2))
 	{
 		ImGui::TableNextColumn(); CATEGORY_FLAG(Vehicle);	ImGui::TableNextColumn(); CATEGORY_FLAG(Ped);
@@ -998,11 +997,11 @@ void rageam::integration::MaterialEditor::DrawShaderSearchFilters()
 		ImGui::TableNextColumn(); CATEGORY_FLAG(Misc);
 		ImGui::EndTable();
 	}
-	SlGui::PopFont();
+	ImGui::PopFont();
 
 	// ShaderMaps
 	SlGui::CategoryText("Maps");
-	SlGui::PushFont(SlFont_Small);
+	ImGui::PushFont(ImFont_Small);
 	if (ImGui::BeginTable("SHADER_MAPS_TABLE", 1))
 	{
 		ImGui::TableNextColumn(); MAP_FLAG(Detail);
@@ -1012,7 +1011,7 @@ void rageam::integration::MaterialEditor::DrawShaderSearchFilters()
 		ImGui::TableNextColumn(); MAP_FLAG(Tint);
 		ImGui::EndTable();
 	}
-	SlGui::PopFont();
+	ImGui::PopFont();
 
 	ImGui::PopStyleVar(1); // CellPadding
 
@@ -1037,9 +1036,9 @@ void rageam::integration::MaterialEditor::DrawShaderSearch()
 		// Column: Filters
 		if (ImGui::TableNextColumn())
 		{
-			SlGui::BeginPadded("SHADER_SEARCH_FILTERS_PADDING", ImVec2(4, 4));
+			//SlGui::BeginPadded("SHADER_SEARCH_FILTERS_PADDING", ImVec2(4, 4));
 			DrawShaderSearchFilters();
-			SlGui::EndPadded();
+			//SlGui::EndPadded();
 		}
 
 		ImGui::EndTable();
@@ -1055,7 +1054,7 @@ void rageam::integration::MaterialEditor::DrawMaterialList()
 		ImGui::EndChild();
 		return;
 	}
-	SlGui::ShadeItem(SlGuiCol_Bg);
+	//SlGui::ShadeItem(SlGuiCol_Bg);
 
 	asset::DrawableTune& drawableTune = m_Context->DrawableAsset->GetDrawableTune();
 
@@ -1150,11 +1149,11 @@ void rageam::integration::MaterialEditor::DrawMaterialList()
 
 void rageam::integration::MaterialEditor::DrawMaterialVariables()
 {
-	if (!SlGui::BeginPadded("MaterialEditor_Properties_Padding", ImVec2(6, 6)))
-	{
-		SlGui::EndPadded();
-		return;
-	}
+	//if (!SlGui::BeginPadded("MaterialEditor_Properties_Padding", ImVec2(6, 6)))
+	//{
+	//	SlGui::EndPadded();
+	//	return;
+	//}
 
 	rage::grmShader* material = GetSelectedMaterial();
 
@@ -1295,16 +1294,16 @@ void rageam::integration::MaterialEditor::DrawMaterialVariables()
 		}
 	}
 	ImGui::EndTable();  // MaterialEditor_Properties
-	SlGui::EndPadded(); // MaterialEditor_Properties_Padding
+	//SlGui::EndPadded(); // MaterialEditor_Properties_Padding
 }
 
 void rageam::integration::MaterialEditor::DrawMaterialOptions() const
 {
-	if (!SlGui::BeginPadded("MaterialEditor_Options_Padding", ImVec2(6, 6)))
-	{
-		SlGui::EndPadded();
-		return;
-	}
+	//if (!SlGui::BeginPadded("MaterialEditor_Options_Padding", ImVec2(6, 6)))
+	//{
+	//	SlGui::EndPadded();
+	//	return;
+	//}
 
 	rage::grmShader* material = GetSelectedMaterial();
 
@@ -1362,7 +1361,7 @@ void rageam::integration::MaterialEditor::DrawMaterialOptions() const
 	}
 	renderMask.SetRenderFlags(renderFlags);
 
-	SlGui::EndPadded();
+	//SlGui::EndPadded();
 }
 
 void rageam::integration::MaterialEditor::StoreMaterialValue(u16 materialIndex, u16 varIndex)
@@ -1466,7 +1465,7 @@ void rageam::integration::MaterialEditor::Render()
 			// Column: Mat Properties
 			if (ImGui::TableNextColumn())
 			{
-				SlGui::BeginPadded("MATERIAL_PROPERTIES_PADDING", ImVec2(4, 4));
+				//SlGui::BeginPadded("MATERIAL_PROPERTIES_PADDING", ImVec2(4, 4));
 				ImGui::Text("Shader: %s.fxc", GetSelectedMaterial()->GetEffect()->GetName());
 				ImGui::SameLine();
 				ImGui::HelpMarker(
@@ -1488,7 +1487,7 @@ void rageam::integration::MaterialEditor::Render()
 
 					ImGui::EndTabBar();
 				}
-				SlGui::EndPadded();
+				//SlGui::EndPadded();
 			}
 
 			// Column: Shaders

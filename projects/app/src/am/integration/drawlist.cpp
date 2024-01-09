@@ -3,7 +3,6 @@
 #ifdef AM_INTEGRATED
 
 #include "am/graphics/buffereditor.h"
-#include "am/integration/gameentity.h"
 #include "am/system/datamgr.h"
 #include "game/viewport.h"
 #include "helpers/com.h"
