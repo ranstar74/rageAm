@@ -147,16 +147,12 @@ project "rageAm"
 	includedirs { "projects/app/src" }
 
 	-- TODO: Can we rewrite this mess better?
-	defines { "IMGUI_USER_CONFIG=" .. "\"" .. (os.realpath("projects/app/src/am/ui/imgui/config.h")) .. "\"" }
+	defines { "IMGUI_USER_CONFIG=" .. "\"" .. (os.realpath("projects/app/src/am/ui/imgui_config.h")) .. "\"" }
 	defines { "AM_DEFAULT_DATA_DIR=" .. "LR\"(" .. (os.realpath("data")) .. ")\"" }
 	defines { "AM_DATA_DIR=L\"data\"" }
 	
-	filter { "options:integrated" }
-		include_vendors { "shv" }
-	filter{}
-	
 	include_vendors {
-		"imgui",
+		"slgui", -- ImGui
 		"imguizmo",
 		"implot",
 		"tinyxml2",
@@ -171,13 +167,14 @@ project "rageAm"
 		"bc7enc_rdo",
 		"libwebp",
 		"icbc",
+		"lunasvg",
 	}
 	links { "Comctl32.lib" } 	-- TaskDialog
 	links { "dbghelp" } 		-- StackTrace
 	links { "d3d11.lib" }
 	links { "Shlwapi.lib" } 	-- PathMatchSpecA
 	links { "dxguid.lib" } 		-- Reflection
-
+	
 	filter "files:**.natvis"
 		buildaction "Natvis"
 	filter{}
@@ -185,3 +182,8 @@ project "rageAm"
 	dpiawareness "HighPerMonitor"
 
 	defines { "NOMINMAX" }
+
+	defines { "APP_BUILD_2699_16=1" }
+	defines { "APP_BUILD_2699_16_FINAL=0" }
+	defines { "APP_BUILD_2699_16_RELEASE=1" }
+	defines { "APP_BUILD_2699_16_RELEASE_NO_OPT=1" } -- Includes APP_BUILD_2699_16_RELEASE, but higher priority

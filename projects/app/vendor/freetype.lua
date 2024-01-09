@@ -1,4 +1,4 @@
-files { "freetype/include/**.h", "freetype/include/**.cpp" }
+files { "freetype/**.h", "freetype/**.cpp", "freetype/**.c" }
 includedirs { "freetype/include/" }
 
 libdirs { "freetype/lib/" }
