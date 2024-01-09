@@ -132,6 +132,13 @@ namespace rage
 		// 
 		u32 m_Data = 0;
 
+#if APP_BUILD_2699_16_RELEASE
+		bool	m_SizeIsFromConfigFile = false;
+		char	m_Name[32] = {};
+		int		m_PeakNumSlotsUsed = 0;
+		bool	m_Logged = false;
+#endif
+
 		u32 GetOffset(pVoid slot) const { return (u32)((u64)slot - (u64)m_Slots); }
 		char* GetSlotPtr(u32 index) const { return m_Slots + (u64)(index * m_ItemSize); }
 		FreeSlot* GetFreeSlotPtr(u32 index) const { return reinterpret_cast<FreeSlot*>(GetSlotPtr(index)); }
@@ -193,7 +200,7 @@ namespace rage
 			return static_cast<T*>(fwBasePool::New());
 		}
 
-		T* GetSlot(u32 index)
+		T* GetSlot(u32 index) const
 		{
 			return static_cast<T*>(fwBasePool::GetSlotFromJustIndex(index));
 		}
