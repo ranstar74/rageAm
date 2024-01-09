@@ -1,25 +1,47 @@
 #pragma once
 
-#include <Windows.h>
-#include "common/types.h"
-
 namespace rage
 {
-	class TlsManager
-	{
-		static u64 GetBase()
-		{
-			// Dirty hack to get slot 0 of current thread block
-			return *(u64*)((u64)NtCurrentTeb() + 0x58);
-		}
-	public:
-		template<typename T>
-		static T& GetAt(u32 offset) { return *(T*)(GetBase() + offset); }
-	};
-
+#ifdef AM_INTEGRATED
 	template<typename T>
 	class ThreadLocal
 	{
-		// TODO: ...
+		int m_Offset = -1;
+
+	public:
+		ThreadLocal() = default;
+		ThreadLocal(int offset) : ThreadLocal() { SetOffset(offset); }
+		ThreadLocal(const ThreadLocal&) = delete;
+		ThreadLocal(ThreadLocal&&) noexcept = delete;
+
+		void SetOffset(int offset)
+		{
+			m_Offset = offset;
+		}
+
+		T& Get()
+		{
+			AM_ASSERT(m_Offset != -1, "ThreadLocal::Get() -> Offset was not set!");
+			u64 tls = *(u64*)__readgsqword(0x58);
+			return *(T*)(tls + m_Offset);
+		}
+
+		void Set(const T& value)
+		{
+			Get() = value;
+		}
+
+		operator T& () { return Get(); }
+
+		ThreadLocal& operator=(const T& value) { Get() = value; return *this; }
+		ThreadLocal& operator=(const ThreadLocal&) = delete;
+		ThreadLocal& operator=(ThreadLocal&&) noexcept = delete;
 	};
+#endif
+
+#ifdef AM_INTEGRATED
+#define AM_TL(type) ThreadLocal<type>
+#else
+#define AM_TL(type) thread_local type
+#endif
 }
