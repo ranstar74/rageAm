@@ -35,4 +35,15 @@ namespace rageam::file
 	size_t ReadFileSteam(pVoid buffer, size_t bufferSize, size_t readSize, FILE* fs);
 	bool WriteFileSteam(pConstVoid buffer, size_t writeSize, FILE* fs);
 	void CloseFileStream(FILE* file);
+
+	struct FSHandle
+	{
+		FILE* fs;
+		FSHandle(FILE* fs) { this->fs = fs; }
+		~FSHandle() { CloseFileStream(fs); fs = nullptr; }
+
+		FILE* Get() const { return fs; }
+
+		bool operator!() const { return !fs; }
+	};
 }
