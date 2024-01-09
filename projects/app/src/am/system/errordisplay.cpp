@@ -1,7 +1,5 @@
 #include "errordisplay.h"
 
-#include <vcruntime_typeinfo.h>
-
 #include "dialog.h"
 #include "am/string/string.h"
 #include "am/ui/app.h"
@@ -41,10 +39,10 @@ AM_NOINLINE void rageam::ErrorDisplay::OutOfMemory(rage::sysMemAllocator* alloca
 	char usedText[32];
 	char availableText[32];
 	char toExtendText[32];
-	FormatBytes(requestedText, 32, allocSize);
-	FormatBytes(usedText, 32, used);
-	FormatBytes(availableText, 32, available);
-	FormatBytes(toExtendText, 32, toExtend);
+	FormatSize(requestedText, 32, allocSize);
+	FormatSize(usedText, 32, used);
+	FormatSize(availableText, 32, available);
+	FormatSize(toExtendText, 32, toExtend);
 
 	// We only got 3 system allocators (general / virtual / physical) so class name is enough to identify them.
 	ConstString allocatorName = typeid(*allocator).name();
