@@ -4,7 +4,7 @@
 #include "am/file/fileutils.h"
 #include "am/xml/doc.h"
 #include "am/xml/serialize.h"
-#include "am/task/worker.h"
+#include "am/system/worker.h"
 #include "rage/math/math.h"
 #include "imagecache.h"
 
@@ -335,7 +335,7 @@ rageam::graphics::CompressedImageInfo rageam::graphics::ImageCompressor::GetInfo
 		"ImageCompressor::GetInfoAndHash() -> Max resolution is not power of two (%u)!", options.MaxResolution);
 
 	// Compression is not currently implemented for other pixel formats...
-	if (imgInfo.PixelFormat != ImagePixelFormat_U32 && imgInfo.PixelFormat != ImagePixelFormat_U24)
+	if (!options.AllowRecompress && imgInfo.PixelFormat != ImagePixelFormat_U32 && imgInfo.PixelFormat != ImagePixelFormat_U24)
 	{
 		AM_UNREACHABLE("ImageCompressor::GetInfoAndHash() -> Pixel format '%s' is not implemented.",
 			Enum::GetName(imgInfo.PixelFormat));
@@ -366,6 +366,7 @@ rageam::graphics::CompressedImageInfo rageam::graphics::ImageCompressor::GetInfo
 	encodeInfo.CutoutAlphaThreshold = options.CutoutAlpha ? options.CutoutAlphaThreshold : 0;
 	encodeInfo.AlphaTestCoverage = options.AlphaTestCoverage;
 	encodeInfo.AlphaTestThreshold = options.AlphaTestCoverage ? options.AlphaTestThreshold : 0;
+	encodeInfo.IsSourceCompressed = ImageIsCompressedFormat(imgInfo.PixelFormat);
 
 	// Threshold 0 causes weird artifacts (because whole image turned opaque), clamp to 1
 	if (encodeInfo.CutoutAlphaThreshold == 0)
@@ -472,7 +473,10 @@ rageam::graphics::ImagePtr rageam::graphics::ImageCompressor::Compress(
 	// Input image must be in RGBA for faster encoding, converting pixel format is extremely fast
 	if (imageInfo.PixelFormat != ImagePixelFormat_U32)
 	{
-		preparedImage = img->ConvertPixelFormat(ImagePixelFormat_U32);
+		if (ImageIsCompressedFormat(imageInfo.PixelFormat) && options.AllowRecompress)
+			preparedImage = Decompress(img);
+		else
+			preparedImage = img->ConvertPixelFormat(ImagePixelFormat_U32);
 		imageInfo.PixelFormat = ImagePixelFormat_U32;
 	}
 

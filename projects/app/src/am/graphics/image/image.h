@@ -1,7 +1,7 @@
 //
 // File: image.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
@@ -17,9 +17,9 @@
 #include "am/system/enum.h"
 
 // TODO:
-// - Brightness / contrast
+// - Brightness / contrast / levels
 // - Large allocator for images, currently we use malloc
-// - Grayscale format for DDS (used for specular/height)
+// - Alpha test coverage in encoder is done even if texture has no alpha
 //
 // Formats
 // - TIFF
@@ -30,6 +30,7 @@ namespace rageam::graphics
 	struct CompressedImageInfo;
 	struct ImageCompressorOptions;
 	class PixelDataOwner;
+	class Image;
 
 	// Enables mix of SSE and AVX2 image processing
 	// AVX2 (AM_IMAGE_USE_AVX2) is enabled if project is created with --avx2 options
@@ -62,6 +63,7 @@ namespace rageam::graphics
 		ImageKind_PSD,
 		ImageKind_DDS,
 		ImageKind_ICO,
+		ImageKind_SVG,
 	};
 
 	// Formats that are supported for writing (saving) to file
@@ -91,6 +93,7 @@ namespace rageam::graphics
 		ResizeFilter_CubicBSpline,
 		ResizeFilter_CatmullRom,
 		ResizeFilter_Mitchell,
+		ResizeFilter_Point,
 	};
 
 	enum ImagePixelFormat
@@ -113,6 +116,13 @@ namespace rageam::graphics
 		ImagePixelFormat_BC7,
 	};
 
+	static constexpr ConstString ImagePixelFormatToName[] =
+	{
+		"None",
+		"RGBA", "RGB", "Gray Alpha (GA16)", "Gray (U8)", "Alpha (A8)",
+		"BC1", "BC2", "BC3", "BC4", "BC5", "BC7"
+	};
+
 	static constexpr u32 ImagePixelFormatToFourCC[] =
 	{
 		0, 0, 0, 0, 0, 0,			// None, U32, U24, U16, U8, A8
@@ -131,6 +141,7 @@ namespace rageam::graphics
 		4, 8, 8, 4, 8, 8,		// BC1, BC2, BC3, BC4, BC5, BC7
 	};
 
+	static_assert(Enum::GetCount<ImagePixelFormat>() == sizeof(ImagePixelFormatToName) / sizeof(ConstString));
 	static_assert(Enum::GetCount<ImagePixelFormat>() == sizeof(ImagePixelFormatToFourCC) / sizeof(u32));
 	static_assert(Enum::GetCount<ImagePixelFormat>() == sizeof(ImagePixelFormatBitsPerPixel) / sizeof(int));
 
@@ -153,6 +164,11 @@ namespace rageam::graphics
 	void ImageScaleResolution(int wIn, int hIn, int wTo, int hTo, int& wOut, int& hOut, ResolutionScalingMode mode);
 	// If rectSize is equal to 0, original size is returned
 	void ImageFitInRect(int wIn, int hIn, int rectSize, int& wOut, int& hOut);
+
+	// Finds closest sized image in enumeration
+	// -1 if not found (only for empty list)
+	int ImageFindBestResolutionMatch(int imageCount, int width, int height,
+		const std::function<void(int i, int& w, int& h)>& getter);
 
 	// Gets whether given format is one of ImagePixelFormat_BC (block compressed)
 	bool ImageIsCompressedFormat(ImagePixelFormat fmt);
@@ -276,6 +292,9 @@ namespace rageam::graphics
 		// Those needs to be converted to RGBA before creating DX resource
 		bool			AllowImageConversion = true;
 		bool			PadToPowerOfTwo = false;
+		// Replaces initial pixel data with new if image was converted/padded/mip-mapped
+		// A bit hacky but useful in some scenarios when we want to have full copy of GPU texture
+		bool			UpdateSourceImage = false;
 	};
 
 	// Optionally ref counted pixel data pointer
@@ -343,7 +362,10 @@ namespace rageam::graphics
 		ImageInfo GetInfo() const;
 		int GetWidth() const { return m_Width; }
 		int GetHeight() const { return m_Height; }
+		int GetMipCount() const { return m_MipCount; }
 		ImagePixelFormat GetPixelFormat() const { return m_PixelFormat; }
+
+		bool IsBlockCompressed() const { return ImageIsCompressedFormat(m_PixelFormat); }
 
 		u32 ComputeRowPitch() const { return ImageComputeRowPitch(m_Width, m_PixelFormat); }
 		u32 ComputeSlicePitch() const { return ImageComputeSlicePitch(m_Width, m_Height, m_PixelFormat); }
@@ -432,18 +454,20 @@ namespace rageam::graphics
 		static bool IsSupportedImageFormat(ConstWString path) { return GetImageKindFromPath(path) != ImageKind_None; }
 
 		// Loads image from file system, cache option keeps image in memory
-		// See tl_ImagePreferredIcoResolution for ICO files
+		// See tl_ImagePreferredIcoResolution for ICO and tl_ImagePreferredSvgWidth & tl_ImagePreferredSvgHeight for SVG files
 		static ImagePtr LoadFromPath(ConstWString path, bool onlyMeta = false, bool useCache = true);
 
 		// Helper to load compressed image, at first it loads only image metadata to find matching compressed image in cache
 		// without fully loading image, and loads image only in case if it's not in cache
-		// NOTE: Pixels loaded from DDS, even uncompressed (for example RGBA) are returned as is!
+		// NOTE: Pixels loaded from DDS, even uncompressed (for example RGBA) are returned as is, unless ImageCompressorOptions::AllowRecompress is set!
 		static ImagePtr LoadFromPathAndCompress(
 			ConstWString path, const ImageCompressorOptions& compOptions, CompressedImageInfo* outCompInfo = nullptr, ImageCompressorToken* token = nullptr);
 
 		// Exists as separate loader because format does not quite fit in existing architecture
 		// Only PNG and 32Bit BMP formats are supported
 		static bool LoadIco(ConstWString path, List<ImagePtr>& icons);
+
+		static ImagePtr LoadSvg(ConstWString path, int width, int height);
 
 		// Copying pixels is only reasonable if given buffer data is temporary and may change
 		static ImagePtr Create(const PixelDataOwner& pixelData, ImagePixelFormat fmt, int width, int height, bool copyPixels = false);
@@ -462,6 +486,8 @@ namespace rageam::graphics
 		// Joaat of path mixed with file modify time
 		static u32 GetFastHashKey(ConstWString path);
 
+		static bool CanBlockCompressImage(ConstWString path);
+
 		// Format specific information:
 		// - DDS:
 		// Quality is ignored if given image is DDS and save file type is DDS.
@@ -477,9 +503,11 @@ namespace rageam::graphics
 		static bool SaveImage(ImagePtr img, ConstWString path, ImageFileKind toKind = ImageKind_None, float quality = 0.95f);
 
 		// Hint for image resolution to load from .ICO file using LoadFromPath / LoadFromPathAndCompress function's
-		// If there's no such resolution, closest one is picked
+		// For ICO: If there's no such resolution, closest one is picked
 		// If 0 is specified, largest available layer is selected
 		static inline thread_local int tl_ImagePreferredIcoResolution = 0;
+		static inline thread_local int tl_ImagePreferredSvgWidth = 256;
+		static inline thread_local int tl_ImagePreferredSvgHeight = 256;
 	};
 
 #ifdef AM_IMAGE_USE_SIMD

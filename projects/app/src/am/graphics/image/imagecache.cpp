@@ -155,12 +155,12 @@ void rageam::graphics::ImageCache::CleanUpOldEntriesToFitBudget()
 			m_SizeFs += entry.ImageSize;
 			m_NewToOldEntriesFS.Insert(0, hash);
 			IMAGE_CACHE_LOG("ImageCache::Cache() -> Image (hash: %x; size: %x or %s) was unloaded from memory to file",
-				hash, entry.ImageSize, FormatBytesTemp(entry.ImageSize));
+				hash, entry.ImageSize, FormatSize(entry.ImageSize));
 		}
 		else
 		{
 			IMAGE_CACHE_LOG("ImageCache::Cache() -> Image (hash: %x; size: %x or %s) was marked as memory only, removing completely",
-				hash, entry.ImageSize, FormatBytesTemp(entry.ImageSize));
+				hash, entry.ImageSize, FormatSize(entry.ImageSize));
 			m_Entries.RemoveAt(hash);
 		}
 	}
@@ -178,12 +178,12 @@ void rageam::graphics::ImageCache::CleanUpOldEntriesToFitBudget()
 		if (!DeleteFileW(oldImagePath))
 		{
 			AM_WARNINGF("ImageCache::Cache() -> Image (hash: %x; size: %x or %s) failed to remove from file system",
-				hash, entry.ImageSize, FormatBytesTemp(entry.ImageSize));
+				hash, entry.ImageSize, FormatSize(entry.ImageSize));
 		}
 		else
 		{
 			IMAGE_CACHE_LOG("ImageCache::Cache() -> Image (hash: %x; size: %x or %s) was removed from file system",
-				hash, entry.ImageSize, FormatBytesTemp(entry.ImageSize));
+				hash, entry.ImageSize, FormatSize(entry.ImageSize));
 		}
 
 		m_Entries.RemoveAt(hash);
@@ -396,7 +396,7 @@ void rageam::graphics::ImageCache::Cache(const ImagePtr& image, u32 hash, u32 im
 	std::unique_lock lock(m_Mutex);
 
 	IMAGE_CACHE_LOG("ImageCache::Cache() -> Adding to cache, hash: %x; image size: %x or %s; fs store: %i",
-		hash, imageSize, FormatBytesTemp(imageSize), storeInFileSystem);
+		hash, imageSize, FormatSize(imageSize), storeInFileSystem);
 
 	if (imageSize > m_Settings.MemoryStoreBudget)
 	{

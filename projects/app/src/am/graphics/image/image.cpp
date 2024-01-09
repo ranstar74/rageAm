@@ -1,11 +1,11 @@
 #include "image.h"
 
-#include "am/graphics/render/engine.h"
+#include "am/graphics/render.h"
 #include "am/file/fileutils.h"
 #include "am/file/pathutils.h"
 #include "am/system/enum.h"
-#include "bc.h"
 #include "imagecache.h"
+#include "bc.h"
 
 #include <webp/decode.h>
 #include <webp/encode.h>
@@ -13,6 +13,7 @@
 #include <stb_image_resize2.h>
 #include <stb_image.h>
 #include <ddraw.h> // DDS
+#include <lunasvg.h>
 
 pVoid rageam::graphics::ImageAlloc(u32 size)
 {
@@ -46,6 +47,10 @@ void rageam::graphics::ImageFreeTemp(pVoid block)
 
 void rageam::graphics::ImageScaleResolution(int wIn, int hIn, int wTo, int hTo, int& wOut, int& hOut, ResolutionScalingMode mode)
 {
+	// Prevent division by zero
+	if (wIn == 0) wIn = 1;
+	if (hIn == 0) hIn = 1;
+
 	int maxIn = std::max(wIn, hIn);
 	int minIn = std::min(wIn, hIn);
 	int minTo = std::min(wTo, hTo);
@@ -84,12 +89,38 @@ void rageam::graphics::ImageFitInRect(int wIn, int hIn, int rectSize, int& wOut,
 	ImageScaleResolution(wIn, hIn, rectSize, rectSize, wOut, hOut, ResolutionScalingMode_Fit);
 }
 
+int rageam::graphics::ImageFindBestResolutionMatch(int imageCount, int width, int height,
+	const std::function<void(int i, int& w, int& h)>& getter)
+{
+	if (imageCount == 0) return -1;
+	if (imageCount == 1) return 0;
+
+	int bestFitIndex = -1;
+	int bestFitResolutionDelta = INT_MAX;
+	for (int i = 0; i < imageCount; i++)
+	{
+		int iw, ih;
+		getter(i, iw, ih);
+
+		int delta = MIN(abs(iw - width), abs(ih - height));
+
+		// Size of image must satisfy preferred and be larger than previous most large image,
+		// otherwise picked image will depend on order in file
+		if (delta < bestFitResolutionDelta)
+		{
+			bestFitIndex = i;
+			bestFitResolutionDelta = delta;
+		}
+	}
+	return bestFitIndex;
+}
+
 bool rageam::graphics::ImageIsCompressedFormat(ImagePixelFormat fmt)
 {
 	static constexpr char map[] =
 	{
 		0,					// None
-		0, 0, 0, 0,	1,		// U32, U24, U16, U8, A8
+		0, 0, 0, 0,	0,		// U32, U24, U16, U8, A8
 		1, 1, 1, 1, 1, 1	// BC1, BC2, BC3, BC4, BC5, BC7
 	};
 	static_assert(Enum::GetCount<ImagePixelFormat>() == sizeof(map) / sizeof(char));
@@ -361,14 +392,14 @@ struct DDS_HEADER_DXT10
 
 bool rageam::graphics::ImageWriteDDS(ConstWString path, int w, int h, int mips, ImagePixelFormat fmt, pVoid data)
 {
-	FILE* fs = file::OpenFileStream(path, L"wb");
+	file::FSHandle fs = file::OpenFileStream(path, L"wb");
 	if (!fs)
 	{
 		AM_ERRF("WriteImageDDS() -> Failed to open file for writing");
 		return false;
 	}
 
-	if (!file::WriteFileSteam("DDS ", 4, fs))
+	if (!file::WriteFileSteam("DDS ", 4, fs.Get()))
 	{
 		AM_ERRF("WriteImageDDS() -> Failed to write magic number");
 		return false;
@@ -393,7 +424,7 @@ bool rageam::graphics::ImageWriteDDS(ConstWString path, int w, int h, int mips, 
 	{
 		header.ddspf.dwFourCC = ImagePixelFormatToFourCC[fmt];
 
-		if (!file::WriteFileSteam(&header, sizeof DDS_HEADER, fs))
+		if (!file::WriteFileSteam(&header, sizeof DDS_HEADER, fs.Get()))
 		{
 			AM_ERRF("WriteImageDDS() -> Failed to write header");
 			return false;
@@ -408,13 +439,13 @@ bool rageam::graphics::ImageWriteDDS(ConstWString path, int w, int h, int mips, 
 		header10.resourceDimension = D3D10_RESOURCE_DIMENSION_TEXTURE2D;
 		header10.arraySize = 1;
 
-		if (!file::WriteFileSteam(&header, sizeof DDS_HEADER, fs))
+		if (!file::WriteFileSteam(&header, sizeof DDS_HEADER, fs.Get()))
 		{
 			AM_ERRF("WriteImageDDS() -> Failed to write header");
 			return false;
 		}
 
-		if (!file::WriteFileSteam(&header10, sizeof DDS_HEADER_DXT10, fs))
+		if (!file::WriteFileSteam(&header10, sizeof DDS_HEADER_DXT10, fs.Get()))
 		{
 			AM_ERRF("WriteImageDDS() -> Failed to write DX10 header");
 			return false;
@@ -422,13 +453,11 @@ bool rageam::graphics::ImageWriteDDS(ConstWString path, int w, int h, int mips, 
 	}
 
 	u32 dataSize = ImageComputeTotalSizeWithMips(w, h, mips, fmt);
-	if (!file::WriteFileSteam(data, dataSize, fs))
+	if (!file::WriteFileSteam(data, dataSize, fs.Get()))
 	{
 		AM_ERRF("WriteImageDDS() -> Failed to write pixel data");
 		return false;
 	}
-
-	file::CloseFileStream(fs);
 
 	return true;
 }
@@ -753,7 +782,7 @@ bool rageam::graphics::ImageReadDDS(ConstWString path, int& w, int& h, int& mips
 	mips = 0;
 	fmt = ImagePixelFormat_None;
 
-	FILE* fs = file::OpenFileStream(path, L"rb");
+	file::FSHandle fs = file::OpenFileStream(path, L"rb");
 	if (!fs)
 	{
 		AM_ERRF("ReadImageDDS() -> Failed to open image file.");
@@ -761,7 +790,7 @@ bool rageam::graphics::ImageReadDDS(ConstWString path, int& w, int& h, int& mips
 	}
 
 	int magic = 0;
-	file::ReadFileSteam(&magic, 4, 4, fs);
+	file::ReadFileSteam(&magic, 4, 4, fs.Get());
 
 	if (magic != FOURCC('D', 'D', 'S', ' '))
 	{
@@ -770,7 +799,7 @@ bool rageam::graphics::ImageReadDDS(ConstWString path, int& w, int& h, int& mips
 	}
 
 	DDS_HEADER header = {};
-	if (!file::ReadFileSteam(&header, sizeof DDS_HEADER, sizeof DDS_HEADER, fs))
+	if (!file::ReadFileSteam(&header, sizeof DDS_HEADER, sizeof DDS_HEADER, fs.Get()))
 	{
 		AM_ERRF("ReadImageDDS() -> Failed to read header.");
 		return false;
@@ -799,7 +828,7 @@ bool rageam::graphics::ImageReadDDS(ConstWString path, int& w, int& h, int& mips
 	if ((header.ddspf.dwFlags & DDPF_FOURCC) && header.ddspf.dwFourCC == FOURCC('D', 'X', '1', '0'))
 	{
 		DDS_HEADER_DXT10 header10 = {};
-		if (!file::ReadFileSteam(&header10, sizeof DDS_HEADER_DXT10, sizeof DDS_HEADER_DXT10, fs))
+		if (!file::ReadFileSteam(&header10, sizeof DDS_HEADER_DXT10, sizeof DDS_HEADER_DXT10, fs.Get()))
 		{
 			AM_ERRF("ReadImageDDS() -> Failed to read extended DX10 header.");
 			return false;
@@ -824,7 +853,7 @@ bool rageam::graphics::ImageReadDDS(ConstWString path, int& w, int& h, int& mips
 	}
 
 	fmt = ImagePixelFormatFromDXGI(dxgiFormat);
-	if(fmt == ImagePixelFormat_None)
+	if (fmt == ImagePixelFormat_None)
 	{
 		AM_ERRF("ReadImageDDS() -> Can't convert DXGI format '%s'.", Enum::GetName(dxgiFormat));
 		return false;
@@ -837,7 +866,7 @@ bool rageam::graphics::ImageReadDDS(ConstWString path, int& w, int& h, int& mips
 	u32 totalSize = ImageComputeTotalSizeWithMips(w, h, mips, fmt);
 	PixelDataOwner pixelDataOwner = PixelDataOwner::AllocateWithSize(totalSize);
 
-	if (file::ReadFileSteam(pixelDataOwner.Data()->Bytes, totalSize, totalSize, fs) != totalSize)
+	if (file::ReadFileSteam(pixelDataOwner.Data()->Bytes, totalSize, totalSize, fs.Get()) != totalSize)
 	{
 		AM_ERRF("ReadImageDDS() -> Failed to read pixel data, file is corrupted.");
 		return false;
@@ -950,6 +979,7 @@ void rageam::graphics::ImageResize(
 	case ResizeFilter_CubicBSpline: irFilter = STBIR_FILTER_CUBICBSPLINE;	break;
 	case ResizeFilter_CatmullRom:	irFilter = STBIR_FILTER_CATMULLROM;		break;
 	case ResizeFilter_Mitchell:		irFilter = STBIR_FILTER_MITCHELL;		break;
+	case ResizeFilter_Point:		irFilter = STBIR_FILTER_POINT_SAMPLE;	break;
 
 	default: AM_UNREACHABLE("ResizeImagePixels() -> Filter %s is not implemented.", Enum::GetName(filter));
 	}
@@ -987,6 +1017,7 @@ rageam::graphics::ColorU32 rageam::graphics::ImageGetPixelColor(char* pixelData,
 		case ImagePixelFormat_U24:	return ColorU32(pixels[0], pixels[1], pixels[2]);
 		case ImagePixelFormat_U16:	return ColorU32(pixels[0], pixels[0], pixels[0], pixels[1]);
 		case ImagePixelFormat_U8:	return ColorU32(pixels[0], pixels[0], pixels[0]);
+		case ImagePixelFormat_A8:	return ColorU32(pixels[0], pixels[0], pixels[0], pixels[0]);
 
 		default: return 0;
 		}
@@ -1777,7 +1808,7 @@ bool rageam::graphics::Image::CreateDX11Resource(
 	{
 		int newWidth, newHeight;
 		ImageScaleResolution(m_Width, m_Height, options.MaxResolution, options.MaxResolution, newWidth, newHeight, ResolutionScalingMode_Fit);
-		image = Resize(newWidth, newHeight, ResizeFilter_Mitchell);
+		image = Resize(newWidth, newHeight, options.MipFilter);
 	}
 
 	if (!ImageIsCompressedFormat(m_PixelFormat))
@@ -1798,12 +1829,12 @@ bool rageam::graphics::Image::CreateDX11Resource(
 
 		if (options.CreateMips)
 		{
-			image = image->GenerateMipMaps();
+			image = image->GenerateMipMaps(options.MipFilter);
 		}
 	}
 
 	HRESULT code;
-	ID3D11Device* device = render::GetDevice();
+	ID3D11Device* device = RenderGetDevice();
 
 	D3D11_TEXTURE2D_DESC texDesc = {};
 	texDesc.Format = ImagePixelFormatToDXGI(image->m_PixelFormat);
@@ -1867,7 +1898,12 @@ bool rageam::graphics::Image::CreateDX11Resource(
 	timer.Stop();
 	if (cache->ShouldStore(timer.GetElapsedMilliseconds()))
 	{
-		cache->CacheDX11(viewHash, outView, tex, outUV2 ? *outUV2 : Vec2S(1.0f, 1.0f));	
+		cache->CacheDX11(viewHash, outView, tex, outUV2 ? *outUV2 : Vec2S(1.0f, 1.0f));
+	}
+
+	if (options.UpdateSourceImage)
+	{
+		*this = std::move(*image);
 	}
 
 	return true;
@@ -1910,6 +1946,9 @@ rageam::graphics::ImagePtr rageam::graphics::ImageFactory::TryLoadFromPath(Const
 	if (!ImageRead(path, width, height, mipCount, pixelFormat, nullptr, onlyMeta, &pixelData))
 		return nullptr;
 
+	// Some DDS have mips up to 1x1... DX11 won't allow those
+	mipCount = MIN(mipCount, ImageComputeMaxMipCount(width, height));
+
 	amPtr<Image> image = std::make_shared<Image>(pixelData, pixelFormat, width, height, mipCount);
 	image->m_FilePath = path;
 	image->SetDebugName(file::GetFileName(path));
@@ -1944,6 +1983,7 @@ rageam::graphics::ImageFileKind rageam::graphics::ImageFactory::GetImageKindFrom
 	case Hash("psd"):	return ImageKind_PSD;
 	case Hash("dds"):	return ImageKind_DDS;
 	case Hash("ico"):	return ImageKind_ICO;
+	case Hash("svg"):	return ImageKind_SVG;
 
 	default: return ImageKind_None;
 	}
@@ -1951,32 +1991,33 @@ rageam::graphics::ImageFileKind rageam::graphics::ImageFactory::GetImageKindFrom
 
 rageam::graphics::ImagePtr rageam::graphics::ImageFactory::LoadFromPath(ConstWString path, bool onlyMeta, bool useCache)
 {
-	// Special case for ICO
-	if (GetImageKindFromPath(path) == ImageKind_ICO)
+	// Special cases for ICO and SVG
+	ImageFileKind imageKind = GetImageKindFromPath(path);
+	if (imageKind == ImageKind_ICO)
 	{
 		List<ImagePtr> icons;
 		if (!LoadIco(path, icons))
 			return nullptr;
 
 		// Find ICO image that matches preferred size
-		int bestFitIndex = -1;
-		int bestFitResolutionDelta = INT_MAX;
-		for (int i = 0; i < icons.GetSize(); i++)
-		{
-			int iw = icons[i]->GetWidth();
-			int ih = icons[i]->GetHeight();
-
-			int delta = MIN(abs(iw - tl_ImagePreferredIcoResolution), abs(ih - tl_ImagePreferredIcoResolution));
-
-			// Size of image must satisfy preferred and be larger than previous most large image,
-			// otherwise picked image will depend on order in file
-			if (delta < bestFitResolutionDelta)
+		int preferredSize = tl_ImagePreferredIcoResolution;
+		int bestFitIndex = ImageFindBestResolutionMatch(
+			icons.GetSize(), preferredSize, preferredSize, [&icons](int i, int& outW, int& outH)
 			{
-				bestFitIndex = i;
-				bestFitResolutionDelta = delta;
-			}
-		}
+				outW = icons[i]->GetWidth();
+				outH = icons[i]->GetHeight();
+			});
 		return icons[bestFitIndex];
+	}
+	if(imageKind == ImageKind_SVG)
+	{
+		if(onlyMeta)
+		{
+			return Create(
+				PixelDataOwner::CreateUnowned(nullptr), ImagePixelFormat_U32, tl_ImagePreferredSvgWidth, tl_ImagePreferredSvgHeight);
+		}
+
+		return LoadSvg(path, tl_ImagePreferredSvgWidth, tl_ImagePreferredSvgHeight);
 	}
 
 	ImageCache* imageCache = ImageCache::GetInstance();
@@ -2014,7 +2055,7 @@ rageam::graphics::ImagePtr rageam::graphics::ImageFactory::LoadFromPath(ConstWSt
 rageam::graphics::ImagePtr rageam::graphics::ImageFactory::LoadFromPathAndCompress(
 	ConstWString path, const ImageCompressorOptions& compOptions, CompressedImageInfo* outCompInfo, ImageCompressorToken* token)
 {
-	if (GetImageKindFromPath(path) == ImageKind_DDS)
+	if (GetImageKindFromPath(path) == ImageKind_DDS && !compOptions.AllowRecompress)
 	{
 		ImagePtr compressedImage = LoadFromPath(path);
 		if (!compressedImage)
@@ -2025,6 +2066,8 @@ rageam::graphics::ImagePtr rageam::graphics::ImageFactory::LoadFromPathAndCompre
 		{
 			CompressedImageInfo compInfo = {};
 			compInfo.ImageInfo = compressedImage->GetInfo();
+			// We're preserving format from DDS file...
+			compInfo.IsSourceCompressed = true;/*compressedImage->IsBlockCompressed();*/
 			*outCompInfo = compInfo;
 		}
 
@@ -2158,6 +2201,21 @@ bool rageam::graphics::ImageFactory::LoadIco(ConstWString path, List<ImagePtr>& 
 	return true;
 }
 
+rageam::graphics::ImagePtr rageam::graphics::ImageFactory::LoadSvg(ConstWString path, int width, int height)
+{
+	file::FileBytes fileBytes;
+	if (!ReadAllBytes(path, fileBytes))
+	{
+		AM_ERRF(L"ImageFactory::LoadSvg() -> Failed to read file '%ls'", path);
+		return nullptr;
+	}
+
+	auto document = lunasvg::Document::loadFromData(fileBytes.Data.get(), fileBytes.Size);
+	auto bitmap = document->renderToBitmap(width, height);
+	bitmap.convertToRGBA();
+	return Create(PixelDataOwner::CreateUnowned(bitmap.data()), ImagePixelFormat_U32, width, height, true);
+}
+
 rageam::graphics::ImagePtr rageam::graphics::ImageFactory::Create(
 	const PixelDataOwner& pixelData, ImagePixelFormat fmt, int width, int height, bool copyPixels)
 {
@@ -2205,6 +2263,16 @@ u32 rageam::graphics::ImageFactory::GetFastHashKey(ConstWString path)
 	hash = Hash(path);
 	hash = DataHash(&fileTime, sizeof u64, hash);
 	return hash;
+}
+
+bool rageam::graphics::ImageFactory::CanBlockCompressImage(ConstWString path)
+{
+	int w, h, mips;
+	ImagePixelFormat fmt;
+	if (!ImageRead(path, w, h, mips, fmt, nullptr, true, nullptr))
+		return false;
+
+	return ImageIsResolutionValidForMipMapsAndCompression(w, h);
 }
 
 bool rageam::graphics::ImageFactory::SaveImage(ImagePtr img, ConstWString path, ImageFileKind toKind, float quality)

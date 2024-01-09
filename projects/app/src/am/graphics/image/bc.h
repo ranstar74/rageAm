@@ -125,6 +125,9 @@ namespace rageam::graphics
 		bool				AlphaTestCoverage = false;	// Makes sure that % of alpha is preserved on mip maps
 		int					AlphaTestThreshold = 170;
 		bool				PadToPowerOfTwo = false;
+		bool				AllowRecompress = false; 	// For users that want to re-compress .dds for their own reasons
+
+		bool operator==(const ImageCompressorOptions&) const = default;
 	};
 
 	struct EncoderData_bc7enc_rdo
@@ -159,6 +162,9 @@ namespace rageam::graphics
 		EncoderData_bc7enc_rdo	EncoderData_bc7enc_rdo;
 		EncoderData_icbc		EncoderData_icbc;
 		Vec2S					UV2 = { 1.0f, 1.0f };
+		// if ImageCompressorOptions::AllowRecompress was set to true, this flag
+		// indicates if source DDS image was recompressed
+		bool					IsSourceCompressed;
 	};
 
 	struct ImageCompressorToken

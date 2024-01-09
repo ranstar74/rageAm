@@ -1,6 +1,7 @@
 #pragma once
 
 #include "image.h"
+#include "am/system/singleton.h"
 
 namespace rageam::graphics
 {
@@ -30,7 +31,7 @@ namespace rageam::graphics
 	/**
 	 * \brief Two level image cache - in memory and in file system.
 	 */
-	class ImageCache
+	class ImageCache : public Singleton<ImageCache>
 	{
 		static constexpr u32 DEFAULT_MEMORY_STORE_BUDGET = 2048u * 1024u * 1024u;		// 2GB
 		static constexpr u32 DEFAULT_FILESYSTEM_STORE_BUDGET = 2048u * 1024u * 1024u;	// 2GB
@@ -40,8 +41,6 @@ namespace rageam::graphics
 		static constexpr u32 CACHE_LIST_VERSION = 0;
 		static constexpr ConstWString DEFAULT_CACHE_DIRECTORY_NAME = L"CompressorCache";
 		static constexpr ConstWString CACHE_LIST_NAME = L"List.xml";
-
-		static inline ImageCache* sm_Instance = nullptr;
 
 		struct CacheEntry
 		{
@@ -99,7 +98,7 @@ namespace rageam::graphics
 
 	public:
 		ImageCache();
-		~ImageCache();
+		~ImageCache() override;
 
 		ImagePtr GetFromCache(u32 hash, Vec2S* outUV2 = nullptr);
 		// Tex is optional
@@ -119,8 +118,5 @@ namespace rageam::graphics
 		void Clear();
 
 		ImageCacheState GetState();
-
-		static ImageCache* GetInstance() { return sm_Instance; }
-		static void SetInstance(ImageCache* cache) { sm_Instance = cache; }
 	};
 }
