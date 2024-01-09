@@ -38,7 +38,7 @@ public:
 	void Shutdown() override;
 	pVoid GetLodSkeletonMap() override { return (pVoid)m_Unknown90; }
 	u16 GetLodSkeletonBoneNum() override { return m_Unknown98; }
-	void SetPhysics(rage::phArchetype* physics) override;
+	void SetPhysics(const rage::pgPtr<rage::phArchetype>& physics) override;
 
 	virtual void SetFlags(u32 flags, u32 attributes);
 	virtual int Func4() { return 0; }

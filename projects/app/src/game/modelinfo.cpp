@@ -62,11 +62,11 @@ void CBaseModelInfo::Shutdown()
 	fn(this);
 }
 
-void CBaseModelInfo::SetPhysics(rage::phArchetype* physics)
+void CBaseModelInfo::SetPhysics(const rage::pgPtr<rage::phArchetype>& physics)
 {
 	static auto fn = gmAddress::Scan("48 89 5C 24 08 48 89 6C 24 18 56 57 41 56 48 83 EC 30 48 8B F2")
 		.ToFunc<void(fwArchetype*, rage::phArchetype*)>();
-	fn(this, physics);
+	fn(this, physics.Get());
 }
 
 void CBaseModelInfo::SetFlags(u32 flags, u32 attributes)
