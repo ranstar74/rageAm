@@ -9,8 +9,7 @@
 
 #include <Windows.h>
 
-#include "am/time/datetime.h"
-#include "am/system/asserts.h"
+#include "am/system/datetime.h"
 #include "am/file/path.h"
 #include <helpers/win32.h>
 
