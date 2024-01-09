@@ -150,219 +150,219 @@ void rageam::asset::HotDrawable::MarkTextureAsMissing(ConstString textureName, c
 
 void rageam::asset::HotDrawable::HandleChange_Texture(const file::DirectoryChange& change)
 {
-	// Some unrelated file was added, usually - temp files (for e.g. Paint.NET creates one)
-	bool addedOrRemoved = change.Action == file::ChangeAction_Added || change.Action == file::ChangeAction_Removed;
-	bool incompatible = !TxdAsset::IsSupportedTextureExtension(change.Path);
-	if (addedOrRemoved && incompatible)
-		return;
+	//// Some unrelated file was added, usually - temp files (for e.g. Paint.NET creates one)
+	//bool addedOrRemoved = change.Action == file::ChangeAction_Added || change.Action == file::ChangeAction_Removed;
+	//bool incompatible = !TxdAsset::IsSupportedImageFile(change.Path);
+	//if (addedOrRemoved && incompatible)
+	//	return;
 
-	HotTxd* hotTxd = m_TXDs.TryGetAt(Hash(TxdAsset::GetTxdAssetPathFromTexture(change.Path)));
-	if (!hotTxd) // Shouldn't happen
-	{
-		AM_ERRF("HotDrawable::HandleChange() -> Texture was changed in TXD that is not in the list!");
-		return;
-	}
+	//HotTxd* hotTxd = m_TXDs.TryGetAt(Hash(TxdAsset::GetTxdAssetPathFromTexture(change.Path)));
+	//if (!hotTxd) // Shouldn't happen
+	//{
+	//	AM_ERRF("HotDrawable::HandleChange() -> Texture was changed in TXD that is not in the list!");
+	//	return;
+	//}
 
-	if (!hotTxd->Dict)
-	{
-		// Dict failed to compile before, try to compile it again
-		AM_DEBUGF("HotDrawable::HandleChange() -> Texture was changed in dictionary that wasn't compiled, trying to compile...");
+	//if (!hotTxd->Dict)
+	//{
+	//	// Dict failed to compile before, try to compile it again
+	//	AM_DEBUGF("HotDrawable::HandleChange() -> Texture was changed in dictionary that wasn't compiled, trying to compile...");
 
-		// Failed to compile texture - mark it as missing to it can be added later
-		if (!hotTxd->TryCompile())
-		{
-			// TODO: We should resolve missing textures?
-			return; // Failed to compile again! Stop using corrupted DDS from CW.
-		}
+	//	// Failed to compile texture - mark it as missing to it can be added later
+	//	if (!hotTxd->TryCompile())
+	//	{
+	//		// TODO: We should resolve missing textures?
+	//		return; // Failed to compile again! Stop using corrupted DDS from CW.
+	//	}
 
-		if (hotTxd->IsEmbed)
-		{
-			m_Drawable->GetShaderGroup()->SetEmbedTextureDict(hotTxd->Dict.Get());
-		}
-	}
+	//	if (hotTxd->IsEmbed)
+	//	{
+	//		m_Drawable->GetShaderGroup()->SetEmbedTextureDict(hotTxd->Dict);
+	//	}
+	//}
 
-	// Find changed texture in asset
-	TextureTune* textureTune = hotTxd->Asset->TryFindTextureTuneFromPath(change.Path);
-	if (!textureTune)
-	{
-		// Case 0: Texture was first renamed to incompatible name and now renamed back!
-		//	We use 'old' (which is ... new) name to look up tune (because it was marked as missing before)
-		if (change.Action == file::ChangeAction_Renamed)
-		{
-			textureTune = hotTxd->Asset->TryFindTextureTuneFromPath(change.NewPath);
-		}
-		// Case 1: New texture was just added
-		if (change.Action == file::ChangeAction_Added)
-		{
-			textureTune = hotTxd->Asset->CreateTuneForPath(change.Path);
-		}
+	//// Find changed texture in asset
+	//TextureTune* textureTune = hotTxd->Asset->TryFindTextureTuneFromPath(change.Path);
+	//if (!textureTune)
+	//{
+	//	// Case 0: Texture was first renamed to incompatible name and now renamed back!
+	//	//	We use 'old' (which is ... new) name to look up tune (because it was marked as missing before)
+	//	if (change.Action == file::ChangeAction_Renamed)
+	//	{
+	//		textureTune = hotTxd->Asset->TryFindTextureTuneFromPath(change.NewPath);
+	//	}
+	//	// Case 1: New texture was just added
+	//	if (change.Action == file::ChangeAction_Added)
+	//	{
+	//		textureTune = hotTxd->Asset->CreateTuneForPath(change.Path);
+	//	}
 
-		if (!textureTune) // Shouldn't happen
-		{
-			AM_ERRF("HotDrawable::HandleChange() -> Modified texture has no tune!");
-			return;
-		}
-	}
+	//	if (!textureTune) // Shouldn't happen
+	//	{
+	//		AM_ERRF("HotDrawable::HandleChange() -> Modified texture has no tune!");
+	//		return;
+	//	}
+	//}
 
-	// For renaming we simply have to reinsert texture with new name
-	// IMPORTANT:
-	// Paint.NET renames image file to temp name while saving!
-	// In order to properly handle this and case when user renamed texture to incompatible
-	// format we simply mark texture as missing
-	if (change.Action == file::ChangeAction_Renamed)
-	{
-		// Case described above - texture was renamed to incompatible format
-		if (!TxdAsset::IsSupportedTextureExtension(change.NewPath))
-		{
-			//// TODO: Same code as in remove&rename and we should check if texture is missing already!
-			//rage::grcTexture* missingDummy = CreateMissingTexture(textureTune->Name);
-			//WaitForApplyChangesSignal();
-			//{
-			//	IterateDrawableTextures([&](rage::grcInstanceVar* var)
-			//	{
-			//		var->SetTexture(missingDummy);
-			//	}, textureTune->Name);
+	//// For renaming we simply have to reinsert texture with new name
+	//// IMPORTANT:
+	//// Paint.NET renames image file to temp name while saving!
+	//// In order to properly handle this and case when user renamed texture to incompatible
+	//// format we simply mark texture as missing
+	//if (change.Action == file::ChangeAction_Renamed)
+	//{
+	//	// Case described above - texture was renamed to incompatible format
+	//	if (!TxdAsset::IsSupportedImageFile(change.NewPath))
+	//	{
+	//		//// TODO: Same code as in remove&rename and we should check if texture is missing already!
+	//		//rage::grcTexture* missingDummy = CreateMissingTexture(textureTune->Name);
+	//		//WaitForApplyChangesSignal();
+	//		//{
+	//		//	IterateDrawableTextures([&](rage::grcInstanceVar* var)
+	//		//	{
+	//		//		var->SetTexture(missingDummy);
+	//		//	}, textureTune->Name);
 
-			//	hotTxd->Dict->Insert(textureTune->Name, missingDummy);
-			//}
-			//SignalApplyChannels();
-			WaitForApplyChangesSignal();
-			MarkTextureAsMissing(textureTune->Name, *hotTxd);
-			SignalApplyChannels();
+	//		//	hotTxd->Dict->Insert(textureTune->Name, missingDummy);
+	//		//}
+	//		//SignalApplyChannels();
+	//		WaitForApplyChangesSignal();
+	//		MarkTextureAsMissing(textureTune->Name, *hotTxd);
+	//		SignalApplyChannels();
 
-			return;
-		}
+	//		return;
+	//	}
 
-		// Format is fine, just rename
-		WaitForApplyChangesSignal();
-		{
-			// Get texture before renaming
-			rage::grcTexture* gameTexture = hotTxd->Dict->Move(textureTune->Name);
-			if (!gameTexture) // This shouldn't happen!
-			{
-				AM_ERRF("HotDrawable::HandleChange() -> Renamed texture was NULL.");
-				SignalApplyChannels();
-				return;
-			}
+	//	// Format is fine, just rename
+	//	WaitForApplyChangesSignal();
+	//	{
+	//		// Get texture before renaming
+	//		rage::grcTexture* gameTexture = hotTxd->Dict->Move(textureTune->Name);
+	//		if (!gameTexture) // This shouldn't happen!
+	//		{
+	//			AM_ERRF("HotDrawable::HandleChange() -> Renamed texture was NULL.");
+	//			SignalApplyChannels();
+	//			return;
+	//		}
 
-			// Update name in tune
-			if (!hotTxd->Asset->RenameTextureTune(*textureTune, change.NewPath.GetFileName()))
-			{
-				// New name is invalid...
-				MarkTextureAsMissing(textureTune->Name, *hotTxd);
-				return;
-			}
-			// Old tune is not valid anymore after changing name, we have to find it again
-			textureTune = hotTxd->Asset->TryFindTextureTuneFromPath(change.NewPath);
+	//		// Update name in tune
+	//		if (!hotTxd->Asset->RenameTextureTune(*textureTune, change.NewPath.GetFileName()))
+	//		{
+	//			// New name is invalid...
+	//			MarkTextureAsMissing(textureTune->Name, *hotTxd);
+	//			return;
+	//		}
+	//		// Old tune is not valid anymore after changing name, we have to find it again
+	//		textureTune = hotTxd->Asset->TryFindTextureTuneFromPath(change.NewPath);
 
-			// Check if texture was marked as missed before and if so - resolve it
-			if (IsMissingTexture(gameTexture))
-			{
-				rage::grcTexture* newGameTexture = hotTxd->Asset->CompileTexture(textureTune);
-				// Check if compiled successfully and replace missing texture with new one
-				if (newGameTexture)
-				{
-					ResolveMissingTextures(newGameTexture);
+	//		// Check if texture was marked as missed before and if so - resolve it
+	//		if (IsMissingTexture(gameTexture))
+	//		{
+	//			rage::grcTexture* newGameTexture = hotTxd->Asset->CompileTexture(textureTune);
+	//			// Check if compiled successfully and replace missing texture with new one
+	//			if (newGameTexture)
+	//			{
+	//				ResolveMissingTextures(newGameTexture);
 
-					delete gameTexture;
-					gameTexture = newGameTexture;
-				}
-			}
-			else
-			{
-				// Texture was compiled already, just rename it
-				gameTexture->SetName(textureTune->Name);
-			}
+	//				delete gameTexture;
+	//				gameTexture = newGameTexture;
+	//			}
+	//		}
+	//		else
+	//		{
+	//			// Texture was compiled already, just rename it
+	//			gameTexture->SetName(textureTune->Name);
+	//		}
 
-			// Reinsert texture with new name
-			hotTxd->Dict->Insert(textureTune->Name, gameTexture);
-		}
-		SignalApplyChannels();
-		AM_DEBUGF("HotDrawable::HandleChange() -> Renamed texture to '%s'", textureTune->Name);
-		return;
-	}
+	//		// Reinsert texture with new name
+	//		hotTxd->Dict->Insert(textureTune->Name, gameTexture);
+	//	}
+	//	SignalApplyChannels();
+	//	AM_DEBUGF("HotDrawable::HandleChange() -> Renamed texture to '%s'", textureTune->Name);
+	//	return;
+	//}
 
-	// Texture was modified - recompile it and update references
-	if (change.Action == file::ChangeAction_Modified)
-	{
-		// Compile texture
-		rage::grcTexture* gameTexture = hotTxd->Asset->CompileTexture(textureTune);
-		if (!gameTexture)
-		{
-			WaitForApplyChangesSignal();
-			MarkTextureAsMissing(textureTune->Name, *hotTxd);
-			SignalApplyChannels();
-			AM_ERRF(L"HotDrawable::HandleChange() -> Failed to compile texture '%ls'!", change.Path.GetCStr());
-			return;
-		}
+	//// Texture was modified - recompile it and update references
+	//if (change.Action == file::ChangeAction_Modified)
+	//{
+	//	// Compile texture
+	//	rage::grcTexture* gameTexture = hotTxd->Asset->CompileTexture(textureTune);
+	//	if (!gameTexture)
+	//	{
+	//		WaitForApplyChangesSignal();
+	//		MarkTextureAsMissing(textureTune->Name, *hotTxd);
+	//		SignalApplyChannels();
+	//		AM_ERRF(L"HotDrawable::HandleChange() -> Failed to compile texture '%ls'!", change.Path.GetCStr());
+	//		return;
+	//	}
 
-		// Sync with game thread and replace previous texture
-		WaitForApplyChangesSignal();
-		{
-			// Replace old texture with new one in drawable
-			IterateDrawableTextures([&](rage::grcInstanceVar* var)
-				{
-					var->SetTexture(gameTexture);
-				}, gameTexture->GetName());
+	//	// Sync with game thread and replace previous texture
+	//	WaitForApplyChangesSignal();
+	//	{
+	//		// Replace old texture with new one in drawable
+	//		IterateDrawableTextures([&](rage::grcInstanceVar* var)
+	//			{
+	//				var->SetTexture(gameTexture);
+	//			}, gameTexture->GetName());
 
-			// TODO: Can we merge it in one pass with replacing old textures?
-			ResolveMissingTextures(gameTexture);
+	//		// TODO: Can we merge it in one pass with replacing old textures?
+	//		ResolveMissingTextures(gameTexture);
 
-			// Update texture in TXD, old one will be destructed
-			hotTxd->Dict->Insert(gameTexture->GetName(), gameTexture);
-		}
-		SignalApplyChannels();
-		AM_DEBUGF("HotDrawable::HandleChange() -> Recompiled texture '%s'", textureTune->Name);
-		return;
-	}
+	//		// Update texture in TXD, old one will be destructed
+	//		hotTxd->Dict->Insert(gameTexture->GetName(), gameTexture);
+	//	}
+	//	SignalApplyChannels();
+	//	AM_DEBUGF("HotDrawable::HandleChange() -> Recompiled texture '%s'", textureTune->Name);
+	//	return;
+	//}
 
-	// On removing we have to replace every texture reference to missing
-	if (change.Action == file::ChangeAction_Removed)
-	{
-		WaitForApplyChangesSignal();
-		MarkTextureAsMissing(textureTune->Name, *hotTxd);
-		SignalApplyChannels();
+	//// On removing we have to replace every texture reference to missing
+	//if (change.Action == file::ChangeAction_Removed)
+	//{
+	//	WaitForApplyChangesSignal();
+	//	MarkTextureAsMissing(textureTune->Name, *hotTxd);
+	//	SignalApplyChannels();
 
-		//rage::grcTexture* missingDummy = CreateMissingTexture(textureTune->Name);
-		/*WaitForApplyChangesSignal();
-			{
-				IterateDrawableTextures([&](rage::grcInstanceVar* var)
-					{
-						var->SetTexture(missingDummy);
-					}, textureTune->Name);
+	//	//rage::grcTexture* missingDummy = CreateMissingTexture(textureTune->Name);
+	//	/*WaitForApplyChangesSignal();
+	//		{
+	//			IterateDrawableTextures([&](rage::grcInstanceVar* var)
+	//				{
+	//					var->SetTexture(missingDummy);
+	//				}, textureTune->Name);
 
-				hotTxd->Dict->Insert(textureTune->Name, missingDummy);
-			}
-			SignalApplyChannels();*/
-		AM_DEBUGF("HotDrawable::HandleChange() -> Removed texture '%s'", textureTune->Name);
-		return;
-	}
+	//			hotTxd->Dict->Insert(textureTune->Name, missingDummy);
+	//		}
+	//		SignalApplyChannels();*/
+	//	AM_DEBUGF("HotDrawable::HandleChange() -> Removed texture '%s'", textureTune->Name);
+	//	return;
+	//}
 
-	// Just Compile & Insert
-	if (change.Action == file::ChangeAction_Added)
-	{
-		// Compile texture
-		rage::grcTexture* gameTexture = hotTxd->Asset->CompileTexture(textureTune);
-		if (!gameTexture)
-		{
-			WaitForApplyChangesSignal();
-			MarkTextureAsMissing(textureTune->Name, *hotTxd);
-			SignalApplyChannels();
-			AM_ERRF(L"HotDrawable::HandleChange() -> Failed to compile texture '%ls'!", change.Path.GetCStr());
-			return;
-		}
+	//// Just Compile & Insert
+	//if (change.Action == file::ChangeAction_Added)
+	//{
+	//	// Compile texture
+	//	rage::grcTexture* gameTexture = hotTxd->Asset->CompileTexture(textureTune);
+	//	if (!gameTexture)
+	//	{
+	//		WaitForApplyChangesSignal();
+	//		MarkTextureAsMissing(textureTune->Name, *hotTxd);
+	//		SignalApplyChannels();
+	//		AM_ERRF(L"HotDrawable::HandleChange() -> Failed to compile texture '%ls'!", change.Path.GetCStr());
+	//		return;
+	//	}
 
-		WaitForApplyChangesSignal();
-		{
-			ResolveMissingTextures(gameTexture);
-			hotTxd->Dict->Insert(gameTexture->GetName(), gameTexture);
-		}
-		SignalApplyChannels();
-		AM_DEBUGF("HotDrawable::HandleChange() -> Added texture '%s'", textureTune->Name);
-		return;
-	}
+	//	WaitForApplyChangesSignal();
+	//	{
+	//		ResolveMissingTextures(gameTexture);
+	//		hotTxd->Dict->Insert(gameTexture->GetName(), gameTexture);
+	//	}
+	//	SignalApplyChannels();
+	//	AM_DEBUGF("HotDrawable::HandleChange() -> Added texture '%s'", textureTune->Name);
+	//	return;
+	//}
 
-	return;
+	//return;
 }
 
 void rageam::asset::HotDrawable::HandleChange_Txd(const file::DirectoryChange& change)
@@ -404,7 +404,7 @@ void rageam::asset::HotDrawable::HandleChange_Txd(const file::DirectoryChange& c
 
 				if (newHotTxd.IsEmbed)
 				{
-					m_Drawable->GetShaderGroup()->SetEmbedTextureDict(newHotTxd.Dict.Get());
+					m_Drawable->GetShaderGroup()->SetEmbedTextureDict(newHotTxd.Dict);
 				}
 
 				m_TXDs.EmplaceAt(Hash(newHotTxd.Asset->GetDirectoryPath()), std::move(newHotTxd));
@@ -453,7 +453,7 @@ void rageam::asset::HotDrawable::HandleChange_Txd(const file::DirectoryChange& c
 				}
 				else
 				{
-					m_Drawable->GetShaderGroup()->SetEmbedTextureDict(hotTxd->Dict.Get());
+					m_Drawable->GetShaderGroup()->SetEmbedTextureDict(hotTxd->Dict);
 				}
 			}
 		}
@@ -571,42 +571,42 @@ void rageam::asset::HotDrawable::HandleChange_Asset(const rageam::file::Director
 
 void rageam::asset::HotDrawable::HandleChange(const file::DirectoryChange& change)
 {
-	AM_DEBUGF(L"HotDrawable::HandleChange() -> '%hs' in '%ls'", Enum::GetName(change.Action), change.Path.GetCStr());
+	//AM_DEBUGF(L"HotDrawable::HandleChange() -> '%hs' in '%ls'", Enum::GetName(change.Action), change.Path.GetCStr());
 
-	// Loaded asset directory (the .idr one) was changed
-	if (change.Path == m_AssetPath)
-	{
-		HandleChange_Asset(change);
-		return;
-	}
+	//// Loaded asset directory (the .idr one) was changed
+	//if (change.Path == m_AssetPath)
+	//{
+	//	HandleChange_Asset(change);
+	//	return;
+	//}
 
-	// Scene model file (gltf/fbx) was changed
-	if (change.Path == m_Asset->GetScenePath())
-	{
-		HandleChange_Scene(change);
-		return;
-	}
+	//// Scene model file (gltf/fbx) was changed
+	//if (change.Path == m_Asset->GetScenePath())
+	//{
+	//	HandleChange_Scene(change);
+	//	return;
+	//}
 
-	// A change was done to TXD directory itself
-	if (AssetFactory::GetAssetType(change.Path) == AssetType_Txd || AssetFactory::GetAssetType(change.NewPath) == AssetType_Txd)
-	{
-		HandleChange_Txd(change);
-		m_HotChanges |= AssetHotFlags_TxdModified;
-		return;
-	}
+	//// A change was done to TXD directory itself
+	//if (AssetFactory::GetAssetType(change.Path) == AssetType_Txd || AssetFactory::GetAssetType(change.NewPath) == AssetType_Txd)
+	//{
+	//	HandleChange_Txd(change);
+	//	m_HotChanges |= AssetHotFlags_TxdModified;
+	//	return;
+	//}
 
-	// Texture was added/changed/deleted in existing TXD
-	// To properly update texture we have to keep track of the:
-	// - Drawable shader group variables (they directly reference grcTexture)
-	// - Texture in the dictionary itself
-	// - Texture tune in TXD asset
-	file::WPath textureTxdPath;
-	if (TxdAsset::GetTxdAssetPathFromTexture(change.Path, textureTxdPath))
-	{
-		HandleChange_Texture(change);
-		m_HotChanges |= AssetHotFlags_TxdModified;
-		return;
-	}
+	//// Texture was added/changed/deleted in existing TXD
+	//// To properly update texture we have to keep track of the:
+	//// - Drawable shader group variables (they directly reference grcTexture)
+	//// - Texture in the dictionary itself
+	//// - Texture tune in TXD asset
+	//file::WPath textureTxdPath;
+	//if (TxdAsset::GetTxdAssetPathFromTexture(change.Path, textureTxdPath))
+	//{
+	//	HandleChange_Texture(change);
+	//	m_HotChanges |= AssetHotFlags_TxdModified;
+	//	return;
+	//}
 }
 
 void rageam::asset::HotDrawable::WaitForApplyChangesSignal()

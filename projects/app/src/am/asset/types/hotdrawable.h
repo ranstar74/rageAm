@@ -30,8 +30,8 @@ namespace rageam::asset
 	struct HotTxd
 	{
 		TxdAssetPtr						Asset;
-		rage::grcTextureDictionaryPtr	Dict; // May be null if failed to compile
-		bool							IsEmbed;
+		rage::grcTextureDictionaryPtr	Dict;		// May be null if failed to compile
+		bool							IsEmbed;	// .itd embed dictionary
 
 		bool TryCompile();
 	};

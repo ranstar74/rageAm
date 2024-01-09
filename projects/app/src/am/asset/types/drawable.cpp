@@ -6,12 +6,11 @@
 #include "am/file/iterator.h"
 #include "am/graphics/buffereditor.h"
 #include "am/graphics/meshsplitter.h"
-#include "am/graphics/render/context.h"
-#include "am/xml/iterator.h"
 #include "rage/grcore/effect/effectmgr.h"
-#include "rage/math/math.h"
 #include "rage/physics/bounds/composite.h"
 #include "rage/physics/bounds/geometry.h"
+#include "am/xml/iterator.h"
+#include "rage/math/math.h"
 
 void rageam::asset::MaterialTune::Param::Serialize(XmlHandle& xml) const
 {
@@ -565,7 +564,7 @@ rage::phBound* rageam::asset::DrawableAssetMap::GetBoundFromScene(const gtaDrawa
 	u16 boundIndex = SceneNodeToBound[sceneNodeIndex];
 	if (boundIndex == u16(-1))
 		return nullptr;
-	return ((rage::phBoundComposite*)drawable->GetBound())->GetBound(boundIndex).Get();
+	return ((rage::phBoundComposite*)drawable->GetBound().Get())->GetBound(boundIndex).Get();
 }
 
 CLightAttr* rageam::asset::DrawableAssetMap::GetLightFromScene(gtaDrawable* drawable, u16 sceneNodeIndex) const
@@ -1176,7 +1175,7 @@ bool rageam::asset::DrawableAsset::ResolveAndSetTexture(rage::grcInstanceVar* va
 	{
 		const TxdAssetPtr& sharedTxdAsset = WorkspaceTXD->GetTexDict(i);
 
-		if (!sharedTxdAsset->ContainsTexture(textureName))
+		if (!sharedTxdAsset->ContainsTextureWithName(textureName))
 			continue;
 
 		// Texture is used in this txd, first look if we compiled it before
@@ -1211,14 +1210,15 @@ bool rageam::asset::DrawableAsset::ResolveAndSetTexture(rage::grcInstanceVar* va
 
 void rageam::asset::DrawableAsset::SetMissingTexture(rage::grcInstanceVar* var) const
 {
-	rage::grcTexture* checker = GRenderContext->CheckerTexture.GetTexture();
-	var->SetTexture(checker);
+	AM_UNREACHABLE("Not implemented!>");
+	/*rage::grcTexture* checker = GRenderContext->CheckerTexture.GetTexture();
+	var->SetTexture(checker);*/
 }
 
 bool rageam::asset::DrawableAsset::CompileAndSetEmbedDict()
 {
 	// Don't create empty embed dictionary 
-	if (m_EmbedDictTune->GetTextureCount() == 0)
+	if (m_EmbedDictTune->GetTextureTuneCount() == 0)
 		return true;
 
 	rage::grcTextureDictionary* embedDict = new rage::grcTextureDictionary();
@@ -1230,7 +1230,7 @@ bool rageam::asset::DrawableAsset::CompileAndSetEmbedDict()
 	}
 
 	m_EmbedDict = embedDict;
-	m_Drawable->GetShaderGroup()->SetEmbedTextureDict(embedDict);
+	m_Drawable->GetShaderGroup()->SetEmbedTextureDict(rage::pgPtr(embedDict));
 
 	return true;
 }
