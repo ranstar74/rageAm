@@ -15,3 +15,15 @@
 #else
 #define AM_DEBUG_ONLY(action) 
 #endif
+
+#ifdef AM_INTEGRATED
+#define AM_INTEGRATED_ONLY(action) action
+#else
+#define AM_INTEGRATED_ONLY(action)
+#endif
+
+#ifdef AM_STANDALONE
+#define AM_STANDALONE_ONLY(action) action
+#else
+#define AM_STANDALONE_ONLY(action)
+#endif
