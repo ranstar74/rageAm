@@ -27,9 +27,7 @@ namespace rage
 	};
 }
 
-/**
- * \brief Gets multi allocator instance with general, virtual and physical allocators.
- */
+// Gets multi allocator instance with general, virtual and physical allocators
 rage::sysMemAllocator* GetMultiAllocator();
 rage::sysMemAllocator* GetAllocator(rage::eAllocatorType type);
 rage::sysMemAllocator* GetAllocator();

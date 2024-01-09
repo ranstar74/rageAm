@@ -7,8 +7,8 @@
 
 namespace
 {
-	bool s_Initialized = false;
-	std::mutex s_InitMutex;
+	bool		s_Initialized = false;
+	std::mutex	s_InitMutex;
 }
 
 rage::sysMemMultiAllocator* rage::SystemHeap::sm_MultiAllocator;
