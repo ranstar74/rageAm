@@ -6,6 +6,7 @@
 #include "rage/atl/map.h"
 #include "rage/atl/set.h"
 #include "rage/atl/string.h"
+#include "rage/framework/pool.h"
 #include "system/ptr.h"
 #include "rage/math/vec.h"
 #include "rage/math/vecv.h"
@@ -47,6 +48,10 @@ namespace rageam
 	// Value set
 	template<typename TValue, typename THashFn = rage::atMapHashFn<TValue>>
 	using HashSet = rage::atSet<TValue, THashFn>;
+
+	template<typename T>
+	using Pool = rage::fwPool<T>;
+	using PoolIndex = u32;
 
 	using HashValue = rage::atHashValue;
 
