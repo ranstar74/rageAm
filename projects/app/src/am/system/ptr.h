@@ -83,3 +83,6 @@ using amPtr = std::shared_ptr<T>;
 
 template<typename T>
 using amUniquePtr = std::unique_ptr<T>;
+
+template<typename T>
+using amUPtr = std::unique_ptr<T>;
