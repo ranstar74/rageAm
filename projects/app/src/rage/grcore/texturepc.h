@@ -145,5 +145,8 @@ namespace rage
 		void CreateFromBackingStore(bool recreate = false) override;
 		void SetPrivateData() override;
 		bool CopyTo(grcImage* image, bool invert) override;
+
+		// NOTE: data might be NULL!
+		pVoid GetBackingStore() const { return m_BackingStore; }
 	};
 }

@@ -40,7 +40,7 @@ namespace rageam
 #define AM_ASSERT(expr, fmt, ...)		rageam::AssertHandler(expr, #expr, __FILE__, __LINE__, fmt, __VA_ARGS__)
 #define AM_VERIFY(expr, fmt, ...)		rageam::VerifyHandler(expr, #expr, __FILE__, __LINE__, fmt, __VA_ARGS__)
 #define AM_UNREACHABLE(fmt, ...)		rageam::Unreachable(__FILE__, __LINE__, fmt, __VA_ARGS__)
-#else
+#else // NOT AM_UNIT_TESTS
 
 namespace unit_testing
 {
@@ -55,3 +55,6 @@ namespace unit_testing
 #define AM_VERIFY(expr, fmt, ...)		unit_testing::AssertHandler(expr, fmt, __VA_ARGS__ /* We take everything seriously in unit testing */ )
 #define AM_UNREACHABLE(fmt, ...)		unit_testing::AssertHandler(false, fmt, __VA_ARGS__); std::exit(-1)
 #endif // AM_UNIT_TESTS
+
+#define AM_ASSERT_STATUSF(expr, fmt, ...)		AM_ASSERT((expr) == S_OK, fmt, __VA_ARGS__)
+#define AM_ASSERT_STATUS(expr)					AM_ASSERTS((expr) == S_OK)

@@ -347,7 +347,7 @@ void rage::grcTextureDX11::CreateInternal(
 		desc.Format = GetDXGIFormat();
 
 		ID3D11Texture3D* tex;
-		AM_ASSERT_D3D(device->CreateTexture3D(&desc, initialData, &tex));
+		AM_ASSERT_STATUS(device->CreateTexture3D(&desc, initialData, &tex));
 		m_CachedTexture = amComPtr<ID3D11Resource>(tex);
 
 		if (DoesNeedStagingTexture(createType))
@@ -359,7 +359,7 @@ void rage::grcTextureDX11::CreateInternal(
 			desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ | D3D11_CPU_ACCESS_WRITE;
 
 			ID3D11Texture3D* texStaging;
-			AM_ASSERT_D3D(device->CreateTexture3D(&desc, nullptr, &texStaging));
+			AM_ASSERT_STATUS(device->CreateTexture3D(&desc, nullptr, &texStaging));
 			m_ExtraData->StagingTexture = amComPtr<ID3D11Resource>(texStaging);
 		}
 
@@ -383,7 +383,7 @@ void rage::grcTextureDX11::CreateInternal(
 			desc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
 
 		ID3D11Texture2D* tex;
-		AM_ASSERT_D3D(device->CreateTexture2D(&desc, initialData, &tex));
+		AM_ASSERT_STATUS(device->CreateTexture2D(&desc, initialData, &tex));
 		m_CachedTexture = amComPtr<ID3D11Resource>(tex);
 
 		if (DoesNeedStagingTexture(createType))
@@ -401,7 +401,7 @@ void rage::grcTextureDX11::CreateInternal(
 			}
 
 			ID3D11Texture2D* texStaging;
-			AM_ASSERT_D3D(device->CreateTexture2D(&desc, createInfo.SubresourceData, &texStaging));
+			AM_ASSERT_STATUS(device->CreateTexture2D(&desc, createInfo.SubresourceData, &texStaging));
 			m_ExtraData->StagingTexture = amComPtr<ID3D11Resource>(texStaging);
 		}
 
@@ -435,7 +435,7 @@ void rage::grcTextureDX11::CreateInternal(
 	}
 
 	ID3D11ShaderResourceView* shaderResourceView;
-	AM_ASSERT_D3D(device->CreateShaderResourceView(m_CachedTexture.Get(), &viewDesc, &shaderResourceView));
+	AM_ASSERT_STATUS(device->CreateShaderResourceView(m_CachedTexture.Get(), &viewDesc, &shaderResourceView));
 	m_ShaderResourceView = amComPtr(shaderResourceView);
 
 	if (UsesBackingStoreForLocks(createType) && !isFromBackingStore)
@@ -494,11 +494,13 @@ rage::grcTextureDX11::grcTextureDX11(u16 width, u16 height, u8 mipCount, DXGI_FO
 {
 	m_Stride = GetStride(0);
 
+	u32 totalSize = CalculateMemoryForAllLayers();
+	SetPhysicalSize(totalSize);
+
 	if (!IsResourceCompiling())
 	{
 		if (storeData)
 		{
-			u32 totalSize = CalculateMemoryForAllLayers();
 			m_BackingStore = GetAllocator(ALLOC_TYPE_PHYSICAL)->Allocate(totalSize);
 			memcpy(m_BackingStore, data, totalSize);
 			m_InfoBits.OwnsBackingStore = true;
@@ -715,22 +717,22 @@ void rage::grcTextureDX11::SetPrivateData()
 	ConstString name = GetName();
 	if (m_CachedTexture)
 	{
-		AM_ASSERT_D3D(m_CachedTexture->SetPrivateData(WKPDID_D3DDebugObjectName, strlen(name), name));
-		AM_ASSERT_D3D(m_CachedTexture->SetPrivateData(TextureBackPointerGuid, sizeof(pVoid), this));
+		AM_ASSERT_STATUS(m_CachedTexture->SetPrivateData(WKPDID_D3DDebugObjectName, strlen(name), name));
+		AM_ASSERT_STATUS(m_CachedTexture->SetPrivateData(TextureBackPointerGuid, sizeof(pVoid), this));
 	}
 
 	if (m_ShaderResourceView)
 	{
 		char buffer[256];
 		size_t len = sprintf_s(buffer, 256, "%s - Resource", name) + 1;
-		AM_ASSERT_D3D(m_ShaderResourceView->SetPrivateData(WKPDID_D3DDebugObjectName, len, name));
+		AM_ASSERT_STATUS(m_ShaderResourceView->SetPrivateData(WKPDID_D3DDebugObjectName, len, name));
 	}
 
 	if (m_ExtraData && m_ExtraData->StagingTexture)
 	{
 		char buffer[256];
 		size_t len = sprintf_s(buffer, 256, "%s - Staging", name) + 1;
-		AM_ASSERT_D3D(m_ExtraData->StagingTexture->SetPrivateData(WKPDID_D3DDebugObjectName, len, name));
+		AM_ASSERT_STATUS(m_ExtraData->StagingTexture->SetPrivateData(WKPDID_D3DDebugObjectName, len, name));
 	}
 }
 
