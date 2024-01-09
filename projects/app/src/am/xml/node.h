@@ -163,6 +163,15 @@ public:
 		value = str;
 	}
 
+	void GetTheValueAttribute(rage::atWideString& value, bool allowNull = false) const
+	{
+		ConstString text;
+		GetTheValueAttribute(text, allowNull);
+		thread_local wchar_t buffer[512];
+		String::Utf8ToWide(buffer, 512, text);
+		value = buffer;
+	}
+
 	// Template implementation for enums
 
 	template<typename T> requires std::is_enum_v<T>
@@ -210,6 +219,13 @@ public:
 		SetAttribute(XML_ATTRIBUTE_VALUE, value);
 	}
 
+	void SetTheValueAttribute(ConstWString value)
+	{
+		thread_local char buffer[512];
+		String::WideToUtf8(buffer, 512, value);
+		SetAttribute(XML_ATTRIBUTE_VALUE, buffer);
+	}
+
 	// Utils for inner text with other types
 
 #define XML_VEC2_FMT "%g %g"
@@ -220,6 +236,7 @@ public:
 	void SetValue(const rage::Vector2& v) const { SetText(FormatTemp(XML_VEC2_FMT, v.X, v.Y)); }
 	void SetValue(const rage::Vector3& v) const { SetText(FormatTemp(XML_VEC3_FMT, v.X, v.Y, v.Z)); }
 	void SetValue(const rage::Vector4& v) const { SetText(FormatTemp(XML_VEC4_FMT, v.X, v.Y, v.Z, v.W)); }
+	void SetValue(int v) const { SetText(ToString(v)); }
 	void SetValue(bool v) const { SetText(ToString(v)); }
 	void SetValue(float v) const { SetText(ToString(v)); }
 	void SetValue(double v) const { SetText(ToString(v)); }
@@ -228,10 +245,18 @@ public:
 	void GetValue(rage::Vector2& v) const { Assert(sscanf_s(GetText(), XML_VEC2_FMT, &v.X, &v.Y) != 0, "Unable to parse Vector2"); }
 	void GetValue(rage::Vector3& v) const { Assert(sscanf_s(GetText(), XML_VEC3_FMT, &v.X, &v.Y, &v.Z) != 0, "Unable to parse Vector3"); }
 	void GetValue(rage::Vector4& v) const { Assert(sscanf_s(GetText(), XML_VEC4_FMT, &v.X, &v.Y, &v.Z, &v.W) != 0, "Unable to parse Vector4"); }
+	void GetValue(int& v) const { FromString(GetText(), v); }
 	void GetValue(float& v) const { FromString(GetText(), v); }
 	void GetValue(double& v) const { FromString(GetText(), v); }
 	void GetValue(bool& v) const { FromString(GetText(), v); }
 	void GetValue(rage::atString& v) const { v = GetText(); }
+	void GetValue(rage::atWideString& v) const
+	{
+		thread_local wchar_t buffer[512];
+		ConstString text = GetText();
+		String::Utf8ToWide(buffer, 512, text);
+		v = buffer;
+	}
 
 	void SetColorHex(u32 col) const { SetText(FormatTemp("#%X", col)); }
 	void GetColorHex(u32& col) const
