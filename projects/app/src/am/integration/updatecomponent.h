@@ -12,6 +12,7 @@
 #include "rage/atl/fixedarray.h"
 #include "am/system/ptr.h"
 #include "rage/atl/array.h"
+#include "am/system/singleton.h"
 
 #include <atomic>
 #include <any>
@@ -53,10 +54,8 @@ namespace rageam::integration
 		u32 Release() { return --m_RefCount; }
 	};
 
-	class ComponentManager
+	class ComponentManager : public Singleton<ComponentManager>
 	{
-		static inline ComponentManager* sm_Instance = nullptr;
-
 		rage::atArray<amUniquePtr<IUpdateComponent>> m_UpdateComponents;
 
 		static std::recursive_mutex& GetLock();
@@ -89,9 +88,6 @@ namespace rageam::integration
 		}
 
 		bool HasAnyComponent() const;
-
-		static ComponentManager* GetCurrent();
-		static void SetCurrent(ComponentManager* instance);
 	};
 
 	/**
@@ -114,15 +110,14 @@ namespace rageam::integration
 		ComponentOwner(ComponentOwner&&) = default;
 		~ComponentOwner()
 		{
-			Destroy();
+			Release();
 		}
 
-		// TODO: Rename to Release
-		void Destroy()
+		void Release()
 		{
 			if (m_Component && m_Component->Release() == 0)
 			{
-				ComponentManager::GetCurrent()->DestroyComponent(m_Component);
+				ComponentManager::GetInstance()->DestroyComponent(m_Component);
 				m_Component = nullptr;
 			}
 		}
@@ -131,8 +126,8 @@ namespace rageam::integration
 		template<typename T>
 		void Create()
 		{
-			Destroy();
-			m_Component = ComponentManager::GetCurrent()->CreateComponent<T>();
+			Release();
+			m_Component = ComponentManager::GetInstance()->CreateComponent<T>();
 			m_Component->AddRef();
 		}
 
@@ -144,7 +139,7 @@ namespace rageam::integration
 		operator bool() const { return m_Component != nullptr; }
 		bool operator!() const { return !m_Component; }
 		bool operator==(std::nullptr_t) const { return m_Component == nullptr; }
-		ComponentOwner& operator=(std::nullptr_t) { Destroy(); return *this; }
+		ComponentOwner& operator=(std::nullptr_t) { Release(); return *this; }
 		ComponentOwner& operator=(const ComponentOwner& other)
 		{
 			m_Component = other.m_Component;

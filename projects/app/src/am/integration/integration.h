@@ -12,16 +12,16 @@
 #include "updatecomponent.h"
 #include "components/camera.h"
 #include "drawlist.h"
-#include "game/modelinfo.h"
+#include "am/system/singleton.h"
 
 namespace rageam::integration
 {
 	class GameEntity;
 
-	class GameIntegration
+	class GameIntegration : public Singleton<GameIntegration>
 	{
 		void InitComponentManager();
-		void ShutdownComponentManager() const;
+		void ShutdownComponentManager();
 		void RegisterApps() const;
 
 		// Fake game entity that we use to render draw list
@@ -32,10 +32,7 @@ namespace rageam::integration
 
 	public:
 		GameIntegration();
-		~GameIntegration();
-
-		static GameIntegration* GetInstance();
-		static void SetInstance(GameIntegration* instance);
+		~GameIntegration() override;
 
 		void FlipDrawListBuffers()
 		{
@@ -54,6 +51,7 @@ namespace rageam::integration
 		}
 		
 		bool IsPauseMenuActive() const;
+		void DisableAllControlsThisFrame() const;
 
 		amUniquePtr<ComponentManager>		ComponentMgr;
 		ComponentOwner<ICameraComponent>	Camera;

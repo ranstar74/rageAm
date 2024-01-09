@@ -2,7 +2,6 @@
 
 #include "gamehooks.h"
 
-#include "shvthread.h"
 #include "memory/hook.h"
 
 #include "hooks/errordialog.h"
@@ -13,7 +12,7 @@
 
 void GameHooks::InitFromGtaThread()
 {
-	rageam::integration::ScriptHook::Start();
+	//rageam::integration::ScriptHook::Start();
 }
 
 void GameHooks::Init()
@@ -26,7 +25,7 @@ void GameHooks::Init()
 	hooks::GameInput::Init();
 	hooks::Streaming::Init();
 
-	rageam::integration::ScriptHook::Init();
+	//rageam::integration::ScriptHook::Init();
 }
 
 void GameHooks::Shutdown()
@@ -34,7 +33,7 @@ void GameHooks::Shutdown()
 	// TODO: We can't call it from here
 	// hooks::GameViewport::Shutdown();
 
-	rageam::integration::ScriptHook::Shutdown();
+	//rageam::integration::ScriptHook::Shutdown();
 
 	Hook::Shutdown();
 }

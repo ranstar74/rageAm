@@ -7,8 +7,6 @@
 //
 #pragma once
 
-#include <functional>
-
 #include "common/types.h"
 
 /**

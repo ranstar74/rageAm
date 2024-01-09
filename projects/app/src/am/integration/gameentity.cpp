@@ -1,11 +1,10 @@
+#include "am/graphics/render.h"
 #ifdef AM_INTEGRATED
 
 #include "gameentity.h"
 
-#include "am/integration/shvthread.h"
 #include "am/integration/memory/hook.h"
 #include "rage/streaming/assetstores.h"
-#include "am/graphics/render/engine.h"
 
 // dlDrawListMgr holds references on game assets (including fwArchetype)
 // and this cause issues if we want to unload archetype instantly
@@ -54,12 +53,12 @@ void rageam::integration::GameEntity::CreateIfNotCreated()
 	s_IgnoredArchetypeIdx.Insert(m_Archetype->GetModelIndex());
 
 	// Spawn entity
-	scrBegin();
-	m_EntityHandle = SHV::OBJECT::CREATE_OBJECT(
-		assetName,
-		m_InitialPosition.X(), m_InitialPosition.Y(), m_InitialPosition.Z(),
-		FALSE, TRUE, FALSE);
-	scrEnd();
+	//scrBegin();
+	//m_EntityHandle = SHV::OBJECT::CREATE_OBJECT(
+	//	assetName,
+	//	m_InitialPosition.X(), m_InitialPosition.Y(), m_InitialPosition.Z(),
+	//	FALSE, TRUE, FALSE);
+	//scrEnd();
 
 	// Obtain rage::fwEntity pointer
 	static auto getEntityFromGUID = gmAddress::Scan("E8 ?? ?? ?? ?? 90 EB 4B").GetCall().ToFunc<pVoid(u32 scriptIndex)>();
@@ -76,11 +75,11 @@ bool rageam::integration::GameEntity::OnAbort()
 		return true;
 
 	// README:
-	// All rendering code is executed in parallel thread, rendering is started mid game update (after updating game itself)
-	// and can last up until next 'mid game update'. This means that if we're going to remove archetype&drawable RIGHT now
+	// All rendering code is executed in parallel thread, rendering is started mid-game update (after updating game itself)
+	// and can last up until next 'mid-game update'. This means that if we're going to remove archetype&drawable RIGHT now
 	// render thread still MAY use it (although sometimes rendering can finish even before game early update)
 	// In order to make sure that drawable will not be rendered after destroyed we have to manually sync with render thread
-	render::Engine::GetInstance()->WaitExecutingDone();
+	graphics::Render::GetInstance()->Lock();
 
 	AM_DEBUGF("GameEntity destroyed; Handle:%i Ptr: %p", m_EntityHandle, m_Entity);
 
@@ -90,11 +89,11 @@ bool rageam::integration::GameEntity::OnAbort()
 	// Destruct everything in the reverse order:
 
 	// Entity
-	scrBegin();
-	SHV::ENTITY::SET_ENTITY_COORDS_NO_OFFSET(m_EntityHandle, -4000, 6000, -100, FALSE, FALSE, FALSE);
-	SHV::ENTITY::SET_ENTITY_AS_MISSION_ENTITY(m_EntityHandle, FALSE, TRUE);
-	SHV::OBJECT::DELETE_OBJECT(&m_EntityHandle);
-	scrEnd();
+	//scrBegin();
+	//SHV::ENTITY::SET_ENTITY_COORDS_NO_OFFSET(m_EntityHandle, -4000, 6000, -100, FALSE, FALSE, FALSE);
+	//SHV::ENTITY::SET_ENTITY_AS_MISSION_ENTITY(m_EntityHandle, FALSE, TRUE);
+	//SHV::OBJECT::DELETE_OBJECT(&m_EntityHandle);
+	//scrEnd();
 	m_Entity = nullptr;
 
 	// Archetype
@@ -115,6 +114,10 @@ bool rageam::integration::GameEntity::OnAbort()
 	m_Drawable = nullptr;
 
 	m_IsCreated = false;
+
+	// Now we can safely resume rendering
+	graphics::Render::GetInstance()->Unlock();
+
 	return true;
 }
 
@@ -162,11 +165,11 @@ void rageam::integration::GameEntity::SetPosition(const rage::Vec3V& pos) const
 	if (m_EntityHandle == 0)
 		return;
 
-	scrBegin();
-	SHV::ENTITY::SET_ENTITY_COORDS_NO_OFFSET(m_EntityHandle, pos.X(), pos.Y(), pos.Z(), FALSE, FALSE, FALSE);
+	//scrBegin();
+	//SHV::ENTITY::SET_ENTITY_COORDS_NO_OFFSET(m_EntityHandle, pos.X(), pos.Y(), pos.Z(), FALSE, FALSE, FALSE);
 	// Entity lights collapse when moved outside of camera frustum, fix them up
-	SHV::GRAPHICS::UPDATE_LIGHTS_ON_ENTITY(m_EntityHandle);
-	scrEnd();
+	//SHV::GRAPHICS::UPDATE_LIGHTS_ON_ENTITY(m_EntityHandle);
+	//scrEnd();
 }
 
 auto rageam::integration::GameEntity::GetWorldTransform() const -> const rage::Mat44V&

@@ -1,3 +1,4 @@
+#include "am/ui/imglue.h"
 #ifdef AM_INTEGRATED
 
 #include "starbar.h"
@@ -5,8 +6,6 @@
 #include "am/integration/im3d.h"
 #include "am/ui/apps/integration/modelscene.h"
 #include "am/integration/integration.h"
-#include "am/integration/shvthread.h"
-#include "am/ui/context.h"
 #include "am/ui/font_icons/icons_am.h"
 #include "am/ui/styled/slwidgets.h"
 #include "game/viewport.h"
@@ -52,7 +51,7 @@ void rageam::integration::StarBar::UpdateCamera() const
 
 void rageam::integration::StarBar::OnStart()
 {
-	m_ModelScene = Gui->Apps.FindAppByType<ModelScene>();
+	m_ModelScene = ui::GetUI()->FindAppByType<ModelScene>();
 }
 
 void rageam::integration::StarBar::OnRender()
@@ -118,14 +117,14 @@ void rageam::integration::StarBar::OnRender()
 		if (SlGui::MenuButton(ICON_AM_PED_ARROW" Warp Ped"))
 		{
 			const rage::Vec3V pos = integration->Camera->GetPosition();
-			scrBegin();
+			//scrBegin();
 			{
 				float groundZ = pos.Z();
-				SHV::GAMEPLAY::GET_GROUND_Z_FOR_3D_COORD(pos.X(), pos.Y(), pos.Z(), &groundZ, FALSE);
-				SHV::Ped ped = SHV::PLAYER::PLAYER_PED_ID();
-				SHV::PED::SET_PED_COORDS_KEEP_VEHICLE(ped, pos.X(), pos.Y(), groundZ);
+				//SHV::GAMEPLAY::GET_GROUND_Z_FOR_3D_COORD(pos.X(), pos.Y(), pos.Z(), &groundZ, FALSE);
+				//SHV::Ped ped = SHV::PLAYER::PLAYER_PED_ID();
+				//SHV::PED::SET_PED_COORDS_KEEP_VEHICLE(ped, pos.X(), pos.Y(), groundZ);
 			}
-			scrEnd();
+			//scrEnd();
 		}
 		ImGui::ToolTip("Teleports player ped on surface to camera position.");
 	}

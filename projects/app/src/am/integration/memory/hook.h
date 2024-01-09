@@ -7,8 +7,6 @@
 //
 #pragma once
 
-#include <functional>
-
 #include "MinHook.h"
 #include "am/system/asserts.h"
 
@@ -19,7 +17,7 @@ class Hook
 {
 public:
 	/**
-	 * \brief Initializes MinHok.
+	 * \brief Initializes MinHook.
 	 */
 	static void Init()
 	{
@@ -50,17 +48,13 @@ public:
 	 * \param from		Pointer to function to replace.
 	 * \param to		Pointer to function that will be called instead.
 	 * \param backup	Pointer that will be set to address of replaced function.
-	 * \param bEnable	Whether hook will be enabled instantly or with Hook::Seal;
 	 */
 	template<typename TFrom, typename TTo, typename TBackup>
-	static void Create(TFrom from, TTo to, TBackup* backup, bool bEnable = false)
+	static void Create(TFrom from, TTo to, TBackup* backup)
 	{
 		MH_STATUS create = MH_CreateHook((LPVOID)from, (LPVOID)to, (LPVOID*)backup);
 		AM_ASSERT(create == MH_OK,
 			"Hook::Create() -> Failed to create hook on (%p, %p, %p): %s", (pVoid)from, (pVoid)to, (pVoid)*backup, MH_StatusToString(create));
-
-		if (!bEnable)
-			return;
 
 		MH_STATUS enable = MH_EnableHook((LPVOID)from);
 		AM_ASSERT(create == MH_OK,
@@ -91,6 +85,9 @@ public:
 	template<typename TFrom>
 	static void Remove(TFrom from)
 	{
+		if (from == 0)
+			return;
+
 		MH_STATUS disable = MH_DisableHook((pVoid)from);
 		AM_ASSERT(disable == MH_OK,
 			"Hook::Remove() -> Failed to disable hook on (%p): %s", (pVoid)from, MH_StatusToString(disable));

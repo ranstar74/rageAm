@@ -1,48 +1,64 @@
-#include "shvthread.h"
 #ifdef AM_INTEGRATED
 
 #include "integration.h"
 
-#include "am/ui/apps.h"
-#include "am/ui/context.h"
-#include "am/ui/apps/integration/modelscene.h"
-#include "apps/starbar.h"
+#include "scriptcommands.h"
+#include "am/ui/imglue.h"
 #include "memory/address.h"
 #include "memory/hook.h"
 
+#include "am/ui/apps/integration/modelscene.h"
+#include "apps/starbar.h"
+
 namespace
 {
-	gmAddress s_GameUpdateAddr;
-	gmAddress s_ToRenderFunction;
-	rageam::integration::GameIntegration* s_Instance = nullptr;
+	std::atomic_bool	s_InitializedFromGameThread;
+	std::atomic_bool	s_ShuttingDown;
+	gmAddress			s_GameUpdateAddr;
+	gmAddress			s_DoRenderFunction;
 }
 
-static bool(*CApp_GameUpdate_gImpl)();
+bool(*CApp_GameUpdate_gImpl)();
 bool CApp_GameUpdate_aImpl()
 {
+	if (!s_InitializedFromGameThread)
+	{
+		rageam::integration::scrInit();
+		s_InitializedFromGameThread = true;
+	}
+
+	if (s_ShuttingDown)
+	{
+		rageam::integration::scrShutdown();
+		s_ShuttingDown = false;
+	}
+
+	// Update UI from game thread and build draw lists to render
+	auto render = rageam::graphics::Render::GetInstance();
+	if (render) render->BuildDrawLists();
+
+	auto instance = rageam::integration::GameIntegration::GetInstance();
+
 	// Nothing to update
-	if (!s_Instance || !s_Instance->ComponentMgr->HasAnyComponent())
+	if (!instance || !instance->ComponentMgr->HasAnyComponent())
 		return CApp_GameUpdate_gImpl();
 
-	if (s_Instance)
-	{
-		s_Instance->ComponentMgr->EarlyUpdateAll();
-		// s_Instance->FlipDrawListBuffers();
-	}
+	if (instance) instance->ComponentMgr->EarlyUpdateAll();
 	bool result = CApp_GameUpdate_gImpl();
-	if (s_Instance) s_Instance->ComponentMgr->LateUpdateAll();
+	if (instance) instance->ComponentMgr->LateUpdateAll();
 
 	return result;
 }
 
-static void (*gImpl_DoRenderFunction)(u64 arg);
+void (*gImpl_DoRenderFunction)(u64 arg);
 void aImpl_DoRenderFunction(u64 arg)
 {
-	if (s_Instance)
+	auto instance = rageam::integration::GameIntegration::GetInstance();
+	if (instance)
 	{
-		s_Instance->FlipDrawListBuffers();
-		if (s_Instance->IsPauseMenuActive())
-			s_Instance->ClearDrawLists();
+		instance->FlipDrawListBuffers();
+		if (instance->IsPauseMenuActive())
+			instance->ClearDrawLists();
 	}
 	gImpl_DoRenderFunction(arg);
 }
@@ -50,37 +66,49 @@ void aImpl_DoRenderFunction(u64 arg)
 void rageam::integration::GameIntegration::InitComponentManager()
 {
 	ComponentMgr = std::make_unique<ComponentManager>();
-	ComponentManager::SetCurrent(ComponentMgr.get());
 
-	// CApp::GameUpdate, main game thread
+	// CApp::RunGame, main game thread
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+	s_GameUpdateAddr =
+		gmAddress::Scan("48 89 4C 24 08 48 81 EC 38 02 00 00 48 8D 05 ?? ?? ?? ?? 48");
+	s_DoRenderFunction =
+		gmAddress::Scan("48 8B 49 08 48 8B 00 8A 54 24 20").GetAt(-0xC3);
+#elif APP_BUILD_2699_16_RELEASE
+	s_GameUpdateAddr =
+		gmAddress::Scan("48 89 5C 24 08 57 48 81 EC 80 01 00 00 33");
+	s_DoRenderFunction =
+		gmAddress::Scan("48 89 5C 24 08 57 48 83 EC 20 48 8D 99 B8 00 00 00 48 8B F9 48 83");
+#else
 	s_GameUpdateAddr =
 		gmAddress::Scan("48 83 EC 28 E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? B9");
-	s_ToRenderFunction =
+	s_DoRenderFunction =
 		gmAddress::Scan("48 89 5C 24 08 57 48 83 EC 20 48 8D 99 B0 00 00 00 48 8B F9 48 83");
-	Hook::Create(s_GameUpdateAddr, CApp_GameUpdate_aImpl, &CApp_GameUpdate_gImpl, true);
-	Hook::Create(s_ToRenderFunction, aImpl_DoRenderFunction, &gImpl_DoRenderFunction, true);
+#endif
+	Hook::Create(s_GameUpdateAddr, CApp_GameUpdate_aImpl, &CApp_GameUpdate_gImpl);
+	Hook::Create(s_DoRenderFunction, aImpl_DoRenderFunction, &gImpl_DoRenderFunction);
 }
 
-void rageam::integration::GameIntegration::ShutdownComponentManager() const
+void rageam::integration::GameIntegration::ShutdownComponentManager()
 {
 	// Component manager will pause current thread and continue
 	// updating until every component is fully aborted
 	ComponentMgr->BeginAbortAll();
 
 	Hook::Remove(s_GameUpdateAddr);
-	Hook::Remove(s_ToRenderFunction);
-	ComponentManager::SetCurrent(nullptr);
+	Hook::Remove(s_DoRenderFunction);
+
+	ComponentMgr = nullptr;
 }
 
 void rageam::integration::GameIntegration::RegisterApps() const
 {
-	Gui->Apps.AddApp(new StarBar());
-	Gui->Apps.AddApp(new ModelScene());
+	ui::ImGlue* ui = ui::GetUI();
+	ui->AddApp(new StarBar());
+	ui->AddApp(new ModelScene());
 }
 
 void rageam::integration::GameIntegration::InitializeDrawLists()
 {
-	DrawListExecutor::SetCurrent(&m_DrawListExecutor);
 	m_DrawListEntity.Create();
 	m_DrawListEntity->Spawn();
 	m_DrawListEntity->AddDrawList(&DrawListGame);
@@ -96,32 +124,41 @@ rageam::integration::GameIntegration::GameIntegration()
 	DrawListForeground.Unlit = true;
 
 	InitComponentManager();
-	RegisterApps();
-	InitializeDrawLists();
+
+	while (!s_InitializedFromGameThread) {}
+
+	// RegisterApps();
+	// InitializeDrawLists();
 }
 
 rageam::integration::GameIntegration::~GameIntegration()
 {
+	s_ShuttingDown = true;
+	while (s_ShuttingDown) {}
+
 	ShutdownComponentManager();
-	DrawListExecutor::SetCurrent(nullptr);
-}
-
-rageam::integration::GameIntegration* rageam::integration::GameIntegration::GetInstance()
-{
-	return s_Instance;
-}
-
-void rageam::integration::GameIntegration::SetInstance(GameIntegration* instance)
-{
-	s_Instance = instance;
 }
 
 bool rageam::integration::GameIntegration::IsPauseMenuActive() const
 {
 	// Use by is pause menu active native
-	static auto fn = gmAddress::Scan("48 89 5C 24 08 57 48 83 EC 20 80 3D ?? ?? ?? ?? ?? 8B F9 75")
-		.ToFunc<bool(int)>();
+	static auto fn = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		"89 4C 24 08 48 83 EC 38 0F B6 05 ?? ?? ?? ?? 85 C0 75 15"
+#elif APP_BUILD_2699_16_RELEASE
+		"48 89 5C 24 08 57 48 83 EC 20 80 3D ?? ?? ?? ?? ?? 8A 05"
+#else
+		"48 89 5C 24 08 57 48 83 EC 20 80 3D ?? ?? ?? ?? ?? 8B F9 75"
+#endif
+	).ToFunc<bool(int)>();
 	return fn(1);
+}
+
+void rageam::integration::GameIntegration::DisableAllControlsThisFrame() const
+{
+	scrBegin();
+	scrDisableAllControlActions(scrControlType_Player);
+	scrEnd();
 }
 
 #endif

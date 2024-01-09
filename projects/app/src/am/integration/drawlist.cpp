@@ -2,15 +2,13 @@
 
 #ifdef AM_INTEGRATED
 
-#include "am/integration/gameentity.h"
 #include "am/graphics/buffereditor.h"
-#include "am/graphics/render/engine.h"
+#include "am/integration/gameentity.h"
 #include "am/system/datamgr.h"
 #include "game/viewport.h"
 #include "helpers/com.h"
 #include "rage/grcore/device.h"
 #include "rage/grcore/effect/effectmgr.h"
-#include "am/integration/shvthread.h"
 
 #include <d3dcompiler.h>
 
@@ -74,7 +72,7 @@ void rageam::integration::DrawListDummyDrawable::Draw(const Mat34V& mtx, rage::g
 
 void rageam::integration::DrawListDummyEntity::ReleaseAllRefs()
 {
-	m_GameEntity.Destroy();
+	m_GameEntity.Release();
 }
 
 void rageam::integration::DrawListDummyEntity::OnEarlyUpdate()
@@ -142,15 +140,15 @@ ID3D11Buffer* rageam::integration::DrawList::CreateBuffer(size_t elementSize, si
 	desc.MiscFlags = 0;
 
 	ID3D11Buffer* object;
-	AM_ASSERT_D3D(render::GetDevice()->CreateBuffer(&desc, NULL, &object));
+	AM_ASSERT_STATUS(graphics::RenderGetDevice()->CreateBuffer(&desc, NULL, &object));
 	return object;
 }
 
 void rageam::integration::DrawList::UploadBuffer(const amComPtr<ID3D11Buffer>& buffer, pConstVoid data, u32 dataSize)
 {
-	ID3D11DeviceContext* context = render::GetDeviceContext();
+	ID3D11DeviceContext* context = graphics::RenderGetContext();
 	D3D11_MAPPED_SUBRESOURCE mapped;
-	AM_ASSERT_D3D(context->Map(buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped));
+	AM_ASSERT_STATUS(context->Map(buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped));
 	memcpy(mapped.pData, data, dataSize);
 	context->Unmap(buffer.Get(), 0);
 }
@@ -461,7 +459,7 @@ struct OldState
 static void BackupOldState(OldState& oldState)
 {
 	memset(&oldState, 0, sizeof OldState);
-	ID3D11DeviceContext* context = rageam::render::GetDeviceContext();
+	ID3D11DeviceContext* context = rageam::graphics::RenderGetContext();
 	oldState.NumScissors = oldState.NumViewports = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
 	context->OMGetBlendState(&oldState.BlendState, oldState.BlendFactor, &oldState.BlendMask);
 	context->OMGetDepthStencilState(&oldState.DepthStencilState, &oldState.StencilRef);
@@ -480,7 +478,7 @@ static void BackupOldState(OldState& oldState)
 
 static void RestoreOldState(OldState& oldState)
 {
-	ID3D11DeviceContext* context = rageam::render::GetDeviceContext();
+	ID3D11DeviceContext* context = rageam::graphics::RenderGetContext();
 	context->OMSetBlendState(oldState.BlendState, oldState.BlendFactor, oldState.BlendMask);
 	context->OMSetDepthStencilState(oldState.DepthStencilState, oldState.StencilRef);
 	context->RSSetViewports(oldState.NumViewports, oldState.Viewports);
@@ -517,7 +515,7 @@ ID3D11Buffer* rageam::integration::DrawListExecutor::CreateCB(size_t size)
 	desc.StructureByteStride = size;
 
 	ID3D11Buffer* buffer;
-	AM_ASSERT_D3D(render::GetDevice()->CreateBuffer(&desc, NULL, &buffer));
+	AM_ASSERT_STATUS(graphics::RenderGetDevice()->CreateBuffer(&desc, NULL, &buffer));
 	return buffer;
 }
 
@@ -525,7 +523,7 @@ void rageam::integration::DrawListExecutor::CreateShaders(
 	ID3D11VertexShader** vs, ID3D11PixelShader** ps, ID3DBlob** vsBlob,
 	ConstWString vsFileName, ConstWString psFileName)
 {
-	ID3D11Device* device = render::GetDevice();
+	ID3D11Device* device = graphics::RenderGetDevice();
 
 	file::WPath shaders = DataManager::GetDataFolder() / L"shaders";
 	file::WPath vsPath = shaders / vsFileName;
@@ -535,8 +533,8 @@ void rageam::integration::DrawListExecutor::CreateShaders(
 	{
 		ID3DBlob* blob;
 		ID3DBlob* errors;
-		AM_ASSERT_D3D(D3DCompileFromFile(vsPath, NULL, NULL, "main", "vs_5_0", 0, 0, &blob, &errors));
-		AM_ASSERT_D3D(device->CreateVertexShader(blob->GetBufferPointer(), blob->GetBufferSize(), NULL, vs));
+		AM_ASSERT_STATUS(D3DCompileFromFile(vsPath, NULL, NULL, "main", "vs_5_0", 0, 0, &blob, &errors));
+		AM_ASSERT_STATUS(device->CreateVertexShader(blob->GetBufferPointer(), blob->GetBufferSize(), NULL, vs));
 		SAFE_RELEASE(errors);
 		*vsBlob = blob;
 	}
@@ -545,8 +543,8 @@ void rageam::integration::DrawListExecutor::CreateShaders(
 	{
 		ID3DBlob* blob;
 		ID3DBlob* errors;
-		AM_ASSERT_D3D(D3DCompileFromFile(psPath, NULL, NULL, "main", "ps_5_0", 0, 0, &blob, &errors));
-		AM_ASSERT_D3D(device->CreatePixelShader(blob->GetBufferPointer(), blob->GetBufferSize(), NULL, ps));
+		AM_ASSERT_STATUS(D3DCompileFromFile(psPath, NULL, NULL, "main", "ps_5_0", 0, 0, &blob, &errors));
+		AM_ASSERT_STATUS(device->CreatePixelShader(blob->GetBufferPointer(), blob->GetBufferSize(), NULL, ps));
 		SAFE_RELEASE(errors);
 		SAFE_RELEASE(blob);
 	}
@@ -554,7 +552,7 @@ void rageam::integration::DrawListExecutor::CreateShaders(
 
 void rageam::integration::DrawListExecutor::BindEffect() const
 {
-	ID3D11DeviceContext* context = render::GetDeviceContext();
+	ID3D11DeviceContext* context = graphics::RenderGetContext();
 
 	// Viewport
 	u32 width, height;
@@ -584,7 +582,7 @@ void rageam::integration::DrawListExecutor::BindEffect() const
 
 void rageam::integration::DrawListExecutor::RenderDrawData(DrawList::DrawData& drawData) const
 {
-	ID3D11DeviceContext* context = render::GetDeviceContext();
+	ID3D11DeviceContext* context = graphics::RenderGetContext();
 
 	context->IASetPrimitiveTopology(drawData.TopologyType);
 	if (drawData.IsIndexed)
@@ -612,7 +610,7 @@ void rageam::integration::DrawListExecutor::RenderDrawData(DrawList::DrawData& d
 
 void rageam::integration::DrawListExecutor::Init()
 {
-	ID3D11Device* device = render::GetDevice();
+	ID3D11Device* device = graphics::RenderGetDevice();
 
 	// Resterizer State
 	{
@@ -630,20 +628,20 @@ void rageam::integration::DrawListExecutor::Init()
 		rsDesc.MultisampleEnable = true;
 		// Default
 		{
-			AM_ASSERT_D3D(device->CreateRasterizerState(&rsDesc, &rasterizerState));
+			AM_ASSERT_STATUS(device->CreateRasterizerState(&rsDesc, &rasterizerState));
 			m_RS = amComPtr(rasterizerState);
 		}
 		// Two sided
 		{
 			rsDesc.CullMode = D3D11_CULL_NONE;
-			AM_ASSERT_D3D(device->CreateRasterizerState(&rsDesc, &rasterizerState));
+			AM_ASSERT_STATUS(device->CreateRasterizerState(&rsDesc, &rasterizerState));
 			m_RSTwoSided = amComPtr(rasterizerState);
 		}
 		// Wireframe
 		{
 			rsDesc.CullMode = D3D11_CULL_BACK;
 			rsDesc.FillMode = D3D11_FILL_WIREFRAME;
-			AM_ASSERT_D3D(device->CreateRasterizerState(&rsDesc, &rasterizerState));
+			AM_ASSERT_STATUS(device->CreateRasterizerState(&rsDesc, &rasterizerState));
 			m_RSWireframe = amComPtr(rasterizerState);
 		}
 	}
@@ -668,7 +666,7 @@ void rageam::integration::DrawListExecutor::Init()
 			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		};
 		ID3D11InputLayout* vsLayout;
-		AM_ASSERT_D3D(device->CreateInputLayout(inputDesc, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &vsLayout));
+		AM_ASSERT_STATUS(device->CreateInputLayout(inputDesc, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &vsLayout));
 		SAFE_RELEASE(vsBlob);
 		m_Effect.VSLayout = amComPtr(vsLayout);
 	}
@@ -705,7 +703,7 @@ void rageam::integration::DrawListExecutor::Execute(DrawList& drawList)
 	OldState oldState;
 	BackupOldState(oldState);
 	{
-		ID3D11DeviceContext* context = render::GetDeviceContext();
+		ID3D11DeviceContext* context = graphics::RenderGetContext();
 		if (drawList.Wireframe)
 			context->RSSetState(m_RSWireframe.Get());
 		else if (!drawList.BackfaceCull)

@@ -1,11 +1,18 @@
+//
+// File: drawlist.h
+//
+// Copyright (C) 2023 ranstar74. All rights violated.
+//
+// Part of "Rage Am" Research Project.
+//
 #pragma once
 
 #ifdef AM_INTEGRATED
 
+#include "am/graphics/render.h"
 #include "am/types.h"
 #include "am/graphics/color.h"
 #include "rage/math/math.h"
-#include "am/graphics/render/engine.h"
 #include "game/drawable.h"
 #include "updatecomponent.h"
 
@@ -77,7 +84,7 @@ namespace rageam::integration
 				ID3D11Buffer* buffer = Resource.Get();
 				u32 stride = sizeof TVertex;
 				u32 offset = 0;
-				render::GetDeviceContext()->IASetVertexBuffers(0, 1, &buffer, &stride, &offset);
+				graphics::RenderGetContext()->IASetVertexBuffers(0, 1, &buffer, &stride, &offset);
 			}
 		};
 
@@ -93,7 +100,7 @@ namespace rageam::integration
 			IndexBuffer() { Resource = amComPtr(CreateBuffer(sizeof index_t, IndexCapacity, false)); }
 			void AddIndex(const index_t& index) { Indices[IndexCount++] = index; }
 			void Upload() const { UploadBuffer(Resource, Indices, sizeof index_t * IndexCount); }
-			void Bind() const { render::GetDeviceContext()->IASetIndexBuffer(Resource.Get(), DXGI_FORMAT_R16_UINT, 0); }
+			void Bind() const { graphics::RenderGetContext()->IASetIndexBuffer(Resource.Get(), DXGI_FORMAT_R16_UINT, 0); }
 		};
 
 		struct DrawData

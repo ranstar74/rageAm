@@ -1,10 +1,10 @@
 #include "address.h"
 
-#include <cstdlib>
-#include <mutex>
-
 #include "common/logger.h"
 #include "am/system/asserts.h"
+
+#include <cstdlib>
+#include <mutex>
 
 gmAddress gmAddress::Scan(const char* patternStr, const char* debugName)
 {

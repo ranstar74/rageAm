@@ -21,7 +21,7 @@ namespace rageam::integration
 
 		void ReleaseAllRefs() override
 		{
-			m_Entity.Destroy();
+			m_Entity.Release();
 		}
 
 	public:

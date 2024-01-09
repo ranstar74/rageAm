@@ -1,9 +1,9 @@
 #include "updatecomponent.h"
 
-#include "integration.h"
 #ifdef AM_INTEGRATED
 
-#include "shvthread.h"
+#include "integration.h"
+#include "script.h"
 
 namespace
 {
@@ -20,16 +20,6 @@ bool rageam::integration::ComponentManager::HasAnyComponent() const
 {
 	std::unique_lock lock(s_Mutex);
 	return m_UpdateComponents.Any();
-}
-
-rageam::integration::ComponentManager* rageam::integration::ComponentManager::GetCurrent()
-{
-	return sm_Instance;
-}
-
-void rageam::integration::ComponentManager::SetCurrent(ComponentManager* instance)
-{
-	sm_Instance = instance;
 }
 
 std::recursive_mutex& rageam::integration::ComponentManager::GetLock()
@@ -113,6 +103,9 @@ void rageam::integration::ComponentManager::BeginAbortAll() const
 
 void rageam::integration::ComponentManager::UIUpdateAll() const
 {
+	if (!m_UpdateComponents.Any())
+		return;
+
 	if (GameIntegration::GetInstance()->IsPauseMenuActive())
 		return;
 

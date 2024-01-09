@@ -4,7 +4,6 @@
 
 #include "am/integration/im3d.h"
 #include "rage/physics/bounds/composite.h"
-#include "scripthook/shvnatives.h"
 
 void rageam::integration::DrawableRender::RenderBoneRecurse(rage::crSkeletonData* skel, const rage::crBoneData* rootBone, u32 depth)
 {
@@ -84,7 +83,7 @@ void rageam::integration::DrawableRender::OnEarlyUpdate()
 	dlGame.SetTransform(m_Entity->GetWorldTransform());
 	{
 		gtaDrawable* drawable = m_Entity->GetDrawable();
-		rage::crSkeletonData* skel = drawable->GetSkeletonData();
+		rage::crSkeletonData* skel = drawable->GetSkeletonData().Get();
 
 		if (BoundingBox)
 		{
@@ -107,7 +106,7 @@ void rageam::integration::DrawableRender::OnEarlyUpdate()
 
 		if (Collision)
 		{
-			RenderBound(drawable->GetBound());
+			RenderBound(drawable->GetBound().Get());
 		}
 	}
 	dlGame.ResetTransform();
@@ -119,7 +118,7 @@ void rageam::integration::DrawableRender::OnUiUpdate()
 		return;
 	
 	gtaDrawable* drawable = m_Entity->GetDrawable();
-	rage::crSkeletonData* skel = drawable->GetSkeletonData();
+	rage::crSkeletonData* skel = drawable->GetSkeletonData().Get();
 
 	// Bone names
 	if (Skeleton && skel)
