@@ -23,7 +23,7 @@ namespace rage
 		// │0000│ │0│ │0│ │0│ │0│ │0000 000│ │0 0000 0│ │000 0│ │00│ │0│ │0000│
 		// └┬───┘ └┬┘ └┬┘ └┬┘ └┬┘ └┬───────┘ └┬───────┘ └┬────┘ └┬─┘ └┬┘ └┬───┘
 		//  │      │   │   │   │   │          │          │       │    │   │
-		//  Unused 8   7   6   5   4          3          2       1    0   Size shift
+		//  Ver    8   7   6   5   4          3          2       1    0   Size shift
 		// 
 		// This gives us total 24 bits reserved for chunks sizes.
 		// 
@@ -40,6 +40,10 @@ namespace rage
 		// 7      0x200000    1
 		// 8      0x100000    1
 
+		// TODO: Replace this with bit field
+		static constexpr u32 VERSION_SHIFT = 28;
+		static constexpr u32 VERSION_MASK = 0xF << VERSION_SHIFT;
+
 		u32 VirtualData;
 		u32 PhysicalData;
 
@@ -54,6 +58,20 @@ namespace rage
 
 		u8 GetVirtualChunkCount() const { return GetChunkCount(VirtualData); }
 		u8 GetPhysicalChunkCount() const { return GetChunkCount(PhysicalData); }
+
+		void SetVersion(int version)
+		{
+			VirtualData &= ~VERSION_MASK;
+			PhysicalData &= ~VERSION_MASK;
+			// Bits 4-8 in virtual
+			VirtualData |= (version >> 4 & 0xF) << VERSION_SHIFT;
+			// Bits 0-4 in physical
+			PhysicalData |= (version & 0xF) << VERSION_SHIFT;
+		}
+		int GetVersion() const
+		{
+			return (int)(((VirtualData >> VERSION_SHIFT) & 0xF) << 4) | ((PhysicalData >> VERSION_SHIFT) & 0xF);
+		}
 
 		static u32 GetChunkSize(u32 blockSize)
 		{

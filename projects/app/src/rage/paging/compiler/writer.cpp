@@ -16,6 +16,7 @@ rage::datResourceHeader rage::datCompileData::GetHeader() const
 	u32 phyiscalData = datResourceInfo::EncodeChunks(PhysicalChunks);
 
 	datResourceInfo info(virtualData, phyiscalData);
+	info.SetVersion(Version);
 	return datResourceHeader(MAGIC_RSC, Version, info);
 }
 
@@ -154,9 +155,9 @@ void rage::pgRscWriter::ResetWriteStats()
 void rage::pgRscWriter::PrintWriteStats() const
 {
 	AM_TRACEF(L"pgRscWriter -> Exported resource %ls", m_Path);
-	AM_TRACEF("Raw Size: %s", FormatBytesTemp(m_RawSize));
-	AM_TRACEF("File Size: %s", FormatBytesTemp(m_FileSize));
-	AM_TRACEF("Alloc Size: %s", FormatBytesTemp(m_AllocSize));
+	AM_TRACEF("Raw Size: %s", FormatSize(m_RawSize));
+	AM_TRACEF("File Size: %s", FormatSize(m_FileSize));
+	AM_TRACEF("Alloc Size: %s", FormatSize(m_AllocSize));
 }
 
 bool rage::pgRscWriter::Write(const wchar_t* path, const datCompileData& writeData)
