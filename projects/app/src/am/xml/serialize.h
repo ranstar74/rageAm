@@ -12,6 +12,8 @@ struct IXml
 
 	virtual void Serialize(XmlHandle& node) const = 0;
 	virtual void Deserialize(const XmlHandle& node) = 0;
+
+	bool operator==(const IXml&) const = default;
 };
 
 // Option to export write only modified values in XML file, makes it look cleaner but harder to edit manually
