@@ -89,6 +89,8 @@ namespace rageam
 			return m_Holder.Value;
 		}
 
+		void Reset() { m_HasValue = false; }
+
 		/**
 		 * \brief You must check if there's value before accessing it!
 		 */
@@ -104,30 +106,10 @@ namespace rageam
 
 		Nullable& operator=(const T& value)
 		{
-			m_Holder.Destroy();
-			m_Holder.Value = value;
+			if(m_HasValue)
+				m_Holder.Destroy();
+			new (&m_Holder.Value) T(value);
 			m_HasValue = true;
-			return *this;
-		}
-
-		Nullable& operator=(T&& value)
-		{
-			std::swap(m_Holder.Value, value);
-			m_HasValue = true;
-			return *this;
-		}
-
-		Nullable& operator=(const Nullable& other)
-		{
-			m_Holder.Value = other.m_Holder.Value;
-			m_HasValue = other.m_HasValue;
-			return *this;
-		}
-
-		Nullable& operator=(Nullable&& other) noexcept
-		{
-			std::swap(m_Holder.Value, other.m_Holder.Value);
-			std::swap(m_HasValue, other.m_HasValue);
 			return *this;
 		}
 
