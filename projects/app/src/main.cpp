@@ -100,33 +100,24 @@ void ParseAndExecuteArguments(int argc, wchar_t** argv)
 int wmain(int argc, wchar_t** argv)
 {
 	rageam::System system;
-	system.InitCore();
 
 	// We either execute CLI or UI mode depending on if there's any argument was passed
 	if (argc > 1) // First argument is always executable path
 	{
-		system.InitRender(false);
-		system.Finalize();
-
+		system.Init(false);
 		ParseAndExecuteArguments(argc, argv);
 	}
 	else
 	{
-		system.InitRender(true);
-		system.InitUI();
-		system.Finalize();
-		system.EnterWindowUpdateLoop();
+		system.Init(true);
 	}
 }
 #else
 
-static rageam::System s_System;
+rageam::System s_System;
 AM_EXPORT void Init()
 {
-	s_System.InitCore();
-	s_System.InitRender(true);
-	s_System.InitUI();
-	s_System.Finalize();
+	s_System.Init(true);
 }
 
 AM_EXPORT void Shutdown()

@@ -1,8 +1,8 @@
 #include "texturepc.h"
 
-#include "am/graphics/render/engine.h"
 #include "am/graphics/image/image.h"
 #include "am/graphics/dxgi_utils.h"
+#include "am/graphics/render.h"
 
 GUID TextureBackPointerGuid = { 0x637C4F8D, 0x7724, 0x436D, 0x0B2, 0x0D1, 0x49, 0x12, 0x5B, 0x3A, 0x2A, 0x25 };
 
@@ -311,7 +311,7 @@ void rage::grcTextureDX11::CreateInternal(
 	CreateInternalInfo& createInfo, grcTextureCreateType createType,
 	grcsTextureSyncType syncType, grcBindFlag extraBindFlags, bool isFromBackingStore)
 {
-	ID3D11Device* device = rageam::render::GetDevice();
+	ID3D11Device* device = rageam::graphics::RenderGetDevice();
 
 	m_InfoBits.Dirty = false;
 	m_InfoBits.HasBeenDeleted = false;

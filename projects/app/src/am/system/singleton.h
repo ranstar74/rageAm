@@ -7,6 +7,8 @@
 //
 #pragma once
 
+#include "asserts.h"
+
 namespace rageam
 {
 	/**
@@ -15,15 +17,20 @@ namespace rageam
 	template<typename T>
 	class Singleton
 	{
-	protected:
-		Singleton() {}
-	public:
-		Singleton(const Singleton& other) = delete;
+		static inline T* sm_Instance = nullptr;
 
-		static T* GetInstance()
+	public:
+		Singleton()
 		{
-			static T instance;
-			return &instance;
+			AM_ASSERT(sm_Instance == nullptr, "Singleton() -> Another instance already exists!");
+			sm_Instance = (T*)this;
 		}
+
+		virtual ~Singleton()
+		{
+			sm_Instance = nullptr;
+		}
+
+		static T* GetInstance() { return sm_Instance; }
 	};
 }

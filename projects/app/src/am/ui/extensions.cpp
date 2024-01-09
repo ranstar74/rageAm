@@ -1,14 +1,32 @@
 #include "extensions.h"
 
+#include <imgui_gradient.h>
+
+#include "imglue.h"
 #include "imgui_internal.h"
+#include "implot.h"
+#include "implot_internal.h"
 #include "am/graphics/color.h"
-#include "common/logger.h"
 #include "font_icons/icons_awesome.h"
 #include "helpers/ranges.h"
-#include "misc/freetype/imgui_freetype.h"
 #include "rage/math/vecv.h"
-#include "styled/slgui.h"
-#include "styled/slwidgets.h"
+
+void ImGui::HandleUndoHotkeys()
+{
+	auto undo = rageam::UndoStack::GetCurrent();
+	if (IsWindowFocused(ImGuiFocusedFlags_ChildWindows | ImGuiFocusedFlags_NoPopupHierarchy))
+	{
+		if (undo->CanUndo() && Shortcut(ImGuiKey_Z | ImGuiMod_Ctrl, 0, ImGuiInputFlags_RouteGlobal))
+		{
+			undo->Undo();
+		}
+
+		if (undo->CanRedo() && Shortcut(ImGuiKey_Y | ImGuiMod_Ctrl, 0, ImGuiInputFlags_RouteGlobal))
+		{
+			undo->Redo();
+		}
+	}
+}
 
 bool ImGui::RenamingSelectable(RenamingSelectableState& state, ImGuiRenamingSelectableFlags flags)
 {
@@ -103,7 +121,7 @@ bool ImGui::RenamingSelectable(RenamingSelectableState& state, ImGuiRenamingSele
 	{
 		ImGuiButtonFlags buttonFlags = 0;
 		buttonFlags |= ImGuiButtonFlags_PressedOnClick;
-		buttonFlags |= ImGuiButtonFlags_AllowItemOverlap;
+		buttonFlags |= ImGuiButtonFlags_AllowOverlap;
 
 		// So out stretched button doesn't get clipped
 		ColumnsBeginBackground();
@@ -127,7 +145,7 @@ bool ImGui::RenamingSelectable(RenamingSelectableState& state, ImGuiRenamingSele
 
 			MarkItemEdited(id);
 		}
-		SetItemAllowOverlap();
+		SetNextItemAllowOverlap();
 
 		// We don't need navigation highlight because we consider navigation as selection
 		// RenderNavHighlight(bb, id, ImGuiNavHighlightFlags_TypeThin | ImGuiNavHighlightFlags_NoRounding);
@@ -232,19 +250,19 @@ void ImGui::ColumnsEndBackground()
 
 void ImGui::TextCentered(ConstString text, ImGuiTextCenteredFlags flags)
 {
-	ImVec2 windowSize = GetWindowSize();
+	ImVec2 workRectSize = GetCurrentWindow()->WorkRect.GetSize();
 	ImVec2 textSize = CalcTextSize(text);
 	ImVec2 cursor = GetCursorPos();
 
 	if (flags & ImGuiTextCenteredFlags_Horizontal)
 	{
-		float availX = windowSize.x - cursor.x;
+		float availX = workRectSize.x - cursor.x;
 		SetCursorPosX(cursor.x + (availX - textSize.x) * 0.5f);
 	}
 
 	if (flags & ImGuiTextCenteredFlags_Vertical)
 	{
-		float availY = windowSize.y - cursor.y;
+		float availY = workRectSize.y - cursor.y;
 		SetCursorPosY(cursor.y + (availY - textSize.y) * 0.5f);
 	}
 
@@ -260,6 +278,66 @@ ImU32 ImGui::AddHSV(ImU32 col, float h, float s, float v)
 	c.z = ImClamp(c.z + v, 0.0f, 1.0f); // Value
 	ColorConvertHSVtoRGB(c.x, c.y, c.z, c.x, c.y, c.z);
 	return ColorConvertFloat4ToU32(c);
+}
+
+ImU32 ImGui::GetMissingColor()
+{
+	float phase = fabs(sinf((float)GetTime() * 2.5f));
+
+	static constexpr ImVec4 COL1 = { 0.78f, 0.26f, 0.30f, 1.0f };
+	static constexpr ImVec4 COL2 = { 0.36f, 0.10f, 0.13f, 1.0f };
+
+	return ColorConvertFloat4ToU32(ImLerp(COL1, COL2, phase));
+}
+
+void ImGui::ScrollingLabel(const ImVec2& pos, const ImRect& bb, ConstString text)
+{
+	ScrollingLabel(pos, bb, text, GetColorU32(ImGuiCol_Text), 0.0f);
+}
+
+void ImGui::ScrollingLabel(const ImVec2& pos, const ImRect& bb, ConstString text, ImU32 col, double startTime)
+{
+	ConstString textEnd = FindRenderedTextEnd(text);
+	ScrollingLabel(pos, bb, text, textEnd, col, startTime);
+}
+
+void ImGui::ScrollingLabel(const ImVec2& pos, const ImRect& bb, ConstString text, ConstString textEnd, ImU32 col, double startTime)
+{
+	const ImGuiStyle& style = GImGui->Style;
+	ImGuiWindow* window = GetCurrentWindow();
+
+	ImVec2 textSize = CalcTextSize(text, textEnd);
+	ImVec2 animPos = pos;
+	ImRect adjustedBB = bb;
+	adjustedBB.Min.x = pos.x;
+
+	float sidePadding = style.FramePadding.x * 2.0f;
+	float textDisplayWidth = adjustedBB.GetWidth() - sidePadding;
+	// Scrolling text animation
+	bool animate = textSize.x > textDisplayWidth;
+	if (animate)
+	{
+		// Total animation takes 'animTotalDuration' seconds,
+		// scrolling starts after 'animWaitTime' seconds,
+		// scrolls for 'animDuration' seconds and stays for 'animWaitTime' seconds
+		constexpr float animWaitTime = 2.0f;
+		constexpr float animDuration = 2.5f;
+		constexpr float animTotalDuration = animDuration + animWaitTime * 2.0f;
+
+		double currentTime = GetTime() - startTime;
+		// Loop every X seconds
+		float animTime = static_cast<float>(fmod(currentTime, static_cast<double>(animTotalDuration)));
+		float currentPhase = ImRemap(animTime, animWaitTime, animWaitTime + animDuration, 0.0f, 1.0f);
+		currentPhase = ImClamp(currentPhase, 0.0f, 1.0f);
+
+		// Scroll to left
+		float clippedWidth = textSize.x - textDisplayWidth;
+		animPos.x -= clippedWidth * currentPhase;
+	}
+
+	PushClipRect(adjustedBB.Min, adjustedBB.Max, true);
+	window->DrawList->AddText(animPos, col, text, textEnd);
+	PopClipRect();
 }
 
 void ImGui::StatusBar()
@@ -425,7 +503,7 @@ bool ImGui::IconTreeNode(ConstString text, bool& selected, bool& toggled, ImText
 
 	window->DrawList->AddImage(icon, iconMin, iconMax);
 
-	SlGui::PushFont(SlFont_Medium);
+	ImGui::PushFont(ImFont_Medium);
 	RenderText(textPos, text);
 	PopFont();
 
@@ -614,7 +692,8 @@ void ImGui::BeginToolBar(ConstString name)
 	window->DC.CursorPos.x += style.FramePadding.x;
 	window->DC.CursorPos.y += (barHeight - frameHeight) / 2.0f;
 
-	SlGui::RenderFrame(ImRect(min, max), SlGui::GetColorGradient(SlGuiCol_ToolbarBg), 1, 0, ImGuiAxis_X);
+	//ImGui::RenderFrame(ImRect(min, max), ImGui::GetColorGradient(ImGuiCol_ToolbarBg), 1, 0, ImGuiAxis_X);
+	RenderFrame(min, max, GetColorU32(ImGuiCol_ChildBg));
 }
 
 void ImGui::EndToolBar()
@@ -688,78 +767,6 @@ bool ImGui::NavButton(ConstString idStr, ImGuiDir dir, bool enabled)
 	return pressed;
 }
 
-void ImGui::ShadeVertsLinearColorGradient(const ImDrawList* draw_list, int vert_start_idx, int vert_end_idx, ImVec2 gradient_p0, ImVec2 gradient_p1, ImU32 col0, ImU32 col1)
-{
-	ImVec2 gradient_extent = gradient_p1 - gradient_p0;
-	float gradient_inv_length2 = 1.0f / ImLengthSqr(gradient_extent);
-	ImDrawVert* vert_start = draw_list->VtxBuffer.Data + vert_start_idx;
-	ImDrawVert* vert_end = draw_list->VtxBuffer.Data + vert_end_idx;
-	const int col0_r = (int)(col0 >> IM_COL32_R_SHIFT) & 0xFF;
-	const int col0_g = (int)(col0 >> IM_COL32_G_SHIFT) & 0xFF;
-	const int col0_b = (int)(col0 >> IM_COL32_B_SHIFT) & 0xFF;
-	const int col0_a = (int)(col0 >> IM_COL32_A_SHIFT) & 0xFF;
-	const int col_delta_r = ((int)(col1 >> IM_COL32_R_SHIFT) & 0xFF) - col0_r;
-	const int col_delta_g = ((int)(col1 >> IM_COL32_G_SHIFT) & 0xFF) - col0_g;
-	const int col_delta_b = ((int)(col1 >> IM_COL32_B_SHIFT) & 0xFF) - col0_b;
-	const int col_delta_a = ((int)(col1 >> IM_COL32_A_SHIFT) & 0xFF) - col0_a;
-	for (ImDrawVert* vert = vert_start; vert < vert_end; vert++)
-	{
-		float d = ImDot(vert->pos - gradient_p0, gradient_extent);
-		float t = ImClamp(d * gradient_inv_length2, 0.0f, 1.0f);
-		int r = (int)((float)col0_r + (float)col_delta_r * t);
-		int g = (int)((float)col0_g + (float)col_delta_g * t);
-		int b = (int)((float)col0_b + (float)col_delta_b * t);
-		int a = (int)((float)col0_a + (float)col_delta_a * t);
-
-		// To preserve round borders
-		int oldAlpha = (vert->col >> IM_COL32_A_SHIFT) & 0xFF;
-		if (oldAlpha == 0)
-			a = 0;
-
-		vert->col = IM_COL32(r, g, b, a);
-	}
-}
-
-void ImGui::RenderFrameGradient(ImRect& bb, ImU32 startColor, ImU32 endColor, ImGuiAxis axis, float bias, float offset)
-{
-	ImGuiWindow* window = GetCurrentWindow();
-	ImGuiStyle& style = GImGui->Style;
-
-	int vStart = window->DrawList->VtxBuffer.Size;
-	window->DrawList->AddRectFilled(bb.Min, bb.Max, IM_COL32_WHITE, style.FrameRounding);
-	int vEnd = window->DrawList->VtxBuffer.Size;
-
-	ImVec2 p0 = bb.Min;
-	ImVec2 p1 = axis == ImGuiAxis_X ? bb.GetTR() : bb.GetBL();
-	p1 = ImLerp(p0, p1, bias);
-
-	float offsetDistance = abs(p1.y - p0.y) * offset;
-
-	p0.y += offsetDistance;
-	p1.y += offsetDistance;
-
-	ShadeVertsLinearColorGradient(
-		window->DrawList, vStart, vEnd, p0, p1, startColor, endColor);
-}
-
-void ImGui::RenderRectGradient(ImRect& bb, ImU32 startColor, ImU32 endColor, ImGuiAxis axis, float bias)
-{
-	ImGuiWindow* window = GetCurrentWindow();
-	ImGuiStyle& style = GImGui->Style;
-
-	int vStart = window->DrawList->VtxBuffer.Size;
-	window->DrawList->AddRect(bb.Min, bb.Max, IM_COL32_WHITE, style.FrameRounding);
-	int vEnd = window->DrawList->VtxBuffer.Size;
-
-	ImVec2& p0 = bb.Min;
-	ImVec2 p1 = axis == ImGuiAxis_X ? bb.GetTR() : bb.GetBL();
-	p1 = ImLerp(p0, p1, bias);
-
-	ShadeVertsLinearColorGradient(
-		window->DrawList, vStart, vEnd, p0, p1,
-		startColor, endColor);
-}
-
 void ImGui::SnapToPrevious()
 {
 	ImGuiWindow* window = GetCurrentWindow();
@@ -787,7 +794,8 @@ void ImGui::BeginDockSpace()
 	DockSpace(GetID("MyDockSpace"), ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
 
 	ImGuiWindow* window = GetCurrentWindow();
-	SlGui::RenderFrame(window->ClipRect, SlGui::GetColorGradient(SlGuiCol_DockspaceBg));
+	//SlGui::RenderFrame(window->ClipRect, SlGui::GetColorGradient(SlGuiCol_DockspaceBg));
+	// ImGui::RenderFrame(window->ClipRect.Min, window->ClipRect.Max, ImGui::GetColorU32(ImGuiCol_))
 
 	PopStyleVar(3); // Dock window styles
 }
@@ -948,4 +956,276 @@ void ImGui::InputTextPlaceholder(ConstString inputText, ConstString placeholder,
 	const ImRect& rect = GImGui->LastItemData.Rect;
 	ImVec2 textPos = rect.Min + GImGui->Style.FramePadding;
 	GetCurrentWindow()->DrawList->AddText(textPos, textColor, placeholder);
+}
+
+namespace ImGui
+{
+	template<typename TYPE, typename FLOATTYPE>
+	float SliderCalcRatioFromValueT(
+		ImGuiDataType data_type, TYPE v, TYPE v_min, TYPE v_max, float power, float linear_zero_pos)
+	{
+		if (v_min == v_max)
+			return 0.0f;
+
+		const bool is_power
+			= (power != 1.0f) && (data_type == ImGuiDataType_Float || data_type == ImGuiDataType_Double);
+		const TYPE v_clamped = (v_min < v_max) ? ImClamp(v, v_min, v_max) : ImClamp(v, v_max, v_min);
+		if (is_power)
+		{
+			if (v_clamped < 0.0f)
+			{
+				const float f
+					= 1.0f
+					- static_cast<float>((v_clamped - v_min) / (ImMin(static_cast<TYPE>(0), v_max) - v_min));
+				return (1.0f - ImPow(f, 1.0f / power)) * linear_zero_pos;
+			}
+			else
+			{
+				const float f = static_cast<float>(
+					(v_clamped - ImMax(static_cast<TYPE>(0), v_min))
+					/ (v_max - ImMax(static_cast<TYPE>(0), v_min)));
+				return linear_zero_pos + ImPow(f, 1.0f / power) * (1.0f - linear_zero_pos);
+			}
+		}
+
+		// Linear slider
+		return static_cast<float>(static_cast<FLOATTYPE>(v_clamped - v_min) / static_cast<FLOATTYPE>(v_max - v_min));
+	}
+
+
+	float RoundScalarWithFormatFloat(const char* format, ImGuiDataType data_type, float v)
+	{
+		return ImGui::RoundScalarWithFormatT(format, data_type, v);
+	}
+
+
+	float SliderCalcRatioFromValueFloat(
+		ImGuiDataType data_type, float v, float v_min, float v_max, float power, float linear_zero_pos)
+	{
+		return SliderCalcRatioFromValueT<float, float>(data_type, v, v_min, v_max, power, linear_zero_pos);
+	}
+
+	// ~80% common code with ImGui::SliderBehavior
+	bool RangeSliderBehavior(const ImRect& frame_bb, ImGuiID id, float* v1, float* v2, float v_min, float v_max, float power, int decimal_precision, ImGuiSliderFlags flags)
+	{
+		ImGuiContext& g = *GImGui;
+		ImGuiWindow* window = GetCurrentWindow();
+		const ImGuiStyle& style = g.Style;
+
+		// Draw frame
+		RenderFrame(frame_bb.Min, frame_bb.Max, GetColorU32(ImGuiCol_FrameBg), true, style.FrameRounding);
+
+		const bool is_non_linear = (power < 1.0f - 0.00001f) || (power > 1.0f + 0.00001f);
+		const bool is_horizontal = (flags & ImGuiSliderFlags_Vertical) == 0;
+
+		const float grab_padding = 2.0f;
+		const float slider_sz = is_horizontal ? (frame_bb.GetWidth() - grab_padding * 2.0f) : (frame_bb.GetHeight() - grab_padding * 2.0f);
+		float grab_sz;
+		if (decimal_precision > 0)
+			grab_sz = ImMin(style.GrabMinSize, slider_sz);
+		else
+			grab_sz = ImMin(ImMax(1.0f * (slider_sz / ((v_min < v_max ? v_max - v_min : v_min - v_max) + 1.0f)), style.GrabMinSize), slider_sz);  // Integer sliders, if possible have the grab size represent 1 unit
+		const float slider_usable_sz = slider_sz - grab_sz;
+		const float slider_usable_pos_min = (is_horizontal ? frame_bb.Min.x : frame_bb.Min.y) + grab_padding + grab_sz * 0.5f;
+		const float slider_usable_pos_max = (is_horizontal ? frame_bb.Max.x : frame_bb.Max.y) - grab_padding - grab_sz * 0.5f;
+
+		// For logarithmic sliders that cross over sign boundary we want the exponential increase to be symmetric around 0.0f
+		float linear_zero_pos = 0.0f;   // 0.0->1.0f
+		if (v_min * v_max < 0.0f)
+		{
+			// Different sign
+			const float linear_dist_min_to_0 = powf(fabsf(0.0f - v_min), 1.0f / power);
+			const float linear_dist_max_to_0 = powf(fabsf(v_max - 0.0f), 1.0f / power);
+			linear_zero_pos = linear_dist_min_to_0 / (linear_dist_min_to_0 + linear_dist_max_to_0);
+		}
+		else
+		{
+			// Same sign
+			linear_zero_pos = v_min < 0.0f ? 1.0f : 0.0f;
+		}
+
+		// Process clicking on the slider
+		bool value_changed = false;
+		if (g.ActiveId == id)
+		{
+			if (g.IO.MouseDown[0])
+			{
+				const float mouse_abs_pos = is_horizontal ? g.IO.MousePos.x : g.IO.MousePos.y;
+				float clicked_t = (slider_usable_sz > 0.0f) ? ImClamp((mouse_abs_pos - slider_usable_pos_min) / slider_usable_sz, 0.0f, 1.0f) : 0.0f;
+				if (!is_horizontal)
+					clicked_t = 1.0f - clicked_t;
+
+				float new_value;
+				if (is_non_linear)
+				{
+					// Account for logarithmic scale on both sides of the zero
+					if (clicked_t < linear_zero_pos)
+					{
+						// Negative: rescale to the negative range before powering
+						float a = 1.0f - (clicked_t / linear_zero_pos);
+						a = powf(a, power);
+						new_value = ImLerp(ImMin(v_max, 0.0f), v_min, a);
+					}
+					else
+					{
+						// Positive: rescale to the positive range before powering
+						float a;
+						if (fabsf(linear_zero_pos - 1.0f) > 1.e-6f)
+							a = (clicked_t - linear_zero_pos) / (1.0f - linear_zero_pos);
+						else
+							a = clicked_t;
+						a = powf(a, power);
+						new_value = ImLerp(ImMax(v_min, 0.0f), v_max, a);
+					}
+				}
+				else
+				{
+					// Linear slider
+					new_value = ImLerp(v_min, v_max, clicked_t);
+				}
+
+				char fmt[64];
+				snprintf(fmt, 64, "%%.%df", decimal_precision);
+
+				// Round past decimal precision
+				new_value = RoundScalarWithFormatFloat(fmt, ImGuiDataType_Float, new_value);
+				if (*v1 != new_value || *v2 != new_value)
+				{
+					if (fabsf(*v1 - new_value) < fabsf(*v2 - new_value))
+					{
+						*v1 = new_value;
+					}
+					else
+					{
+						*v2 = new_value;
+					}
+					value_changed = true;
+				}
+			}
+			else
+			{
+				ClearActiveID();
+			}
+		}
+
+		// Calculate slider grab positioning
+		float grab_t = SliderCalcRatioFromValueFloat(ImGuiDataType_Float, *v1, v_min, v_max, power, linear_zero_pos);
+
+		// Draw
+		if (!is_horizontal)
+			grab_t = 1.0f - grab_t;
+		float grab_pos = ImLerp(slider_usable_pos_min, slider_usable_pos_max, grab_t);
+		ImRect grab_bb1;
+		if (is_horizontal)
+			grab_bb1 = ImRect(ImVec2(grab_pos - grab_sz * 0.5f, frame_bb.Min.y + grab_padding), ImVec2(grab_pos + grab_sz * 0.5f, frame_bb.Max.y - grab_padding));
+		else
+			grab_bb1 = ImRect(ImVec2(frame_bb.Min.x + grab_padding, grab_pos - grab_sz * 0.5f), ImVec2(frame_bb.Max.x - grab_padding, grab_pos + grab_sz * 0.5f));
+		window->DrawList->AddRectFilled(grab_bb1.Min, grab_bb1.Max, GetColorU32(g.ActiveId == id ? ImGuiCol_SliderGrabActive : ImGuiCol_SliderGrab), style.GrabRounding);
+
+		// Calculate slider grab positioning
+		grab_t = SliderCalcRatioFromValueFloat(ImGuiDataType_Float, *v2, v_min, v_max, power, linear_zero_pos);
+
+		// Draw
+		if (!is_horizontal)
+			grab_t = 1.0f - grab_t;
+		grab_pos = ImLerp(slider_usable_pos_min, slider_usable_pos_max, grab_t);
+		ImRect grab_bb2;
+		if (is_horizontal)
+			grab_bb2 = ImRect(ImVec2(grab_pos - grab_sz * 0.5f, frame_bb.Min.y + grab_padding), ImVec2(grab_pos + grab_sz * 0.5f, frame_bb.Max.y - grab_padding));
+		else
+			grab_bb2 = ImRect(ImVec2(frame_bb.Min.x + grab_padding, grab_pos - grab_sz * 0.5f), ImVec2(frame_bb.Max.x - grab_padding, grab_pos + grab_sz * 0.5f));
+		window->DrawList->AddRectFilled(grab_bb2.Min, grab_bb2.Max, GetColorU32(g.ActiveId == id ? ImGuiCol_SliderGrabActive : ImGuiCol_SliderGrab), style.GrabRounding);
+
+		ImRect connector(grab_bb1.Min, grab_bb2.Max);
+		connector.Min.x += grab_sz;
+		connector.Min.y += grab_sz * 0.3f;
+		connector.Max.x -= grab_sz;
+		connector.Max.y -= grab_sz * 0.3f;
+
+		window->DrawList->AddRectFilled(connector.Min, connector.Max, GetColorU32(ImGuiCol_SliderGrab), style.GrabRounding);
+
+		return value_changed;
+	}
+
+	// ~95% common code with ImGui::SliderFloat
+	bool RangeSliderFloat(const char* label, float* v1, float* v2, float v_min, float v_max, const char* display_format, float power)
+	{
+		ImGuiWindow* window = GetCurrentWindow();
+		if (window->SkipItems)
+			return false;
+
+		ImGuiContext& g = *GImGui;
+		const ImGuiStyle& style = g.Style;
+		const ImGuiID id = window->GetID(label);
+		const float w = CalcItemWidth();
+
+		const ImVec2 label_size = CalcTextSize(label, NULL, true);
+		const ImRect frame_bb(window->DC.CursorPos, window->DC.CursorPos + ImVec2(w, label_size.y + style.FramePadding.y * 2.0f));
+		const ImRect total_bb(frame_bb.Min, frame_bb.Max + ImVec2(label_size.x > 0.0f ? style.ItemInnerSpacing.x + label_size.x : 0.0f, 0.0f));
+
+		// NB- we don't call ItemSize() yet because we may turn into a text edit box below
+		if (!ItemAdd(total_bb, id))
+		{
+			ItemSize(total_bb, style.FramePadding.y);
+			return false;
+		}
+
+		const bool hovered = ItemHoverable(frame_bb, id, 0);
+		if (hovered)
+			SetHoveredID(id);
+
+		if (!display_format)
+			display_format = "(%.3f, %.3f)";
+		int decimal_precision = ImParseFormatPrecision(display_format, 3);
+
+		// Tabbing or CTRL-clicking on Slider turns it into an input box
+		bool start_text_input = false;
+		const bool tab_focus_requested = false; // (GetItemStatusFlags() & ImGuiItemStatusFlags_FocusedByTabbing) != 0;
+		if (tab_focus_requested || (hovered && g.IO.MouseClicked[0]))
+		{
+			SetActiveID(id, window);
+			FocusWindow(window);
+
+			if (tab_focus_requested || g.IO.KeyCtrl)
+			{
+				start_text_input = true;
+				g.TempInputId = 0;
+			}
+		}
+
+		if (start_text_input || (g.ActiveId == id && g.TempInputId == id))
+		{
+			char fmt[64];
+			snprintf(fmt, 64, "%%.%df", decimal_precision);
+			return TempInputScalar(frame_bb, id, label, ImGuiDataType_Float, v1, fmt);
+		}
+
+		ItemSize(total_bb, style.FramePadding.y);
+
+		// Actual slider behavior + render grab
+		const bool value_changed = RangeSliderBehavior(frame_bb, id, v1, v2, v_min, v_max, power, decimal_precision, 0);
+
+		// Display value using user-provided display format so user can add prefix/suffix/decorations to the value.
+		char value_buf[64];
+		const char* value_buf_end = value_buf + ImFormatString(value_buf, IM_ARRAYSIZE(value_buf), display_format, *v1, *v2);
+		RenderTextClipped(frame_bb.Min, frame_bb.Max, value_buf, value_buf_end, NULL, ImVec2(0.5f, 0.5f));
+
+		if (label_size.x > 0.0f)
+			RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label);
+
+		return value_changed;
+	}
+}
+
+bool ImGui::BeginPadded(ConstString name, const ImVec2& padding)
+{
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, padding);
+	bool opened = ImGui::BeginChild(name, ImVec2(0, 0), false, ImGuiChildFlags_AlwaysUseWindowPadding);
+	ImGui::PopStyleVar();
+	return opened;
+}
+
+void ImGui::EndPadded()
+{
+	ImGui::EndChild();
 }

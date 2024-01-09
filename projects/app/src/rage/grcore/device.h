@@ -31,9 +31,6 @@ namespace rage
 		GRC_DRAW_INDEXED,
 	};
 
-	ID3D11DeviceContext* GetDeviceContextD3D11();
-	ID3D11Device* GetDeviceD3D11();
-
 	class grcDevice
 	{
 		static inline grcVertexDeclaration* sm_CurrentVertexDeclaration = nullptr;

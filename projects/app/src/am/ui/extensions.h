@@ -53,6 +53,9 @@ typedef int ImGuiDragSelectionFlags;
 
 namespace ImGui
 {
+	// For rageam::UndoStack
+	void HandleUndoHotkeys();
+
 	PRINTF_ATTR(1, 2) inline ConstString FormatTemp(ConstString fmt, ...)
 	{
 		static char buffer[256];
@@ -105,6 +108,13 @@ namespace ImGui
 
 	ImU32 AddHSV(ImU32 col, float h, float s, float v);
 
+	// Samples animated pink color
+	ImU32 GetMissingColor();
+
+	void ScrollingLabel(const ImVec2& pos, const ImRect& bb, ConstString text);
+	void ScrollingLabel(const ImVec2& pos, const ImRect& bb, ConstString text, ImU32 col, double startTime = 0);
+	void ScrollingLabel(const ImVec2& pos, const ImRect& bb, ConstString text, ConstString textEnd, ImU32 col, double startTime = 0);
+
 	// Draws status bar in the bottom of current window
 	void StatusBar();
 	// Has to be called right after window is shown to modify clip rect for status bar
@@ -135,11 +145,6 @@ namespace ImGui
 	void EndToolBar();
 
 	bool NavButton(ConstString idStr, ImGuiDir dir, bool enabled);
-
-	void ShadeVertsLinearColorGradient(const ImDrawList* draw_list, int vert_start_idx, int vert_end_idx, ImVec2 gradient_p0, ImVec2 gradient_p1, ImU32 col0, ImU32 col1);
-
-	void RenderFrameGradient(ImRect& bb, ImU32 startColor, ImU32 endColor, ImGuiAxis axis = ImGuiAxis_Y, float bias = 1.0f, float offset = 0.0f);
-	void RenderRectGradient(ImRect& bb, ImU32 startColor, ImU32 endColor, ImGuiAxis axis = ImGuiAxis_Y, float bias = 1.0f);
 
 	// Useful when doing vertical layouts, positions next widget right after previous one.
 	void SnapToPrevious();
@@ -207,6 +212,12 @@ namespace ImGui
 		PopID();
 		return edited;
 	}
+
+	bool RangeSliderFloat(const char* label, float* v1, float* v2, float v_min, float v_max, const char* display_format = "(%.3f, %.3f)", float power = 1.0f);
+
+	// Creates new child with specified padding
+	bool BeginPadded(ConstString name, const ImVec2& padding);
+	void EndPadded();
 }
 
 namespace ImPlot

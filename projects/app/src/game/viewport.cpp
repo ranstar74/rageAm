@@ -1,7 +1,7 @@
 #include "viewport.h"
 
-#include "am/desktop/window.h"
 #include "am/integration/memory/address.h"
+#include "am/graphics/window.h"
 #include "rage/grcore/device.h"
 #include "rage/math/math.h"
 
@@ -88,10 +88,10 @@ void CViewport::GetWorldRayFromScreen(rage::Vec3V& fromCoord, rage::Vec3V& dir, 
 
 void CViewport::GetWorldMouseSegment(rage::Vec3V& nearCoord, rage::Vec3V& farCoord)
 {
-	u32 mouseX, mouseY;
+	int mouseX, mouseY;
 
-	rageam::Window* window = rageam::WindowFactory::GetWindow();
-	window->GetMousePos(mouseX, mouseY);
+	rageam::graphics::Window* window = rageam::graphics::Window::GetInstance();
+	window->GetMousePosition(mouseX, mouseY);
 
 	GetWorldSegmentFromScreen(nearCoord, farCoord, static_cast<float>(mouseX), static_cast<float>(mouseY));
 }

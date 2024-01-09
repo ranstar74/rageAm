@@ -1,6 +1,7 @@
 #include "buffer.h"
 
 #include "device.h"
+#include "am/graphics/render.h"
 
 void rage::grcBufferD3D11::Create(const void* data, u32 elementCount, u32 stride, u32 bindFlags, u32 miscFlags, D3D11_USAGE usage, u32 cpuAccess, bool keepData)
 {
@@ -26,7 +27,7 @@ void rage::grcBufferD3D11::Create(const void* data, u32 elementCount, u32 stride
 		pInitData = nullptr;
 
 	ID3D11Buffer* buffer;
-	ID3D11Device* factory = GetDeviceD3D11();
+	ID3D11Device* factory = rageam::graphics::RenderGetDevice();
 	HRESULT result = factory->CreateBuffer(&desc, pInitData, &buffer);
 	if (result != S_OK)
 	{
@@ -48,14 +49,14 @@ void rage::grcBufferD3D11::Create(const void* data, u32 elementCount, u32 stride
 pVoid rage::grcBufferD3D11::Bind() const
 {
 	D3D11_MAPPED_SUBRESOURCE mapped;
-	AM_ASSERT(GetDeviceContextD3D11()->Map(m_Object.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped) == S_OK,
+	AM_ASSERT(rageam::graphics::RenderGetContext()->Map(m_Object.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped) == S_OK,
 		"grcBufferD3D11::Bind() -> Failed to bind buffer.");
 	return mapped.pData;
 }
 
 void rage::grcBufferD3D11::Unbind() const
 {
-	GetDeviceContextD3D11()->Unmap(m_Object.Get(), 0);
+	rageam::graphics::RenderGetContext()->Unmap(m_Object.Get(), 0);
 }
 
 rage::grcVertexBuffer::grcVertexBuffer()

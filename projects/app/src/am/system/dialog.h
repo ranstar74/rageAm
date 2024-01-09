@@ -7,11 +7,11 @@
 //
 #pragma once
 
+#include "am/graphics/window.h"
+#include "common/types.h"
+
 #include <CommCtrl.h>
 #include <Windows.h>
-
-#include "am/desktop/window.h"
-#include "common/types.h"
 
 namespace rageam
 {
@@ -35,7 +35,7 @@ namespace rageam
 			uType = MB_ICONWARNING; break;
 		}
 
-		HWND windowHandle = WindowFactory::GetWindowHandle();
+		HWND windowHandle = graphics::WindowGetHWND();
 		MessageBoxA(windowHandle, content, title, uType);
 	}
 
@@ -59,7 +59,7 @@ namespace rageam
 			icon = MAKEINTRESOURCEW(-6); break; // TD_SHIELD_WARNING_ICON
 		}
 
-		HWND windowHandle = WindowFactory::GetWindowHandle();
+		HWND windowHandle = graphics::WindowGetHWND();
 
 		TASKDIALOGCONFIG config{};
 		config.cbSize = sizeof(TASKDIALOGCONFIG);

@@ -4,10 +4,15 @@
 
 #include "dialog.h"
 #include "am/string/string.h"
+#include "am/ui/app.h"
 #include "common/logger.h"
 #include "exception/handler.h"
 #include "exception/stacktrace.h"
 #include "helpers/format.h"
+#include "rage/system/allocator.h"
+#include "am/ui/imglue.h"
+
+#include <vcruntime_typeinfo.h>
 
 rage::sysCriticalSectionToken rageam::ErrorDisplay::sm_Mutex;
 wchar_t rageam::ErrorDisplay::sm_StackTraceBuffer[STACKTRACE_BUFFER_SIZE];
@@ -110,13 +115,23 @@ void rageam::ErrorDisplay::GameError(ConstWString error, u32 frameSkip)
 
 void rageam::ErrorDisplay::ImAssert(ConstString assert, u32 frameSkip)
 {
+	ConstString lastAppName = "None";
+	ui::ImGlue* ui = ui::GetUI();
+	if (ui) // Null if error happened during initialization
+	{
+		ui::App* lastUpdatedApp = ui->GetLastUpdatedApp();
+		if (lastUpdatedApp)
+			lastAppName = lastUpdatedApp->GetDebugName();
+	}
+
 	rage::sysCriticalSectionLock lock(sm_Mutex);
 
 	ConstWString stack = CaptureStack(frameSkip + 1 /* This */);
 
 	auto& options = Logger::GetInstance()->GetOptions();
 	options.Set(LOG_OPTION_NO_PREFIX, true);
-	AM_ERR("\n=== IM GUI ASSERTION FAILED ===");
+	AM_ERR("\n=== DEAR IM GUI ASSERTION FAILED ===");
+	AM_ERRF("Last App: %s", lastAppName);
 	AM_ERRF("%s", assert);
 	AM_TRACE(stack);
 	options.Set(LOG_OPTION_NO_PREFIX, false);
@@ -129,7 +144,7 @@ void rageam::ErrorDisplay::ImAssert(ConstString assert, u32 frameSkip)
 	String::ToWide(assertw, ASSERT_MAX, assert);
 
 	ShowTaskDialog(L"Assertion Failed", L"Make sure debugger is attached.",
-		L"ImGui Assert", assertw, stack, DIALOG_ERROR, buttons, 1);
+		L"Dear ImGui Assert", assertw, stack, DIALOG_ERROR, buttons, 1);
 }
 
 AM_NOINLINE void rageam::ErrorDisplay::Verify(ConstWString error, ConstString assert, u32 frameSkip)

@@ -7,27 +7,31 @@
 //
 #pragma once
 
-#include <typeinfo>
-
-#include "am/desktop/input.h"
 #include "common/types.h"
+
+// Unused here but every app implementation includes it
+// ReSharper disable once CppUnusedIncludeDirective
+#include <imgui.h>
+#include <typeinfo>
 
 namespace rageam::ui
 {
 	/**
-	 * \brief App has one running instance and has update function that is called on tick.
+	 * \brief Single-instanced ImGui component.
 	 */
 	class App
 	{
 		bool m_Started = false;
+
 	protected:
 
-		// ImGui-related things must be done in here because
-		// when module is constructed im gui might be not initialized.
+		// ImGui-related things must be initialized here because
+		// app constructor is invoked way before UI is ready to use
 		virtual void OnStart() {}
-
-		// Invoked every frame when window is visible.
-		virtual void OnRender() = 0;
+		// Invoked every frame when UI is visible (rendered)
+		virtual void OnRender() {}
+		// Invoked every frame regardless if UI is visible (rendered) or not
+		virtual void OnUpdate() {}
 
 	public:
 		virtual ~App() = default;
@@ -35,8 +39,12 @@ namespace rageam::ui
 		// Debug name is used in error / assert dialogs.
 		virtual ConstString GetDebugName() { return typeid(*this).name(); }
 
-		void Update()
+		void Tick(bool onlyUpdate)
 		{
+			OnUpdate();
+			if (onlyUpdate)
+				return;
+
 			if (!m_Started)
 			{
 				OnStart();
@@ -45,7 +53,5 @@ namespace rageam::ui
 
 			OnRender();
 		}
-
-		InputState& GetInput() const;
 	};
 }

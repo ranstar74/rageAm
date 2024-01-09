@@ -2,19 +2,9 @@
 
 #include "buffer.h"
 #include "am/graphics/dxgi_utils.h"
+#include "am/graphics/render.h"
 #include "am/graphics/vertexbufferiterator.h"
-#include "am/graphics/render/engine.h"
 #include "am/integration/memory/address.h"
-
-ID3D11DeviceContext* rage::GetDeviceContextD3D11()
-{
-	return rageam::render::Engine::GetInstance()->GetDeviceContext();
-}
-
-ID3D11Device* rage::GetDeviceD3D11()
-{
-	return rageam::render::Engine::GetInstance()->GetFactory();
-}
 
 rage::grcVertexDeclaration* rage::grcDevice::CreateVertexDeclaration(const grcVertexElement* elements, u32 elementCount)
 {
@@ -60,7 +50,7 @@ void rage::grcDevice::SetDrawMode()
 
 void rage::grcDevice::SetIndexBuffer(grcIndexBuffer* buffer)
 {
-	ID3D11DeviceContext* ctx = GetDeviceContextD3D11();
+	ID3D11DeviceContext* ctx = rageam::graphics::RenderGetContext();
 	grcIndexBufferD3D11* bufferD3D11 = (grcIndexBufferD3D11*)buffer;
 	ctx->IASetIndexBuffer(bufferD3D11->GetBuffer()->GetResource(), INDEX_BUFFER_DXGI_FORMAT, 0);
 }

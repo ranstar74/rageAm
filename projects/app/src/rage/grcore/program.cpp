@@ -4,6 +4,7 @@
 #include <d3dcompiler.h>
 
 #include "device.h"
+#include "am/graphics/render.h"
 #include "rage/crypto/joaat.h"
 #include "rage/file/stream.h"
 
@@ -11,7 +12,7 @@ ID3D11DeviceChild* rage::grcCreateProgramByTypeCached(ConstString name, grcProgr
 {
 	// TODO: Implement caching
 
-	ID3D11Device* factory = GetDeviceD3D11();
+	ID3D11Device* factory = rageam::graphics::RenderGetDevice();
 	ID3D11DeviceChild* program = nullptr;
 	HRESULT result;
 	switch (type)

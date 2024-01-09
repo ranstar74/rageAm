@@ -7,172 +7,72 @@
 //
 #pragma once
 
-#include "am/desktop/window.h"
+#include "am/asset/types/texpresets.h"
 #include "am/graphics/image/imagecache.h"
-#include "am/graphics/render/context.h"
-#include "am/graphics/render/engine.h"
-#include "am/task/worker.h"
-#include "am/ui/context.h"
-#include "exception/handler.h"
-#include "rage/grcore/fvf.h"
+#include "am/graphics/render.h"
+#include "am/graphics/window.h"
+#include "am/ui/imglue.h"
 
 #ifdef AM_INTEGRATED
-#include "am/integration/gamehooks.h"
 #include "am/integration/integration.h"
 #endif
 
 namespace rageam
 {
+	namespace asset
+	{
+		class TexturePresetStore;
+	}
+
+	struct SystemData
+	{
+		struct
+		{
+			int X, Y, Width, Height;
+			bool Maximized;
+		} Window;
+
+		struct
+		{
+			int FontSize;
+			struct
+			{
+				List<ConstWString> QuickAccessDirs;
+			} Explorer;
+		} UI;
+	};
+
 	/**
 	 * \brief Cares of core system components, such as - memory allocator, exception handler, rendering.
 	 */
-	class System
+	class System : public Singleton<System>
 	{
-		amUniquePtr<render::Engine>	m_RenderEngine;
+		static constexpr ConstWString DATA_FILE_NAME = L"Data.xml";
+
 #ifdef AM_INTEGRATED
-		amUniquePtr<integration::GameIntegration> m_Integration;
+		amUPtr<integration::GameIntegration> m_Integration;
 #endif
 
-		amUniquePtr<graphics::ImageCache> m_ImageCompressorCache;
+		amUPtr<asset::TexturePresetStore>	m_TexturePresetManager;
+		amUPtr<graphics::Window>			m_PlatformWindow;
+		amUPtr<graphics::Render>			m_Render;
+		amUPtr<graphics::ImageCache>		m_ImageCache;
+		amUPtr<ui::ImGlue>					m_ImGlue;
+		bool								m_UseWindowRender = false;
+		bool								m_Initialized = false;
 
-		bool m_UseWindowRender = false;
-		bool m_Initialized = false;
+		void LoadDataFromXML();
+		void SaveDataToXML() const;
+
 	public:
 		System() = default;
-		~System()
-		{
-			Destroy();
-		}
+		~System() override { Destroy(); }
 
-		void Destroy()
-		{
-			if (!m_Initialized)
-				return;
+		void Destroy();
+		// Non ui option available if we want command line application
+		void Init(bool withUI);
 
-			// RAGE-Specific
-			{
-				rage::grcVertexDeclaration::CleanUpCache();
-			}
-
-			if (m_RenderEngine)
-				m_RenderEngine->SetRenderFunction(nullptr);
-
-#ifdef AM_INTEGRATED
-			m_Integration = nullptr;
-			integration::GameIntegration::SetInstance(nullptr);
-#endif
-			DestroyUIContext();
-			DestroyRenderContext();
-
-			m_RenderEngine.reset();
-			render::Engine::SetInstance(nullptr);
-
-			if (m_UseWindowRender)
-			{
-				WindowFactory::DestroyRenderWindow();
-			}
-
-			// This must be called after all hook-dependent things are released
-			// - render::Engine hooks game render thread
-#ifdef AM_INTEGRATED
-			GameHooks::Shutdown();
-#endif
-
-			asset::AssetFactory::Shutdown();
-
-			graphics::ImageCache::SetInstance(nullptr);
-			m_ImageCompressorCache.reset();
-
-			BackgroundWorker::Shutdown();
-			ExceptionHandler::Shutdown();
-
-			// Any still allocated memory after this point is considered as leaked.
-			// No relying on atexit, it's totally unsafe to use.
-			rage::SystemHeap::Shutdown();
-
-			m_Initialized = false;
-			AM_DEBUGF("System::Destroy() -> Shutted down");
-		}
-
-		// Has to be called after all required sub-systems are initialized.
-		void Finalize()
-		{
-#ifdef AM_INTEGRATED
-			m_Integration = std::make_unique<integration::GameIntegration>();
-			integration::GameIntegration::SetInstance(m_Integration.get());
-#endif
-
-#ifdef AM_INTEGRATED
-			GameHooks::EnableAll();
-#endif
-
-			if (Gui)
-			{
-				m_RenderEngine->SetRenderFunction([this]
-					{
-						return Gui->Update();
-					});
-			}
-
-			m_Initialized = true;
-		}
-
-		// Initializes exception handler and core syb-systems, must be done before doing anything
-		void InitCore()
-		{
-			ExceptionHandler::Init();
-			asset::AssetFactory::Init();
-
-			m_ImageCompressorCache = std::make_unique<graphics::ImageCache>();
-			graphics::ImageCache::SetInstance(m_ImageCompressorCache.get());
-
-#ifdef AM_INTEGRATED
-			GameHooks::Init();
-#endif
-
-			AM_DEBUGF("System::InitCore() -> Done");
-		}
-
-		// Used only in standalone window mode.
-		void EnterWindowUpdateLoop() const
-		{
-			AM_ASSERT(m_UseWindowRender,
-				"System::EnterWindowUpdateLoop() -> Render was not initialized or was initialized without window mode!");
-
-			Window* window = WindowFactory::GetWindow();
-			while (window->Update())
-			{
-				// ...
-			}
-		}
-
-		// Initializes rendering backend, non-window mode is used when we processing command line arguments,
-		// such as compile texture dictionary project without launching whole winded application.
-		void InitRender(bool useWindow)
-		{
-			if (useWindow)
-			{
-				WindowFactory::CreateRenderWindow();
-				Input::InitClass();
-				m_UseWindowRender = true;
-			}
-
-			m_RenderEngine = std::make_unique<render::Engine>(useWindow);
-			render::Engine::SetInstance(m_RenderEngine.get());
-
-			CreateRenderContext();
-
-			AM_DEBUGF("System::InitRender() -> Render Started");
-		}
-
-		// Creates UI context and ImGui, sets render function.
-		void InitUI() const
-		{
-			AM_ASSERT(m_RenderEngine != nullptr, "System::InitUI() -> Render Engine must be initialized for UI!");
-
-			CreateUIContext();
-
-			AM_DEBUGF("System::InitUI() -> UI Started");
-		}
+		SystemData	Data = {};
+		bool		HasData = false; // Was data loaded from XML file this session?
 	};
 }
