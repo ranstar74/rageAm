@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <defs>
+    <style>.canvas{fill: none; opacity: 0;}.light-defaultgrey-10{fill: #212121; opacity: 0.1;}.light-defaultgrey{fill: #212121; opacity: 1;}.light-blue-10{fill: #005dba; opacity: 0.1;}.light-blue{fill: #005dba; opacity: 1;}</style>
+  </defs>
+  <title>IconLightEditSmartTag</title>
+  <g id="canvas" class="canvas">
+    <path class="canvas" d="M0,16V0H16V16Z" />
+  </g>
+  <g id="level-1">
+    <path class="light-defaultgrey-10" d="M6.557,12.942,1.479,7.864,7.843,1.5H13.5V5.553a2.531,2.531,0,0,0-.869.568L7.262,11.489Z" />
+    <path class="light-defaultgrey" d="M10.848,4.152a.75.75,0,1,1,1.061,0A.752.752,0,0,1,10.848,4.152Z" />
+    <path class="light-defaultgrey" d="M6.326,13.418l-5.2-5.2V7.51L7.49,1.146,7.843,1H13.5l.5.5V5.415a2.526,2.526,0,0,0-1,.4V2H8.05L4.482,5.568l-2.3,2.3,2.251,2.25.449.449,1.9,1.9Z" />
+    <path class="light-blue-10" d="M15.192,8.681,9.635,14.238,8.153,12.72l5.539-5.539a1.059,1.059,0,0,1,1.5,0A1.062,1.062,0,0,1,15.192,8.681Z" />
+    <path class="light-blue" d="M15.543,6.83a1.56,1.56,0,0,0-2.2,0l-5.25,5.25L6.511,15.326,7.186,16l2.995-1.629,5.365-5.336A1.562,1.562,0,0,0,15.543,6.83Zm-.7,1.5-5.2,5.2-.783-.8,5.19-5.189a.56.56,0,0,1,.792.793Z" />
+  </g>
+</svg>

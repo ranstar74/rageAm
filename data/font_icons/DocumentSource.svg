@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <defs>
+    <style>.canvas{fill: none; opacity: 0;}.light-defaultgrey-10{fill: #212121; opacity: 0.1;}.light-defaultgrey{fill: #212121; opacity: 1;}.light-blue{fill: #005dba; opacity: 1;}.cls-1{opacity:0.75;}</style>
+  </defs>
+  <title>DocumentSource</title>
+  <g id="canvas">
+    <path class="canvas" d="M16,16H0V0H16Z" />
+  </g>
+  <g id="level-1">
+    <g class="cls-1">
+      <path class="light-defaultgrey-10" d="M9,13.5H2.5V1.5h7l3,3v5.586l-.768.768.147.146H9Z" />
+      <path class="light-defaultgrey" d="M9,13v1H2.5L2,13.5V1.5L2.5,1h7l.354.146,3,3L13,4.5V9.586l-1,1V5H9V2H3V13Z" />
+    </g>
+    <path class="light-blue" d="M14.293,12l-1.147-1.146.708-.708,2,2v.708l-2,2-.708-.708L14.293,13H10V12Z" />
+  </g>
+</svg>

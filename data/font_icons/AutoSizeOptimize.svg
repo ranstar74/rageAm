@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <defs>
+    <style>.canvas{fill: none; opacity: 0;}.light-defaultgrey{fill: #212121; opacity: 1;}</style>
+  </defs>
+  <title>IconLightAutoSizeOptimize</title>
+  <g id="canvas" class="canvas">
+    <path class="canvas" d="M16,16H0V0H16Z" />
+  </g>
+  <g id="level-1">
+    <path class="light-defaultgrey" d="M2.707,2,6.354,5.646l-.708.708L2,2.707V6H1V1.5L1.5,1H6V2ZM13.5,1H9V2h3.293L8.646,5.646l.708.708L13,2.707V6h1V1.5ZM13,12.293,9.354,8.646l-.708.708L12.293,13H9v1h4.5l.5-.5V9H13ZM5.646,8.646,2,12.293V9H1v4.5l.5.5H6V13H2.707L6.354,9.354Z" />
+  </g>
+</svg>

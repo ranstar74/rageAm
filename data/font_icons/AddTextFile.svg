@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <defs>
+    <style>.canvas{fill: none; opacity: 0;}.light-defaultgrey-10{fill: #212121; opacity: 0.1;}.light-defaultgrey{fill: #212121; opacity: 1;}.light-green{fill: #1f801f; opacity: 1;}.cls-1{opacity:0.75;}</style>
+  </defs>
+  <title>IconLightAddTextFile</title>
+  <g id="canvas" class="canvas">
+    <path class="canvas" d="M16,16H0V0H16Z" />
+  </g>
+  <g id="level-1">
+    <g class="cls-1">
+      <path class="light-defaultgrey-10" d="M14.5,4.5v10H3.5V8H5V5H8V1.5h3.5Z" />
+      <path class="light-defaultgrey" d="M15,4.5v10l-.5.5H3.5L3,14.5V8H4v6H14V5H11V2H8V1h3.5l.354.146,3,3Z" />
+    </g>
+    <path class="light-defaultgrey" d="M12,7H6V8h6Zm0,2H6v1h6Zm0,2H6v1h6Z" />
+    <path class="light-green" d="M7,4H4V7H3V4H0V3H3V0H4V3H7Z" />
+  </g>
+</svg>
