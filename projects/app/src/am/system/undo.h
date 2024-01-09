@@ -22,6 +22,8 @@ namespace rageam
 	{
 		friend class UndoStack;
 
+		int m_GroupSize = 1;
+
 	protected:
 		virtual void Do() = 0;
 		virtual void Undo() = 0;
@@ -89,6 +91,26 @@ namespace rageam
 		}
 	};
 
+	template<typename T>
+	class UndoableStateEx : public IUndoable
+	{
+		using TCallback = std::function<void(const T&)>;
+
+		T			m_UndoState;
+		T			m_DoState;
+		TCallback	m_Callback;
+
+		void Do() override { m_Callback(m_DoState); }
+		void Undo() override { m_Callback(m_UndoState); }
+	public:
+		UndoableStateEx(const T& undoState, const T& doState, TCallback callback)
+		{
+			m_UndoState = undoState;
+			m_DoState = doState;
+			m_Callback = std::move(callback);
+		}
+	};
+
 	enum eUndoStackOptions
 	{
 		UNDO_CONTEXT_NONE = 0,
@@ -113,6 +135,8 @@ namespace rageam
 		// History point that is considered as 'Saved' one.
 		u16 m_SavePoint = 0;
 
+		int m_GroupStartIndex = -1;
+
 		FlagSet<eUndoStackOptions> m_Options;
 
 		static rage::atFixedArray<UndoStack*, UNDO_STACK_SIZE> sm_ContextStack;
@@ -127,12 +151,15 @@ namespace rageam
 		void Redo();
 		void Undo();
 
+		void BeginGroup();
+		void EndGroup();
+
 		void Add(IUndoable* action);
 		void AddFn(UndoableFn::TFn doFn, UndoableFn::TFn undoFn);
 
 		// Gets whether current undo position is located at save point, see MarkSavePoint();
 		bool HasChanges() const { return m_HistoryPoint != m_SavePoint; }
-		// Sets current undo position as 'Saved', so HasChanges() will return true.
+		// Sets current undo position as 'Saved', so HasChanges() will return false.
 		void SetSavePoint() { m_SavePoint = m_HistoryPoint; }
 
 		static UndoStack* GetCurrent()

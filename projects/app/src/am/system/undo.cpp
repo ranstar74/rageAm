@@ -13,27 +13,56 @@ void rageam::UndoStack::Clear()
 {
 	m_History.Clear();
 	m_HistoryPoint = 0;
+	m_SavePoint = 0;
 }
 
 void rageam::UndoStack::Redo()
 {
 	AM_ASSERT(CanRedo(), "UndoStack::Redo() -> We can't go into the future!");
 
-	m_History[m_HistoryPoint]->Do();
-	m_HistoryPoint++;
+	auto& undoable = m_History[m_HistoryPoint];
+	for (int i = 0; i < undoable->m_GroupSize; i++)
+	{
+		m_History[m_HistoryPoint]->Do();
+		m_HistoryPoint++;
+	}
 }
 
 void rageam::UndoStack::Undo()
 {
 	AM_ASSERT(CanUndo(), "UndoStack::Undo() -> History is empty!");
 
-	m_History[m_HistoryPoint - 1]->Undo();
-	m_HistoryPoint--;
+	auto& undoable = m_History[m_HistoryPoint - 1];
+	for (int i = 0; i < undoable->m_GroupSize; i++)
+	{
+		m_History[m_HistoryPoint - 1]->Undo();
+		m_HistoryPoint--;
+	}
+}
+
+void rageam::UndoStack::BeginGroup()
+{
+	AM_ASSERTS(m_GroupStartIndex == -1);
+	m_GroupStartIndex = m_HistoryPoint;
+}
+
+void rageam::UndoStack::EndGroup()
+{
+	AM_ASSERTS(m_GroupStartIndex != -1);
+	int groupSize = m_HistoryPoint - m_GroupStartIndex;
+	if (groupSize >= 0) // Check if any action was added
+	{
+		// Link both sides for Redo/Undo
+		m_History[m_HistoryPoint - 1]->m_GroupSize = groupSize;
+		m_History[(u16)m_GroupStartIndex]->m_GroupSize = groupSize;
+	}
+	m_GroupStartIndex = -1;
 }
 
 void rageam::UndoStack::Add(IUndoable* action)
 {
-	if (m_History.GetSize() == MAX_HISTORY_SIZE)
+	// We can't edit stack in group mode...
+	if (m_GroupStartIndex == -1 && m_History.GetSize() == MAX_HISTORY_SIZE)
 	{
 		m_History.RemoveFirst();
 		m_HistoryPoint--;

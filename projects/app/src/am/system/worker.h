@@ -7,15 +7,14 @@
 //
 #pragma once
 
+#include "am/string/string.h"
+#include "am/system/ptr.h"
+#include "rage/atl/array.h"
+#include "am/types.h"
+
 #include <functional>
 #include <mutex>
 #include <Windows.h>
-
-#include "am/string/string.h"
-#include "am/system/event.h"
-#include "am/system/ptr.h"
-#include "common/types.h"
-#include "rage/atl/array.h"
 
 namespace rageam
 {
@@ -50,7 +49,8 @@ namespace rageam
 			}
 		}
 	};
-	using Tasks = rage::atArray<amPtr<BackgroundTask>>;
+	using BackgroundTaskPtr = amPtr<BackgroundTask>;
+	using Tasks = List<BackgroundTaskPtr>;
 
 	class TaskCancellationToken
 	{
@@ -127,7 +127,5 @@ namespace rageam
 		 * \return True if all tasks were finished with TASK_STATE_SUCCESS or False if either of the tasks was finished with TASK_STATE_FAILED.
 		 */
 		static bool WaitFor(const Tasks& tasks);
-
-		static Event<TaskFinishInfo> OnTaskFinished;
 	};
 }

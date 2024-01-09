@@ -8,7 +8,6 @@ HANDLE rageam::BackgroundWorker::sm_ThreadPool[MAX_BACKGROUND_THREADS];
 rage::atArray<amUniquePtr<rageam::BackgroundWorker::BackgroundJob>> rageam::BackgroundWorker::sm_Jobs;
 std::mutex rageam::BackgroundWorker::sm_Mutex;
 std::condition_variable rageam::BackgroundWorker::sm_Condition;
-rageam::Event<rageam::TaskFinishInfo> rageam::BackgroundWorker::OnTaskFinished;
 
 DWORD rageam::BackgroundWorker::ThreadProc(LPVOID lpParam)
 {
@@ -50,7 +49,7 @@ DWORD rageam::BackgroundWorker::ThreadProc(LPVOID lpParam)
 		else
 			swprintf_s(buffer, 256, L"[%ls] %hs, %llu ms", job->GetName(), success ? "OK" : "FAIL", timer.GetElapsedMilliseconds());
 
-		AM_DEBUGF(L"[BG Task] wID:%llu, %s", workerId, buffer);
+		// AM_DEBUGF(L"[BG Task] wID:%llu, %s", workerId, buffer);
 
 		if (TaskCallback)
 			TaskCallback(buffer);
