@@ -21,15 +21,15 @@ namespace rage
 	class strStreamingModule
 	{
 	protected:
-		s32 m_StreamInfoIndex = -1;		// Start index in rage::strStreamingEngine::ms_info
-		u32 m_StreamingModuleId = 0;	// Module index in g_streamingModules array
-
-		u32 m_Size;
-		atString m_Name;
-		bool m_NeedTempMemory; // TODO: Figure out what is this for
-
-		u32 m_AssetVersion;
-		strAssetID m_AssetTypeID;
+		s32			m_StreamInfoIndex = -1;		// Start index in rage::strStreamingEngine::ms_info
+		u32			m_StreamingModuleId = 0;	// Module index in g_streamingModules array
+		u32			m_Size;
+		atString	m_Name;
+		bool		m_NeedTempMemory;
+		bool		m_CanDefragment;
+		bool		m_UsesExtraMemory;
+		u32			m_AssetVersion;
+		strAssetID	m_AssetTypeID;
 
 	public:
 		strStreamingModule(ConstString name, u32 assetVersion, strAssetID assetTypeID, u32 defaultSize, bool needTempMemory = false)
@@ -39,6 +39,9 @@ namespace rage
 			m_AssetTypeID = assetTypeID;
 			m_Size = defaultSize;
 			m_NeedTempMemory = needTempMemory;
+
+			m_CanDefragment = false;
+			m_UsesExtraMemory = false;
 		}
 
 		virtual ~strStreamingModule() = default;
@@ -51,7 +54,11 @@ namespace rage
 		strIndex GetGlobalIndex(strLocalIndex index) const { return m_StreamInfoIndex + index; }
 		strLocalIndex GetLocalIndex(strIndex index) const { return index - m_StreamInfoIndex; }
 
-		virtual void Function0(strLocalIndex& index, ConstString name) = 0;
+#if APP_BUILD_2699_16_RELEASE
+		virtual ConstString GetName(strLocalIndex index) { return ""; } // TODO: ...
+#endif
+
+		virtual void Register(strLocalIndex& index, ConstString name) = 0;
 		virtual void GetSlotIndexByName(strLocalIndex& outSlot, ConstString name) = 0;
 		virtual void Remove(strLocalIndex slot) = 0;
 		virtual void RemoveSlot(strLocalIndex slot) = 0;
@@ -89,6 +96,9 @@ namespace rage
 		virtual void ReceiveExtraMemory() = 0;
 		virtual void GetExtraVirtualMemory() = 0;
 		virtual void GetExtraPhysicalMemory() = 0;
+#if APP_BUILD_2699_16_RELEASE
+		virtual void MarkDirty(strLocalIndex slot) {}
+#endif
 		virtual void IsDefragmentCopyBlocked() = 0;
 		virtual void RequiresTempMemory() = 0;
 	public:

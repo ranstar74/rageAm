@@ -52,10 +52,10 @@ namespace rage
 	class fwAssetStore : public strStreamingModule
 	{
 	protected:
-		fwPool<TDef> m_Defs;
-		atString m_AssetExtension;
-		atMap<u32, strLocalIndex> m_NameHashToIndex;
-		bool m_Initialized = false;
+		fwPool<TDef>				m_Defs;
+		atString					m_AssetExtension;
+		atMap<u32, strLocalIndex>	m_NameHashToIndex;
+		bool						m_Initialized = false;
 	public:
 		fwAssetStore(ConstString name, u32 assetVersion, strAssetID assetTypeID, u32 defaultSize)
 			: strStreamingModule(name, assetVersion, assetTypeID, defaultSize, false)
@@ -94,7 +94,7 @@ namespace rage
 			return *pIndex;
 		}
 
-		void Function0(strLocalIndex& slot, ConstString name) override
+		void Register(strLocalIndex& slot, ConstString name) override
 		{
 			slot = FindSlotFromHashKey(joaat(name));
 			if (slot == INVALID_STR_INDEX)
