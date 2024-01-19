@@ -16,6 +16,11 @@
 
 namespace rage
 {
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+	class mshMesh;
+	class GeometryCreateParams;
+#endif
+
 	struct grmVertexData
 	{
 		pVoid				Vertices;
@@ -78,6 +83,11 @@ namespace rage
 		void SetVertexData(const grmVertexData& vertexData);
 
 		virtual ~grmGeometryQB() = default;
+
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		virtual bool Init(const mshMesh& mesh, int mtlIndex, u32 channelMask, const bool isCharClothMesh, const bool isEnvClothMesh, GeometryCreateParams* params = NULL, int extraVerts = 0) { return false; }
+#endif
+
 		virtual void Draw();
 		virtual void DrawInstanced(u64 instanceData) {}
 		virtual void DrawSimple() {}

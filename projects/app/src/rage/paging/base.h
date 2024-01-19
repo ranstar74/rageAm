@@ -79,6 +79,9 @@ namespace rage
 		// Unused in final version (overriden only once in grcTexture)
 		// They're present only for virtual table completeness.
 
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		virtual ConstString GetDebugName() { return ""; }
+#endif
 		virtual u32 GetHandleIndex() const { return 0; }
 		virtual void SetHandleIndex(u32 index) { }
 	};

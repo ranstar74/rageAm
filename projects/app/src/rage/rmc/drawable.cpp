@@ -150,7 +150,12 @@ void rage::rmcDrawable::Delete()
 
 void rage::rmcDrawable::Draw(const Mat34V& mtx, grcRenderMask mask, eDrawableLod lod)
 {
-	static auto rmcLodGroup_DrawSingle = gmAddress::Scan("48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 63 B4")
+	static auto rmcLodGroup_DrawSingle = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		"74 29 83 7C 24 38 02", "rage::rmcLodGroup::DrawSingle+0x15B").GetAt(-0x15B)
+#else
+		"48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 63 B4")
+#endif
 		.ToFunc<void(rmcLodGroup*, grmShaderGroup*, const Mat34V&, grcRenderMask, eDrawableLod)>();
 	rmcLodGroup_DrawSingle(&m_LodGroup, m_ShaderGroup.Get(), mtx, mask, lod);
 	//m_LodGroup.DrawSingle(m_ShaderGroup.Get(), mtx, mask, lod);
@@ -169,7 +174,12 @@ void rage::rmcDrawable::DrawSkinned(const Mat34V& mtx, u64 mtxSet, grcRenderMask
 	};
 	grmMatrixSet* set = (grmMatrixSet*)mtxSet;
 
-	static auto rmcLodGroup_DrawMulti = gmAddress::Scan("48 8B C4 48 89 58 08 48 89 68 10 48 89 70 20 4C 89 40 18 57 41 54 41 55 41 56 41 57 48 83 EC 70 48")
+	static auto rmcLodGroup_DrawMulti = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		"0F 8D 01 04 00 00", "rage::rmcLodGroup::DrawMulti+0x116").GetAt(-0x116)
+#else
+		"48 8B C4 48 89 58 08 48 89 68 10 48 89 70 20 4C 89 40 18 57 41 54 41 55 41 56 41 57 48 83 EC 70 48")
+#endif
 		.ToFunc<void(rmcLodGroup*, grmShaderGroup*, const Mat34V&, u64, grcRenderMask, eDrawableLod)>();
 	rmcLodGroup_DrawMulti(&m_LodGroup, m_ShaderGroup.Get(), mtx, mtxSet, mask, lod);
 }
