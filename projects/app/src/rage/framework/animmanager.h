@@ -7,7 +7,7 @@
 //
 #pragma once
 
-#include "rage/streaming/streaming.h"
+#include "rage/streaming/streamingdefs.h"
 
 namespace rage
 {
