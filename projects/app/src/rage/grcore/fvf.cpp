@@ -206,7 +206,7 @@ rage::grcVertexDeclaration* rage::grcVertexDeclaration::Allocate(u32 elementCoun
 	// Calculate size of allocation including given number of attributes
 	// Note: This is a C-Style dynamically sized struct, Attributes[1] is placeholder
 	constexpr size_t baseSize =
-		offsetof(grcVertexDeclaration, Stride) -
+		offsetof(grcVertexDeclaration, Elements) -
 		offsetof(grcVertexDeclaration, ElementCount);
 	size_t size = baseSize + sizeof grcVertexElementDesc * elementCount;
 
