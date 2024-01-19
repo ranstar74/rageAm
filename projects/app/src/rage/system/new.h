@@ -28,7 +28,7 @@ void operator delete(void* block);
 void operator delete[](void* block);
 #endif
 
-inline void* rage_malloc(size_t size) { return operator new(size); }
+inline void* rage_malloc(size_t size) { return operator new(size, 16); }
 inline void* rage_malloc(size_t size, size_t align) { return operator new(size, align); }
 inline void rage_free(void* block) { return operator delete(block); }
 
