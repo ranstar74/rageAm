@@ -236,7 +236,7 @@ void rage::phBoundPolyhedron::OctantMapAllocateAndCopy(const u32* indexCounts, u
 
 	newMap = (rage::phOctantMap*)operator new[](
 		4i64 * (*indexCounts + indexCounts[1] + indexCounts[2] + indexCounts[3] + indexCounts[4] + indexCounts[5] + indexCounts[6] + indexCounts[7])
-		+ 0x80, 8ui64);
+		+ 0x80);
 	octantIndex = 0i64;
 	m_OctantIndexCounts = (u32*)newMap;
 	pItems = newMap->IndexBuffer;
