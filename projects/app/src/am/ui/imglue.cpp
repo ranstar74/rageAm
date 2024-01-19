@@ -76,7 +76,7 @@ void rageam::ui::ImGlue::EmbedFontIcons(ImFonts font) const
 	rage::atArray<file::WPath> imageFiles;
 
 	// 1: Layout pass - allocate atlas for every texture
-	ImWchar customIconBegin = 0xF900;
+	ImWchar customIconBegin = 0xE000;
 	rage::atArray<int> iconIds;
 	while (iconIterator.Next())
 	{
