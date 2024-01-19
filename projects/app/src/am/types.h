@@ -4,8 +4,8 @@
 #include "rage/atl/datahash.h"
 #include "rage/atl/fixedarray.h"
 #include "rage/atl/map.h"
-#include "rage/atl/set.h"
 #include "rage/atl/string.h"
+#include "rage/framework/nameregistrar.h"
 #include "rage/framework/pool.h"
 #include "system/ptr.h"
 #include "rage/math/vec.h"
@@ -43,11 +43,11 @@ namespace rageam
 
 	// Key - Value set
 	template<typename TKey, typename TValue, typename THashFn = rage::atMapHashFn<TKey>>
-	using Dictionary = rage::atMap<TKey, TValue, THashFn>;
+	using Dictionary = rage::fwNameRegistrar<TKey, TValue, THashFn>;
 
 	// Value set
 	template<typename TValue, typename THashFn = rage::atMapHashFn<TValue>>
-	using HashSet = rage::atSet<TValue, THashFn>;
+	using HashSet = rage::atMap<TValue, THashFn>;
 
 	template<typename T>
 	using Pool = rage::fwPool<T>;

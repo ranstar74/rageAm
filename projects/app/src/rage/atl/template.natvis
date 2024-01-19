@@ -47,8 +47,8 @@
 			</ArrayItems>
 		</Expand>
 	</Type>
-	<!-- Set -->
-	<Type Name="rage::atSet&lt;*, *&gt;">
+	<!-- Map -->
+	<Type Name="rage::atMap&lt;*, *&gt;">
 		<DisplayString>{{ used = {m_UsedSlotCount} }}</DisplayString>
 		<Expand>
 			<Item Name="[used]" ExcludeView="simple">m_UsedSlotCount</Item>
@@ -77,8 +77,8 @@
 			</CustomListItems>
 		</Expand>
 	</Type>
-	<!-- Map -->
-	<Type Name="rage::atMap&lt;*, *, *&gt;">
+	<!-- Registrar -->
+	<Type Name="rage::fwNameRegistrar&lt;*, *, *&gt;">
 		<DisplayString>{{ used = {m_UsedSlotCount} }}</DisplayString>
 		<Expand>
 			<Item Name="[used]" ExcludeView="simple">m_UsedSlotCount</Item>

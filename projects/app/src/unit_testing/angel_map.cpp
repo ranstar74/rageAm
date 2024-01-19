@@ -1,14 +1,14 @@
 #ifdef AM_UNIT_TESTS
 
 #include "CppUnitTest.h"
-#include "rage/atl/set.h"
+#include "rage/atl/map.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace rage;
 
 namespace Microsoft::VisualStudio::CppUnitTestFramework
 {
-	template<> std::wstring ToString<>(const atSet<int>& set)
+	template<> std::wstring ToString<>(const atMap<int>& set)
 	{
 		std::wstring string;
 
@@ -22,7 +22,7 @@ namespace Microsoft::VisualStudio::CppUnitTestFramework
 		return string;
 	}
 
-	template<> std::wstring ToString<>(const atSetIterator<int>& it)
+	template<> std::wstring ToString<>(const atMapIterator<int>& it)
 	{
 		if (!it.HasValue())
 			return L"None";
@@ -33,13 +33,13 @@ namespace Microsoft::VisualStudio::CppUnitTestFramework
 
 namespace unit_testing
 {
-	TEST_CLASS(atSetTests)
+	TEST_CLASS(atMapTests)
 	{
 	public:
 		TEST_METHOD(VerifyIterator)
 		{
-			atSet<int> set;
-			atSet<int> iteratedSet;
+			atMap<int> set;
+			atMap<int> iteratedSet;
 			set.InitAndAllocate(17, false);
 
 			for (int i = 0; i < 4000; i++)
@@ -56,7 +56,7 @@ namespace unit_testing
 			sysMemAllocator* allocator = GetAllocator(ALLOC_TYPE_GENERAL);
 			u64 memoryBefore = allocator->GetMemoryUsed();
 			{
-				atSet<std::shared_ptr<int[]>> set;
+				atMap<std::shared_ptr<int[]>> set;
 
 				auto array1 = std::make_shared<int[]>(1000);
 				auto array2 = std::make_shared<int[]>(1000);
@@ -76,7 +76,7 @@ namespace unit_testing
 			sysMemAllocator* allocator = GetAllocator(ALLOC_TYPE_GENERAL);
 			u64 memoryBefore = allocator->GetMemoryUsed();
 			{
-				atSet<std::shared_ptr<int[]>> set;
+				atMap<std::shared_ptr<int[]>> set;
 
 				auto array1 = std::make_shared<int[]>(1000);
 				auto array2 = std::make_shared<int[]>(1000);
@@ -107,12 +107,12 @@ namespace unit_testing
 			sysMemAllocator* allocator = GetAllocator(ALLOC_TYPE_GENERAL);
 			u64 memoryBefore = allocator->GetMemoryUsed();
 			{
-				atSet<int> set;
+				atMap<int> set;
 
 				for (u16 i = 0; i < 30000; i++)
 					set.Insert(i); // Set will grow multiple times
 
-				set.Destruct();
+				set.Destroy();
 
 				set.InitAndAllocate(10000, false);
 				for (u16 i = 0; i < 30000; i++)
@@ -128,8 +128,8 @@ namespace unit_testing
 		// Compares two equal large sets
 		TEST_METHOD(VerifyComparison)
 		{
-			atSet<int> a;
-			atSet<int> b;
+			atMap<int> a;
+			atMap<int> b;
 
 			a.InitAndAllocate(10000, false);
 			b.InitAndAllocate(10000, false);
@@ -145,8 +145,8 @@ namespace unit_testing
 		// Verifies that a set initialized with multiple unique values will contain only distinct set of those values
 		TEST_METHOD(VerifyInitializerListComparison)
 		{
-			atSet input = { 5, 5, 10, 2, 2, 3, 6, 6 };
-			atSet expected = { 5, 10, 2, 3, 6 };
+			atMap input = { 5, 5, 10, 2, 2, 3, 6, 6 };
+			atMap expected = { 5, 10, 2, 3, 6 };
 
 			Assert::AreEqual(expected, input);
 		}
@@ -154,8 +154,8 @@ namespace unit_testing
 		// Same as VerifyInitializerListComparison but comparison list order is random
 		TEST_METHOD(VerifyInitializerListUnorderedComparison)
 		{
-			atSet input = { 5, 5, 10, 2, 2, 3, 6, 6 };
-			atSet expected = { 6, 3, 5, 10, 2 };
+			atMap input = { 5, 5, 10, 2, 2, 3, 6, 6 };
+			atMap expected = { 6, 3, 5, 10, 2 };
 
 			Assert::AreEqual(expected, input);
 		}
@@ -163,7 +163,7 @@ namespace unit_testing
 		// Tries to get iterator on value in set
 		TEST_METHOD(VerifyIteratorFind)
 		{
-			atSet input = { 5, 10, 6 };
+			atMap input = { 5, 10, 6 };
 
 			auto it = input.Find(10);
 
@@ -173,8 +173,8 @@ namespace unit_testing
 		// Tries to get iterator on value in set and remove slot it points to
 		TEST_METHOD(VerifyIteratorFindAndRemove)
 		{
-			atSet input = { 5, 10, 6 };
-			atSet expected = { 5, 6 };
+			atMap input = { 5, 10, 6 };
+			atMap expected = { 5, 6 };
 
 			auto it = input.Find(10);
 			input.RemoveAtIterator(it);
@@ -185,13 +185,13 @@ namespace unit_testing
 		// Copies set and verifies if it is actually equal to initial one
 		TEST_METHOD(VerifyCopying)
 		{
-			atSet input =
+			atMap input =
 			{
 				10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
 				24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44,
 			};
 
-			atSet copy = input; // NOLINT(performance-unnecessary-copy-initialization)
+			atMap copy = input; // NOLINT(performance-unnecessary-copy-initialization)
 
 			Assert::AreEqual(input, copy);
 		}
@@ -199,14 +199,14 @@ namespace unit_testing
 		// Resizes set and verifies that it contains the same set of values
 		TEST_METHOD(VerifyResize)
 		{
-			atSet<int> input;
+			atMap<int> input;
 			input.InitAndAllocate(3, false); // Don't allow to alter bucket count
 			// This will create huge amount of bucket collisions so we can test that separate chaining
 			// linked lists moved into new buckets properly too
 			for (int i = 0; i < 100; i++)
 				input.Insert(i);
 
-			atSet resized = input;
+			atMap resized = input;
 			resized.Resize(500);
 
 			Assert::AreEqual(input, resized);

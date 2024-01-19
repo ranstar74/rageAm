@@ -1,16 +1,15 @@
 //
 // File: map.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
 #pragma once
 
-#include "common/types.h"
-#include "rage/atl/string.h"
-#include "rage/crypto/joaat.h"
-#include "am/system/asserts.h"
+#include "rage/paging/compiler/compiler.h"
+#include "hashstring.h"
+#include "string.h"
 
 namespace rage
 {
@@ -76,28 +75,12 @@ namespace rage
 	template<> inline u32 atMapHashFn<s32>::operator()(const s32& value) { return static_cast<u32>(value); }
 	template<> inline u32 atMapHashFn<u64>::operator()(const u64& value) { return static_cast<u32>(value % UINT_MAX); }
 	template<> inline u32 atMapHashFn<s64>::operator()(const s64& value) { return static_cast<u32>(value % UINT_MAX); }
-	template<> inline u32 atMapHashFn<ConstString>::operator()(const ConstString& str) { return joaat(str); }
-	template<> inline u32 atMapHashFn<ConstWString>::operator()(const ConstWString& str) { return joaat(str); }
-	template<> inline u32 atMapHashFn<atString>::operator()(const atString& str) { return joaat(str); }
-	template<> inline u32 atMapHashFn<atWideString>::operator()(const atWideString& str) { return joaat(str); }
+	template<> inline u32 atMapHashFn<ConstString>::operator()(const ConstString& str) { return atStringHash(str); }
+	template<> inline u32 atMapHashFn<ConstWString>::operator()(const ConstWString& str) { return atStringHash(str); }
+	template<> inline u32 atMapHashFn<atString>::operator()(const atString& str) { return atStringHash(str); }
+	template<> inline u32 atMapHashFn<atWideString>::operator()(const atWideString& str) { return atStringHash(str); }
 
-	template<typename TValue>
-	struct atMapKeyPair
-	{
-		u32 Key;
-		TValue* Value;
-	};
-
-	template<typename TKey, typename TValue>
-	struct atMapInitializerKeyPair
-	{
-		TKey Key;
-		TValue Value;
-	};
-
-	// Forward declaration for class friend
-
-	template<typename TKey, typename TValue, typename THashFn>
+	template<typename TValue, typename THashFn>
 	class atMapIterator;
 
 	/**
@@ -105,136 +88,201 @@ namespace rage
 	 * \n You can read on separate chaining & mod here: https://en.wikipedia.org/wiki/Hash_table
 	 * or just refer to actual implementation.
 	 */
-	template<typename TKey, typename TValue, typename THashFn = atMapHashFn<TKey>>
+	template<typename TValue, typename THashFn = atMapHashFn<TValue>>
 	class atMap
 	{
-		using TIterator = atMapIterator<TKey, TValue, THashFn>;
+		using Iterator = atMapIterator<TValue, THashFn>;
 
-		friend class TIterator;
+		friend class Iterator;
+
+		// Chosen as smallest non-prime number in (atHashNextSize / atHashSize) terms
+		static constexpr u32 DEFAULT_CAPACITY = 10;
 
 		struct Node
 		{
-			u32		HashKey;
-			TValue	Value;
-			s32		NextIndex;
+			u32    HashKey;
+			TValue Value;
+			Node*  Next = nullptr;
 		};
 
-		u32 GetHash(const TKey& key) const
+		Node** m_Buckets;
+		u16    m_BucketCount;
+		u16    m_UsedSlotCount;
+		u8     m_Pad[3] = {};
+		bool   m_AllowGrowing;
+
+		Node** AllocateBuckets(u16 size)
+		{
+			// Same as below, allocate manually without invoking constructors
+			size_t allocSize = static_cast<size_t>(size) * sizeof(Node*); // NOLINT(bugprone-sizeof-expression)
+			Node** buckets = static_cast<Node**>(rage_malloc(allocSize));
+			memset(buckets, 0, allocSize);
+			return buckets;
+		}
+
+		Node* AllocateNode()
+		{
+			// Allocate without invoking default TValue constructor
+			Node* node = static_cast<Node*>(rage_malloc(sizeof Node));
+			memset(node, 0, sizeof Node);
+			return node;
+		}
+
+		void DeleteNode(Node* node)
+		{
+			node->Value.~TValue();
+			memset(node, 0, sizeof Node);
+
+			// Delete without invoking TValue destructor, because otherwise destructor will be called for 
+			// item that wasn't even constructed
+			operator delete(node);
+		}
+
+		u32 GetHash(const TValue& value) const
 		{
 			THashFn fn{};
-			return fn(key);
+			return fn(value);
 		}
 
-		u32 GetBucket(const u32 hash) const
+		u16 GetBucket(const u32 hash) const
 		{
-			return hash % m_BucketCount;
+			return static_cast<u16>(hash % m_BucketCount);
 		}
 
-		Node* m_NodePool = nullptr;			// Node pool
-		s32* m_BucketToNode = nullptr;		// Maps hash to node index using (hash % bucketCount) function
-		u32 m_BucketCount = 0;				// Number of buckets
-		s32 m_FreeIndex = 0;				// Index of head node in free linked list
-		u32 m_UsedSlotCount = 0;			// Number of allocated (used) slots in map
-
-		// Gets next node in linked list if given node is not tail; Otherwise null.
-		Node* GetNextNode(Node* node) const
+		// Allocates new node and inserts it in the beginning of linked list
+		// This function is used directly only for copying because we know that there cannot be node with given hash
+		Node& AllocateNodeInLinkedList(u32 hash)
 		{
-			if (node->NextIndex == -1)
-				return nullptr;
-			return &m_NodePool[node->NextIndex];
+			// Initialize if it wasn't
+			if (m_BucketCount == 0)
+				InitAndAllocate(DEFAULT_CAPACITY, true);
+
+			// We can live without re-allocating because we use separate chaining
+			// to resolve collision but eventually there will be too many collisions and it will slow down things
+			m_UsedSlotCount++;
+			if (m_AllowGrowing && m_UsedSlotCount > m_BucketCount)
+				Resize(atHashSize(m_UsedSlotCount));
+
+			// Allocate new node and insert it in the beginning of linked list
+			Node* newNode = AllocateNode();
+			newNode->HashKey = hash;
+
+			u16 bucket = GetBucket(hash);
+			newNode->Next = m_Buckets[bucket];
+			m_Buckets[bucket] = newNode;
+
+			return *newNode;
 		}
 
-		Node* TryGetNodeAndIndexByHash(u32 hash, s32* outIndex = nullptr) const
+		// First tries to find if there's already node with given hash and return it, if there's not -
+		// allocates new node and inserts it in the beginning of linked list
+		Node& AllocateNodeInLinkedListOrFindExisting(u32 hash)
 		{
-			if (outIndex) *outIndex = -1;
+			// Check if slot already exists and return it if so
+			Node* existingNode = TryGetNode(hash);
+			if (existingNode)
+			{
+				existingNode->Value.~TValue();
+				return *existingNode;
+			}
 
-			u32 bucket = GetBucket(hash);
-			s32 index = m_BucketToNode[bucket];
-			if (index == -1)
-				return nullptr;
+			return AllocateNodeInLinkedList(hash);
+		}
 
-			// Separate chaining - there is always multiple hashes that map to the same bucket (index),
-			// that is solved using linked list with actual hash stored in node
-			Node* node = &m_NodePool[index];
+		// Tries to find node with given hash in separate chaining linked list
+		// Additionally accepts out parameter with bucket where node was found (only if return node is not null)
+		Node* TryGetNode(u32 hash, u16* outBucket = nullptr) const
+		{
+			if (m_BucketCount == 0) return nullptr; // Not even initialized
+
+			// Find exact node in bucket linked list, if there is... (separate chaining)
+			u16 bucket = GetBucket(hash);
+			Node* node = m_Buckets[bucket];
 			while (node)
 			{
 				if (node->HashKey == hash)
 				{
-					if (outIndex) *outIndex = index;
+					if (outBucket) *outBucket = bucket;
 					return node;
 				}
-
-				index = node->NextIndex;
-				node = GetNextNode(node);
+				node = node->Next;
 			}
 			return nullptr;
 		}
 
-		Node* TryGetNodeAndIndexByKey(const TKey& key, s32* outIndex = nullptr)
+		// Pops node from bucket linked list, releases node memory and decrements used slots counter.
+		void RemoveNodeFromLinkedListAndFree(Node* node, u16 bucket)
 		{
-			u32 hash = GetHash(key);
-			return TryGetNodeAndIndexByHash(hash, outIndex);
-		}
-
-		Node& AllocateNodeByHash(u32 hash)
-		{
-			Node* existingNode = TryGetNodeAndIndexByHash(hash);
-			if (existingNode) return *existingNode;
-
-			AM_ASSERT(m_FreeIndex != -1, "atMap::AllocateNodeByHash() -> Out of slots!");
-
-			u32 bucket = GetBucket(hash);
-			s32 index = m_FreeIndex;
-
-			Node& node = m_NodePool[index];
-			m_FreeIndex = node.NextIndex; // Remove node from free list
-
-			// Get current head in the bucket linked list
-			s32 bucketHead = m_BucketToNode[bucket];
-			// Insert new head in bucket linked list
-			m_BucketToNode[bucket] = index;
-			m_UsedSlotCount++;
-
-			node.HashKey = hash;
-			node.NextIndex = bucketHead; // Link old list head with new head
-
-			return node;
-		}
-
-		Node& AllocateNodeByKey(const TKey& key)
-		{
-			u32 hash = GetHash(key);
-			return AllocateNodeByHash(hash);
-		}
-
-		void BuildLinkedList()
-		{
-			for (u32 i = 0; i < m_BucketCount; i++)
+			if (m_Buckets[bucket] == node)
 			{
-				m_BucketToNode[i] = -1;
-
-				Node& node = m_NodePool[i];
-				node.NextIndex = i + 1;
+				// Special case - linked list starts with given node
+				m_Buckets[bucket] = node->Next;
 			}
-			m_NodePool[m_BucketCount - 1].NextIndex = -1; // Last node points to void
+			else
+			{
+				Node* it = m_Buckets[bucket];
+
+				AM_ASSERT(it != nullptr, "atMap::RemoveNodeFromLinkedListAndFree() -> Chain is empty!");
+
+				// Search for node that points to one that we have to remove in linked list
+				while (it)
+				{
+					if (it->Next == node)
+					{
+						// Remove node from linked list
+						it->Next = node->Next;
+						break;
+					}
+					it = it->Next;
+				}
+			}
+
+			DeleteNode(node);
+
+			m_UsedSlotCount--;
 		}
 	public:
-		atMap() = default;
-		atMap(const atMap& other)
+		atMap()
+		{
+			m_Buckets = nullptr;
+			m_BucketCount = 0;
+			m_UsedSlotCount = 0;
+			m_AllowGrowing = false;
+		}
+		atMap(const std::initializer_list<TValue>& list) : atMap()
+		{
+			InitAndAllocate(list.size());
+			for (const TValue& value : list)
+				Insert(value);
+		}
+		atMap(const atMap& other) : atMap()
 		{
 			CopyFrom(other);
 		}
-		atMap(atMap&& other) noexcept
+		// ReSharper disable once CppPossiblyUninitializedMember
+		// ReSharper disable CppObjectMemberMightNotBeInitialized
+		atMap(const datResource& rsc)
+		{
+			if (!m_Buckets)
+				return;
+
+			rsc.Fixup(m_Buckets);
+			for (u16 i = 0; i < m_BucketCount; i++)
+			{
+				rsc.Fixup(m_Buckets[i]);
+
+				Node* node = m_Buckets[i];
+				while (node)
+				{
+					rsc.Fixup(node->Next);
+					node = node->Next;
+				}
+			}
+		}
+		// ReSharper restore CppObjectMemberMightNotBeInitialized
+		atMap(atMap&& other) noexcept : atMap()
 		{
 			Swap(other);
-		}
-		atMap(std::initializer_list<atMapInitializerKeyPair<TKey, TValue>> list)
-		{
-			InitAndAllocate(list);
-			for (const auto& pair : list)
-			{
-				Insert(pair.Key, pair.Value);
-			}
 		}
 		~atMap()
 		{
@@ -245,96 +293,146 @@ namespace rage
 		 *	------------------ Initializers / Destructors ------------------
 		 */
 
-		 /**
-		  * \brief Has to be called once and before using.
-		  * \param sizeHint Minimum size to allocate, in reality it's rounded to greater prime number.
-		  * \remarks To get actual (allocated) size, use GetSize();
-		  */
-		void InitAndAllocate(u16 sizeHint)
+		void InitAndAllocate(u16 bucketCountHint, bool allowGrowing = true)
 		{
-			if (m_BucketCount)
-				Destroy();
+			Destroy();
 
-			m_BucketCount = static_cast<u32>(atHashSize(sizeHint));
-			m_BucketToNode = new s32[m_BucketCount];
+			u16 bucketCount = atHashSize(bucketCountHint);
 
-			// Allocate without invoking default TValue constructor for each node
-			size_t nodePoolAllocSize = static_cast<size_t>(m_BucketCount) * sizeof Node;
-			m_NodePool = static_cast<Node*>(operator new(nodePoolAllocSize));
-			memset(m_NodePool, 0, nodePoolAllocSize);  // NOLINT(bugprone-undefined-memory-manipulation)
-
-			BuildLinkedList();
+			m_Buckets = AllocateBuckets(bucketCount);
+			m_BucketCount = bucketCount;
+			m_AllowGrowing = allowGrowing;
 		}
 
 		void Swap(atMap& other)
 		{
-			std::swap(m_NodePool, other.m_NodePool);
-			std::swap(m_BucketToNode, other.m_BucketToNode);
 			std::swap(m_BucketCount, other.m_BucketCount);
-			std::swap(m_FreeIndex, other.m_FreeIndex);
+			std::swap(m_AllowGrowing, other.m_AllowGrowing);
 			std::swap(m_UsedSlotCount, other.m_UsedSlotCount);
+			std::swap(m_Buckets, other.m_Buckets);
 		}
 
 		void CopyFrom(const atMap& other)
 		{
 			Destroy();
 
-			m_BucketCount = other.m_BucketCount;
-			m_FreeIndex = other.m_FreeIndex;
+			InitAndAllocate(other.m_BucketCount, other.m_AllowGrowing);
+
 			m_UsedSlotCount = other.m_UsedSlotCount;
 
-			InitAndAllocate(other.m_BucketCount);
-
-			for (u32 i = 0; i < m_BucketCount; i++)
+			// Insert all items from other map
+			if (m_UsedSlotCount > 0)
 			{
-				m_BucketToNode[i] = other.m_BucketToNode[i];
-				m_NodePool[i] = other.m_NodePool[i];
-			}
-		}
-
-		void Clear()
-		{
-			if (m_BucketCount == 0)
-				return;
-
-			// Destruct still allocated items
-			for (u32 i = 0; i < m_BucketCount; i++) // This is basically unrolled version of atMapIterator
-			{
-				s32 index = m_BucketToNode[i];
-				if (index == -1)
-					continue; // Bucket list is empty
-
-				// Loop through whole linked list in this bucket and call destructor for node values
-				Node* node = &m_NodePool[index];
-				while (true)
+				for (u16 bucket = 0; bucket < other.m_BucketCount; bucket++)
 				{
-					node->Value.~TValue();
+					// Iterate separate chaining linked list in this bucket...
+					Node* otherNode = other.m_Buckets[bucket];
+					while (otherNode)
+					{
+						Node& copyNode = AllocateNodeInLinkedList(otherNode->HashKey);
 
-					if (node->NextIndex == -1)
-						break; // No more nodes
+						// Perform new placement via copy constructor
+						void* where = &copyNode.Value;
+						new(where) TValue(otherNode->Value);
 
-					node = &m_NodePool[node->NextIndex];
+						otherNode = otherNode->Next;
+					}
 				}
 			}
 
-			// TODO: This is called on Destroy too, although it's unneeded!
-			BuildLinkedList();
+			// Snapshot linked list if compiling resource
+			pgSnapshotAllocator* compilerAllocator = pgRscCompiler::GetVirtualAllocator();
+			if (compilerAllocator)
+			{
+				compilerAllocator->AddRef(m_Buckets);
+
+				for (u16 bucket = 0; bucket < other.m_BucketCount; bucket++)
+				{
+					Node* node = other.m_Buckets[bucket];
+
+					if (!node)
+						continue;
+
+					compilerAllocator->AddRef(other.m_Buckets[bucket]);
+
+					while (node)
+					{
+						if (node->Next)
+							compilerAllocator->AddRef(node->Next);
+
+						node = node->Next;
+					}
+				}
+			}
 		}
 
 		void Destroy()
 		{
-			Clear();
+			if (!m_Buckets)
+				return;
 
-			delete m_BucketToNode;
-			// Delete without invoking TValue destructor, because otherwise destructor will be called for 
-			// items that weren't even constructed
-			operator delete(m_NodePool);
+			// Delete nodes and call destructor, not any different from atMap one
+			for (u16 i = 0; i < m_BucketCount; i++)
+			{
+				Node* node = m_Buckets[i];
+				while (node)
+				{
+					Node* nodeToDelete = node;
+					node = node->Next;
+					DeleteNode(nodeToDelete);
+				}
+			}
 
-			m_BucketToNode = nullptr;
-			m_NodePool = nullptr;
-
+			rage_free(m_Buckets);
+			m_Buckets = nullptr;
 			m_BucketCount = 0;
 			m_UsedSlotCount = 0;
+		}
+
+		void Clear()
+		{
+			Destroy(); // Yes...
+		}
+
+		/*
+		 *	------------------ Altering size ------------------
+		 */
+
+		void Resize(u16 newSizeHint)
+		{
+			u16 newSize = atHashSize(newSizeHint);
+			if (m_BucketCount == newSize)
+				return;
+
+			// We need to save it to iterate through old buckets
+			u16 oldBucketCount = m_BucketCount;
+			// It has to be set before we use GetBucket() to relocate nodes
+			m_BucketCount = newSize;
+
+			Node** newBuckets = AllocateBuckets(newSize);
+
+			// Move existing lists to new array
+			for (u16 i = 0; i < oldBucketCount; i++)
+			{
+				// We have to 'reallocate' each node now because with new number of buckets
+				// old function 'hash % size' is not valid anymore
+				Node* node = m_Buckets[i];
+				while (node)
+				{
+					u16 newBucket = GetBucket(node->HashKey);
+
+					Node* next = node->Next;
+
+					// Insert node in new bucket list
+					node->Next = newBuckets[newBucket];
+					newBuckets[newBucket] = node;
+
+					node = next;
+				}
+			}
+
+			rage_free(m_Buckets);
+			m_Buckets = newBuckets;
 		}
 
 		/*
@@ -343,93 +441,122 @@ namespace rage
 
 		TValue& InsertAt(u32 hash, const TValue& value)
 		{
-			Node& node = AllocateNodeByHash(hash);
-			node.Value = value;
+			Node& node = AllocateNodeInLinkedListOrFindExisting(hash);
+			new (&node.Value) TValue(value); // Placement new
 			return node.Value;
 		}
 
-		TValue& Insert(const TKey& key, const TValue& value)
+		TValue& Insert(const TValue& value)
 		{
-			u32 hash = GetHash(key);
+			u32 hash = GetHash(value);
 			return InsertAt(hash, value);
 		}
 
 		template<typename... TArgs>
 		TValue& ConstructAt(u32 hash, TArgs... args)
 		{
-			Node& node = AllocateNodeByHash(hash);
-			pVoid where = &node.Value;
-			new (where) TValue(args...);
+			Node& node = AllocateNodeInLinkedListOrFindExisting(hash);
+			new (&node.Value) TValue(args...); // Placement new
 			return node.Value;
 		}
 
-		template<typename... TArgs>
-		TValue& Construct(const TKey& key, TArgs... args)
+		TValue& EmplaceAt(u32 hash, TValue&& value)
 		{
-			u32 hash = GetHash(key);
-			return ConstructAt(hash, args...);
+			Node& node = AllocateNodeInLinkedListOrFindExisting(hash);
+			new (&node.Value) TValue(std::move(value));
+			return node.Value;
 		}
+
+		TValue& Emplace(TValue&& value)
+		{
+			u32 hash = GetHash(value);
+			return EmplaceAt(hash, std::move(value));
+		}
+
+		void RemoveAtIterator(const Iterator& it);
 
 		void RemoveAt(u32 hash)
 		{
-			s32 index;
-			Node* node = TryGetNodeAndIndexByHash(hash, &index);
+			u16 bucket;
+			Node* node = TryGetNode(hash, &bucket);
 			AM_ASSERT(node, "atMap::Remove() -> Slot with key hash %u is not allocated.", hash);
 
-			// Remove node from bucket linked list
-			u32 bucket = GetBucket(hash);
-			m_BucketToNode[bucket] = node->NextIndex;
-
-			// Insert node back in free linked list
-			node->NextIndex = m_FreeIndex;
-			m_FreeIndex = index;
-
-			m_UsedSlotCount--;
+			RemoveNodeFromLinkedListAndFree(node, bucket);
 		}
 
-		void Remove(const TKey& key)
+		void Remove(const TValue& value)
 		{
-			u32 hash = GetHash(key);
-			return RemoveAt(hash);
+			u32 hash = GetHash(value);
+			RemoveAt(hash);
 		}
 
 		/*
 		 *	------------------ Getters / Operators ------------------
 		 */
 
-		TValue* TryGetAt(u32 hash) const
+		Iterator FindByHash(u32 hash);
+
+		Iterator Find(const TValue& value)
 		{
-			Node* node = TryGetNodeAndIndexByHash(hash);
-			if (node)
-				return &node->Value;
-			return nullptr;
+			u32 hash = GetHash(value);
+			return FindByHash(hash);
 		}
 
-		TValue* TryGet(const TKey& key) const
+		TValue* TryGetAt(u32 hash) const
 		{
-			u32 hash = GetHash(key);
-			return TryGetAt(hash);
+			Node* node = TryGetNode(hash);
+			if (!node)
+				return nullptr;
+			return &node->Value;
 		}
 
 		TValue& GetAt(u32 hash) const
 		{
 			TValue* value = TryGetAt(hash);
-			AM_ASSERT(value != nullptr, "atMap::Get() -> Slot with hash %u doesn't  exist.", hash);
+			AM_ASSERT(value, "atMap::Get() -> Value with hash %u is not present.", hash);
 			return *value;
 		}
 
-		TValue& Get(const TKey& key) const
+		/**
+		 * \brief Performs comparison by stored values.
+		 */
+		bool Equals(const atMap& other) const
 		{
-			u32 hash = GetHash(key);
-			return GetAt(hash);
+			// Collections of different size can't be equal
+			if (m_UsedSlotCount != other.m_UsedSlotCount)
+				return false;
+
+			// Loop through every value and try to find it in other set
+			for (u16 i = 0; i < m_BucketCount; i++)
+			{
+				Node* node = m_Buckets[i];
+				while (node)
+				{
+					if (!other.ContainsAt(node->HashKey))
+						return false;
+
+					node = node->Next;
+				}
+			}
+			return true;
 		}
 
-		bool Contains(const TKey& key) const { return TryGet(key) != nullptr; }
-		bool ContainsAt(u32 hash) const { return TryGetAt(hash) != nullptr; }
-		u32	GetSize() const { return m_BucketCount; }
+		atArray<TValue> ToArray() const;
+
+		bool Any() const { return m_UsedSlotCount > 0; }
+		bool Contains(const TValue& value) const { return TryGetNode(GetHash(value)) != nullptr; }
+		bool ContainsAt(u32 hash) const { return TryGetNode(hash) != nullptr; }
+		u32	GetBucketCount() const { return m_BucketCount; }
 		u32 GetNumUsedSlots() const { return m_UsedSlotCount; }
 
-		[[nodiscard]] TValue& operator[](const TKey& key) const { return Get(key); }
+		atMap& operator=(const std::initializer_list<TValue>& list)
+		{
+			Resize(list.size());
+			Clear();
+			for (const TValue& value : list)
+				Insert(value);
+			return *this;
+		}
 
 		atMap& operator=(const atMap& other) // NOLINT(bugprone-unhandled-self-assignment)
 		{
@@ -443,76 +570,88 @@ namespace rage
 			return *this;
 		}
 
-		TIterator begin() const { return TIterator(this); }
-		TIterator end() const { return TIterator::GetEnd(); }
+		bool operator==(const std::initializer_list<TValue>& list)
+		{
+			// We can't compare by used slot count at this point because
+			// initializer list may contain multiple unique values and it will give false results
+			for (const TValue& value : list)
+			{
+				if (!Contains(value))
+					return false;
+			}
+			return true;
+		}
+
+		bool operator==(const atMap& other) const { return Equals(other); }
+
+		Iterator begin() const { return Iterator(this); }
+		Iterator end() const { return Iterator::GetEnd(); }
 	};
 
 	/**
 	 * \brief Allows to iterate through allocated slots in atMap.
 	 */
-	template<typename TKey, typename TValue, typename THashFn = atMapHashFn<TKey>>
+	template<typename TValue, typename THashFn = atMapHashFn<TValue>>
 	class atMapIterator
 	{
-		using TMap = atMap<TKey, TValue, THashFn>;
-		using TPair = atMapKeyPair<TValue>;
-		using TNode = typename TMap::Node;
+		using Set = atMap<TValue, THashFn>;
+		using Node = typename Set::Node;
 
-		friend class TMap;
+		friend class Set;
 
-		const TMap* m_Map;
-		s32 m_BucketIndex = -1;
-		TNode* m_Node = nullptr; // Pointer at current node in bucket's linked list
-		TPair m_Pair;
+		const Set* m_Set;
+		s32 m_BucketIndex = 0;
+		Node* m_Node = nullptr; // Pointer at current node in bucket's linked list
 
 	public:
-		atMapIterator(const TMap* map) : m_Map(map)
+		atMapIterator(const Set* map) : m_Set(map)
 		{
 			if (!Next())
-				m_Map = nullptr;
+				m_Set = nullptr;
 		}
 
 		atMapIterator(const atMapIterator& other)
 		{
-			m_Map = other.m_Map;
+			m_Set = other.m_Set;
 			m_BucketIndex = other.m_BucketIndex;
 			m_Node = other.m_Node;
-			m_Pair = other.m_Pair;
+		}
+
+		atMapIterator(const Set* set, u16 bucketIndex, Node* node)
+		{
+			m_Set = set;
+			m_BucketIndex = bucketIndex;
+			m_Node = node;
 		}
 
 		static atMapIterator GetEnd() { return atMapIterator(nullptr); }
 
 		bool Next()
 		{
-			if (!m_Map)
+			if (!m_Set)
 				return false;
 
 			// Keep iterating linked list until we reach tail
 			if (m_Node)
 			{
-				m_Node = m_Map->GetNextNode(m_Node);
+				m_Node = m_Node->Next;
 				if (m_Node)
 				{
-					m_Pair.Key = m_Node->HashKey;
-					m_Pair.Value = &m_Node->Value;
+					return true;
 				}
 				// Keep iterating next bucket...
 			}
 
-			m_BucketIndex++;
-
 			// We're out of map slots, this is over
-			if (m_BucketIndex >= m_Map->m_BucketCount)
+			if (m_BucketIndex >= m_Set->m_BucketCount)
 				return false;
 
 			// Check if there's linked list in bucket at index
-			s32 nodeIndex = m_Map->m_BucketToNode[m_BucketIndex];
-			if (nodeIndex == -1)
+			m_Node = m_Set->m_Buckets[m_BucketIndex++];
+			if (m_Node == nullptr)
 				return Next(); // No linked list, search for next one
 
 			// Begin iterating linked list
-			m_Node = &m_Map->m_NodePool[nodeIndex];
-			m_Pair.Key = m_Node->HashKey;
-			m_Pair.Value = &m_Node->Value;
 			return true;
 		}
 
@@ -520,23 +659,59 @@ namespace rage
 		{
 			if (!Next())
 			{
-				m_Map = nullptr;
+				m_Set = nullptr;
 				return GetEnd();
 			}
 			return *this;
 		}
 
-		TPair& operator*() { return m_Pair; }
+		TValue& operator*() const { return m_Node->Value; }
+		TValue& GetValue() const { return m_Node->Value; }
+		bool HasValue() const { return m_Node != nullptr; }
 
 		bool operator==(const atMapIterator& other) const
 		{
-			if (m_Map == nullptr && other.m_Map == nullptr)
+			if (m_Set == nullptr && other.m_Set == nullptr)
 				return true;
 
-			return
-				m_Map == other.m_Map &&
+			return m_Set == other.m_Set &&
 				m_BucketIndex == other.m_BucketIndex &&
 				m_Node == other.m_Node;
 		}
 	};
+
+	// Implementation of functions in atMap that depend on atMapIterator
+
+	template <typename TValue, typename THashFn>
+	void atMap<TValue, THashFn>::RemoveAtIterator(const Iterator& it)
+	{
+		AM_ASSERT(it != end(), "atMap::RemoveAtIterator() -> Invalid iterator!");
+
+		RemoveNodeFromLinkedListAndFree(it.m_Node, it.m_BucketIndex);
+	}
+
+	template <typename TValue, typename THashFn>
+	typename atMap<TValue, THashFn>::Iterator atMap<TValue, THashFn>::FindByHash(u32 hash)
+	{
+		u16 bucket;
+		Node* node = TryGetNode(hash, &bucket);
+		if (!node)
+			return end();
+
+		return Iterator(this, bucket, node);
+	}
+
+	template <typename TValue, typename THashFn>
+	atArray<TValue> atMap<TValue, THashFn>::ToArray() const
+	{
+		atArray<TValue> result;
+		result.Reserve(GetNumUsedSlots());
+
+		for (const TValue& value : *this)
+		{
+			result.Add(value);
+		}
+
+		return result;
+	}
 }
