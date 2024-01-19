@@ -725,14 +725,14 @@ void rage::grcTextureDX11::SetPrivateData()
 	{
 		char buffer[256];
 		size_t len = sprintf_s(buffer, 256, "%s - Resource", name) + 1;
-		AM_ASSERT_STATUS(m_ShaderResourceView->SetPrivateData(WKPDID_D3DDebugObjectName, len, name));
+		AM_ASSERT_STATUS(m_ShaderResourceView->SetPrivateData(WKPDID_D3DDebugObjectName, len, buffer));
 	}
 
 	if (m_ExtraData && m_ExtraData->StagingTexture)
 	{
 		char buffer[256];
 		size_t len = sprintf_s(buffer, 256, "%s - Staging", name) + 1;
-		AM_ASSERT_STATUS(m_ExtraData->StagingTexture->SetPrivateData(WKPDID_D3DDebugObjectName, len, name));
+		AM_ASSERT_STATUS(m_ExtraData->StagingTexture->SetPrivateData(WKPDID_D3DDebugObjectName, len, buffer));
 	}
 }
 
