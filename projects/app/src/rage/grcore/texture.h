@@ -239,6 +239,10 @@ namespace rage
 		u32 GetHandleIndex() const override { return m_HandleIndex; }
 		void SetHandleIndex(u32 index) override { m_HandleIndex = index; }
 
+		// Ancient PS2 leftover, ensures that texture is loaded
+		virtual void Download() const { }
+		virtual int GetDownloadSize() const { return 0; }
+
 		virtual u16 GetWidth() const = 0;
 		virtual u16 GetHeight() const = 0;
 		virtual u16 GetDepth() const = 0;
@@ -260,6 +264,10 @@ namespace rage
 		virtual grcTexture* GetReference() { return this; }
 
 		virtual bool IsSRGB() const = 0;
+
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		virtual ConstString GetDebugName(char* buffer, size_t bufferSize) const { return GetName(); }
+#endif
 
 		virtual const void* GetTexturePtr() const { return m_CachedTexture.Get(); }
 		virtual void* GetTexturePtr() { return m_CachedTexture.Get(); }
