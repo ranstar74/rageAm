@@ -5,7 +5,7 @@
 
 #include "device.h"
 #include "am/graphics/render.h"
-#include "rage/crypto/joaat.h"
+#include "rage/atl/hashstring.h"
 #include "rage/file/stream.h"
 
 ID3D11DeviceChild* rage::grcCreateProgramByTypeCached(ConstString name, grcProgramType type, pVoid bytecode, u32 bytecodeSize)
@@ -46,7 +46,7 @@ u32 rage::ReadStringAndComputeHash(const fiStreamPtr& stream)
 	char buffer[265];
 	u8 size = stream->ReadU8();
 	stream->Read(buffer, size);
-	return joaat(buffer);
+	return atStringHash(buffer);
 }
 
 rage::grcProgram::~grcProgram()

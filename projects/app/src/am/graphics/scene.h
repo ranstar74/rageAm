@@ -31,8 +31,8 @@ namespace rageam::graphics
 	// For geometries that don't have material
 	static constexpr u16 DEFAULT_MATERIAL = u16(-1);
 
-	// Case-sensitive joaat
-	inline HashValue SceneHashFn(ConstString str) { return rage::joaat(str, false); }
+	// Case-sensitive atStringHash
+	inline HashValue SceneHashFn(ConstString str) { return rage::atStringHash(str, false); }
 
 	/**
 	 * \brief Packed vertex channel data, (for e.g. 'Position' or 'Normal') or vertex indices.

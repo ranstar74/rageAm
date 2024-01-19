@@ -7,7 +7,7 @@
 //
 #pragma once
 
-#include "rage/crypto/joaat.h"
+#include "rage/atl/hashstring.h"
 
 namespace rage
 {
@@ -40,22 +40,22 @@ namespace rage
 	{
 		grcVertexChannel channel = CHANNEL_INVALID;
 
-		u32 semanticHash = joaat(semanticName);
+		u32 semanticHash = atStringHash(semanticName);
 
 		switch (semanticHash)
 		{
-		case joaat("POSITION"):		channel = CHANNEL_POSITION;		break;
-		case joaat("BLENDWEIGHT"):	channel = CHANNEL_BLENDWEIGHT;	break;
-		case joaat("BLENDINDICES"): channel = CHANNEL_BLENDINDICES; break;
-		case joaat("NORMAL"):		channel = CHANNEL_NORMAL;		break;
-		case joaat("COLOR"):
+		case atStringHash("POSITION"):		channel = CHANNEL_POSITION;		break;
+		case atStringHash("BLENDWEIGHT"):	channel = CHANNEL_BLENDWEIGHT;	break;
+		case atStringHash("BLENDINDICES"): channel = CHANNEL_BLENDINDICES; break;
+		case atStringHash("NORMAL"):		channel = CHANNEL_NORMAL;		break;
+		case atStringHash("COLOR"):
 			switch (semanticIndex)
 			{
 			case 0: channel = CHANNEL_COLOR0; break;
 			case 1: channel = CHANNEL_COLOR1; break;
 			}
 			break;
-		case joaat("TEXCOORD"):
+		case atStringHash("TEXCOORD"):
 			switch (semanticIndex)
 			{
 			case 0: channel = CHANNEL_TEXCOORD0; break;
@@ -68,14 +68,14 @@ namespace rage
 			case 7: channel = CHANNEL_TEXCOORD7; break;
 			}
 			break;
-		case joaat("TANGENT"):
+		case atStringHash("TANGENT"):
 			switch (semanticIndex)
 			{
 			case 0: channel = CHANNEL_TANGENT0; break;
 			case 1: channel = CHANNEL_TANGENT1; break;
 			}
 			break;
-		case joaat("BINORMAL"):
+		case atStringHash("BINORMAL"):
 			switch (semanticIndex)
 			{
 			case 0: channel = CHANNEL_BINORMAL0; break;

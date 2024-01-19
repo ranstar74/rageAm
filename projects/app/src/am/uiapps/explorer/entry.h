@@ -206,7 +206,7 @@ namespace rageam::ui
 		char				m_TypeName[TYPE_MAX_NAME];		// Display name of file extension
 		file::U8Path		m_Path;							// Full path to this file or directory, including name
 		file::Path			m_Name;							// Name without extension, not UTF8/16 because they're not compatible with fiDevice
-		u32					m_HashKey;						// Joaat of file path, we use that for selection set
+		u32					m_HashKey;						// atStringHash of file path, we use that for selection set
 
 		ConstString			m_FullName;						// Pointer to file name in m_Path
 		ConstString			m_Type;							// Pointer to file extension in m_Path
@@ -288,7 +288,7 @@ namespace rageam::ui
 		static constexpr u32 MAX_USER_NAME = 32;
 
 		char	m_Name[MAX_USER_NAME];	// Custom display name that user can set, used for disk drives
-		u32		m_HashKey;				// Name joaat
+		u32		m_HashKey;				// Name atStringHash
 		bool	m_HasSubDirs = false;
 
 		ImImage* m_Icon;

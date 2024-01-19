@@ -3,7 +3,6 @@
 #include "scene_fbx.h"
 #include "scene_gl.h"
 #include "am/file/pathutils.h"
-#include "rage/crypto/joaat.h"
 
 bool rageam::graphics::SceneGeometry::HasSkin() const
 {

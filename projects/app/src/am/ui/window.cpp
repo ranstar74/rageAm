@@ -86,7 +86,7 @@ void rageam::ui::WindowManager::Focus(const WindowPtr& window) const
 
 rageam::ui::WindowPtr rageam::ui::WindowManager::FindByTitle(ConstString title) const
 {
-	WindowPtr* ppWindow = m_Windows.TryGetAt(rage::joaat(title));
+	WindowPtr* ppWindow = m_Windows.TryGetAt(rage::atStringHash(title));
 	if (ppWindow)
 		return *ppWindow;
 	return nullptr;

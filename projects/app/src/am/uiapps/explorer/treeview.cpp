@@ -3,7 +3,6 @@
 #include "am/ui/extensions.h"
 #include "am/ui/font_icons/icons_am.h"
 #include "am/ui/slwidgets.h"
-#include "rage/crypto/joaat.h"
 
 void rageam::ui::TreeView::RemoveEntryFromClosed(const ExplorerEntryPtr& entry)
 {
@@ -120,7 +119,7 @@ ConstString rageam::ui::TreeView::FormatNodeName(const IExplorerEntry& entry) co
 		name = entry.GetFullName();
 
 	// We have to make sure that ImGuiID will be unique for two folders with same name
-	return ImGui::FormatTemp("%s##%u", name, rage::joaat(entry.GetPath()));
+	return ImGui::FormatTemp("%s##%u", name, rage::atStringHash(entry.GetPath()));
 }
 
 rageam::ui::TreeView::TreeView() : m_NavigationContext(UNDO_CONTEXT_HARD_REDO)

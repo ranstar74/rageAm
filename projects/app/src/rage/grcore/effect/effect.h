@@ -10,11 +10,10 @@
 #include "am/integration/memory/address.h"
 #include "common/types.h"
 #include "rage/atl/array.h"
-#include "rage/crypto/joaat.h"
+#include "rage/atl/hashstring.h"
 #include "rage/file/stream.h"
 #include "rage/grcore/program.h"
 #include "rage/grcore/texture.h"
-#include "rage/math/vecv.h"
 
 #define TECHNIQUE_DRAW "draw"
 #define TECHNIQUE_DRAWSKINNED "drawskinned"
@@ -523,7 +522,7 @@ namespace rage
 			}*/
 		}
 
-		fxHandle_t LookupVarByName(ConstString name) { return LookupVarByHashKey(joaat(name)); }
+		fxHandle_t LookupVarByName(ConstString name) { return LookupVarByHashKey(atStringHash(name)); }
 		fxHandle_t LookupVarByHashKey(u32 hash)
 		{
 			for (u16 i = 0; i < m_Variables.GetSize(); i++)
@@ -547,7 +546,7 @@ namespace rage
 
 		fxHandle_t LookupTechnique(ConstString name)
 		{
-			return LookupTechniqueByHashKey(joaat(name));
+			return LookupTechniqueByHashKey(atStringHash(name));
 		}
 
 		grcEffectTechnique* GetTechniqueByHandle(fxHandle_t handle)
@@ -563,7 +562,7 @@ namespace rage
 
 		grcEffectTechnique* GetTechnique(ConstString name) const
 		{
-			u32 hash = joaat(name);
+			u32 hash = atStringHash(name);
 			for (grcEffectTechnique& technique : m_Techniques)
 			{
 				if (technique.m_NameHash == hash)
@@ -576,7 +575,7 @@ namespace rage
 		{
 			if (outIndex) *outIndex = u16(-1);
 
-			u32 hash = joaat(name);
+			u32 hash = atStringHash(name);
 			for (u16 i = 0; i < m_Variables.GetSize(); i++)
 			{
 				grcEffectVar& var = m_Variables[i];

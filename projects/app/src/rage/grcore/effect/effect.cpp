@@ -73,7 +73,7 @@ void rage::grcInstanceData::CloneFrom(const grcInstanceData& other)
 		char presetName[64];
 		sprintf_s(presetName, sizeof presetName, "%s.sps", otherEffect->GetName());
 
-		m_Preset.NameHash = joaat(presetName);
+		m_Preset.NameHash = atStringHash(presetName);
 		m_Effect.NameHash = otherEffect->GetNameHash();
 	}
 	else

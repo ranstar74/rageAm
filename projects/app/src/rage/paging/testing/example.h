@@ -9,7 +9,7 @@
 
 #include "rage/paging/place.h"
 #include "rage/paging/template/array.h"
-#include "rage/crypto/joaat.h"
+#include "rage/atl/hashstring.h"
 #include "rage/paging/base.h"
 
 namespace rage

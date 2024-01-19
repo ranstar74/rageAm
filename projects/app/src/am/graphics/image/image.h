@@ -483,7 +483,7 @@ namespace rageam::graphics
 		static ImagePtr CreateChecker_Opacity(int size = 512, int tileSize = 8) { return CreateChecker(COLOR_GRAY, COLOR_WHITE, size, tileSize); }
 		static ImagePtr CreateChecker(ColorU32 color0, ColorU32 color1, int size = 512, int tileSize = 8);
 
-		// Joaat of path mixed with file modify time
+		// atStringHash of path mixed with file modify time
 		static u32 GetFastHashKey(ConstWString path);
 
 		static bool CanBlockCompressImage(ConstWString path);

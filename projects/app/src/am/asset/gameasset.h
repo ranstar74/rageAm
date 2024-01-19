@@ -75,7 +75,7 @@ namespace rageam::asset
 		// Useful when some data needs to be set only on config creation
 		bool HasSavedConfig() const { return m_HasSavedConfig; }
 
-		// Joaat of directory path
+		// atStringHash of directory path
 		u32 GetHashKey() const { return m_HashKey; }
 		// Gets full path to asset directory 'x:/assets/adder.itd'
 		const file::WPath& GetDirectoryPath() const { return m_Directory; }

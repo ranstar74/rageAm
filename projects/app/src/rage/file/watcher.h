@@ -37,7 +37,7 @@ namespace rage
 				if (watcher->m_IsEnabled && watcher->m_Device != nullptr)
 				{
 					// The easiest & fastest way to check if anything was modified is to
-					// use some sort of hash-sum, we're using joaat
+					// use some sort of hash-sum, we're using atStringHash
 					u32 newChecksum = 0;
 
 					// Take hash-sum for all directory files and for files simply write time hash

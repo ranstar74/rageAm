@@ -271,7 +271,7 @@ void rageam::ui::ExplorerEntryFi::ScanSubFolders()
 void rageam::ui::ExplorerEntryFi::SetPath(const file::U8Path& path, rage::fiDevice* parentDevice)
 {
 	m_Path = path;
-	m_HashKey = rage::joaat(m_Path);
+	m_HashKey = rage::atHashString(m_Path);
 
 	m_Name = m_Path.GetFileNameWithoutExtension();
 
@@ -502,7 +502,7 @@ bool rageam::ui::ExplorerEntryUser::Rename(ConstString newName)
 	AM_ASSERT(!(GetFlags() & ExplorerEntryFlags_NoRename), "Entry cannot be renamed.");
 
 	String::Copy(m_Name, MAX_USER_NAME, newName);
-	m_HashKey = rage::joaat(m_Name);
+	m_HashKey = rage::atStringHash(m_Name);
 	return true;
 }
 

@@ -600,7 +600,7 @@ SlPickerState SlGui::InputPicker(const char* name, const char* text, int hintCou
 
 	// We have to reset highlighted index if search request was changed
 	int lastSearchHash = state.LastSearchHash;
-	int	searchHash = (int)rage::joaat(buffer);
+	int	searchHash = (int)rage::atStringHash(buffer);
 	bool searchChanged = lastSearchHash != searchHash;
 	state.LastSearchHash = searchHash;
 	if (!inputJustActivated && searchChanged)

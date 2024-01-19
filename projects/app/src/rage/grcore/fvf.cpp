@@ -7,7 +7,6 @@
 #include "am/graphics/vertexbufferiterator.h"
 #include "effect/effect.h"
 #include "rage/atl/datahash.h"
-#include "rage/crypto/joaat.h"
 #include "rage/system/new.h"
 
 rage::atFixedArray<
@@ -16,18 +15,18 @@ rage::atFixedArray<
 
 rage::grcVertexSemantic rage::GetVertexSemanticFromName(ConstString semanticName)
 {
-	u32 semanticHash = joaat(semanticName);
+	u32 semanticHash = atStringHash(semanticName);
 	switch (semanticHash)
 	{
-	case joaat("POSITION"):		return POSITION;
-	case joaat("POSITIONT"):	return POSITIONT;
-	case joaat("NORMAL"):		return NORMAL;
-	case joaat("BINORMAL"):		return BINORMAL;
-	case joaat("TANGENT"):		return TANGENT;
-	case joaat("TEXCOORD"):		return TEXCOORD;
-	case joaat("BLENDWEIGHT"):	return BLENDWEIGHT;
-	case joaat("BLENDINDICES"): return BLENDINDICES;
-	case joaat("COLOR"):		return COLOR;
+	case atStringHash("POSITION"):		return POSITION;
+	case atStringHash("POSITIONT"):	return POSITIONT;
+	case atStringHash("NORMAL"):		return NORMAL;
+	case atStringHash("BINORMAL"):		return BINORMAL;
+	case atStringHash("TANGENT"):		return TANGENT;
+	case atStringHash("TEXCOORD"):		return TEXCOORD;
+	case atStringHash("BLENDWEIGHT"):	return BLENDWEIGHT;
+	case atStringHash("BLENDINDICES"): return BLENDINDICES;
+	case atStringHash("COLOR"):		return COLOR;
 
 	default:
 		AM_UNREACHABLE("GetVertexSemanticByName() -> %s is invalid name.", semanticName);

@@ -98,7 +98,7 @@ void rage::rmcDrawable::ComputeTessellationForShader(u16 shaderIndex)
 	grmShader* shader = m_ShaderGroup->GetShader(shaderIndex);
 
 	// Tessellation is ON if 'usetessellation' shader param value is 1.0
-	fxHandle_t useTessellationHandle = shader->GetEffect()->LookupVarByHashKey(joaat("useTessellation"));
+	fxHandle_t useTessellationHandle = shader->GetEffect()->LookupVarByHashKey(atStringHash("useTessellation"));
 	bool useTessellation = shader->GetVar(useTessellationHandle)->GetValue<float>() == 1.0f;
 
 	// Update draw bucket in shader

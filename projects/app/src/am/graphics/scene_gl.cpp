@@ -1,7 +1,6 @@
 #include "scene_gl.h"
 
 #include "am/file/fileutils.h"
-#include "rage/crypto/joaat.h"
 #include "rage/math/math.h"
 #include "rage/math/vec.h"
 
@@ -87,7 +86,7 @@ rageam::graphics::SceneMaterialGl::SceneMaterialGl(SceneGl* parent, u16 index, c
 	: SceneMaterial(parent, index)
 {
 	m_Material = material;
-	m_NameHash = rage::joaat(material->name);
+	m_NameHash = SceneHashFn(material->name);
 
 	ScanTextures();
 }

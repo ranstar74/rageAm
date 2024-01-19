@@ -31,7 +31,7 @@ namespace rage
 	ID3D11DeviceChild* grcCreateProgramByTypeCached(ConstString name, grcProgramType type, pVoid bytecode, u32 bytecodeSize);
 
 	// Helper function for effect deserializing.
-	// Reads string length, string itself and computes joaat.
+	// Reads string length, string itself and computes atStringHash.
 	u32 ReadStringAndComputeHash(const fiStreamPtr& stream);
 
 	struct grcConstantBufferData
@@ -76,7 +76,7 @@ namespace rage
 			//stream->Read(name, nameSize);
 
 			//Name = name;
-			//NameHash = joaat(name);
+			//NameHash = atStringHash(name);
 		}
 	};
 

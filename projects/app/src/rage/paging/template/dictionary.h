@@ -7,12 +7,12 @@
 //
 #pragma once
 
-#include "rage/crypto/joaat.h"
 #include "rage/paging/template/array.h"
 #include "rage/paging/resource.h"
 #include "rage/paging/base.h"
 #include "rage/paging/place.h"
 #include "rage/paging/ref.h"
+#include "rage/atl/hashstring.h"
 
 namespace rage
 {
@@ -103,7 +103,7 @@ namespace rage
 		void Clear() { m_Items.Clear(); m_Keys.Clear(); }
 		// If key is in the set
 		bool Contains(u32 key) const { return m_Keys.Find(key); }
-		bool Contains(ConstString key) const { return Contains(joaat(key)); }
+		bool Contains(ConstString key) const { return Contains(atStringHash(key)); }
 		// Returns NULL if element is not in the set
 		T* Find(u32 key)
 		{
@@ -111,14 +111,14 @@ namespace rage
 			if (index == -1) return nullptr;
 			return m_Items[index].Get();
 		}
-		T* Find(ConstString key) { return Find(joaat(key)); }
+		T* Find(ConstString key) { return Find(atStringHash(key)); }
 		// Gets key-value pair at given index (meant to be used with GetSize for iterating dictionary)
 		pgKeyPair<T> GetAt(u16 index) { return { m_Keys[index], m_Items[index].Get() }; }
 		// Gets just value at index, use with GetSize
 		T* GetValueAt(u16 index) { return m_Items[index].Get(); }
 		// Gets index from element hash key
 		s32 IndexOf(u32 key) const { return m_Keys.Find(key); }
-		s32 IndexOf(ConstString key) const { return IndexOf(joaat(key)); }
+		s32 IndexOf(ConstString key) const { return IndexOf(atStringHash(key)); }
 		// NOTE: Added element pointer ownership goes to dictionary!
 		// If value is already set for given key, it will be replaced
 		T* Insert(u32 key, T* item)
@@ -135,7 +135,7 @@ namespace rage
 			m_Items.EmplaceAt(index, pgUPtr<T>(item));
 			return m_Items[index].Get();
 		}
-		T* Insert(ConstString key, T* item) { return Insert(joaat(key), item); }
+		T* Insert(ConstString key, T* item) { return Insert(atStringHash(key), item); }
 		// Removes the key and value if exists, otherwise does nothing
 		void Remove(u32 key)
 		{
@@ -146,7 +146,7 @@ namespace rage
 				m_Items.RemoveAt(index);
 			}
 		}
-		void Remove(ConstString key) { Remove(joaat(key)); }
+		void Remove(ConstString key) { Remove(atStringHash(key)); }
 		// Transfers ownership of the value to caller and removes the item from collection
 		// NULL is returned if key is not present in the collection
 		T* Move(u32 key)
@@ -159,7 +159,7 @@ namespace rage
 			m_Items.RemoveAt(index);
 			return item;
 		}
-		T* Move(ConstString key) { return Move(joaat(key)); }
+		T* Move(ConstString key) { return Move(atStringHash(key)); }
 
 		IMPLEMENT_REF_COUNTER(pgDictionary);
 	};
