@@ -154,6 +154,8 @@ namespace rage
 		Vec3V Rotate(const Vec3V& axis, float angle) const;
 		Vec3V Rotate(const QuatV& rotation) const;
 
+		Vec3V& operator=(const Vec3V& other) { M = other.M; return *this; }
+
 		// -- Arithmetic Operators --
 
 		Vec3V operator+(const VecV& other) const { return DirectX::XMVectorAdd(M, other.M); }
