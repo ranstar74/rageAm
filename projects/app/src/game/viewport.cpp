@@ -65,8 +65,8 @@ void CViewport::GetWorldSegmentFromScreen(rage::Vec3V& nearCoord, rage::Vec3V& f
 	yRelative = 1.0f - yRelative; // Flip Y axis
 
 	// Convert to projected screen coordinates (where 0.0, 0.0 is the center)
-	float x = rage::Math::Remap(xRelative, 0.0f, 1.0f, -1.0f, 1.0f);
-	float y = rage::Math::Remap(yRelative, 0.0f, 1.0f, -1.0f, 1.0f);
+	float x = rage::Remap(xRelative, 0.0f, 1.0f, -1.0f, 1.0f);
+	float y = rage::Remap(yRelative, 0.0f, 1.0f, -1.0f, 1.0f);
 
 	// TODO: Use inverse view proj from viewport
 	rage::Mat44V inverseViewProj = GetViewProjectionMatrix().Inverse();

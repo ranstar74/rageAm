@@ -161,12 +161,12 @@ void rageam::graphics::SceneGeometryGl::ComputeBB()
 		for (cgltf_size i = 0; i < posData->count; i++)
 		{
 			rage::Vector3& vec = vecs[i];
-			minX = rage::Math::Min(minX, vec.X);
-			minY = rage::Math::Min(minY, vec.Y);
-			minZ = rage::Math::Min(minZ, vec.Z);
-			maxX = rage::Math::Max(maxX, vec.X);
-			maxY = rage::Math::Max(maxY, vec.Y);
-			maxZ = rage::Math::Max(maxZ, vec.Z);
+			minX = rage::Min(minX, vec.X);
+			minY = rage::Min(minY, vec.Y);
+			minZ = rage::Min(minZ, vec.Z);
+			maxX = rage::Max(maxX, vec.X);
+			maxY = rage::Max(maxY, vec.Y);
+			maxZ = rage::Max(maxZ, vec.Z);
 		}
 	}
 

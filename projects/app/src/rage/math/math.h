@@ -14,44 +14,38 @@ namespace rage
 	static constexpr float PI = 3.14159265358979323846f;
 	static constexpr float PI2 = PI * 2.0f;
 
-	class Math
+	static bool AlmostEquals(float a, float b, float maxDelta = 0.01f) { return abs(a - b) <= maxDelta; }
+
+	template<typename T>
+	static const T& Max(const T& left, const T& right) { return left >= right ? left : right; }
+
+	template<typename T>
+	static const T& Min(const T& left, const T& right) { return left <= right ? left : right; }
+
+	template<typename T>
+	static constexpr float Clamp(T value, T min, T max)
 	{
-	public:
-		static bool AlmostEquals(float a, float b, float maxDelta = 0.01f) { return abs(a - b) <= maxDelta; }
+		if (value < min) return min;
+		if (value > max) return max;
+		return value;
+	}
 
-		template<typename T>
-		static const T& Max(const T& left, const T& right) { return left >= right ? left : right; }
+	// Remaps given value from one range to another
+	static constexpr float Remap(float value, float fromMin, float fromMax, float toMin, float toMax)
+	{
+		float a = value - fromMin;
+		float b = a / (fromMax - fromMin);
+		float c = b * (toMax - toMin);
+		return toMin + c;
+	}
 
-		template<typename T>
-		static const T& Min(const T& left, const T& right) { return left <= right ? left : right; }
+	static constexpr float DegToRad(float deg)
+	{
+		return deg / 180.0f * PI;
+	}
 
-		template<typename T>
-		static constexpr float Clamp(T value, T min, T max)
-		{
-			if (value < min)
-				return min;
-			if (value > max)
-				return max;
-			return value;
-		}
-
-		// Remaps given value from one range to another
-		static constexpr float Remap(float value, float fromMin, float fromMax, float toMin, float toMax)
-		{
-			float a = value - fromMin;
-			float b = a / (fromMax - fromMin);
-			float c = b * (toMax - toMin);
-			return toMin + c;
-		}
-
-		static constexpr float DegToRad(float deg)
-		{
-			return deg / 180.0f * PI;
-		}
-
-		static constexpr float RadToDeg(float rad)
-		{
-			return rad / PI * 180.0f;
-		}
-	};
+	static constexpr float RadToDeg(float rad)
+	{
+		return rad / PI * 180.0f;
+	}
 }

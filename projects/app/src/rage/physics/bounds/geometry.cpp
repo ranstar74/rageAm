@@ -774,9 +774,9 @@ void rage::phBoundGeometry::SetMarginAndShrink(float margin, float t)
 	// We have to make sure that margin won't exceed bounding box dimensions
 	Vec3V size = Vec3V(m_BoundingBoxMax) - Vec3V(m_BoundingBoxMin);
 	size *= 0.5f; // We must shrink size from both directions so take half of it
-	margin = Math::Min(margin, size.X());
-	margin = Math::Min(margin, size.Y());
-	margin = Math::Min(margin, size.Z());
+	margin = Min(margin, size.X());
+	margin = Min(margin, size.Y());
+	margin = Min(margin, size.Z());
 
 	m_NumShrunkVertices = m_NumVertices;
 
@@ -792,7 +792,7 @@ void rage::phBoundGeometry::SetMarginAndShrink(float margin, float t)
 	if (m_CompressedShrunkVertices == nullptr)
 		m_CompressedShrunkVertices = new CompressedVertex[m_NumShrunkVertices];
 
-	m_Margin = Math::Max(margin, 0.025f);
+	m_Margin = Max(margin, 0.025f);
 
 	Vec3V shrunkBoundingMin = Vec3V(m_BoundingBoxMin) + m_Margin;
 	Vec3V shrunkBoundingMax = Vec3V(m_BoundingBoxMax) - m_Margin;

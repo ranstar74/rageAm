@@ -127,8 +127,8 @@ namespace rageam::graphics
 		ColorU32 GetColor() override { return m_Color; }
 		eSceneLightType GetType() override;
 
-		float GetOuterConeAngle() override { return rage::Math::DegToRad(m_ULight->outer_angle); }
-		float GetInnerConeAngle() override { return rage::Math::DegToRad(m_ULight->inner_angle); }
+		float GetOuterConeAngle() override { return rage::DegToRad(m_ULight->outer_angle); }
+		float GetInnerConeAngle() override { return rage::DegToRad(m_ULight->inner_angle); }
 	};
 
 	class SceneNodeFbx : public SceneNode

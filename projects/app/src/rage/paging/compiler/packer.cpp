@@ -58,7 +58,7 @@ void rage::pgRscPacker::CopyAndSortBlocks(const pgSnapshotAllocator& allocator)
 		if (blockCount == 1)
 			m_LargestBlock = m_SortedBlocks[0].Size;
 		else
-			m_LargestBlock = Math::Max(m_SortedBlocks[0].Size, m_SortedBlocks[1].Size);
+			m_LargestBlock = Max(m_SortedBlocks[0].Size, m_SortedBlocks[1].Size);
 	}
 	else
 	{
