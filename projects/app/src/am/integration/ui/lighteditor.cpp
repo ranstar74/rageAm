@@ -104,8 +104,8 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner_Spot(c
 	DrawList& drawList = GetDrawList();
 
 	// Outer & Inner edges
-	float outerAngle = rage::Math::DegToRad(ctx.Light->ConeOuterAngle);
-	float innerAngle = rage::Math::DegToRad(ctx.Light->ConeInnerAngle);
+	float outerAngle = rage::DegToRad(ctx.Light->ConeOuterAngle);
+	float innerAngle = rage::DegToRad(ctx.Light->ConeInnerAngle);
 	rage::Vec3V coneOuterLeft, coneOuterRight, coneInnerLeft, coneInnerRight;
 	getLeftRight(outerAngle, coneOuterLeft, coneOuterRight);
 	getLeftRight(innerAngle, coneInnerLeft, coneInnerRight);
@@ -674,7 +674,7 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 					ImGui::DragFloat("Intensity###VOLUME_INTENSITY", &light->VolumeIntensity, 0.001f, 0.0f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
 					ImGui::DragFloat("Size Scale", &light->VolumeSizeScale, 0.01f, 0.0f, 1.0f, "%.2f");
 
-					bool snapInnerAngle = rage::Math::AlmostEquals(light->ConeOuterAngle, light->ConeInnerAngle);
+					bool snapInnerAngle = rage::AlmostEquals(light->ConeOuterAngle, light->ConeInnerAngle);
 					if (ImGui::DragFloat("Cone Outer Angle", &light->ConeOuterAngle, 1, SPOT_LIGHT_MIN_CONE_ANGLE, SPOT_LIGHT_MAX_CONE_ANGLE, "%.1f"))
 					{
 						// Make sure that inner angle is not bigger than outer after editing

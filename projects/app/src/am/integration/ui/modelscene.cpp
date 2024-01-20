@@ -1,4 +1,3 @@
-#include "am/ui/slwidgets.h"
 #ifdef AM_INTEGRATED
 
 #include "modelscene.h"
@@ -6,6 +5,7 @@
 #include "widgets.h"
 #include "am/integration/integration.h"
 #include "am/ui/font_icons/icons_am.h"
+#include "am/ui/slwidgets.h"
 
 rageam::integration::DrawableStats rageam::integration::DrawableStats::ComputeFrom(gtaDrawable* drawable)
 {
@@ -48,7 +48,7 @@ rageam::integration::DrawableStats rageam::integration::DrawableStats::ComputeFr
 
 const rageam::asset::DrawableAssetMap& rageam::integration::ModelScene::GetDrawableMap() const
 {
-	return *m_Context.DrawableAssetMap;
+	return *m_Context.DrawableAsset->CompiledDrawableMap;
 }
 
 rage::grmModel* rageam::integration::ModelScene::GetMeshAttr(u16 nodeIndex) const
@@ -78,7 +78,7 @@ rageam::Vec3V rageam::integration::ModelScene::GetScenePosition() const
 
 void rageam::integration::ModelScene::CreateArchetypeDefAndSpawnGameEntity()
 {
-	static constexpr u32 ASSET_NAME_HASH = rage::joaat("amTestBedArchetype");
+	static constexpr u32 ASSET_NAME_HASH = rage::atStringHash("amTestBedArchetype");
 
 	// Make sure that lod distance is not smaller than drawable itself
 	float lodDistance = m_Context.Drawable->GetBoundingSphere().GetRadius().Get();
@@ -89,12 +89,12 @@ void rageam::integration::ModelScene::CreateArchetypeDefAndSpawnGameEntity()
 	m_ArchetypeDef->AssetName = ASSET_NAME_HASH;
 	m_ArchetypeDef->PhysicsDictionary = ASSET_NAME_HASH;
 	m_ArchetypeDef->LodDist = lodDistance;
-	m_ArchetypeDef->Flags = rage::ADF_STATIC | rage::ADF_BONE_ANIMS;
+	m_ArchetypeDef->Flags = FLAG_IS_TYPE_OBJECT | FLAG_IS_FIXED | FLAG_HAS_ANIM;
 
-	m_GameEntity.Create();
-	m_GameEntity->Spawn(m_Context.Drawable, m_ArchetypeDef, GetScenePosition());
-	m_DrawableRender.Create();
-	m_DrawableRender->SetEntity(m_GameEntity);
+	m_GameEntity.Create(m_Context.Drawable, m_ArchetypeDef, GetScenePosition());
+	//m_GameEntity->Spawn(m_Context.Drawable, m_ArchetypeDef, GetScenePosition());
+	//m_DrawableRender.Create();
+	//m_DrawableRender->SetEntity(m_GameEntity);
 }
 
 void rageam::integration::ModelScene::WarpEntityToScenePosition()
@@ -120,45 +120,29 @@ void rageam::integration::ModelScene::OnDrawableCompiled()
 	CreateArchetypeDefAndSpawnGameEntity();
 }
 
-void rageam::integration::ModelScene::UpdateContextAndHotReloading()
+void rageam::integration::ModelScene::UpdateHotDrawableAndContext()
 {
 	m_Context = {};
 
-	// No scene was even requested
-	if (!m_SceneGlue)
-		return;
-
-	std::unique_lock glueLock(m_SceneGlue->Mutex);
-
 	// No drawable is currently loaded, skip
-	if (!m_SceneGlue->HotDrawable)
+	if (!m_HotDrawable)
 		return;
+
+	asset::HotDrawableInfo info = m_HotDrawable->UpdateAndApplyChanges();
 
 	// Fill context
-	asset::HotDrawableInfo info = m_SceneGlue->HotDrawable->GetInfo();
 	m_Context.IsDrawableLoading = info.IsLoading;
 	m_Context.DrawableAsset = info.DrawableAsset;
-	m_Context.DrawableScene = info.DrawableScene;
-	m_Context.DrawableAssetMap = info.DrawableAssetMap;
 	m_Context.Drawable = info.Drawable;
 	m_Context.TXDs = info.TXDs;
+	m_Context.HotFlags = info.HotFlags;
+
 	// Entity will be NULL if drawable just compiled
 	if (m_GameEntity)
 	{
-		m_Context.EntityHandle = m_GameEntity->GetHandle();
+		m_Context.EntityHandle = m_GameEntity->GetEntityHandle();
 		m_Context.EntityWorld = m_GameEntity->GetWorldTransform();
 		m_Context.EntityPtr = m_GameEntity->GetEntityPointer();
-	}
-
-	// Get applied flags and reset state
-	AssetHotFlags hotFlags = m_SceneGlue->HotFlags;
-	m_SceneGlue->HotFlags = AssetHotFlags_None;
-	m_Context.HotFlags = hotFlags;
-
-	// Drawable was successfully compiled, we can spawn entity now
-	if (hotFlags & AssetHotFlags_DrawableCompiled)
-	{
-		OnDrawableCompiled();
 	}
 }
 
@@ -227,7 +211,7 @@ void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::Scen
 		CLightAttr* lightAttr = GetLightAttr(nodeIndex);
 		if (attrButton(lightAttr, SceneNodeAttr_Light, ICON_AM_LIGHT))
 		{
-			LightEditor.SelectLight(m_Context.DrawableAssetMap->SceneNodeToLightAttr[nodeIndex]);
+			LightEditor.SelectLight(GetDrawableMap().SceneNodeToLightAttr[nodeIndex]);
 		}
 		ImGui::PopStyleVar(2); // ItemSpacing, FramePadding
 	}
@@ -269,7 +253,7 @@ void rageam::integration::ModelScene::DrawSkeletonGraph()
 
 void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex)
 {
-	graphics::SceneNode* sceneNode = m_Context.DrawableScene->GetNode(nodeIndex);
+	graphics::SceneNode* sceneNode = m_Context.DrawableAsset->GetScene()->GetNode(nodeIndex);
 	asset::ModelTune& modelTune = *m_Context.DrawableAsset->GetDrawableTune().Lods.Models.Get(nodeIndex);
 
 	ConstString title = ImGui::FormatTemp(
@@ -412,7 +396,7 @@ void rageam::integration::ModelScene::DrawDrawableUI()
 			static int s_OutlineModeSelected = OutlineMode_Scene;
 			ImGui::Combo("Graph Mode", &s_OutlineModeSelected, s_OutlineModeDisplay, IM_ARRAYSIZE(s_OutlineModeDisplay));
 
-			graphics::SceneNode* rootNode = m_Context.DrawableScene->GetFirstNode();
+			graphics::SceneNode* rootNode = m_Context.DrawableAsset->GetScene()->GetFirstNode();
 			switch (s_OutlineModeSelected)
 			{
 			case OutlineMode_Scene:		DrawSceneGraph(rootNode);	break;
@@ -471,7 +455,13 @@ void rageam::integration::ModelScene::OnRender()
 {
 	m_AssetTuneChanged = false;
 
-	UpdateContextAndHotReloading();
+	UpdateHotDrawableAndContext();
+
+	// Drawable was successfully compiled, we can spawn entity now
+	if (m_Context.HotFlags & AssetHotFlags_DrawableCompiled)
+	{
+		OnDrawableCompiled();
+	}
 
 	bool isLoading = m_Context.IsDrawableLoading;
 	bool isSpawned = m_Context.EntityHandle != 0;
@@ -524,7 +514,7 @@ void rageam::integration::ModelScene::OnRender()
 					ImGui::Text(msg);
 				}
 
-				if (rage::Math::AlmostEquals(ImGui::GetScrollY(), ImGui::GetScrollMaxY()))
+				if (rage::AlmostEquals(ImGui::GetScrollY(), ImGui::GetScrollMaxY()))
 					ImGui::SetScrollY(ImGui::GetScrollMaxY());
 
 			}
@@ -558,18 +548,18 @@ void rageam::integration::ModelScene::OnRender()
 	// Recompile drawable after changing tune
 	if (m_AssetTuneChanged)
 	{
-		// We must save existing changes (materials/lights)
-		m_Context.DrawableAsset->ParseFromGame(m_Context.Drawable.get());
+		//// We must save existing changes (materials/lights)
+		//m_Context.DrawableAsset->ParseFromGame(m_Context.Drawable.get());
 
-		m_DrawableRender.Release();
-		m_GameEntity.Release();
-		m_DrawableStats = {};
-		m_Context = {};
-		m_CompilerMessages.Clear();
-		m_CompilerProgress = 0.0;
+		//m_DrawableRender.Release();
+		//m_GameEntity.Release();
+		//m_DrawableStats = {};
+		//m_Context = {};
+		//m_CompilerMessages.Clear();
+		//m_CompilerProgress = 0.0;
 
-		m_ResetUIAfterCompiling = false;
-		m_SceneGlue->HotDrawable->LoadAndCompile(true);
+		//m_ResetUIAfterCompiling = false;
+		//m_SceneGlue->HotDrawable->LoadAndCompile(true);
 	}
 }
 
@@ -580,25 +570,28 @@ rageam::integration::ModelScene::ModelScene() : LightEditor(&m_Context), Materia
 }
 
 void rageam::integration::ModelScene::Unload()
-{
-	m_DrawableRender.Release();
-	m_GameEntity.Release();
-	m_SceneGlue.Release();
-	m_DrawableStats = {};
-	m_Context = {};
+{	
+	//m_DrawableRender.Release();
+	//m_GameEntity.Release();
+
 	m_CompilerMessages.Clear();
 	m_CompilerProgress = 0.0;
+
+	m_DrawableStats = {};
+	m_Context = {};
+	m_GameEntity = nullptr;
+
+	// m_HotDrawable = nullptr;
 }
 
 void rageam::integration::ModelScene::LoadFromPatch(ConstWString path)
 {
-	m_SceneGlue.Create();
+	Unload();
 
-	std::unique_lock glueLock(m_SceneGlue->Mutex);
-
-	m_SceneGlue->HotDrawable = std::make_unique<asset::HotDrawable>(path);
+	if (!m_HotDrawable || m_HotDrawable->GetPath() != path)
+		m_HotDrawable = std::make_unique<asset::HotDrawable>(path);
 	// Setup callback to display progress in UI
-	m_SceneGlue->HotDrawable->CompileCallback = [&](ConstWString message, double progress)
+	m_HotDrawable->CompileCallback = [&](ConstWString message, double progress)
 		{
 			std::unique_lock lock(m_CompilerMutex);
 			m_CompilerMessages.Construct(String::ToAnsiTemp(message));
@@ -606,7 +599,7 @@ void rageam::integration::ModelScene::LoadFromPatch(ConstWString path)
 		};
 
 	m_ResetUIAfterCompiling = true;
-	m_SceneGlue->HotDrawable->LoadAndCompile(false); // TODO: We need unsaved changes dialog
+	m_HotDrawable->LoadAndCompileAsync();
 }
 
 void rageam::integration::ModelScene::SetIsolatedSceneOn(bool on)
@@ -618,8 +611,8 @@ void rageam::integration::ModelScene::SetIsolatedSceneOn(bool on)
 
 void rageam::integration::ModelScene::ResetCameraPosition() const
 {
-	auto& camera = GameIntegration::GetInstance()->Camera;
-	if (camera == nullptr)
+	ICameraComponent* camera = ICameraComponent::GetActiveCamera();
+	if (!camera)
 		return;
 
 	rage::Vec3V camPos;

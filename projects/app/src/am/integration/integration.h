@@ -20,12 +20,12 @@ namespace rageam::integration
 
 	class GameIntegration : public Singleton<GameIntegration>
 	{
-		void InitComponentManager();
+		void HookGameThreadAndInitComponentManager();
 		void ShutdownComponentManager();
 		void RegisterApps() const;
 
 		// Fake game entity that we use to render draw list
-		ComponentOwner<DrawListDummyEntity>	m_DrawListEntity;
+		//ComponentOwner<DrawListDummyEntity>	m_DrawListEntity;
 		DrawListExecutor					m_DrawListExecutor;
 
 		void InitializeDrawLists();
@@ -49,16 +49,16 @@ namespace rageam::integration
 			DrawListForeground.Clear();
 			DrawListCollision.Clear();
 		}
-		
+
+		// TODO: Move those to native extensions...
 		bool IsPauseMenuActive() const;
 		void DisableAllControlsThisFrame() const;
 
-		amUniquePtr<ComponentManager>		ComponentMgr;
-		ComponentOwner<ICameraComponent>	Camera;
-		DrawList							DrawListGame;		// Reflections, no alpha
-		DrawList							DrawListGameUnlit;	// No reflections, alpha
-		DrawList							DrawListForeground;	// Always on top, no reflections, alpha
-		DrawList							DrawListCollision;	// In a different list to let user toggle options
+		amUniquePtr<ComponentManager>	ComponentMgr;
+		DrawList						DrawListGame;		// Reflections, no alpha
+		DrawList						DrawListGameUnlit;	// No reflections, alpha
+		DrawList						DrawListForeground;	// Always on top, no reflections, alpha
+		DrawList						DrawListCollision;	// In a different list to let user toggle options
 	};
 }
 

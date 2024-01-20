@@ -1,19 +1,17 @@
-#include "am/string/fuzzysearch.h"
-#include "am/ui/imglue.h"
-#include "am/ui/slwidgets.h"
+
 #ifdef AM_INTEGRATED
 
 #include "mateditor.h"
-
 #include "modelscene.h"
 #include "widgets.h"
-#include "am/asset/types/drawablehelpers.h"
 #include "am/integration/hooks/streaming.h"
 #include "am/string/splitter.h"
 #include "am/ui/font_icons/icons_am.h"
 #include "am/xml/doc.h"
 #include "am/xml/iterator.h"
-#include "rage/streaming/assetstore.h"
+#include "am/string/fuzzysearch.h"
+#include "am/ui/imglue.h"
+#include "am/ui/slwidgets.h"
 
 void rageam::integration::ShaderUIConfig::Load()
 {
@@ -88,7 +86,7 @@ void rageam::integration::ShaderUIConfig::Load()
 
 void rageam::integration::ShaderUIConfig::CleanUp()
 {
-	Vars.Destruct();
+	Vars.Destroy();
 }
 
 rageam::integration::ShaderUIConfig::UIVar* rageam::integration::ShaderUIConfig::GetUIVarFor(const rage::grcEffectVar* varInfo) const
@@ -112,7 +110,7 @@ void rageam::integration::MaterialEditor::InitializePresetSearch()
 	char fileNameBuffer[64];
 	while (preloadList->ReadLine(fileNameBuffer, sizeof fileNameBuffer))
 	{
-		u32 fileNameHash = rage::joaat(fileNameBuffer);
+		u32 fileNameHash = rage::atStringHash(fileNameBuffer);
 
 		rage::grcInstanceData* instanceData = findShaderPreset(fileNameHash);
 		if (!instanceData)
@@ -215,14 +213,14 @@ rage::grmShader* rageam::integration::MaterialEditor::GetSelectedMaterial() cons
 
 ImTextureID rageam::integration::MaterialEditor::GetTexID(const rage::grcTexture* tex) const
 {
-	if (asset::IsMissingTexture(tex))
+	if (asset::TxdAsset::IsMissingTexture(tex))
 		return ui::GetUI()->GetIcon("no_tex_ui")->GetID();
 	return ImTextureID(tex->GetTextureView());
 }
 
 ImU32 rageam::integration::MaterialEditor::GetTexLabelCol(const rage::grcTexture* tex) const
 {
-	if (!asset::IsMissingTexture(tex))
+	if (!asset::TxdAsset::IsMissingTexture(tex))
 		return ImGui::GetColorU32(ImGuiCol_Text);
 
 	static constexpr float animTime = 2.0f;
@@ -656,7 +654,7 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 			ImGui::SameLine();
 			ImGui::Checkbox("Group", &s_GridGroupByDict);
 		}
-		float iconScale = rage::Math::Remap(s_IconSize, 0.0f, 1.0f, ICON_SIZE_MIN, ICON_SIZE_MAX);
+		float iconScale = rage::Remap(s_IconSize, 0.0f, 1.0f, ICON_SIZE_MIN, ICON_SIZE_MAX);
 
 		ImGui::HelpMarker(
 			"There are two ways to search:\n"
@@ -775,18 +773,18 @@ void rageam::integration::MaterialEditor::DoTextureSearch()
 		doSearch("Embed", embedDict);
 
 	// Add workspace TXDs
-	for (asset::HotTxd& hotTxd : *m_Context->TXDs)
+	for (asset::DrawableTxd& txd : *m_Context->TXDs)
 	{
 		// We draw embed dictionary separately with our custom name
-		if (hotTxd.IsEmbed)
+		if (txd.IsEmbed)
 			continue;
 
-		file::WPath txdAssetName = hotTxd.Asset->GetAssetName();
+		file::WPath txdAssetName = txd.Asset->GetAssetName();
 		// Convert to ansi + remove '.itd' extension
 		file::Path txdName = file::PathConverter::WideToUtf8(txdAssetName);
 		txdName = txdName.GetFileNameWithoutExtension();
 
-		doSearch(txdName.GetCStr(), hotTxd.Dict.Get());
+		doSearch(txdName.GetCStr(), txd.Dict.Get());
 	}
 }
 
@@ -795,7 +793,7 @@ void rageam::integration::MaterialEditor::HandleMaterialValueChange(u16 varIndex
 	StoreMaterialValue(m_SelectedMaterialIndex, varIndex);
 
 	// Toggle tessellation
-	if (varInfo->GetNameHash() == rage::joaat("useTessellation"))
+	if (varInfo->GetNameHash() == rage::atStringHash("useTessellation"))
 	{
 		m_Context->Drawable->ComputeTessellationForShader(m_SelectedMaterialIndex);
 	}
@@ -1274,7 +1272,7 @@ void rageam::integration::MaterialEditor::DrawMaterialVariables()
 				}
 				case ShaderUIConfig::ToggleFloat:
 				{
-					bool isChecked = rage::Math::AlmostEquals(var->GetValue<float>(), toggleFloatParams.Enabled);
+					bool isChecked = rage::AlmostEquals(var->GetValue<float>(), toggleFloatParams.Enabled);
 					if (SlGui::Checkbox(inputID, &isChecked))
 					{
 						var->SetValue<float>(isChecked ? toggleFloatParams.Enabled : toggleFloatParams.Disabled);
@@ -1506,12 +1504,15 @@ void rageam::integration::MaterialEditor::Render()
 void rageam::integration::MaterialEditor::Reset()
 {
 	m_SelectedMaterialIndex = 0;
+	m_MaterialValues.Clear();
+
+	if (!m_Context->Drawable)
+		return;
 
 	// Allocate var store for shader group
 	rage::grmShaderGroup* shaderGroup = m_Context->Drawable->GetShaderGroup();
-	m_MaterialValues.Clear();
-	m_MaterialValues.Resize(shaderGroup->GetShaderCount());
 	// Store current material values
+	m_MaterialValues.Resize(shaderGroup->GetShaderCount());
 	for (u16 i = 0; i < shaderGroup->GetShaderCount(); i++)
 	{
 		rage::grmShader* shader = shaderGroup->GetShader(i);

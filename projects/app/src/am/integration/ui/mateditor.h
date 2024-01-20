@@ -11,7 +11,6 @@
 
 #include "rage/rmc/drawable.h"
 #include "am/asset/types/drawable.h"
-#include "rage/streaming/streaming.h"
 #include "rage/file/watcher.h"
 #include "am/system/datamgr.h"
 
@@ -115,13 +114,31 @@ namespace rageam::integration
 			SmallList<u16>					Textures;
 		};
 
-		union VarBlob
+		struct VarBlob
 		{
-			// rage::grcInstanceVar data is divided on 16 byte blocks,
-			// maximum data size we can have is 4x4 mat (64 bytes)
-			char Data[64];
-			// Textures however are stored differently
-			rage::grcTexture* Texture;
+			int a = 90802011;
+			// int b = 90802011;
+			// char padArray[512];
+			union
+			{
+				// rage::grcInstanceVar data is divided on 16 byte blocks,
+				// maximum data size we can have is 4x4 mat (64 bytes)
+				char Data[64];
+				// Textures however are stored differently
+				rage::grcTexture* Texture;
+			};
+			// int b  = 90802011;
+
+			VarBlob()
+			{
+				//HWBreakpoint::Set(&a, BP_Write, 8);
+				memset(Data, 0, 64);
+			}
+
+			~VarBlob()
+			{
+				//HWBreakpoint::Clear(&a);
+			}
 		};
 
 		ModelSceneContext*				m_Context;

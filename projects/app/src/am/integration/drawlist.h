@@ -40,9 +40,9 @@ namespace rageam::integration
 	class DrawListDummyEntity : public IUpdateComponent
 	{
 		amPtr<DrawListDummyDrawable>	m_DummyDrawable;
-		ComponentOwner<GameEntity>		m_GameEntity;
+		//ComponentOwner<GameEntity>		m_GameEntity;
 
-		void ReleaseAllRefs() override;
+		//void ReleaseAllRefs() override;
 		void OnEarlyUpdate() override;
 
 	public:

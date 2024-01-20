@@ -2,118 +2,52 @@
 
 #ifdef AM_INTEGRATED
 
-#include "integration.h"
 #include "script/core.h"
-
-namespace
-{
-	std::recursive_mutex s_Mutex; // Recurse allows components to own other components (or reference them)
-}
-
-void rageam::integration::IUpdateComponent::Abort()
-{
-	m_AbortRequested = true;
-	ReleaseAllRefs();
-}
-
-bool rageam::integration::ComponentManager::HasAnyComponent() const
-{
-	std::unique_lock lock(s_Mutex);
-	return m_UpdateComponents.Any();
-}
-
-std::recursive_mutex& rageam::integration::ComponentManager::GetLock()
-{
-	return s_Mutex;
-}
-
-void rageam::integration::ComponentManager::AbortAll() const
-{
-	std::unique_lock lock(s_Mutex);
-	for (amUniquePtr<IUpdateComponent>& component : m_UpdateComponents)
-	{
-		component->Abort();
-	}
-}
-
-bool rageam::integration::ComponentManager::IsAllAborted() const
-{
-	std::unique_lock lock(s_Mutex);
-	return !m_UpdateComponents.Any();
-}
 
 void rageam::integration::ComponentManager::EarlyUpdateAll()
 {
-	std::unique_lock lock(s_Mutex);
-
 	scrBegin();
 
-	rage::atArray<u16> componentsToRemove;
+	m_UpdateComponents.AddRange(m_UpdateComponentsToAdd);
+	m_UpdateComponentsToAdd.Destroy();
+
+	SmallList<u16> componentsToRemove;
 	for (u16 i = 0; i < m_UpdateComponents.GetSize(); i++)
 	{
-		amUniquePtr<IUpdateComponent>& component = m_UpdateComponents[i];
+		IUpdateComponent* component = m_UpdateComponents[i];
 
-		if (component->m_AbortRequested)
+		if (component->m_Aborted)
 		{
-			// We keep updating component until it completely unloads
-			if (component->OnAbort())
-			{
-				// In order to delete multiple indices we have to delete them from the end
-				// otherwise elements will shift and indices won't be valid anymore
-				componentsToRemove.Insert(0, i);
-				continue; // Component is aborted, no need to update anymore
-			}
+			// In order to delete multiple indices we have to delete them from the end
+			// otherwise elements will shift and indices won't be valid anymore
+			componentsToRemove.Insert(0, i);
+			continue; // Component is aborted, no need to update anymore
 		}
 
 		// Init on first call
-		if (!component->m_Initialized)
+		if (!component->m_Started)
 		{
 			component->OnStart();
-			component->m_Initialized = true;
+			component->m_Started = true;
 		}
 
 		component->OnEarlyUpdate();
 	}
 
 	for (u16 i : componentsToRemove)
+	{
+		delete m_UpdateComponents[i];
 		m_UpdateComponents.RemoveAt(i);
+	}
 
 	scrEnd();
 }
 
 void rageam::integration::ComponentManager::LateUpdateAll() const
 {
-	std::unique_lock lock(s_Mutex);
 	scrBegin();
-	for (amUniquePtr<IUpdateComponent>& component : m_UpdateComponents)
-	{
+	for (IUpdateComponent* component : m_UpdateComponents)
 		component->OnLateUpdate();
-	}
-	scrEnd();
-}
-
-void rageam::integration::ComponentManager::BeginAbortAll() const
-{
-	AbortAll();
-	while (!IsAllAborted())
-	{
-		// Wait until every component is aborted...
-	}
-}
-
-void rageam::integration::ComponentManager::UIUpdateAll() const
-{
-	if (!m_UpdateComponents.Any())
-		return;
-
-	if (GameIntegration::GetInstance()->IsPauseMenuActive())
-		return;
-
-	scrBegin();
-	for (amUniquePtr<IUpdateComponent>& component : m_UpdateComponents)
-	{
-		component->OnUiUpdate();
-	}
 	scrEnd();
 }
 

@@ -1,52 +1,49 @@
-#include "am/ui/imglue.h"
+#include "am/integration/script/extensions.h"
 #ifdef AM_INTEGRATED
 
 #include "starbar.h"
 
 #include "am/integration/im3d.h"
-#include "am/ui/apps/integration/modelscene.h"
 #include "am/integration/integration.h"
 #include "am/ui/font_icons/icons_am.h"
-#include "am/ui/styled/slwidgets.h"
 #include "game/viewport.h"
+#include "modelscene.h"
+#include "am/ui/imglue.h"
+#include "am/ui/slwidgets.h"
+#include "am/integration/script/core.h"
 
-void rageam::integration::StarBar::UpdateCamera() const
+void rageam::integration::StarBar::UpdateCamera()
 {
-	auto integration = GameIntegration::GetInstance();
-
-	if (m_CameraEnabled)
+	if (!m_CameraEnabled)
 	{
-		// Save previous camera position if switching from one type to another
-		Nullable<Mat44V> cameraMatrix;
-		if (integration->Camera)
-			cameraMatrix = integration->Camera->GetMatrix();
+		m_Camera = nullptr;
+		return;
+	}
 
-		if (m_UseOrbitCamera)	integration->Camera.Create<OrbitCamera>();
-		else					integration->Camera.Create<FreeCamera>();
+	// Save previous camera position if switching from one type to another
+	Nullable<Mat44V> cameraMatrix;
+	if (m_Camera)
+		cameraMatrix = m_Camera->GetMatrix();
 
-		auto& camera = integration->Camera;
+	if (m_UseOrbitCamera)	m_Camera.Create<OrbitCamera>();
+	else					m_Camera.Create<FreeCamera>();
 
-		// Restore saved matrix if saved
-		if (cameraMatrix.HasValue())
-		{
-			camera->SetMatrix(cameraMatrix.GetValue());
-		}
-		else
-		{
-			// Use current viewport camera matrix as default one
-			camera->SetMatrix(CViewport::GetCameraMatrix());
-		}
-
-		// Reset origin for orbit camera
-		if (m_UseOrbitCamera)
-			camera->LookAt(camera->GetPosition() + camera->GetFront() * 3.0f);
-
-		camera->SetActive(true);
+	// Restore saved matrix if saved
+	if (cameraMatrix.HasValue())
+	{
+		m_Camera->SetMatrix(cameraMatrix.GetValue());
 	}
 	else
 	{
-		integration->Camera = nullptr;
+		// Use current viewport camera matrix as default one
+		m_Camera->SetMatrix(CViewport::GetCameraMatrix());
 	}
+
+	// Reset origin for orbit camera
+	if (m_UseOrbitCamera)
+		m_Camera->LookAt(m_Camera->GetPosition() + m_Camera->GetFront() * 3.0f);
+
+	m_Camera->SetActive(true);
 }
 
 void rageam::integration::StarBar::OnStart()
@@ -61,7 +58,7 @@ void rageam::integration::StarBar::OnRender()
 	if (Im3D::IsViewportFocused())
 	{
 		// Switch camera with ']'
-		if (ImGui::IsKeyPressed(ImGuiKey_RightBracket))
+		if (ImGui::IsKeyPressed(ImGuiKey_RightBracket, false))
 		{
 			m_CameraEnabled = !m_CameraEnabled;
 			UpdateCamera();
@@ -73,6 +70,12 @@ void rageam::integration::StarBar::OnRender()
 			m_UseOrbitCamera = !m_UseOrbitCamera;
 
 			UpdateCamera();
+		}
+
+		// Debug teleport to scene position
+		if (ImGui::IsKeyPressed(ImGuiKey_Backslash, false))
+		{
+			scrWarpPlayer(SCENE_POS);
 		}
 	}
 
@@ -97,7 +100,7 @@ void rageam::integration::StarBar::OnRender()
 		}
 		ImGui::ToolTip("Use orbit camera instead of free");
 
-		bool isolatedSceneOn = m_ModelScene->IsIsolatedSceneOn();
+		bool isolatedSceneOn = false;/* m_ModelScene->IsIsolatedSceneOn();*/
 		if (SlGui::ToggleButton(ICON_AM_OBJECT " Isolate", isolatedSceneOn))
 		{
 			m_ModelScene->SetIsolatedSceneOn(isolatedSceneOn);
@@ -116,15 +119,7 @@ void rageam::integration::StarBar::OnRender()
 
 		if (SlGui::MenuButton(ICON_AM_PED_ARROW" Warp Ped"))
 		{
-			const rage::Vec3V pos = integration->Camera->GetPosition();
-			//scrBegin();
-			{
-				float groundZ = pos.Z();
-				//SHV::GAMEPLAY::GET_GROUND_Z_FOR_3D_COORD(pos.X(), pos.Y(), pos.Z(), &groundZ, FALSE);
-				//SHV::Ped ped = SHV::PLAYER::PLAYER_PED_ID();
-				//SHV::PED::SET_PED_COORDS_KEEP_VEHICLE(ped, pos.X(), pos.Y(), groundZ);
-			}
-			//scrEnd();
+			scrWarpPlayer(m_Camera->GetPosition());
 		}
 		ImGui::ToolTip("Teleports player ped on surface to camera position.");
 	}
@@ -134,7 +129,7 @@ void rageam::integration::StarBar::OnRender()
 
 	// World / Local gizmo switch
 	ImGui::Separator();
-	bool useWorld = Im3D::GetGizmoUseWorld();
+	bool        useWorld = Im3D::GetGizmoUseWorld();
 	ConstString worldStr = ICON_AM_WORLD" World";
 	ConstString localStr = ICON_AM_LOCAL" World";
 	if (SlGui::ToggleButton(useWorld ? worldStr : localStr, useWorld))
@@ -156,7 +151,7 @@ void rageam::integration::StarBar::OnRender()
 		SlGui::CategoryText("Collision");
 		{
 			SlGui::Checkbox("Visible", &DrawableRender::Collision);
-			if(SlGui::Checkbox("Wireframe", &integration->DrawListCollision.Wireframe))
+			if (SlGui::Checkbox("Wireframe", &integration->DrawListCollision.Wireframe))
 			{
 				// Wireframe must be unlit
 				integration->DrawListCollision.Unlit = integration->DrawListCollision.Wireframe;

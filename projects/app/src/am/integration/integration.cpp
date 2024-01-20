@@ -6,7 +6,8 @@
 #include "memory/address.h"
 #include "memory/hook.h"
 #include "script/core.h"
-#include "script/commands.h"
+#include "ui/starbar.h"
+#include "ui/modelscene.h"
 
 namespace
 {
@@ -28,7 +29,10 @@ bool CApp_GameUpdate_aImpl()
 	if (s_ShuttingDown)
 	{
 		rageam::integration::scrShutdown();
+		bool gameUpdateResult = CApp_GameUpdate_gImpl();
+		Hook::Remove(s_GameUpdateAddr);
 		s_ShuttingDown = false;
+		return gameUpdateResult;
 	}
 
 	// Update UI from game thread and build draw lists to render
@@ -38,7 +42,7 @@ bool CApp_GameUpdate_aImpl()
 	auto instance = rageam::integration::GameIntegration::GetInstance();
 
 	// Nothing to update
-	if (!instance || !instance->ComponentMgr->HasAnyComponent())
+	if (!instance || !instance->ComponentMgr->HasAnythingToUpdate())
 		return CApp_GameUpdate_gImpl();
 
 	if (instance) instance->ComponentMgr->EarlyUpdateAll();
@@ -61,7 +65,7 @@ void aImpl_DoRenderFunction(u64 arg)
 	gImpl_DoRenderFunction(arg);
 }
 
-void rageam::integration::GameIntegration::InitComponentManager()
+void rageam::integration::GameIntegration::HookGameThreadAndInitComponentManager()
 {
 	ComponentMgr = std::make_unique<ComponentManager>();
 
@@ -90,9 +94,9 @@ void rageam::integration::GameIntegration::ShutdownComponentManager()
 {
 	// Component manager will pause current thread and continue
 	// updating until every component is fully aborted
-	ComponentMgr->BeginAbortAll();
+	//ComponentMgr->BeginAbortAll();
 
-	Hook::Remove(s_GameUpdateAddr);
+	//Hook::Remove(s_GameUpdateAddr);
 	Hook::Remove(s_DoRenderFunction);
 
 	ComponentMgr = nullptr;
@@ -101,31 +105,32 @@ void rageam::integration::GameIntegration::ShutdownComponentManager()
 void rageam::integration::GameIntegration::RegisterApps() const
 {
 	ui::ImGlue* ui = ui::GetUI();
-	//ui->AddApp(new StarBar());
-	//ui->AddApp(new ModelScene());
+	ui->AddApp(new StarBar());
+	ui->AddApp(new ModelScene());
 }
 
 void rageam::integration::GameIntegration::InitializeDrawLists()
 {
-	m_DrawListEntity.Create();
-	m_DrawListEntity->Spawn();
-	m_DrawListEntity->AddDrawList(&DrawListGame);
-	m_DrawListEntity->AddDrawList(&DrawListGameUnlit);
-	m_DrawListEntity->AddDrawList(&DrawListForeground);
-	m_DrawListEntity->AddDrawList(&DrawListCollision);
+	//m_DrawListEntity.Create();
+	//m_DrawListEntity->Spawn();
+	//m_DrawListEntity->AddDrawList(&DrawListGame);
+	//m_DrawListEntity->AddDrawList(&DrawListGameUnlit);
+	//m_DrawListEntity->AddDrawList(&DrawListForeground);
+	//m_DrawListEntity->AddDrawList(&DrawListCollision);
 }
 
 rageam::integration::GameIntegration::GameIntegration()
 {
+	HookGameThreadAndInitComponentManager();
+	// System is created from DLL injector thread, we must initialize some things
+	// from game update thread
+	while (!s_InitializedFromGameThread) {}
+
 	DrawListGameUnlit.Unlit = true;
 	DrawListForeground.NoDepth = true;
 	DrawListForeground.Unlit = true;
 
-	InitComponentManager();
-
-	while (!s_InitializedFromGameThread) {}
-
-	// RegisterApps();
+	RegisterApps();
 	// InitializeDrawLists();
 }
 

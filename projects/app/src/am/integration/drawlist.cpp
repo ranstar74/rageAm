@@ -68,22 +68,22 @@ void rageam::integration::DrawListDummyDrawable::Draw(const Mat34V& mtx, rage::g
 		}
 	}
 }
-
-void rageam::integration::DrawListDummyEntity::ReleaseAllRefs()
-{
-	m_GameEntity.Release();
-}
+//
+//void rageam::integration::DrawListDummyEntity::ReleaseAllRefs()
+//{
+//	//m_GameEntity.Release();
+//}
 
 void rageam::integration::DrawListDummyEntity::OnEarlyUpdate()
 {
 	// We keep entity always around camera because otherwise
 	// game will cull it out on bounding check
-	m_GameEntity->SetPosition(CViewport::GetCameraPos());
+	//m_GameEntity->SetPosition(CViewport::GetCameraPos());
 }
 
 void rageam::integration::DrawListDummyEntity::Spawn()
 {
-	static constexpr u32 DUMMY_NAME_HASH = rage::joaat("amDrawListDummy");
+	static constexpr u32 DUMMY_NAME_HASH = rage::atStringHash("amDrawListDummy");
 
 	m_DummyDrawable = std::make_shared<DrawListDummyDrawable>();
 	auto archetypeDef = std::make_shared<CBaseArchetypeDef>();
@@ -94,11 +94,11 @@ void rageam::integration::DrawListDummyEntity::Spawn()
 	archetypeDef->BsRadius = bs.GetRadius().Get();
 	archetypeDef->Name = DUMMY_NAME_HASH;
 	archetypeDef->AssetName = DUMMY_NAME_HASH;
-	archetypeDef->Flags = rage::ADF_STATIC;
+	archetypeDef->Flags = FLAG_IS_FIXED;
 	archetypeDef->LodDist = archetypeDef->BsRadius;
 
-	m_GameEntity.Create();
-	m_GameEntity->Spawn(m_DummyDrawable, archetypeDef, rage::VEC_ORIGIN);
+	//m_GameEntity.Create();
+	//m_GameEntity->Spawn(m_DummyDrawable, archetypeDef, rage::VEC_ORIGIN);
 }
 
 bool rageam::integration::DrawList::VerifyBufferFitLine(const DrawData& drawData) const
