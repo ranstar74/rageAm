@@ -5,7 +5,7 @@
 #include "am/system/timer.h"
 
 HANDLE rageam::BackgroundWorker::sm_ThreadPool[MAX_BACKGROUND_THREADS];
-rage::atArray<amUniquePtr<rageam::BackgroundWorker::BackgroundJob>> rageam::BackgroundWorker::sm_Jobs;
+rageam::List<amUPtr<rageam::BackgroundWorker::BackgroundJob>> rageam::BackgroundWorker::sm_Jobs;
 std::mutex rageam::BackgroundWorker::sm_Mutex;
 std::condition_variable rageam::BackgroundWorker::sm_Condition;
 
@@ -42,6 +42,7 @@ DWORD rageam::BackgroundWorker::ThreadProc(LPVOID lpParam)
 		bool success = job->GetLambda()();
 		timer.Stop();
 		job->GetTask()->m_State = success ? TASK_STATE_SUCCESS : TASK_STATE_FAILED;
+		job->GetTask()->m_Result = std::move(tl_Result);
 
 		wchar_t buffer[256];
 		if (String::IsNullOrEmpty(job->GetName()))
@@ -55,17 +56,6 @@ DWORD rageam::BackgroundWorker::ThreadProc(LPVOID lpParam)
 			TaskCallback(buffer);
 	}
 	return 0;
-}
-
-void rageam::BackgroundWorker::Init()
-{
-	for (u64 i = 0; i < MAX_BACKGROUND_THREADS; i++)
-	{
-		HANDLE thread = CreateThread(NULL, 0, ThreadProc, LPVOID(i), 0, NULL);
-		AM_ASSERT(thread, "BackgroundWorker::Init() -> Failed to create thread, last error: %x", GetLastError());
-		sm_ThreadPool[i] = thread;
-	}
-	sm_Initialized = true;
 }
 
 amPtr<rageam::BackgroundTask> rageam::BackgroundWorker::RunVA(const TLambda& lambda, ConstWString fmt, va_list args)
@@ -84,6 +74,17 @@ amPtr<rageam::BackgroundTask> rageam::BackgroundWorker::RunVA(const TLambda& lam
 
 	sm_Condition.notify_one();
 	return task;
+}
+
+void rageam::BackgroundWorker::Init()
+{
+	for (u64 i = 0; i < MAX_BACKGROUND_THREADS; i++)
+	{
+		HANDLE thread = CreateThread(NULL, 0, ThreadProc, LPVOID(i), 0, NULL);
+		AM_ASSERT(thread, "BackgroundWorker::Init() -> Failed to create thread, last error: %x", GetLastError());
+		sm_ThreadPool[i] = thread;
+	}
+	sm_Initialized = true;
 }
 
 void rageam::BackgroundWorker::Shutdown()
