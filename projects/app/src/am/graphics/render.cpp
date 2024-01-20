@@ -268,9 +268,10 @@ void rageam::graphics::Render::EnterRenderLoop() AM_INTEGRATED_ONLY(const)
 		// In standalone there's only single thread
 		BuildDrawList();
 		DoRender();
+		ui->PlatformUpdate();
 
 		s_Rendering = false;
-}
+	}
 	s_Rendering = false;
 
 #else
