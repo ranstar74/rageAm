@@ -10,7 +10,6 @@
 #include "am/system/ptr.h"
 #include "common/types.h"
 #include "rage/atl/array.h"
-#include "rage/atl/set.h"
 
 namespace rageam::graphics
 {
@@ -38,7 +37,7 @@ namespace rageam::graphics
 			rage::atArray<MeshChunk> chunks;
 			while (totalIndex < idxCount)
 			{
-				rage::atSet<u16> oldIndexToNewIndex;
+				HashSet<u16> oldIndexToNewIndex;
 
 				// We can't use atArray so we have to simulate it's grow behaviour here
 				u32 chunkVerticesCapacity = 4096; // Mesh with 32 bit indices will most likely have a lot of vertices

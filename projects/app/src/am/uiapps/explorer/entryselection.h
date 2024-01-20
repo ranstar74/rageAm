@@ -8,7 +8,7 @@
 #pragma once
 
 #include "entry.h"
-#include "rage/atl/set.h"
+#include "rage/atl/map.h"
 
 namespace rageam::ui
 {
@@ -19,7 +19,7 @@ namespace rageam::ui
 	{
 		using Entry = ExplorerEntryPtr;
 
-		rage::atSet<Entry, ExplorerEntryPtrHashFn> m_Selections;
+		HashSet<Entry, ExplorerEntryPtrHashFn> m_Selections;
 	public:
 		EntrySelection() = default;
 		EntrySelection(const std::initializer_list<Entry>& list) : m_Selections(list) {}

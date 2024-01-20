@@ -153,13 +153,13 @@ namespace rageam::ui
 		// Index of entry in parent array (if there's any), used to get actual index of item after sorting
 		u16	m_ID = 0;
 
-		rage::atArray<ExplorerEntryPtr> m_Children;
+		List<ExplorerEntryPtr> m_Children;
 		// Instead of sorting children array we sort child indices
 		// This maps sorted index to index in m_Children
-		rage::atArray<u16> m_SortedIndexToEntry;
+		List<u16> m_SortedIndexToEntry;
 
 		// u32 -> u32 map, can be used to store indices
-		rage::atSet<u32> m_UserData;
+		HashSet<u32> m_UserData;
 
 		ExplorerEntryFlags m_Flags = ExplorerEntryFlags_None;
 

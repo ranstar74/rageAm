@@ -8,7 +8,7 @@
 #pragma once
 
 #include "bonedata.h"
-#include "rage/atl/set.h"
+#include "rage/atl/map.h"
 #include "rage/math/mtxv.h"
 #include "rage/paging/base.h"
 #include "rage/paging/ref.h"
@@ -20,7 +20,7 @@ namespace rage
 
 	class crProperties // TODO: Placeholder
 	{
-		atSet<u32> m_Properties;
+		atMap<u32> m_Properties;
 
 	public:
 		crProperties() = default;
@@ -33,7 +33,7 @@ namespace rage
 
 	class crSkeletonData : public pgBase
 	{
-		atSet<s32>				m_TagToIndex;
+		atMap<s32>				m_TagToIndex;
 		pgCArray<crBoneData>	m_Bones;
 		pgCArray<Mat44V>		m_DefaultTransformsInverted;
 		pgCArray<Mat44V>		m_DefaultTransforms;

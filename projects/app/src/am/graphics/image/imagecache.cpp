@@ -453,8 +453,8 @@ void rageam::graphics::ImageCache::Clear()
 		DeleteFileW(fsPath);
 	}
 
-	m_EntriesDX11.Destruct();
-	m_Entries.Destruct();
+	m_EntriesDX11.Destroy();
+	m_Entries.Destroy();
 	m_NewToOldEntriesRAM.Destroy();
 	m_NewToOldEntriesFS.Destroy();
 	m_SizeRam = 0;
