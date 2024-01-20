@@ -101,7 +101,8 @@ namespace rage
 		float GetVolume() const;
 		void SetCGOffset(const Vec3V& offset);
 
-		spdAABB GetBoundingBox() const { return spdAABB(m_BoundingBoxMin, m_BoundingBoxMax); }
+		spdAABB   GetBoundingBox() const { return spdAABB(m_BoundingBoxMin, m_BoundingBoxMax); }
+		spdSphere GetBoundingSphere() const { return spdSphere(m_CGOffset, m_RadiusAroundCentroid); }
 
 		virtual void PostLoadCompute() { }
 
