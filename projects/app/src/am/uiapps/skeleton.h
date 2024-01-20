@@ -46,8 +46,8 @@ namespace rageam::ui
 				integration->DisableAllControlsThisFrame();
 			}
 
-			// TODO: Use OS cursor
-			GImGui->IO.MouseDrawCursor = !ui->IsDisabled && !integration->IsPauseMenuActive();
+			bool drawCursor = !ui->IsDisabled;
+			graphics::Window::GetInstance()->SetMouseVisible(drawCursor);
 #endif
 
 			// Dock space in integration mode will cover all game viewport, we don't want that
