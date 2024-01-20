@@ -2,12 +2,17 @@
 
 #include "common/logger.h"
 #include "am/system/asserts.h"
+#include "am/system/timer.h"
 
 #include <cstdlib>
 #include <mutex>
 
 gmAddress gmAddress::Scan(const char* patternStr, const char* debugName)
 {
+	static constexpr u64 MAX_SANE_SCAN_MS = 25;
+
+	rageam::Timer timer = rageam::Timer::StartNew();
+
 	static u64 moduleSize;
 	static u64 moduleBase;
 	static bool initialized = false;
@@ -62,6 +67,9 @@ gmAddress gmAddress::Scan(const char* patternStr, const char* debugName)
 
 			if (rExpected != -1 && rActual != rExpected) goto miss;
 		}
+		timer.Stop();
+		if (timer.GetElapsedMilliseconds() > MAX_SANE_SCAN_MS)
+			AM_WARNINGF("Pattern '%s' ('%s') took %llu ms! Too much.", patternStr, debugName, timer.GetElapsedMilliseconds());
 		return { moduleBase + i };
 	miss:;
 	}
