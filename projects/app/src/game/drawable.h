@@ -1,3 +1,10 @@
+//
+// File: drawable.h
+//
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
+//
+// Part of "Rage Am" Research Project.
+//
 #pragma once
 
 #include "lightattr.h"
@@ -8,28 +15,16 @@
 
 class gtaDrawable : public rage::rmcDrawable
 {
-	rage::pgArray<CLightAttr>	m_Lights;
-	u64							m_UnknownC0;
-	rage::phBoundPtr			m_Bound;
+	rage::pgArray<CLightAttr>		m_Lights;
+	rage::pgUPtr<rage::pgArray<u8>> m_TintData;
+	rage::phBoundPtr				m_Bound;
 
 public:
 	gtaDrawable() = default;
-
 	// ReSharper disable once CppPossiblyUninitializedMember
-	gtaDrawable(const rage::datResource& rsc) : rmcDrawable(rsc)
-	{
-
-	}
-
-	gtaDrawable(const gtaDrawable& other) : rage::rmcDrawable(other)
-	{
-
-	}
-
-	~gtaDrawable() override
-	{
-
-	}
+	gtaDrawable(const rage::datResource& rsc) : rmcDrawable(rsc) {}
+	gtaDrawable(const gtaDrawable& other) : rmcDrawable(other) {}
+	~gtaDrawable() override {}
 
 	u16 GetLightCount() const { return m_Lights.GetSize(); }
 	CLightAttr* GetLight(u16 index) { return &m_Lights[index]; }
@@ -39,6 +34,7 @@ public:
 		light.FixupVft();
 		return light;
 	}
+	rage::atArray<CLightAttr>& GetLightArray() { return *(rage::atArray<CLightAttr>*)&m_Lights; }
 
 	void SetBound(const rage::phBoundPtr& bound) { m_Bound = bound; }
 	const rage::phBoundPtr& GetBound() const { return m_Bound; }
