@@ -205,7 +205,7 @@ void rageam::graphics::Render::SetRenderSize(int width, int height)
 }
 #endif
 
-void rageam::graphics::Render::DoRender() const
+void rageam::graphics::Render::DoRender() AM_INTEGRATED_ONLY(const)
 {
 	AM_ASSERT(Swapchain != nullptr, "Render::DoRender() -> Window was not created, can't render frame.");
 
@@ -225,7 +225,7 @@ void rageam::graphics::Render::DoRender() const
 #endif
 }
 
-void rageam::graphics::Render::BuildDrawLists() const
+void rageam::graphics::Render::BuildDrawList() const
 {
 #ifdef AM_INTEGRATED
 	// Wait until window is updated...
@@ -243,7 +243,7 @@ void rageam::graphics::Render::BuildDrawLists() const
 void rageam::graphics::Render::EnterRenderLoop() AM_INTEGRATED_ONLY(const)
 {
 	Window* window = Window::GetInstance();
-	window->UpdateInit();
+	AM_INTEGRATED_ONLY(window->UpdateInit());
 
 	auto ui = ui::GetUI();
 
@@ -266,9 +266,8 @@ void rageam::graphics::Render::EnterRenderLoop() AM_INTEGRATED_ONLY(const)
 		}
 
 		// In standalone there's only single thread
-		ui->BuildDrawList();
-		if (!DoRender())
-			break;
+		BuildDrawList();
+		DoRender();
 
 		s_Rendering = false;
 }

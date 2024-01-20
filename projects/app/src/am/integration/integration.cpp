@@ -37,7 +37,7 @@ bool CApp_GameUpdate_aImpl()
 
 	// Update UI from game thread and build draw lists to render
 	auto render = rageam::graphics::Render::GetInstance();
-	if (render) render->BuildDrawLists();
+	if (render) render->BuildDrawList();
 
 	auto instance = rageam::integration::GameIntegration::GetInstance();
 

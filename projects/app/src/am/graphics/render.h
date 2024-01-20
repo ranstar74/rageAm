@@ -37,9 +37,9 @@ namespace rageam::graphics
 
 		// Must be called on loop after handling window events, this function
 		// renders draw list and calls present (only in standalone) mode
-		void DoRender() const;
+		void DoRender() AM_INTEGRATED_ONLY(const);
 		// Called from main (update) thread, builds UI draw list
-		void BuildDrawLists() const;
+		void BuildDrawList() const;
 		// In case of integration mode hooks render thread and immediately returns
 		void EnterRenderLoop() AM_INTEGRATED_ONLY(const);
 
