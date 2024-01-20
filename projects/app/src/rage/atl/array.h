@@ -7,17 +7,17 @@
 //
 #pragma once
 
-#include <algorithm>
-#include <functional>
-#include <new>
-#include <vector>
-
 #include "common/types.h"
 #include "am/system/asserts.h"
 #include "rage/system/new.h"
 #include "helpers/align.h"
 #include "rage/paging/resource.h"
 #include "rage/paging/compiler/compilerhelper.h"
+
+#include <algorithm>
+#include <functional>
+#include <new>
+#include <vector>
 
 namespace rage
 {
@@ -96,6 +96,10 @@ namespace rage
 		}
 		atArray(const atArray& other)
 		{
+			m_Capacity = 0;
+			m_Size = 0;
+			m_Items = nullptr;
+
 			if (other.m_Size == 0)
 				return;
 
@@ -124,7 +128,7 @@ namespace rage
 
 				if constexpr (canCopy)
 				{
-					m_Items[i] = other.m_Items[i];
+					new (&m_Items[i]) T(other.m_Items[i]);
 				}
 				else
 				{
