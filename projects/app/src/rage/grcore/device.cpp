@@ -65,15 +65,25 @@ void rage::grcDevice::DrawIndexedPrimitive(
 	sm_CurrentVertexDeclaration = vtxDeclaration;
 
 	// TODO: For now, need more research on grcProgram
-	static auto fn = gmAddress::Scan("E8 ?? ?? ?? ?? B9 01 00 00 00 E8 ?? ?? ?? ?? EB 14")
+	static auto fn = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		"44 8B 44 24 50 33 D2 8B 4C 24 30", "rage::grcDevice::DrawIndexedPrimitive").GetAt(-0x5F)
+#else
+		"E8 ?? ?? ?? ?? B9 01 00 00 00 E8 ?? ?? ?? ?? EB 14")
 		.GetCall()
+#endif
 		.To<decltype(&DrawIndexedPrimitive)>();
 	fn(drawMode, vtxDeclaration, vtxBuffer, idxBuffer, idxCount);
 }
 
 void rage::grcDevice::SetWorldMtx(const Mat34V& mtx)
 {
-	static auto fn = gmAddress::Scan("E8 ?? ?? ?? ?? 40 B5 01 8B D3")
+	static auto fn = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		"FF 15 ?? ?? ?? ?? 48 81 C4 B8 03 00 00", "rage::grcViewport::SetCurrentWorldMtxFn_NonInstanced ref")
+#else
+		"E8 ?? ?? ?? ?? 40 B5 01 8B D3")
+#endif
 		.GetCall()
 		.To<decltype(&SetWorldMtx)>();
 	fn(mtx);

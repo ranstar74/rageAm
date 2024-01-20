@@ -7,7 +7,11 @@
 
 u64 GetGameViewport()
 {
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+	static gmAddress viewports_Addr = gmAddress::Scan("48 8D 0D ?? ?? ?? ?? 48 03 C8 48 8B C1 48 89 44 24 38 0F 57 C0").GetRef(3).GetAt(0xB00);
+#else
 	static gmAddress viewports_Addr = gmAddress::Scan("48 8B 0D ?? ?? ?? ?? 33 DB 48 85 C9 74 2B").GetRef(3);
+#endif
 	u64 viewportGame_Addr = *viewports_Addr.To<u64*>();
 	return viewportGame_Addr + 0x10; // CViewportGame::m_Viewport -> rage::grcViewport
 }

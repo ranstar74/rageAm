@@ -10,7 +10,12 @@ rage::fiDevice* rage::fiDevice::GetDeviceImpl(ConstString path, bool isReadOnly)
 #ifdef AM_STANDALONE
 	return fiDeviceLocal::GetInstance(); // For now...
 #else
-	auto getDeviceImpl = gmAddress::Scan("48 89 5C 24 08 88 54 24 10 55 56 57 41 54 41 55 41 56 41 57 48 83")
+	auto getDeviceImpl = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		"EB 5A 48 83 3D", "rage::fiDevice::GetDeviceImpl+0x888").GetAt(-0x888)
+#else
+		"48 89 5C 24 08 88 54 24 10 55 56 57 41 54 41 55 41 56 41 57 48 83")
+#endif
 		.ToFunc<fiDevice * (ConstString, bool)>();
 
 	fiDevice* device = getDeviceImpl(path, isReadOnly);
