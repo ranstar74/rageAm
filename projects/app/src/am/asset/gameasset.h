@@ -51,6 +51,7 @@ namespace rageam::asset
 
 	public:
 		AssetBase(const file::WPath& path);
+		AssetBase(const AssetBase& other) = default;
 		~AssetBase() override = default;
 
 		// If directory was renamed, workspace has to be updated if directory was moved
@@ -136,9 +137,10 @@ namespace rageam::asset
 		// Gets base asset resource this source file belongs to
 		AssetBase* GetParent() const { return m_Parent; }
 
-		void SetFilePath(ConstWString path);
+		ConstWString GetName() const { return file::GetFileName(m_FilePath.GetCStr()); }
+		void         SetFilePath(ConstWString path);
 		ConstWString GetFilePath() const { return m_FilePath; }
-		u32 GetHashKey() const { return m_HashKey; }
+		u32          GetHashKey() const { return m_HashKey; }
 
 		static u32 ComputeHashKey(ConstWString path) { return Hash(path); }
 	};
@@ -151,9 +153,10 @@ namespace rageam::asset
 	{
 	public:
 		GameAsset(const file::WPath& path) : AssetBase(path) {}
+		GameAsset(const GameAsset& other) = default;
 
 		// Compiles asset into game-compatible format for raw streaming.
-		virtual bool CompileToGame(TGameFormat* ppOutGameFormat) = 0;
+		virtual bool CompileToGame(TGameFormat* object) = 0;
 		// Creates config (or updates existing) from given game resource, basically decompiling.
 		// For drawable:
 		// In case if drawable was previously compiled,
@@ -169,6 +172,7 @@ namespace rageam::asset
 	{
 	public:
 		GameRscAsset(const file::WPath& path) : GameAsset<TGameFormat>(path) {}
+		GameRscAsset(const GameRscAsset& other) = default;
 
 		bool CompileToFile(ConstWString filePath = nullptr) override
 		{

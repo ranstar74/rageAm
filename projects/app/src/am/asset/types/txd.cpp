@@ -368,3 +368,52 @@ bool rageam::asset::TxdAsset::IsSupportedImageFile(ConstWString texturePath)
 {
 	return graphics::ImageFactory::IsSupportedImageFormat(texturePath);
 }
+
+rageam::file::WPath rageam::asset::TxdAsset::GetTxdAssetPathFromTexture(const file::WPath& texturePath)
+{
+	return texturePath.GetParentDirectory();
+}
+
+bool rageam::asset::TxdAsset::GetTxdAssetPathFromTexture(const file::WPath& texturePath, file::WPath& path)
+{
+	path = GetTxdAssetPathFromTexture(texturePath);
+	return ImmutableWString(path).EndsWith(ASSET_ITD_EXT);
+}
+
+rage::grcTexture* rageam::asset::TxdAsset::CreateMissingTexture(ConstString textureName)
+{
+	if(!sm_MissingTexture)
+	{
+		graphics::ImagePtr checker = graphics::ImageFactory::CreateChecker_NotFound();
+		// This is used on game models, we need mip maps
+		checker = checker->GenerateMipMaps();
+
+		sm_MissingTexture = new rage::grcTextureDX11(
+			checker->GetWidth(), checker->GetHeight(), checker->GetMipCount(), 
+			ImagePixelFormatToDXGI(checker->GetPixelFormat()), checker->GetPixelDataBytes());
+	}
+
+	char nameBuffer[256];
+	sprintf_s(nameBuffer, sizeof nameBuffer, "%s (Missing)##$MT_%s", textureName, textureName);
+
+	rage::grcTextureDX11* texture = new rage::grcTextureDX11((rage::grcTextureDX11&)*sm_MissingTexture);
+	texture->SetName(nameBuffer);
+	return texture;
+}
+
+bool rageam::asset::TxdAsset::IsMissingTexture(const rage::grcTexture* texture)
+{
+	ImmutableString texName = texture->GetName();
+	return texName.Contains("(Missing)##$MT_");
+}
+
+ConstString rageam::asset::TxdAsset::GetMissingTextureName(const rage::grcTexture* texture)
+{
+	if (!texture)
+		return nullptr;
+	ImmutableString texName = texture->GetName();
+	int tokenIndex = texName.IndexOf("##$MT_");
+	if (tokenIndex == -1)
+		return nullptr;
+	return texName.Substring(tokenIndex + 6); // Length of ##$MT_
+}

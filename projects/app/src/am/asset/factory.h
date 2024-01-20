@@ -24,8 +24,7 @@ namespace rageam::asset
 		};
 
 		// Asset path extension to asset definition
-		static rage::atMap<ConstWString, AssetDefinition> sm_ExtToAssetDef;
-		// static rage::atSet<AssetPtr> sm_AssetCache;
+		static HashSet<AssetDefinition> sm_ExtToAssetDef;
 
 		static const AssetDefinition* TryGetDefinition(const file::WPath& path);
 

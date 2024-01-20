@@ -31,6 +31,8 @@ namespace rageam::asset
 
 		void Serialize(XmlHandle& node) const override { XML_SET_ATTR(node, Name); }
 		void Deserialize(const XmlHandle& node) override { XML_GET_ATTR(node, Name); }
+
+		virtual amPtr<SceneTune> Clone() const = 0;
 	};
 	using SceneTunePtr = amPtr<SceneTune>;
 
@@ -41,6 +43,16 @@ namespace rageam::asset
 	{
 		SmallList<SceneTunePtr> Items;
 		HashSet<u16>			NameToItem;
+
+		SceneTuneGroupBase() = default;
+		SceneTuneGroupBase(const SceneTuneGroupBase& other) : NameToItem(other.NameToItem)
+		{
+			Items.Reserve(other.Items.GetSize());
+			for (const SceneTunePtr& item : other.Items)
+			{
+				Items.Emplace(item->Clone());
+			}
+		}
 
 		void Serialize(XmlHandle& node) const override;
 		void Deserialize(const XmlHandle& node) override;
@@ -62,6 +74,9 @@ namespace rageam::asset
 	template<typename TSceneTune>
 	struct SceneTuneGroup : SceneTuneGroupBase
 	{
+		SceneTuneGroup() = default;
+		SceneTuneGroup(const SceneTuneGroup& other) : SceneTuneGroupBase(other) {}
+
 		u16 GetCount() const { return Items.GetSize(); }
 		const amPtr<TSceneTune>& Get(u16 index) const { return std::reinterpret_pointer_cast<TSceneTune>(Items[index]); }
 

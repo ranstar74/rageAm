@@ -1,6 +1,5 @@
 #include "drawable.h"
 
-#include "drawablehelpers.h"
 #include "hotdrawable.h"
 #include "am/asset/factory.h"
 #include "am/file/iterator.h"
@@ -11,6 +10,22 @@
 #include "rage/physics/bounds/geometry.h"
 #include "am/xml/iterator.h"
 #include "rage/math/math.h"
+
+bool rageam::asset::DrawableTxd::TryCompile()
+{
+	Dict = nullptr;
+
+	rage::grcTextureDictionary* dict = new rage::grcTextureDictionary();
+	if (!Asset->CompileToGame(dict))
+	{
+		AM_ERRF(L"DrawableTxd::TryCompile() -> Failed to compile workspace TXD '%ls'", Asset->GetDirectoryPath().GetCStr());
+		delete dict;
+		return false;
+	}
+
+	Dict = rage::pgPtr(dict);
+	return true;
+}
 
 void rageam::asset::MaterialTune::Param::Serialize(XmlHandle& xml) const
 {
@@ -303,8 +318,8 @@ void rageam::asset::LightTune::InitFromSceneLight(const graphics::SceneNode* lig
 	ColorRGB = sceneLight->GetColor();
 	Falloff = Type == LIGHT_TYPE_SPOT ? 8.0f : 2.5f; // Make light longer if spot light is chosen
 	FalloffExponent = 32;
-	ConeOuterAngle = rage::Math::RadToDeg(sceneLight->GetOuterConeAngle());
-	ConeInnerAngle = rage::Math::RadToDeg(sceneLight->GetInnerConeAngle());
+	ConeOuterAngle = rage::RadToDeg(sceneLight->GetOuterConeAngle());
+	ConeInnerAngle = rage::RadToDeg(sceneLight->GetInnerConeAngle());
 	Flags = LF_ENABLE_SHADOWS;
 	TimeFlags = LIGHT_TIME_ALWAYS_MASK;
 	CoronaZBias = 0.1;
@@ -577,7 +592,7 @@ CLightAttr* rageam::asset::DrawableAssetMap::GetLightFromScene(gtaDrawable* draw
 
 bool rageam::asset::DrawableAsset::CacheEffects()
 {
-	m_EffectCache.Destruct();
+	m_EffectCache.Destroy();
 
 	MaterialTuneGroup& matGroup = m_DrawableTune.Materials;
 	for (const auto& material : matGroup)
@@ -625,7 +640,7 @@ void rageam::asset::DrawableAsset::PrepareForConversion()
 
 void rageam::asset::DrawableAsset::CleanUpConversion()
 {
-	m_EffectCache.Destruct();
+	m_EffectCache.Destroy();
 	m_NodeToModel.Destroy();
 	m_NodeToBone.Destroy();
 	m_EmbedDict = nullptr;
@@ -1119,7 +1134,7 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 				}
 
 				if (!textureResolved)
-					SetMissingTexture(var);
+					SetMissingTexture(var, textureName);
 			}
 			else // Other simple types
 			{
@@ -1159,7 +1174,7 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 
 bool rageam::asset::DrawableAsset::ResolveAndSetTexture(rage::grcInstanceVar* var, ConstString textureName)
 {
-	// Try to resolve first in embed dictionary (it has highest priority)
+	// Try to resolve first in embed dictionary (it has the highest priority)
 	if (m_EmbedDict)
 	{
 		rage::grcTexture* embedTexture = m_EmbedDict->Find(textureName);
@@ -1179,22 +1194,22 @@ bool rageam::asset::DrawableAsset::ResolveAndSetTexture(rage::grcInstanceVar* va
 			continue;
 
 		// Texture is used in this txd, first look if we compiled it before
-		HotTxd* cachedHotTxd = SharedTXDs.TryGetAt(sharedTxdAsset->GetHashKey());
-		if (!cachedHotTxd)
+		DrawableTxd* cachedSharedTxd = SharedTXDs.TryGetAt(sharedTxdAsset->GetHashKey());
+		if (!cachedSharedTxd)
 		{
 			// TXD was not in cache, compile and add it there
-			HotTxd hotTxd(sharedTxdAsset);
-			if (!hotTxd.TryCompile()) // TODO: Ideally we should compile only single texture
+			DrawableTxd sharedTxd(sharedTxdAsset);
+			if (!sharedTxd.TryCompile()) // TODO: Ideally we should compile only single texture and use missing, unless requested
 			{
 				AM_ERRF(L"DrawableAsset::ResolveAndSetTexture() -> Failed to compile dictionary with referenced texture '%ls'.",
 					sharedTxdAsset->GetAssetName());
 				break;
 			}
 
-			cachedHotTxd = &SharedTXDs.Emplace(std::move(hotTxd));
+			cachedSharedTxd = &SharedTXDs.Emplace(std::move(sharedTxd));
 		}
 
-		rage::grcTexture* sharedTexture = cachedHotTxd->Dict->Find(textureName);
+		rage::grcTexture* sharedTexture = cachedSharedTxd->Dict->Find(textureName);
 		if (sharedTexture)
 		{
 			var->SetTexture(sharedTexture);
@@ -1203,16 +1218,15 @@ bool rageam::asset::DrawableAsset::ResolveAndSetTexture(rage::grcInstanceVar* va
 	}
 
 	// Texture was not found or failed to compile, mark it as missing...
-	var->SetTexture(CreateMissingTexture(textureName));
+	var->SetTexture(TxdAsset::CreateMissingTexture(textureName));
 
 	return false;
 }
 
-void rageam::asset::DrawableAsset::SetMissingTexture(rage::grcInstanceVar* var) const
+void rageam::asset::DrawableAsset::SetMissingTexture(rage::grcInstanceVar* var, ConstString textureName) const
 {
-	AM_UNREACHABLE("Not implemented!>");
-	/*rage::grcTexture* checker = GRenderContext->CheckerTexture.GetTexture();
-	var->SetTexture(checker);*/
+	rage::grcTexture* checker = TxdAsset::CreateMissingTexture(textureName);
+	var->SetTexture(checker);
 }
 
 bool rageam::asset::DrawableAsset::CompileAndSetEmbedDict()
@@ -1635,6 +1649,15 @@ void rageam::asset::DrawableAsset::RefreshTuneFromScene()
 rageam::asset::DrawableAsset::DrawableAsset(const file::WPath& path) : GameRscAsset(path)
 {
 	RefreshEmbedDict();
+}
+
+rageam::asset::DrawableAsset::DrawableAsset(const DrawableAsset& other)
+	: GameRscAsset(other), m_DrawableTune(other.m_DrawableTune)
+{
+	m_EmbedDictPath = other.m_EmbedDictPath;
+	m_EmbedDictTune = other.m_EmbedDictTune;
+	m_SceneFileTime = other.m_SceneFileTime;
+	m_Scene = other.m_Scene;
 }
 
 bool rageam::asset::DrawableAsset::CompileToGame(gtaDrawable* ppOutGameFormat)

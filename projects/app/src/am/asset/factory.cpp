@@ -2,20 +2,20 @@
 #include "types/drawable.h"
 #include "types/txd.h"
 
-rage::atMap<ConstWString, rageam::asset::AssetFactory::AssetDefinition> rageam::asset::AssetFactory::sm_ExtToAssetDef;
+rageam::HashSet<rageam::asset::AssetFactory::AssetDefinition> rageam::asset::AssetFactory::sm_ExtToAssetDef;
 
 const rageam::asset::AssetFactory::AssetDefinition* rageam::asset::AssetFactory::TryGetDefinition(const file::WPath& path)
 {
 	file::WPath extension = path.GetExtension();
-	return sm_ExtToAssetDef.TryGet(extension);
+	return sm_ExtToAssetDef.TryGetAt(Hash(extension));
 }
 
 void rageam::asset::AssetFactory::Init()
 {
 	sm_ExtToAssetDef.InitAndAllocate(2); // Extend this as more added
 
-	sm_ExtToAssetDef.Insert(L"itd", AssetDefinition("Texture Dictionary", AssetType_Txd, TxdAsset::Allocate));
-	sm_ExtToAssetDef.Insert(L"idr", AssetDefinition("Drawable", AssetType_Drawable, DrawableAsset::Allocate));
+	sm_ExtToAssetDef.InsertAt(Hash(L"itd"), AssetDefinition("Texture Dictionary", AssetType_Txd, TxdAsset::Allocate));
+	sm_ExtToAssetDef.InsertAt(Hash(L"idr"), AssetDefinition("Drawable", AssetType_Drawable, DrawableAsset::Allocate));
 }
 
 void rageam::asset::AssetFactory::Shutdown()

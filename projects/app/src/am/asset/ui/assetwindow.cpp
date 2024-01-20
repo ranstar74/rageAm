@@ -154,7 +154,7 @@ void rageam::ui::AssetWindow::OnMenuRender()
 					ImGui::Text(msg);
 				}
 
-				if (rage::Math::AlmostEquals(ImGui::GetScrollY(), ImGui::GetScrollMaxY()))
+				if (rage::AlmostEquals(ImGui::GetScrollY(), ImGui::GetScrollMaxY()))
 					ImGui::SetScrollY(ImGui::GetScrollMaxY());
 
 			}

@@ -7,34 +7,52 @@
 //
 #pragma once
 
-#include <any>
-
-#include "scenetunegroup.h"
 #include "txd.h"
-#include "am/types.h"
+#include "scenetunegroup.h"
 #include "am/asset/gameasset.h"
 #include "am/asset/workspace.h"
 #include "am/graphics/scene.h"
 #include "game/drawable.h"
+#include "am/types.h"
+
+#include <any>
 
 namespace rageam::asset
 {
-	struct HotTxdHashFn;
-	struct HotTxd;
 	// Version History:
 	// 0: Initial
 
 	// TODO:
-	// Auto color-texture map generation for models that don't have texture
-	// but only single color, to make life easier
+	// - Auto color-texture map generation for models that don't have texture
+	//		but only single color, to make life easier
+	// - We don't really have TXD parenting, it might be confusing for some users,
+	//		we might want to generate txd relationship xml
+	// - We might want to compile only used textures, or at least warn user about unused ones
 
-	static constexpr u16 MAX_BONES = 128;
-	static constexpr int MAX_LOD = 4;
-	static constexpr ConstString DEFAULT_SHADER = "default"; // default.fxc
-	static constexpr ConstString DEFAULT_MATERIAL_NAME = "$am_default_material";
+	static constexpr u16          MAX_BONES = 128;
+	static constexpr int          MAX_LOD = 4;
+	static constexpr ConstString  DEFAULT_SHADER = "default"; // default.fxc
+	static constexpr ConstString  DEFAULT_MATERIAL_NAME = "$am_default_material";
 	static constexpr ConstWString PALETTE_TEXTURE_NAME = L"autogen_palette";
 	static constexpr ConstWString EMBED_DICT_NAME = L"textures";
-	static constexpr ConstString COL_MODEL_EXT = ".COL"; // Postfix of collision models in scene
+	static constexpr ConstString  COL_MODEL_EXT = ".COL"; // Postfix of collision models in scene
+
+	/**
+	 * \brief Helper to hold drawable tex dict dependency.
+	 */
+	struct DrawableTxd
+	{
+		TxdAssetPtr					  Asset;
+		rage::grcTextureDictionaryPtr Dict;	   // May be null if failed to compile
+		bool						  IsEmbed;
+
+		bool TryCompile();
+	};
+	struct DrawableTxdHashFn
+	{
+		u32 operator()(const DrawableTxd& txd) const { return txd.Asset->GetHashKey(); }
+	};
+	using DrawableTxdSet = HashSet<DrawableTxd, DrawableTxdHashFn>;
 
 	struct MaterialTune : SceneTune
 	{
@@ -98,7 +116,6 @@ namespace rageam::asset
 
 		string		Effect;
 		u8			DrawBucket = 0;
-
 		List<Param>	Params;
 		// Flag for UI to mark orphan material as deleted and ignore it on writing config,
 		// we do this instead of deleting it because number of materials in tune
@@ -113,6 +130,7 @@ namespace rageam::asset
 			Effect = shaderName;
 			IsDefault = isDefault;
 		}
+		MaterialTune(const MaterialTune& other) = default;
 
 		void Deserialize(const XmlHandle& node) override;
 		void Serialize(XmlHandle& node) const override;
@@ -128,16 +146,21 @@ namespace rageam::asset
 		void InitFromShader(const rage::grcInstanceData* shader);
 		// Attempts to match texture name from material to 'DiffuseSampler' or 'SpecSampler' effect params
 		void SetTextureNamesFromSceneMaterial(const graphics::SceneMaterial* sceneMaterial);
+
+		SceneTunePtr Clone() const override { return std::make_shared<MaterialTune>(*this); }
 	};
 	
 	struct MaterialTuneGroup : SceneTuneGroup<MaterialTune>
 	{
-		bool ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const override;
+		bool         ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const override;
 		SceneTunePtr CreateTune() const override;
 		SceneTunePtr CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const override;
-		ConstString GetItemName(graphics::Scene* scene, u16 itemIndex) const override;
-		u16 GetSceneItemCount(graphics::Scene* scene) const override;
-		ConstString GetName() const override { return "Materials"; }
+		ConstString  GetItemName(graphics::Scene* scene, u16 itemIndex) const override;
+		u16          GetSceneItemCount(graphics::Scene* scene) const override;
+		ConstString  GetName() const override { return "Materials"; }
+
+		MaterialTuneGroup() = default;
+		MaterialTuneGroup(const MaterialTuneGroup& other) = default;
 	};
 
 	struct ModelTune : SceneTune
@@ -149,16 +172,18 @@ namespace rageam::asset
 
 		void Serialize(XmlHandle& node) const override;
 		void Deserialize(const XmlHandle& node) override;
+
+		SceneTunePtr Clone() const override { return std::make_shared<ModelTune>(*this); }
 	};
 
 	struct ModelTuneGroup : SceneTuneGroup<ModelTune>
 	{
-		bool ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const override;
+		bool         ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const override;
 		SceneTunePtr CreateTune() const override;
 		SceneTunePtr CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const override;
-		ConstString GetItemName(graphics::Scene* scene, u16 itemIndex) const override;
-		u16 GetSceneItemCount(graphics::Scene* scene) const override;
-		ConstString GetName() const override { return "Models"; }
+		ConstString  GetItemName(graphics::Scene* scene, u16 itemIndex) const override;
+		u16          GetSceneItemCount(graphics::Scene* scene) const override;
+		ConstString  GetName() const override { return "Models"; }
 	};
 
 	struct LightTune : SceneTune
@@ -208,16 +233,21 @@ namespace rageam::asset
 
 		void InitFromSceneLight(const graphics::SceneNode* lightNode);
 		void FromLightAttr(const CLightAttr* attr);
+
+		SceneTunePtr Clone() const override { return std::make_shared<LightTune>(*this); }
 	};
 
 	struct LightTuneGroup : SceneTuneGroup<LightTune>
 	{
-		bool ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const override;
+		bool         ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const override;
 		SceneTunePtr CreateTune() const override;
 		SceneTunePtr CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const override;
-		ConstString GetItemName(graphics::Scene* scene, u16 itemIndex) const override;
-		u16 GetSceneItemCount(graphics::Scene* scene) const override;
-		ConstString GetName() const override { return "Lights"; }
+		ConstString  GetItemName(graphics::Scene* scene, u16 itemIndex) const override;
+		u16          GetSceneItemCount(graphics::Scene* scene) const override;
+		ConstString  GetName() const override { return "Lights"; }
+
+		LightTuneGroup() = default;
+		LightTuneGroup(const LightTuneGroup& other) = default;
 	};
 
 	struct LodGroupTune : IXml
@@ -227,16 +257,22 @@ namespace rageam::asset
 		float			LodThreshold[MAX_LOD] = { 30, 60, 90, 120 };
 		bool			AutoGenerateLods = false; // TODO: We need some 3D mesh processing library
 
+		LodGroupTune() = default;
+		LodGroupTune(const LodGroupTune& other) = default;
+
 		void Serialize(XmlHandle& node) const override;
 		void Deserialize(const XmlHandle& node) override;
 	};
 
 	struct DrawableTune : IXml
 	{
-		file::WPath			SceneFileName;
-		MaterialTuneGroup	Materials;
-		LightTuneGroup		Lights;
-		LodGroupTune		Lods;
+		file::WPath       SceneFileName;
+		MaterialTuneGroup Materials;
+		LightTuneGroup    Lights;
+		LodGroupTune      Lods;
+
+		DrawableTune() = default;
+		DrawableTune(const DrawableTune& other) = default;
 
 		void Serialize(XmlHandle& node) const override;
 		void Deserialize(const XmlHandle& node) override;
@@ -266,17 +302,17 @@ namespace rageam::asset
 		SmallList<u16>			ShaderToSceneMaterial;	// rage::grmShader			-> graphics::SceneMaterial
 		SmallList<u16>			LightAttrToSceneNode;	// CLightAttr				-> graphics::SceneLight
 
-		rage::grmModel* GetModelFromScene(rage::rmcDrawable* drawable, u16 sceneNodeIndex) const;
+		rage::grmModel*   GetModelFromScene(rage::rmcDrawable* drawable, u16 sceneNodeIndex) const;
 		rage::crBoneData* GetBoneFromScene(const rage::rmcDrawable* drawable, u16 sceneNodeIndex) const;
-		rage::phBound* GetBoundFromScene(const gtaDrawable* drawable, u16 sceneNodeIndex) const;
-		CLightAttr* GetLightFromScene(gtaDrawable* drawable, u16 sceneNodeIndex) const;
+		rage::phBound*    GetBoundFromScene(const gtaDrawable* drawable, u16 sceneNodeIndex) const;
+		CLightAttr*       GetLightFromScene(gtaDrawable* drawable, u16 sceneNodeIndex) const;
 	};
 
 	class DrawableAsset : public GameRscAsset<gtaDrawable>
 	{
 		// Path's used only if loaded from xml
 
-		file::WPath			m_EmbedDictPath; // By default (e.g. for 'bender.idr') will be 'bender.idr/bender.itd'
+		file::WPath			m_EmbedDictPath;	 // By default (e.g. for 'bender.idr') will be 'bender.idr/bender.itd'
 		TxdAssetPtr			m_EmbedDictTune;
 		graphics::ScenePtr	m_Scene;
 		u64					m_SceneFileTime = 0; // To reload scene on compiling if it was modified
@@ -304,16 +340,15 @@ namespace rageam::asset
 			}
 		};
 
-		gtaDrawable* m_Drawable = nullptr;
-
+		gtaDrawable*				m_Drawable = nullptr;
 		// NOTE: May be null if drawable has no embed textures
 		// No smart pointer here because pointer ownership will be passed to drawable
 		rage::grcTextureDictionary* m_EmbedDict = nullptr;
 		// We cache reflected vertex declaration & fvf from effect here (key is effect name without .fxc extension)
-		HashSet<EffectInfo> m_EffectCache;
+		HashSet<EffectInfo>			m_EffectCache;
 		// Key is SceneNode index
-		List<rage::grmModel*> m_NodeToModel;
-		List<rage::crBoneData*> m_NodeToBone;
+		List<rage::grmModel*>		m_NodeToModel;
+		List<rage::crBoneData*>		m_NodeToBone;
 
 		// Looks up effect (shader) for every material and caches them in m_EffectCache
 		bool CacheEffects();
@@ -363,7 +398,7 @@ namespace rageam::asset
 		void CreateMaterials();
 		bool ResolveAndSetTexture(rage::grcInstanceVar* var, ConstString textureName);
 		// Sets missing checker texture (similar to half life 2)
-		void SetMissingTexture(rage::grcInstanceVar* var) const;
+		void SetMissingTexture(rage::grcInstanceVar* var, ConstString textureName) const;
 
 		bool CompileAndSetEmbedDict();
 
@@ -407,6 +442,7 @@ namespace rageam::asset
 
 	public:
 		DrawableAsset(const file::WPath& path);
+		DrawableAsset(const DrawableAsset& other);
 
 		bool CompileToGame(gtaDrawable* ppOutGameFormat) override;
 		void ParseFromGame(gtaDrawable* object) override;
@@ -427,28 +463,28 @@ namespace rageam::asset
 		// ---------- Asset Related ----------
 
 		const file::WPath& GetEmbedDictionaryPath() const { return m_EmbedDictPath; }
-		TxdAssetPtr GetEmbedDictionary() const { return m_EmbedDictTune; }
-		void SetEmbedDictionary(const TxdAssetPtr& dict) { m_EmbedDictTune = dict; }
+		TxdAssetPtr        GetEmbedDictionary() const { return m_EmbedDictTune; }
+		void               SetEmbedDictionary(const TxdAssetPtr& dict) { m_EmbedDictTune = dict; }
 
 		graphics::ScenePtr GetScene() const { return m_Scene; }
-		void SetScene(const graphics::ScenePtr& scene) { m_Scene = scene; }
+		void               SetScene(const graphics::ScenePtr& scene) { m_Scene = scene; }
 
 		DrawableTune& GetDrawableTune() { return m_DrawableTune; }
 
 		// File to the scene 3D model file, might be empty
 		file::WPath GetScenePath() const { return GetDirectoryPath() / m_DrawableTune.SceneFileName; }
 		// NOTE: There's no checks if path is valid or not, used only by hot reload currently
-		void SetScenePath(const file::WPath& path) { m_DrawableTune.SceneFileName = path.GetFileName(); }
+		void		SetScenePath(const file::WPath& path) { m_DrawableTune.SceneFileName = path.GetFileName(); }
 
-		bool HasEmbedTXD() const { return true; } // TODO: Currently embed dictionary is always compiled!
+		bool HasEmbedTXD() const { return true; } // TODO: Currently embed dictionary is always compiled! Even if there's no textures.
 
 		// Only to be used if asset was compiled successfully!
-		amUniquePtr<DrawableAssetMap> CompiledDrawableMap;
+		amUPtr<DrawableAssetMap> CompiledDrawableMap;
 		// Workspace with shared texture dictionaries loaded, may be NULL
-		WorkspacePtr WorkspaceTXD;
-		// TXDs with textures that are used by drawable materials
+		WorkspacePtr			 WorkspaceTXD;
+		// TXDs with textures that are used by drawable materials (NOT including embed TXD)
 		// NOTE: Destroying asset will destroy those dictionaries and all the textures!
-		HashSet<HotTxd, HotTxdHashFn> SharedTXDs;
+		DrawableTxdSet			 SharedTXDs;
 	};
 	using DrawableAssetPtr = amPtr<DrawableAsset>;
 }

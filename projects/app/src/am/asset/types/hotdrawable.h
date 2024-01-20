@@ -1,7 +1,7 @@
 //
 // File: hotdrawable.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
@@ -10,50 +10,30 @@
 #include "drawable.h"
 #include "am/asset/factory.h"
 #include "am/file/watcher.h"
-#include "am/system/thread.h"
+#include "am/system/worker.h"
 
 // What changes were applied by hot reload
 enum AssetHotFlags_ : u32
 {
-	AssetHotFlags_None = 0,						// No change was applied
-	AssetHotFlags_DrawableCompiled = 1 << 0,	// Scene was loaded and drawable compiled
-	AssetHotFlags_TxdModified = 1 << 1,			// Txd or texture was added or removed
+	AssetHotFlags_None				= 0,		// No change was applied
+	AssetHotFlags_DrawableCompiled	= 1 << 0,	// Scene was loaded and drawable compiled
+	AssetHotFlags_TxdModified		= 1 << 1,	// Txd or texture was added or removed
 };
 typedef u32 AssetHotFlags;
 
 namespace rageam::asset
 {
-	// TODO: We should show 'not found' texture icon instead of deleting it completely (on delete / loaded & not found)
-	// TODO: We should apply changes on the beginning of frame when nothing is using it!
-	// TODO: How do we save changes on reload?
-
-	struct HotTxd
-	{
-		TxdAssetPtr						Asset;
-		rage::grcTextureDictionaryPtr	Dict;		// May be null if failed to compile
-		bool							IsEmbed;	// .itd embed dictionary
-
-		bool TryCompile();
-	};
-
-	struct HotTxdHashFn
-	{
-		u32 operator()(const HotTxd& hotTxd) const { return hotTxd.Asset->GetHashKey(); }
-	};
-	using HotTxdSet = HashSet<HotTxd, HotTxdHashFn>;
-
 	struct HotDrawableInfo
 	{
-		HotTxdSet*			TXDs;				// All texture dictionaries in the workspace + embed
+		DrawableTxdSet*		TXDs;			// All texture dictionaries in the workspace + embed
 		DrawableAssetPtr	DrawableAsset;
-		DrawableAssetMap*	DrawableAssetMap;	// We store a copy because it's changed during drawable compiling (which is done in background thread)
-		graphics::ScenePtr	DrawableScene;
 		amPtr<gtaDrawable>	Drawable;
-		bool				IsLoading;			// Drawable asset compiling
+		bool				IsLoading;		// Drawable asset compiling?
+		AssetHotFlags		HotFlags;		// For current frame only!
 	};
 
 	/**
-	 * \brief Hot reloads drawable asset changes.
+	 * \brief Drawable asset that automatically syncs up with file changes.
 	 */
 	class HotDrawable
 	{
@@ -61,68 +41,65 @@ namespace rageam::asset
 			file::NotifyFlags_DirectoryName |
 			file::NotifyFlags_FileName |
 			file::NotifyFlags_LastWrite;
-		
-		// We have to sync two things - changes applied to already loaded drawable and drawable loading
-		// - Drawable load request can be queued from any thread at any moment, worker thread is instantly
-		//		switched from waiting for changes to loading drawable
-		// - Drawable changes are applied only on beginning of game early update
 
-		amUniquePtr<Thread>			m_WorkerThread;
-		std::condition_variable		m_RequestCondVar;
-		std::mutex					m_RequestMutex;
-		std::condition_variable		m_ApplyChangesCondVar;
-		std::mutex					m_ApplyChangesMutex;
-		bool						m_ApplyChangesWaiting = false;
-		bool						m_LoadRequested = false;
-		bool						m_CompileRequested = false;
-		bool						m_IsLoading = false;
-		amUniquePtr<file::Watcher>	m_Watcher;
+		struct CompileDrawableResult
+		{
+			amPtr<gtaDrawable>			Drawable;
+			// Those are moved from drawable asset copy
+			graphics::ScenePtr			Scene;
+			amUPtr<DrawableAssetMap>	Map;
+		};
+
+		amUPtr<file::Watcher>		m_Watcher;
 		file::WPath					m_AssetPath;
+		BackgroundTaskPtr			m_LoadingTask;
+		// Those are all background tasks we execute, changes are synced with game via UserLambda delegate
+		Tasks						m_Tasks;
 		DrawableAssetPtr			m_Asset;
-		DrawableAssetMap			m_AssetMap;
-		amPtr<gtaDrawable>			m_Drawable;
-		graphics::ScenePtr			m_DrawableScene;
-		// Holds every compiled TXD from workspace including embed
+		amPtr<gtaDrawable>			m_CompiledDrawable;
+		// Holds every compiled TXD from workspace including embed (for simpler access)
 		// Key is the full wide path to the TXD
-		HotTxdSet					m_TXDs;
-		std::atomic<AssetHotFlags>	m_HotChanges = AssetHotFlags_None;
-		// Those textures were left without dictionary (dict was removed)... We have to keep track of them to prevent memory leaks
+		DrawableTxdSet				m_TXDs;
+		// Those textures were left without dictionary (dict was removed)...
+		// We have to keep track of them to prevent memory leaks
 		rage::grcTextureDictionary	m_OrphanMissingTextures;
+		AssetHotFlags				m_HotFlags = AssetHotFlags_None;
 
 		// Iterates all textures in drawable shader group variables
 		// If textureName is not NULL, only textures with given name are yielded, excluding vars with NULL texture
-		void IterateDrawableTextures(const std::function<void(rage::grcInstanceVar*)>& delegate, ConstString textureName = nullptr) const;
-		bool LoadAndCompileAsset();
+		void IterateDrawableTextures(
+			const std::function<void(rage::grcInstanceVar*)>& delegate, ConstString textureName = nullptr) const;
 
+		void CompileTxdAsync(DrawableTxd* txd);
+		void AddNewTxdAsync(ConstWString path);
+		void CompileTexAsync(DrawableTxd* txd, TextureTune* tune);
+
+		// Replaces all textures with name of given texture with the texture
+		void ReplaceTexture(rage::grcTexture* newTexture) const;
 		// Replaces all missing textures (with name of given texture) in drawable with given one
-		void ResolveMissingTextures(rage::grcTexture* newTexture);
+		void ResolveMissingTexture(rage::grcTexture* newTexture);
 		// Creates missing texture & replaces existing references in drawable
-		void MarkTextureAsMissing(const rage::grcTexture* texture, const HotTxd& hotTxd) const;
-		void MarkTextureAsMissing(ConstString textureName, const HotTxd& hotTxd) const;
+		void MarkTextureAsMissing(const rage::grcTexture* texture, const DrawableTxd& hotTxd) const;
+		void MarkTextureAsMissing(const TextureTune& tune, const DrawableTxd& hotTxd) const;
+
 		void HandleChange_Texture(const file::DirectoryChange& change);
 		void HandleChange_Txd(const file::DirectoryChange& change);
 		void HandleChange_Scene(const file::DirectoryChange& change);
-		void HandleChange_Asset(const file::DirectoryChange& change);
 		void HandleChange(const file::DirectoryChange& change);
 
-		// To safely apply changes we sync with main game thread and apply them on early update
-		void WaitForApplyChangesSignal();
-		void SignalApplyChannels();
-		bool IsWaitingForApplyChanges();
-
-		void StopWatcherAndWorkerThread();
-
-		static u32 WorkerThreadEntryPoint(const ThreadContext* ctx);
+		void UpdateBackgroundJobs();
+		void CheckIfDrawableHasCompiled();
 
 	public:
 		HotDrawable(ConstWString assetPath);
-		~HotDrawable();
 
 		// Flushes current state and fully reloads asset
-		void LoadAndCompile(bool keepAsset);
+		void LoadAndCompileAsync(bool keepAsset = true);
+
 		// Must be called on early update/tick for synchronization of drawable changes
-		AssetHotFlags ApplyChanges();
-		HotDrawableInfo GetInfo();
+		HotDrawableInfo UpdateAndApplyChanges();
+
+		const file::WPath& GetPath() const { return m_AssetPath; }
 
 		// Drawable compile callback
 		// NOTE: This delegate is not thread-safe!

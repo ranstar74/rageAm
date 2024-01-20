@@ -59,6 +59,9 @@ namespace rageam::asset
 	 */
 	class TxdAsset : public GameRscAsset<rage::grcTextureDictionary>
 	{
+		// Pink-black checker
+		static inline rage::grcTexture* sm_MissingTexture = nullptr;
+
 		Textures m_TextureTunes;
 
 	public:
@@ -103,6 +106,26 @@ namespace rageam::asset
 		// they can't be converted into const char* and user will have issues later
 		static bool ValidateTextureName(ConstWString fileName, bool showWarningMessage = true);
 		static bool IsSupportedImageFile(ConstWString texturePath);
+
+		static void ShutdownClass()
+		{
+			delete sm_MissingTexture;
+			sm_MissingTexture = nullptr;
+		}
+
+		static file::WPath GetTxdAssetPathFromTexture(const file::WPath& texturePath);
+		static bool GetTxdAssetPathFromTexture(const file::WPath& texturePath, file::WPath& path);
+
+		// Missing texture name is composed in format:
+		// TEX_NAME (Missing)###$MT_TEXNAME
+		// ## is ImGui special char sequence, everything past ## is ignored visually but used as ID
+		// Actual texture name is stored after '$MT_' prefix
+		static rage::grcTexture* CreateMissingTexture(ConstString textureName);
+		// Gets whether given texture was created using CreateMissingTexture function
+		static bool IsMissingTexture(const rage::grcTexture* texture);
+		// Gets actual name from missing texture name (which is in format 'TEX_NAME (Missing)###$MT_TEXNAME')
+		// Returns NULL if texture is not missing or if texture was NULL
+		static ConstString GetMissingTextureName(const rage::grcTexture* texture);
 	};
 	using TxdAssetPtr = amPtr<TxdAsset>;
 }
