@@ -29,8 +29,7 @@ namespace hooks
 		{
 			Init();
 
-			gmAddress addr;
-			addr = gmAddress::Scan(
+			static gmAddress addr = gmAddress::Scan(
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
 				"48 89 54 24 10 48 89 4C 24 08 48 83 EC 68 33 D2 48 8B 4C 24 78 E8 ?? ?? ?? ?? 89 44 24 28 48 8D",
 #elif APP_BUILD_2699_16_RELEASE
@@ -54,7 +53,7 @@ namespace hooks
 			if (index == rage::INVALID_STR_INDEX)
 				return nullptr;
 
-			return infos + index;
+			return infos + index.Get();
 		}
 	};
 }
