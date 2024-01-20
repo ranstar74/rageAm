@@ -98,6 +98,7 @@ namespace rage
 		static constexpr float DEFAULT_GRAVITY_FACTOR = 1.0f;
 		static constexpr float DEFAULT_BUOYANCY_FACTOR = 1.0f;
 	};
+	using phArchetypePtr = pgPtr<phArchetype>;
 
 	class phArchetypePhys : public phArchetype
 	{
