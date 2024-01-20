@@ -15,6 +15,8 @@
 #include <ddraw.h> // DDS
 #include <lunasvg.h>
 
+#include "helpers/dx11.h"
+
 pVoid rageam::graphics::ImageAlloc(u32 size)
 {
 	return malloc(size);
@@ -1833,6 +1835,9 @@ bool rageam::graphics::Image::CreateDX11Resource(
 		}
 	}
 
+	// Ensure that converted image has the same name as this image
+	image->SetDebugName(GetDebugName());
+
 	HRESULT code;
 	ID3D11Device* device = RenderGetDevice();
 
@@ -1874,6 +1879,8 @@ bool rageam::graphics::Image::CreateDX11Resource(
 		return false;
 	}
 
+	SetObjectDebugName(pTex, "IImage Tex - '%ls'", image->GetDebugName());
+
 	D3D11_SHADER_RESOURCE_VIEW_DESC viewDesc = {};
 	viewDesc.Format = texDesc.Format;
 	viewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
@@ -1889,6 +1896,8 @@ bool rageam::graphics::Image::CreateDX11Resource(
 		pTex->Release();
 		return false;
 	}
+
+	SetObjectDebugName(pView, "IImage View - '%ls'", image->GetDebugName());
 
 	amComPtr tex = amComPtr(pTex);
 	outView = amComPtr(pView);
@@ -2089,6 +2098,8 @@ bool rageam::graphics::ImageFactory::LoadIco(ConstWString path, List<ImagePtr>& 
 {
 	// See https://en.wikipedia.org/wiki/ICO_(file_format)#cite_note-bigSize-7 for format description
 
+	ConstWString debugName = file::GetFileName(path);
+
 // Packing is really necessary only for IconDir::Images alignment
 #pragma pack(push)
 #pragma pack(2)
@@ -2193,7 +2204,7 @@ bool rageam::graphics::ImageFactory::LoadIco(ConstWString path, List<ImagePtr>& 
 			image = std::make_shared<Image>(bmpPixelOwner, ImagePixelFormat_U32, width, height, 1);
 		}
 
-		image->SetDebugName(String::FormatTemp(L"Ico %i", i));
+		image->SetDebugName(String::FormatTemp(L"%s [Ico %i]", debugName, i));
 
 		icons.Emplace(std::move(image));
 	}

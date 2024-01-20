@@ -78,17 +78,34 @@ void rageam::System::Destroy()
 	// Order is opposite to initialization
 	rage::grcVertexDeclaration::CleanUpCache();
 
+	// Cache GPU devices to report live objects after destruction
+	auto dxDevice = amComPtr(graphics::RenderGetDevice());
+	auto dxContext = amComPtr(graphics::RenderGetContext());
+
 	// Even though render is created before UI (in order to allocate GPU objects),
 	// we must destroy it now because it is currently drawing UI
 	m_Render = nullptr;
 	m_ImGlue = nullptr;
 	m_PlatformWindow = nullptr;
+	m_ImageCache = nullptr;
+
+	// Report all live DX objects, might be not the best place to do this but this must be done
+	// after rendering and ui systems are destroyed, to ensure that we'll get only actually leaked objects
+#if AM_STANDALONE && DEBUG
+	// Force cleanup to destroy resources with zero ref count
+	if (dxContext) dxContext->Flush();
+	if (dxDevice)
+	{
+		ID3D11Debug* debug;
+		AM_ASSERT_STATUS(dxDevice->QueryInterface(__uuidof(ID3D11Debug), reinterpret_cast<void**>(&debug)));
+		AM_ASSERT_STATUS(debug->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL | D3D11_RLDO_IGNORE_INTERNAL));
+		debug->Release();
+	}
+#endif
 
 	// Integration is called by ImGlue, must be destroyed after
 	// Ideally we can destroy them in the right order if we add rendering function
 	AM_INTEGRATED_ONLY(m_Integration = nullptr);
-
-	m_ImageCache = nullptr;
 
 	asset::TxdAsset::ShutdownClass();
 	asset::AssetFactory::Shutdown();

@@ -20,7 +20,6 @@ public:
 	explicit amComPtr(T* t)
 	{
 		m_Ptr = t;
-		//SAFE_ADDREF(m_Ptr);
 	}
 
 	amComPtr(const amComPtr& other)
