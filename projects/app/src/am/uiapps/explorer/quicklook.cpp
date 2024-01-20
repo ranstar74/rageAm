@@ -82,7 +82,7 @@ void rageam::ui::QuickLook::Render()
 		m_AnimatedSize = ImLerp(m_AnimatedSize, m_WindowSize, by);
 
 		// Now animated size is close enough to actual, we can finish animation
-		if (rage::Math::AlmostEquals(m_AnimatedSize.x, m_WindowSize.x))
+		if (rage::AlmostEquals(m_AnimatedSize.x, m_WindowSize.x))
 		{
 			m_AnimatedSize = {};
 
