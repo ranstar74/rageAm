@@ -26,6 +26,8 @@ namespace rageam::ui
 		struct AsyncImage
 		{
 			amComPtr<ID3D11ShaderResourceView>	View;
+			// We can't set view from parallel thread, it's still might be referenced in the draw list
+			amComPtr<ID3D11ShaderResourceView>	ViewPending;
 			graphics::ImagePtr					Image;
 			BackgroundTaskPtr					LoadTask;
 			graphics::ImageCompressorToken		LoadToken;
@@ -33,13 +35,15 @@ namespace rageam::ui
 			u64									LastLoadTime = 0;
 			ImVec2								UV2 = { 1, 1 };			// Only for RAW view, since we allow weird-sized RGBA
 			bool								IsLoading;
-			std::mutex							Mutex;					// Must be locked before accessing anything
+			std::recursive_mutex				Mutex;					// Must be locked before accessing anything
 
 			~AsyncImage();
 
 			void LoadAsyncCompressed(const file::WPath& path, const graphics::ImageCompressorOptions& options);
 			void LoadAsync(const file::WPath& path);
 			void CancelAsyncLoading();
+
+			ImTextureID GetTextureID();
 		};
 
 		struct SamplerCallbackState

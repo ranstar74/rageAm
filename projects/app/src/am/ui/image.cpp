@@ -11,16 +11,16 @@ rageam::graphics::ImageDX11ResourceOptions rageam::ui::ImImage::GetResourceOptio
 	return resourceOptions;
 }
 
-int rageam::ui::ImImage::FindBestMatchLayer(int width, int height) const
+rageam::ui::ImImage::ImageLayer& rageam::ui::ImImage::FindBestMatchLayer(List<ImageLayer>& layers, int width, int height) const
 {
 	int bestFitIndex = graphics::ImageFindBestResolutionMatch(
-		m_Layers.GetSize(), width, height, [this](int i, int& outW, int& outH)
+		layers.GetSize(), width, height, [this, &layers](int i, int& outW, int& outH)
 		{
-			const graphics::ImageInfo& info = m_Layers[i].ImageInfo;
+			const graphics::ImageInfo& info = layers[i].ImageInfo;
 			outW = info.Width;
 			outH = info.Height;
 		});
-	return bestFitIndex;
+	return layers[bestFitIndex];
 }
 
 rageam::ui::ImImage::~ImImage()
@@ -39,6 +39,7 @@ ImTextureID rageam::ui::ImImage::GetID() const
 
 bool rageam::ui::ImImage::LoadInternal(const file::WPath& path, int maxResolution)
 {
+	m_LayersPending.Clear();
 	m_LoadedPath = path;
 
 	List<graphics::ImagePtr> images;
@@ -96,14 +97,15 @@ bool rageam::ui::ImImage::LoadInternal(const file::WPath& path, int maxResolutio
 			return false;
 
 		std::unique_lock lock(m_Mutex);
-		ImageLayer& layer = m_Layers.Construct();
+		ImageLayer& layer = m_LayersPending.Construct();
 		layer.ImageView = std::move(view);
 		layer.ImageUV2 = ImVec2(uv2.X, uv2.Y);
 		layer.ImageInfo = image->GetInfo();
 	}
 
 	int maxRes = graphics::IMAGE_MAX_RESOLUTION;
-	m_LargestLayer = m_Layers[FindBestMatchLayer(maxRes, maxRes)];
+	m_LargestLayer = FindBestMatchLayer(m_LayersPending, maxRes, maxRes);
+	m_HasPending = true;
 
 	return true;
 }
@@ -123,7 +125,8 @@ void rageam::ui::ImImage::Load(const file::WPath& path, int maxResolution)
 void rageam::ui::ImImage::Set(const graphics::ImagePtr& image, int maxResolution)
 {
 	m_IsSvg = false;
-	m_Layers.Clear();
+	m_LayersPending.Clear();
+	m_LargestLayer = {};
 	m_LoadedPath = L"";
 	graphics::ImageDX11ResourceOptions resourceOptions = GetResourceOptions(maxResolution);
 	Vec2S uv2;
@@ -134,11 +137,14 @@ void rageam::ui::ImImage::Set(const graphics::ImagePtr& image, int maxResolution
 		return;
 	}
 	std::unique_lock lock(m_Mutex);
-	ImageLayer& layer = m_Layers.Construct();
+	ImageLayer& layer = m_LayersPending.Construct();
 	layer.ImageView = std::move(view);
 	layer.ImageUV2 = ImVec2(uv2.X, uv2.Y);
 	layer.ImageInfo = image->GetInfo();
+	int maxRes = graphics::IMAGE_MAX_RESOLUTION;
+	m_LargestLayer = FindBestMatchLayer(m_LayersPending, maxRes, maxRes);
 	m_FailedToLoad = false;
+	m_HasPending = true;
 }
 
 void rageam::ui::ImImage::Render(float width, float height)
@@ -155,13 +161,19 @@ void rageam::ui::ImImage::Render(float width, float height)
 		LoadInternal(m_LoadedPath);
 	}
 
+	// Accept loaded image...
+	if (m_HasPending)
+	{
+		m_Layers = std::move(m_LayersPending);
+		m_HasPending = false;
+	}
+
 	ID3D11ShaderResourceView* resourceView = nullptr;
 	ImVec2 uv2 = { 1.0f, 1.0f };
 	std::unique_lock lock(m_Mutex);
-	if (m_Layers.Any() /*IsLoaded()*/)
+	if (m_Layers.Any())
 	{
-
-		const ImageLayer& bestLayer = m_Layers[FindBestMatchLayer(widthI, heightI)];
+		const ImageLayer& bestLayer = FindBestMatchLayer(m_Layers, widthI, heightI);
 		resourceView = bestLayer.ImageView.Get();
 		uv2 = bestLayer.ImageUV2;
 	}

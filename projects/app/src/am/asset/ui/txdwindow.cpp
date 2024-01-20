@@ -128,7 +128,7 @@ void rageam::ui::TextureVM::AsyncImage::LoadAsyncCompressed(const file::WPath& p
 			timer.Stop();
 
 			Mutex.lock();
-			View = std::move(view);
+			ViewPending = std::move(view);
 			Image = std::move(image);
 			CompressedInfo = compressedInfo;
 			LastLoadTime = timer.GetElapsedMilliseconds();
@@ -166,7 +166,7 @@ void rageam::ui::TextureVM::AsyncImage::LoadAsync(const file::WPath& path)
 			timer.Stop();
 
 			Mutex.lock();
-			View = std::move(view);
+			ViewPending = std::move(view);
 			Image = std::move(image);
 			CompressedInfo = {};
 			UV2 = ImVec2(uv2.X, uv2.Y);
@@ -183,6 +183,14 @@ void rageam::ui::TextureVM::AsyncImage::CancelAsyncLoading()
 	LoadToken.Canceled = true;
 	if (LoadTask) LoadTask->Wait();
 	LoadTask = nullptr;
+}
+
+ImTextureID rageam::ui::TextureVM::AsyncImage::GetTextureID()
+{
+	std::unique_lock lock(Mutex);
+	if(ViewPending)
+		View = std::move(ViewPending);
+	return View.Get();
 }
 
 rageam::ui::TextureVM::SharedState::SharedState()
@@ -808,7 +816,7 @@ void rageam::ui::TextureVM::RenderImageViewport()
 		}
 		// We interpret callback state as address
 		dl->AddCallback(SetSamplerCallback, *(char**)&samplerCallbackState);
-		dl->AddImage(im->View.Get(), imageMin, imageMax, ImVec2(0, 0), im->UV2);
+		dl->AddImage(im->GetTextureID(), imageMin, imageMax, ImVec2(0, 0), im->UV2);
 
 		dl->AddCallback(RestoreSamplerCallback, NULL);
 	}
@@ -893,14 +901,14 @@ void rageam::ui::TextureVM::GetIcon(ImTextureID& id, int& width, int& height) co
 {
 	std::unique_lock lock(m_Compressed->Mutex);
 
+	id = m_Compressed->GetTextureID();
+
 	// Image was not loaded yet or failed...
-	if (!m_Compressed->View)
+	if (!id)
 	{
-		id = nullptr; width = 1; height = 1;
+		width = 1; height = 1;
 		return;
 	}
-
-	id = m_Compressed->View.Get();
 	width = m_Compressed->Image->GetWidth();
 	height = m_Compressed->Image->GetHeight();
 }
