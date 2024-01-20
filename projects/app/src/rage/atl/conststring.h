@@ -1,9 +1,17 @@
+//
+// File: conststring.h
+//
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
+//
+// Part of "Rage Am" Research Project.
+//
 #pragma once
-#include <cstring>
 
 #include "common/types.h"
 #include "rage/paging/compiler/compiler.h"
 #include "rage/paging/compiler/snapshotallocator.h"
+
+#include <cstring>
 
 namespace rage
 {
