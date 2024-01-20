@@ -90,6 +90,7 @@ void rageam::System::Destroy()
 
 	m_ImageCache = nullptr;
 
+	asset::TxdAsset::ShutdownClass();
 	asset::AssetFactory::Shutdown();
 	ui::AssetWindowFactory::Shutdown();
 	BackgroundWorker::Shutdown();
