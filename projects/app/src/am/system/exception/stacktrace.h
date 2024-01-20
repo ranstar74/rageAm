@@ -153,5 +153,11 @@ namespace rageam
 			WriteTo(CaptureFromContext(context), buffer, bufferSize);
 			FreeSymbols();
 		}
+
+		AM_NOINLINE static void Print()
+		{
+			thread_local char buffer[STACKTRACE_BUFFER_SIZE];
+			CaptureAndWriteTo(buffer, STACKTRACE_BUFFER_SIZE);
+		}
 	};
 }
