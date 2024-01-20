@@ -4,10 +4,10 @@
 
 #include "am/integration/memory/address.h"
 #include "am/integration/memory/hook.h"
-#include "rage/streaming/assetstore.h"
-#include "rage/streaming/assetstores.h"
 #include "rage/streaming/streamengine.h"
 #include "rage/system/tls.h"
+#include "rage/framework/streaming/assetstore.h"
+#include "rage/streaming/streamingdefs.h"
 
 #include "headers/commands_2699_16.h"
 #include "types.h"
@@ -20,8 +20,9 @@ namespace
 	gmAddress							s_scrThread_UpdateAll;
 	rage::ThreadLocal<pVoid>			tl_CurrentThread;
 	rage::ThreadLocal<bool>				tl_ThisThreadIsRunningAScript;
+	bool*								sm_UpdatingThreads;
 	thread_local pVoid					tl_OldThread;
-	thread_local bool					tl_CalledScrBegin;
+	thread_local int					tl_BeginEndStackSize;
 	std::mutex							s_DelegateQueueMutex;
 	rageam::List<std::function<void()>> s_DelegateQueue;
 }
@@ -56,7 +57,7 @@ void rageam::integration::scrInit()
 	// We can't call REQUEST_SCRIPT native because it's supposed to be called ONLY FROM SCRIPT,
 	// but we are not in the script yet. We have to do streaming request manually
 	struct Dummy {};
-	auto streamingScripts = reinterpret_cast<fwAssetStore<Dummy, fwAssetDef>*>(strStreamingModuleMgr::GetModule("ysc"));
+	auto streamingScripts = reinterpret_cast<fwAssetStore<Dummy, fwAssetDef<Dummy>>*>(strStreamingModuleMgr::GetModule("ysc"));
 	strLocalIndex localSlot = streamingScripts->FindSlotFromHashKey(atStringHash(SCRIPT_NAME));
 	AM_ASSERT(localSlot != rage::INVALID_STR_INDEX, "scrInit() -> Script '%s' not found!", SCRIPT_NAME);
 
@@ -112,7 +113,7 @@ void rageam::integration::scrInit()
 	s_Thread = getThread(s_ThreadId);
 	AM_ASSERT(s_Thread != nullptr, "scrInit() -> Failed to create thread.");
 
-	// Set state to halted, it won't give let to shut it down
+	// Set state to halted, it won't let game to call abort
 	*((char*)s_Thread + 32) = 3;
 
 	// Script is now referenced by created thread, let streaming manager to handle it
@@ -133,7 +134,6 @@ void rageam::integration::scrInit()
 	gmAddress tlValues = gmAddress::Scan("B8 38 1A 00 00 8B C0 8B 0D ?? ?? ?? ?? 65 48 8B 14 25 58 00 00 00 48 8B 0C CA 8A 54 24 60");
 	tl_CurrentThread.SetOffset(*tlValues.GetAt(-82 + 1).To<int*>());
 	tl_ThisThreadIsRunningAScript.SetOffset(*tlValues.GetAt(1).To<int*>());
-
 #elif APP_BUILD_2699_16_RELEASE
 	gmAddress tlValues = gmAddress::Scan("41 BD 38 1A 00 00");
 	// mov r13d, 1A38h
@@ -148,7 +148,8 @@ void rageam::integration::scrInit()
 	tl_CurrentThread.SetOffset(*tlValues.GetAt(2).To<int*>());
 	tl_ThisThreadIsRunningAScript.SetOffset(*tlValues.GetAt(6 + 2).To<int*>());
 #endif
-
+	sm_UpdatingThreads = gmAddress::Scan("0F B6 05 ?? ?? ?? ?? 85 C0 74 19 E8 ?? ?? ?? ?? 48 89 44 24 20").GetRef(3).To<bool*>();
+	
 	s_scrThread_UpdateAll = gmAddress::Scan("89 4C 24 08 48 81 EC 98 00 00 00 C6 44 24 46");
 	Hook::Create(s_scrThread_UpdateAll, aImpl_scrThread_UpdateAll, &gImpl_scrThread_UpdateAll);
 
@@ -208,21 +209,25 @@ void scrDispatch(const std::function<void()>& fn)
 void scrBegin()
 {
 	AM_ASSERT(s_Initialized, "scrBegin() -> scrInit was not called!");
-	AM_ASSERT(!tl_CalledScrBegin, "scrBegin() -> scrEnd was not called!");
 
 	tl_OldThread = tl_CurrentThread;
 	tl_CurrentThread = s_Thread;
-	tl_CalledScrBegin = true;
+	tl_BeginEndStackSize++;
+	tl_ThisThreadIsRunningAScript = true;
+	*sm_UpdatingThreads = true;
 }
 
 void scrEnd()
 {
-	AM_ASSERT(tl_CalledScrBegin, "scrBegin() -> scrBegin was not called!");
+	AM_ASSERT(tl_CurrentThread, "scrEnd() -> scrBegin was not called!");
+	AM_ASSERT(tl_BeginEndStackSize > 0, "scrEnd() -> was called too many times!");
 
+	bool isStackEmpty = tl_OldThread == nullptr;
 	tl_CurrentThread = tl_OldThread;
-	tl_ThisThreadIsRunningAScript = tl_OldThread != nullptr;
-	tl_CalledScrBegin = false;
+	tl_ThisThreadIsRunningAScript = !isStackEmpty;
+	*sm_UpdatingThreads = !isStackEmpty;
 	tl_OldThread = nullptr;
+	tl_BeginEndStackSize--;
 }
 
 #endif

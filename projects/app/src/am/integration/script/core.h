@@ -18,9 +18,13 @@ namespace rageam::integration
 	union scrValue { int Int; float Float; unsigned Uns; scrValue* Reference; const char* String; };
 	struct scrInfo
 	{
-		scrValue* ResultPtr;
-		int	      ParamCount;
-		scrValue* Params;
+		scrValue*		ResultPtr;
+		int				ParamCount;
+		scrValue*		Params;
+		// Temp storage for vector parameters
+		int				BufferCount = 0;
+		rage::Vector3*	Orig[4] = {};
+		rage::Vector3	Buffer[4] = {};
 	};
 
 	void scrInit();
@@ -42,5 +46,14 @@ void scrDispatch(const std::function<void()>& fn);
 // You should not call this function inside IUpdateComponent because it already was called for you
 void scrBegin();
 void scrEnd();
+
+#include "types.h"
+
+// Include build-specific headers
+#if APP_BUILD_2699_16_RELEASE
+#include "headers/commands_2699_16.h"
+#else
+#error No script headers available for current game version.
+#endif
 
 #endif
