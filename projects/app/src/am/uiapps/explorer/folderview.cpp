@@ -8,7 +8,7 @@
 #include "helpers/format.h"
 
 #ifdef AM_INTEGRATED
-#include "am/ui/apps/integration/modelscene.h"
+#include "am/integration/ui/modelscene.h"
 #endif
 
 const rageam::ui::EntrySelection& rageam::ui::FolderView::GetSelectedEntries() const
