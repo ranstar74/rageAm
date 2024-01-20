@@ -8,8 +8,10 @@
 #include "am/integration/memory/address.h"
 #endif
 
+#ifdef AM_STANDALONE
 // Window Icon
 #include "../resources/resource.h"
+#endif
 
 #include <mutex>
 
@@ -25,13 +27,19 @@ namespace
 #ifdef AM_INTEGRATED
 	gmAddress		s_Addr_WndProc;
 	bool			s_HooksInitialized = false;
+	bool			s_CursorVisible = false;
 #endif
 }
 
 #ifdef AM_INTEGRATED
+int (*gImpl_ShowCursor)(bool);
+int aImpl_ShowCursor(bool visible)
+{
+	// Don't let game to do anything
+	return visible ? 0 : -1;
+}
 void (*gImpl_ClipCursor)(LPRECT);
 void aImpl_ClipCursor(LPRECT) {}
-
 LRESULT(*gImpl_WndProc)(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #endif
 
@@ -194,20 +202,19 @@ rageam::graphics::Window::~Window()
 	Destroy();
 }
 
-void rageam::graphics::Window::SetMouseVisible(bool visiblity) const
+void rageam::graphics::Window::SetMouseVisible(bool visibility) const
 {
-	SetSystemCursor(LoadCursor(0, IDC_ARROW), 32512);
-
 	// We call ShowCursor multiple times because it holds counter internally
 	// See remarks https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showcursor
-	if (visiblity)
-	{
+#ifdef AM_INTEGRATED
+	// Must be called from window thread, we call it in Update
+	s_CursorVisible = visibility;
+#else
+	if (visibility)
 		while (ShowCursor(true) < 0) {}
-	}
 	else
-	{
 		while (ShowCursor(false) >= 0) {}
-	}
+#endif
 }
 
 bool rageam::graphics::Window::GetMouseClipped() const
@@ -248,13 +255,12 @@ void rageam::graphics::Window::GetPosition(int& outX, int& outY) const
 	outY = point.y;
 }
 
+#ifdef AM_INTEGRATED
 void rageam::graphics::Window::UpdateInit() const
 {
-#ifdef AM_INTEGRATED
-	s_Addr_WndProc =
-
+	s_Addr_WndProc = 
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
-		gmAddress::Scan("4C 89 4C 24 20 4C 89 44 24 18 89 54 24 10 48 89 4C 24 08 57 48 81 EC D0", "rage::grcWindowProc");
+		gmAddress::Scan("E9 2F 15 00 00", "rage::grcWindowProc+0x176").GetAt(-0x176);
 #elif APP_BUILD_2699_16_RELEASE
 		gmAddress::Scan("48 8B C4 48 89 58 08 4C 89 48 20 55 56 57 41 54 41 55 41 56 41 57 48 8D 68 A1 48 81 EC F0", "rage::grcWindowProc");
 #else
@@ -262,12 +268,18 @@ void rageam::graphics::Window::UpdateInit() const
 #endif
 	Hook::Create(s_Addr_WndProc, WndProc, &gImpl_WndProc);
 	Hook::Create(ClipCursor, aImpl_ClipCursor, &gImpl_ClipCursor);
+	Hook::Create(ShowCursor, aImpl_ShowCursor, &gImpl_ShowCursor);
 	s_HooksInitialized = true;
-#endif
 }
+#endif
 
+#ifdef AM_INTEGRATED
+void rageam::graphics::Window::Update() const
+#else
 bool rageam::graphics::Window::Update() const
+#endif
 {
+#ifdef AM_STANDALONE
 	s_NewWidth = -1;
 	s_NewHeight = -1;
 	s_UpdatedPosition = false;
@@ -286,15 +298,20 @@ bool rageam::graphics::Window::Update() const
 	{
 		ClipCursorToWindowRect(m_Handle, m_MouseClipped);
 	}
-
 	return true;
+#else
+	// Update cursor visibility
+	if (s_CursorVisible)
+		while (gImpl_ShowCursor(true) < 0) {}
+	else
+		while (gImpl_ShowCursor(false) >= 0) {}
+#endif
 }
 
 bool rageam::graphics::WindowGetNewSize(int& newWidth, int& newHeight)
 {
 	newWidth = s_NewWidth;
 	newHeight = s_NewHeight;
-
 	return s_NewWidth != -1;
 }
 

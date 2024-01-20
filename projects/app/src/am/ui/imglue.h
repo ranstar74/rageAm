@@ -95,8 +95,12 @@ namespace rageam::ui
 		ImGlue();
 		~ImGlue() override;
 
+		// Must be called from update thread
 		bool BuildDrawList();
+		// Renders draw list that was built in BuildDrawList, must be called from render thread
 		void Render() const;
+		// Updates ImGui platform windows, must be called from window thread
+		void PlatformUpdate() const;
 
 		// UI is disabled by default, game update is initialized before rendering,
 		// and we have to make sure that we start pumping UI only after both render and game update are init

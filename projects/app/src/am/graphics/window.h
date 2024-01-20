@@ -13,6 +13,8 @@
 #include <Windows.h>
 #include <imgui.h>
 
+// TODO: We are breaking game mouse cursor visibility, this will break social club window
+
 // Forward declare message handler from imgui_impl_win32.cpp
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -42,7 +44,7 @@ namespace rageam::graphics
 		Window();
 		~Window() override;
 
-		void SetMouseVisible(bool visiblity) const;
+		void SetMouseVisible(bool visibility) const;
 		// Whether mouse cursor is locked within window bounds
 		bool GetMouseClipped() const;
 		void SetMouseClipped(bool clipped);
@@ -55,8 +57,12 @@ namespace rageam::graphics
 
 		// In integration mode we hook WndProc, we can't do this in constructor because UI is not initialized yet
 		// Must be called once before update loop
+#ifdef AM_INTEGRATED
 		void UpdateInit() const;
+		void Update() const;
+#else
 		bool Update() const;
+#endif
 
 		HWND GetHandle() const { return m_Handle; }
 	};

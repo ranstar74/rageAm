@@ -473,7 +473,7 @@ bool rageam::ui::ImGlue::BuildDrawList()
 {
 	std::unique_lock lock(m_Mutex);
 
-	if (!m_Enabled)
+	 if (!m_Enabled)
 		return true;
 
 	// Don't process UI anymore... we've got assertion before
@@ -516,13 +516,14 @@ bool rageam::ui::ImGlue::BuildDrawList()
 	// Execute all apps
 	bool onlyUpdate = !IsVisible;
 	bool isDisabled = IsDisabled;
-	if (isDisabled) ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-	AM_INTEGRATED_ONLY(integration::GameIntegration::GetInstance()->ComponentMgr->UIUpdateAll());
+	if (isDisabled) ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true); // TODO: Window still can be dragged
+	AM_INTEGRATED_ONLY(scrBegin());
 	for (amUniquePtr<App>& app : m_Apps)
 	{
 		m_LastUpdatedApp = app.get();
 		app->Tick(onlyUpdate);
 	}
+	AM_INTEGRATED_ONLY(scrEnd());
 	if (isDisabled) ImGui::PopItemFlag();
 
 	// We really shouldn't render this
@@ -534,10 +535,10 @@ bool rageam::ui::ImGlue::BuildDrawList()
 
 	ImGui::Render();
 
+	timer.Stop();
+
 	m_LastUpdatedApp = nullptr;
 	m_IsFirstFrame = false;
-
-	timer.Stop();
 	LastUpdateTimer = timer;
 
 	return true;
@@ -553,18 +554,30 @@ void rageam::ui::ImGlue::Render() const
 	if (ImGetAssertWasThrown())
 		return;
 
+	ImDrawData* drawData = ImGui::GetDrawData();
+	if (drawData) ImGui_ImplDX11_RenderDrawData(drawData);
+
+	ImGuiIO& io = ImGui::GetIO();
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	{
+		ImGui::RenderPlatformWindowsDefault();
+	}
+}
+
+void rageam::ui::ImGlue::PlatformUpdate() const
+{
+	if (!m_Enabled)
+		return;
+
 	// Racing condition - after DLL injection render thread was invoked before game update...
 	// we must skip this render and wait for next game update
 	if (m_IsFirstFrame)
 		return;
 
-	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-
 	ImGuiIO& io = ImGui::GetIO();
 	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 	{
 		ImGui::UpdatePlatformWindows();
-		ImGui::RenderPlatformWindowsDefault();
 	}
 }
 

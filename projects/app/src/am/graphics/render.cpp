@@ -2,6 +2,7 @@
 
 #include "am/system/asserts.h"
 #include "am/graphics/window.h"
+#include "am/integration/integration.h"
 #include "am/ui/imglue.h"
 
 #ifdef AM_INTEGRATED
@@ -12,19 +13,40 @@
 namespace
 {
 #ifdef AM_INTEGRATED
-	gmAddress			s_Addr_PresentImage = 0;
-	gmAddress			s_Addr_IdleSection = 0;
-	std::atomic_bool	s_BgThreadNeedToStop;
-	std::atomic_bool	s_BgThreadStopped = true;
-	std::atomic_bool	s_DoneRender = false;
+	gmAddress        s_Addr_PresentImage = 0;
+	gmAddress        s_Addr_DeviceManage = 0;
+	gmAddress        s_Addr_IdleSection = 0;
+	std::atomic_bool s_BgThreadNeedToStop;
+	std::atomic_bool s_BgThreadStopped = true;
 #endif
 	// We are not locking thread for long duration, there is
 	// no point to use condition variables here
-	std::atomic_bool	s_Locked;
-	std::atomic_bool	s_Rendering;
+	std::atomic_bool s_Locked;
+	std::atomic_bool s_Rendering;
+	std::atomic_bool s_UpdatedPlatforms = true;
+	DWORD            s_RenderThreadID = DWORD(-1);
 }
 
 #ifdef AM_INTEGRATED
+void(*gImpl_DeviceManage)();
+void aImpl_DeviceManage()
+{
+	gImpl_DeviceManage();
+
+	// This function is called from both game and render threads,
+	// we need render thread only (thread where grcWindow is updated)
+	if (GetCurrentThreadId() == s_RenderThreadID)
+	{
+		// Update from window thread...
+		if (!s_UpdatedPlatforms)
+		{
+			rageam::ui::GetUI()->PlatformUpdate();
+			s_UpdatedPlatforms = true;
+		}
+
+		rageam::graphics::Window::GetInstance()->Update();
+	}
+}
 void(*gImpl_PresentImage)();
 void aImpl_PresentImage()
 {
@@ -32,19 +54,18 @@ void aImpl_PresentImage()
 	if (!s_Initialized)
 	{
 		(void)SetThreadDescription(GetCurrentThread(), L"[RAGE] Render Thread");
+		s_RenderThreadID = GetCurrentThreadId();
 		s_Initialized = true;
 	}
 
 	if (s_Locked) {} // Wait until render is unlocked...
 
 	s_Rendering = true;
-	if (!s_DoneRender) // Game might not call present function every frame, we have to sync it ourselfs
 	{
 		// Dispatch our calls right before game present
 		rageam::graphics::Render::GetInstance()->DoRender();
-		s_DoneRender = true;
+		gImpl_PresentImage();
 	}
-	gImpl_PresentImage();
 	s_Rendering = false;
 
 	if (s_BgThreadNeedToStop)
@@ -137,22 +158,24 @@ void rageam::graphics::Render::CreateDevice()
 #endif
 }
 
+#ifdef AM_STANDALONE
 void rageam::graphics::Render::CreateRT()
 {
-#ifdef AM_STANDALONE
 	ID3D11Texture2D* backBuffer = nullptr;
 	ID3D11RenderTargetView* backBufferRT = nullptr;
 	AM_ASSERT_STATUS(Swapchain->GetBuffer(0, IID_PPV_ARGS(&backBuffer)));
 	AM_ASSERT_STATUS(Device->CreateRenderTargetView(backBuffer, nullptr, &backBufferRT));
 	backBuffer->Release();
 	m_RenderTarget = amComPtr(backBufferRT);
-#endif
 }
+#endif
 
 rageam::graphics::Render::Render()
 {
 	CreateDevice();
+#ifdef AM_STANDALONE
 	CreateRT();
+#endif
 }
 
 rageam::graphics::Render::~Render()
@@ -162,6 +185,7 @@ rageam::graphics::Render::~Render()
 	while (!s_BgThreadStopped) {}
 
 	// Present image hook is removed in aImpl_PresentImage
+	Hook::Remove(s_Addr_DeviceManage);
 	Hook::Remove(s_Addr_IdleSection);
 #endif
 }
@@ -181,7 +205,7 @@ void rageam::graphics::Render::SetRenderSize(int width, int height)
 }
 #endif
 
-bool rageam::graphics::Render::DoRender()
+void rageam::graphics::Render::DoRender() const
 {
 	AM_ASSERT(Swapchain != nullptr, "Render::DoRender() -> Window was not created, can't render frame.");
 
@@ -199,26 +223,24 @@ bool rageam::graphics::Render::DoRender()
 #ifdef AM_STANDALONE
 	(void)Swapchain->Present(1, 0);
 #endif
-
-	return true;
 }
 
-void rageam::graphics::Render::BuildDrawLists()
+void rageam::graphics::Render::BuildDrawLists() const
 {
 #ifdef AM_INTEGRATED
-	// Wait until render is finished... game might skip some frames
-	if (!s_DoneRender)
+	// Wait until window is updated...
+	if (!s_UpdatedPlatforms)
 		return;
 #endif
 
 	ui::GetUI()->BuildDrawList();
 
 #ifdef AM_INTEGRATED
-	s_DoneRender = false;
+	s_UpdatedPlatforms = false;
 #endif
 }
 
-void rageam::graphics::Render::EnterRenderLoop()
+void rageam::graphics::Render::EnterRenderLoop() AM_INTEGRATED_ONLY(const)
 {
 	Window* window = Window::GetInstance();
 	window->UpdateInit();
@@ -263,7 +285,9 @@ void rageam::graphics::Render::EnterRenderLoop()
 		"40 55 53 56 57 41 54 41 56 41 57 48 8B EC 48 83 EC 40 48 8B 0D",
 #endif
 		"rage::grcDevice::EndFrame");
+	s_Addr_DeviceManage = gmAddress::Scan("7E 0F 48 8B 0D", "rage::grcDevice::Manage+0x1B0").GetAt(-0x1B0);
 
+	Hook::Create(s_Addr_DeviceManage, aImpl_DeviceManage, &gImpl_DeviceManage);
 	Hook::Create(s_Addr_PresentImage, aImpl_PresentImage, &gImpl_PresentImage);
 
 	// Render is now initialized, we can enable UI

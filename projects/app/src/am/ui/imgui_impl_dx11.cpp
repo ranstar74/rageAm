@@ -710,6 +710,8 @@ static void ImGui_ImplDX11_RenderWindow(ImGuiViewport* viewport, void*)
 {
 	ImGui_ImplDX11_Data* bd = ImGui_ImplDX11_GetBackendData();
 	ImGui_ImplDX11_ViewportData* vd = (ImGui_ImplDX11_ViewportData*)viewport->RendererUserData;
+	if (!vd)
+		return;
 	ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
 	bd->pd3dDeviceContext->OMSetRenderTargets(1, &vd->RTView, nullptr);
 	if (!(viewport->Flags & ImGuiViewportFlags_NoRendererClear))
@@ -720,7 +722,8 @@ static void ImGui_ImplDX11_RenderWindow(ImGuiViewport* viewport, void*)
 static void ImGui_ImplDX11_SwapBuffers(ImGuiViewport* viewport, void*)
 {
 	ImGui_ImplDX11_ViewportData* vd = (ImGui_ImplDX11_ViewportData*)viewport->RendererUserData;
-	vd->SwapChain->Present(0, 0); // Present without vsync
+	if(vd)
+		vd->SwapChain->Present(0, 0); // Present without vsync
 }
 
 static void ImGui_ImplDX11_InitPlatformInterface()
