@@ -18,13 +18,13 @@ namespace
 	gmAddress        s_Addr_IdleSection = 0;
 	std::atomic_bool s_BgThreadNeedToStop;
 	std::atomic_bool s_BgThreadStopped = true;
+	std::atomic_bool s_UpdatedPlatforms = true;
+	DWORD            s_RenderThreadID = DWORD(-1);
 #endif
 	// We are not locking thread for long duration, there is
 	// no point to use condition variables here
 	std::atomic_bool s_Locked;
 	std::atomic_bool s_Rendering;
-	std::atomic_bool s_UpdatedPlatforms = true;
-	DWORD            s_RenderThreadID = DWORD(-1);
 }
 
 #ifdef AM_INTEGRATED
