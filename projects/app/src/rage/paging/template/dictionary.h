@@ -49,14 +49,14 @@ namespace rage
 		}
 
 	public:
-		pgDictionary() { m_RefCount = 0; }
-		pgDictionary(u16 size) : m_Keys(size), m_Items(size) { m_RefCount = 0; }
+		pgDictionary() { m_RefCount = 1; }
+		pgDictionary(u16 size) : m_Keys(size), m_Items(size) { m_RefCount = 1; }
 		pgDictionary(const pgDictionary& other) : pgBase(other), m_Keys(other.m_Keys), m_Items(other.m_Items)
 		{
 			if (IsResourceCompiling())
 				m_RefCount = other.m_RefCount;
 			else
-				m_RefCount = 0;
+				m_RefCount = 1;
 		}
 		pgDictionary(pgDictionary&& other) noexcept : pgDictionary(0)
 		{
