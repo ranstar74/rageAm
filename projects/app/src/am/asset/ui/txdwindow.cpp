@@ -476,9 +476,8 @@ void rageam::ui::TextureVM::RenderMiscProperties()
 				ImGui::Checkbox(textureVM.m_TextureName, &textureVM.m_MarkedForCopying);
 				if (disabled) ImGui::EndDisabled();
 			}
-
-			ImGui::EndChild();
 		}
+			ImGui::EndChild();
 		ImGui::PopStyleVar(); // ItemSpacing
 
 		// Bottom panel
