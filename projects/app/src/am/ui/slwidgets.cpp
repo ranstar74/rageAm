@@ -1525,7 +1525,7 @@ bool SlGui::GraphTreeNode(ConstString text, bool& selected, bool& toggled, SlGui
 	//ImRect bb(frameMin, frameMax);
 
 	// Based on whether we hover arrow / frame we select corresponding bounding box for button
-	constexpr float arrowSizeX = 18.0f; // Eyeballed
+	float arrowSizeX = ImGui::GetFrameHeight() + GImGui->Style.FramePadding.x + 1; // Must match collapsing header
 	ImVec2 arrowMin(cursor.x + style.FramePadding.x, frameMin.y);
 	ImVec2 arrowMax(arrowMin.x + arrowSizeX, frameMax.y);
 	ImRect arrowBb(arrowMin, arrowMax);
@@ -1608,22 +1608,15 @@ bool SlGui::GraphTreeNode(ConstString text, bool& selected, bool& toggled, SlGui
 	{
 		// Shrink it a little to create spacing between items
 		// We do that after collision pass so you can't click in-between
-		//bb.Expand(ImVec2(-1, -1));
+		bb.Max.y -= 1;
 
-		//const SlGuiCol backgroundCol =
-		//	selected ? SlGuiCol_GraphNodePressed : hovered ? SlGuiCol_GraphNodeHovered : SlGuiCol_GraphNode;
-		//const SlGuiCol borderCol = selected ? SlGuiCol_GraphNodeBorderHighlight : SlGuiCol_None;
+		ImU32 backgroundCol = 
+			selected ? ImGui::GetColorU32(ImGuiCol_FrameBgActive) :
+			hovered ? ImGui::GetColorU32(ImGuiCol_FrameBgHovered) : ImGui::GetColorU32(ImGuiCol_FrameBg);
+		ImU32 borderCol = selected ? ImGui::GetColorU32(ImGuiCol_Border) : 0;
 
-		//ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
-
-		//// Shadow, Background, Gloss, Border
-		//SlGui::RenderFrame(bb, SlGui::GetColorGradient(backgroundCol));
-		//SlGui::RenderBorder(bb, SlGui::GetColorGradient(borderCol));
-		//if (selected || hovered) SlGui::RenderGloss(bb, SlGuiCol_GlossBg);
-		//ImGui::PopStyleVar();
-
-		__debugbreak();
-
+		window->DrawList->AddRectFilled(bb.Min, bb.Max, backgroundCol);
+		window->DrawList->AddRect(bb.Min, bb.Max, borderCol);
 	}
 	ImGui::RenderNavHighlight(bb, id, ImGuiNavHighlightFlags_TypeThin);
 
@@ -1645,7 +1638,8 @@ bool SlGui::GraphTreeNode(ConstString text, bool& selected, bool& toggled, SlGui
 		alpha = ImClamp(alpha, 0.0f, maxAlpha);
 
 		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, hoversArrow ? maxAlpha : alpha);
-		ImGui::RenderText(arrowPos, isOpen ? ICON_FA_ANGLE_DOWN : ICON_FA_ANGLE_RIGHT);
+		ImGui::RenderArrow(
+			window->DrawList, arrowPos, ImGui::GetColorU32(ImGuiCol_Text), isOpen ? ImGuiDir_Down : ImGuiDir_Right);
 		ImGui::PopStyleVar(); // Alpha
 	}
 

@@ -114,31 +114,13 @@ namespace rageam::integration
 			SmallList<u16>					Textures;
 		};
 
-		struct VarBlob
+		union VarBlob
 		{
-			int a = 90802011;
-			// int b = 90802011;
-			// char padArray[512];
-			union
-			{
-				// rage::grcInstanceVar data is divided on 16 byte blocks,
-				// maximum data size we can have is 4x4 mat (64 bytes)
-				char Data[64];
-				// Textures however are stored differently
-				rage::grcTexture* Texture;
-			};
-			// int b  = 90802011;
-
-			VarBlob()
-			{
-				//HWBreakpoint::Set(&a, BP_Write, 8);
-				memset(Data, 0, 64);
-			}
-
-			~VarBlob()
-			{
-				//HWBreakpoint::Clear(&a);
-			}
+			// rage::grcInstanceVar data is divided on 16 byte blocks,
+			// maximum data size we can have is 4x4 mat (64 bytes)
+			char Data[64];
+			// Textures however are stored differently
+			rage::grcTexture* Texture;
 		};
 
 		ModelSceneContext*				m_Context;
@@ -158,16 +140,21 @@ namespace rageam::integration
 		// We store all material parameters input by user to preserve them on switching shader
 		SmallList<HashSet<VarBlob>>		m_MaterialValues;
 		double							m_TexturePickerOpenTime = 0.0f;
+		// Shaders that are marked for copying settings to them
+		SmallList<bool>					m_MarkedShaders;
+		SmallList<bool>					m_IgnoredShaderVars;
 
 		// Loads preload.list and assigns tags to shader presets
 		void InitializePresetSearch();
 		void ComputePresetFilterTagAndTokens(ShaderPreset& preset) const;
 
 		rage::grmShaderGroup* GetShaderGroup() const;
-		rage::grmShader* GetSelectedMaterial() const;
+		rage::grmShader*      GetSelectedMaterial() const;
+		asset::MaterialTune*  GetSelectedMaterialTune() const;
 
 		// Returns UI override for missing textures 
 		ImTextureID GetTexID(const rage::grcTexture* tex) const;
+		ImTextureID GetThumbnailTexID(const rage::grcTexture* tex) const;
 		ImU32 GetTexLabelCol(const rage::grcTexture* tex) const;
 		void ScrollingLabel(const ImVec2& pos, const ImRect& bb, const rage::grcTexture* texture) const;
 		rage::grcTexture* TexturePicker_Grid(bool groupByDict, float iconScale);
@@ -182,7 +169,6 @@ namespace rageam::integration
 		void DrawShaderSearchListItem(u16 index);
 		void DrawShaderSearchList();
 		void DrawShaderSearchFilters();
-		void DrawShaderSearch();
 		void DrawMaterialList();
 
 		void DrawMaterialVariables();
@@ -192,6 +178,8 @@ namespace rageam::integration
 		void StoreMaterialValue(u16 materialIndex, u16 varIndex);
 		// Tries to retrieve saved variable value
 		void RestoreMaterialValue(u16 materialIndex, u16 varIndex);
+
+		void CopyMaterialSettingsButton();
 
 	public:
 		MaterialEditor(ModelSceneContext* sceneContext);

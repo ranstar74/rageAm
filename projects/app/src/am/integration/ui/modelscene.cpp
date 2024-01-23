@@ -136,6 +136,7 @@ void rageam::integration::ModelScene::UpdateHotDrawableAndContext()
 	m_Context.Drawable = info.Drawable;
 	m_Context.TXDs = info.TXDs;
 	m_Context.HotFlags = info.HotFlags;
+	m_Context.HotDrawable = m_HotDrawable.get();
 
 	// Entity will be NULL if drawable just compiled
 	if (m_GameEntity)

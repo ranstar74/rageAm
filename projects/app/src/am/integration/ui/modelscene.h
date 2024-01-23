@@ -24,6 +24,7 @@ namespace rageam::integration
 		amPtr<gtaDrawable>      Drawable;
 		asset::DrawableAssetPtr DrawableAsset;
 		asset::DrawableTxdSet*  TXDs;				// All texture dictionaries in the workspace + embed
+		asset::HotDrawable*		HotDrawable;
 	};
 
 	struct DrawableStats

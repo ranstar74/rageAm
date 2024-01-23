@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <defs>
+    <style>.canvas{fill: none; opacity: 0;}.light-defaultgrey-10{fill: #212121; opacity: 0.1;}.light-defaultgrey{fill: #212121; opacity: 1;}</style>
+  </defs>
+  <title>IconLightFilter</title>
+  <g id="canvas">
+    <path class="canvas" d="M16,16H0V0H16Z" />
+  </g>
+  <g id="level-1">
+    <path class="light-defaultgrey-10" d="M2.5,2.5h11l-4,5v5h-3v-5Z" />
+    <path class="light-defaultgrey" d="M13.5,2H2.5l-.391.813L6,7.676V12.5l.5.5h3l.5-.5V7.675l3.891-4.862ZM9.109,7.188,9,7.5V12H7V7.5l-.109-.312L3.54,3h8.92Z" />
+  </g>
+</svg>

@@ -1,7 +1,7 @@
+#include "mateditor.h"
 
 #ifdef AM_INTEGRATED
 
-#include "mateditor.h"
 #include "modelscene.h"
 #include "widgets.h"
 #include "am/integration/hooks/streaming.h"
@@ -102,7 +102,13 @@ rageam::integration::ShaderUIConfig::UIVar* rageam::integration::ShaderUIConfig:
 
 void rageam::integration::MaterialEditor::InitializePresetSearch()
 {
-	auto findShaderPreset = gmAddress::Scan("48 89 5C 24 08 4C 8B 05").ToFunc<rage::grcInstanceData * (u32)>();
+	static auto lookupMaterial = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		"48 83 EC 38 48 C7 44 24 20 00 00 00 00 48 83 3D", "rage::grcEffect::LookupMaterial").GetAt(-0x4)
+#else
+		"48 89 5C 24 08 4C 8B 05", "rage::grcEffect::LookupMaterial")
+#endif
+		.ToFunc<rage::grcInstanceData* (rage::atHashValue)>();
 
 	rage::fiStreamPtr preloadList = rage::fiStream::Open("common:/shaders/db/preload.list");
 	if (!preloadList)
@@ -112,16 +118,17 @@ void rageam::integration::MaterialEditor::InitializePresetSearch()
 	{
 		u32 fileNameHash = rage::atStringHash(fileNameBuffer);
 
-		rage::grcInstanceData* instanceData = findShaderPreset(fileNameHash);
+		rage::grcInstanceData* instanceData = lookupMaterial(fileNameHash);
+		// There are few presets that are only defined in preload list, leftovers... just ignore them
 		if (!instanceData)
 		{
-			AM_WARNINGF("MaterialEditor::InitializePresetSearch() -> Unable to find preset '%s'", fileNameBuffer);
+			// AM_WARNINGF("MaterialEditor::InitializePresetSearch() -> Unable to find preset '%s'", fileNameBuffer);
 			continue;
 		}
 
 		rage::grcEffect* effect = instanceData->GetEffect();
 		// Check if shader can be used for drawables
-		if (effect->LookupTechnique(TECHNIQUE_DRAW) == INVALID_FX_HANDLE)
+		if (effect->LookupTechnique(TECHNIQUE_DRAW) == rage::INVALID_FX_HANDLE)
 			continue;
 
 		ShaderPreset shaderPreset;
@@ -211,16 +218,30 @@ rage::grmShader* rageam::integration::MaterialEditor::GetSelectedMaterial() cons
 	return GetShaderGroup()->GetShader(m_SelectedMaterialIndex);
 }
 
+rageam::asset::MaterialTune* rageam::integration::MaterialEditor::GetSelectedMaterialTune() const
+{
+	if (m_SelectedMaterialIndex == -1)
+		return nullptr;
+	return m_Context->DrawableAsset->GetDrawableTune().Materials.Get(m_SelectedMaterialIndex).get();
+}
+
 ImTextureID rageam::integration::MaterialEditor::GetTexID(const rage::grcTexture* tex) const
 {
-	if (asset::TxdAsset::IsMissingTexture(tex))
+	if (asset::TxdAsset::IsMissingTexture(tex) || asset::TxdAsset::IsNoneTexture(tex))
 		return ui::GetUI()->GetIcon("no_tex_ui")->GetID();
+	return ImTextureID(tex->GetTextureView());
+}
+
+ImTextureID rageam::integration::MaterialEditor::GetThumbnailTexID(const rage::grcTexture* tex) const
+{
+	if (asset::TxdAsset::IsMissingTexture(tex) || asset::TxdAsset::IsNoneTexture(tex))
+		return ui::GetUI()->GetIcon("no_tex_ui_thumb")->GetID();
 	return ImTextureID(tex->GetTextureView());
 }
 
 ImU32 rageam::integration::MaterialEditor::GetTexLabelCol(const rage::grcTexture* tex) const
 {
-	if (!asset::TxdAsset::IsMissingTexture(tex))
+	if (!asset::TxdAsset::IsMissingTexture(tex) && !asset::TxdAsset::IsNoneTexture(tex))
 		return ImGui::GetColorU32(ImGuiCol_Text);
 
 	static constexpr float animTime = 2.0f;
@@ -573,11 +594,11 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 
 	// Draw current texture preview
 	{
-		constexpr float previewIconSize = 32.0f;
+		float previewIconSize = ImGui::GetFontSize() * 2.0f;
 
 		if (currentTexture)
 		{
-			pVoid textureView = currentTexture->GetTextureView();
+			pVoid textureView = GetThumbnailTexID(currentTexture);
 			int width, height;
 			graphics::ImageFitInRect(
 				currentTexture->GetWidth(), currentTexture->GetHeight(), previewIconSize, width, height);
@@ -596,12 +617,43 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 		ImGui::SameLine();
 	}
 
-	// Open picker
 	static constexpr ConstString PICKER_POPUP = "TEXTURE_PICKER_POPUP";
 	static u32 s_PickTexID = 0;
-	ConstString currentTextureName = currentTexture ? currentTexture->GetName() : "-";
-	float buttonWidth = ImGui::GetContentRegionAvail().x;
-	if (ImGui::Button(ImGui::FormatTemp("%s###%s", currentTextureName, idStr), ImVec2(buttonWidth, 0)))
+
+	// Sets texture to none...
+	bool clearTexture = false;
+	bool wantToPick = false;
+
+	// Open picker (Button with texture name)
+	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(1, 1));
+	if (ImGui::BeginTable("TEX_AND_CLEAR", 2))
+	{
+		ImGui::TableSetupColumn("COL_TEX", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("COL_CLEAR", ImGuiTableColumnFlags_WidthFixed);
+
+		// Column: Search
+		ImGui::TableNextColumn();
+		{
+			ConstString currentTextureName = currentTexture ? currentTexture->GetName() : "-";
+			float buttonWidth = ImGui::GetContentRegionAvail().x;
+			if (ImGui::Button(ImGui::FormatTemp("%s###%s", currentTextureName, idStr), ImVec2(buttonWidth, 0)))
+				wantToPick = true;
+		}
+
+		// Column: Clear search and filters
+		ImGui::TableNextColumn();
+		{
+			bool cantReset = asset::TxdAsset::IsNoneTexture(currentTexture);
+			if (cantReset) ImGui::BeginDisabled();
+			if (ImGui::Button("X")) clearTexture = true;
+			if (cantReset) ImGui::EndDisabled();
+		}
+
+		ImGui::EndTable();
+	}
+	ImGui::PopStyleVar();
+
+	if(wantToPick)
 	{
 		// Reset search
 		m_DictionaryIndex = 0;
@@ -615,6 +667,9 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 		ImGui::OpenPopup(PICKER_POPUP);
 		m_TexturePickerOpenTime = ImGui::GetTime();
 	}
+
+	if (clearTexture)
+		return asset::TxdAsset::CreateNoneTexture();
 
 	// Not picking anything, skip
 	if (s_PickTexID != id)
@@ -656,6 +711,7 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 		}
 		float iconScale = rage::Remap(s_IconSize, 0.0f, 1.0f, ICON_SIZE_MIN, ICON_SIZE_MAX);
 
+		ImGui::AlignTextToFramePadding();
 		ImGui::HelpMarker(
 			"There are two ways to search:\n"
 			"Default - Searches in both dictionary and texture name\n"
@@ -767,6 +823,11 @@ void rageam::integration::MaterialEditor::DoTextureSearch()
 			m_TextureSearchEntries.Emplace(std::move(textureSearch));
 		};
 
+	// Orphan dict with missing textures
+	auto orphanDict = &m_Context->HotDrawable->GetOrphanMissingTextures();
+	if (orphanDict->GetSize() > 0)
+		doSearch("Missing Orphans", orphanDict);
+
 	// Add embed dict, if present
 	auto embedDict = m_Context->Drawable->GetShaderGroup()->GetEmbedTextureDictionary().Get();
 	if (embedDict)
@@ -809,6 +870,11 @@ void rageam::integration::MaterialEditor::HandleShaderChange()
 		for (u16 k = 0; k < shader->GetVarCount(); k++)
 		{
 			RestoreMaterialValue(i, k);
+
+			// Replace NULL textures with None
+			rage::grcInstanceVar* var = shader->GetVarByIndex(k);
+			if (var->IsTexture() && var->GetTexture() == nullptr)
+				var->SetTexture(asset::TxdAsset::CreateNoneTexture());
 		}
 	}
 }
@@ -904,8 +970,8 @@ void rageam::integration::MaterialEditor::DoFuzzySearch()
 void rageam::integration::MaterialEditor::DrawShaderSearchListItem(u16 index)
 {
 	ImVec2 buttonSize(ImGui::GetContentRegionAvail().x, 0);
-	graphics::ColorU32 buttonColor = ImGui::GetColorU32(ImGuiCol_Button);
-	buttonColor.A = 25;
+	graphics::ColorU32 buttonColor = ImGui::GetColorU32(ImGuiCol_FrameBg);
+	buttonColor.A = 50;
 
 	ShaderPreset& preset = m_ShaderPresets[index];
 
@@ -917,12 +983,11 @@ void rageam::integration::MaterialEditor::DrawShaderSearchListItem(u16 index)
 	if (m_PresetSearchMaps != 0 && (preset.Tag.Maps | m_PresetSearchMaps) != preset.Tag.Maps)
 		return;
 
-	// TODO: Show selected shader
-
+	// Button without text + scrolling label
 	ImGui::PushFont(ImFont_Small);
 	ImGui::PushStyleColor(ImGuiCol_Button, buttonColor);
-	ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.0f, 0.5f)); // Align left
-	if (ImGui::ButtonEx(preset.Name, buttonSize))
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0);
+	if (ImGui::ButtonEx(ImGui::FormatTemp("###MAT_%i", index), buttonSize))
 	{
 		// Clone material from preset
 		rage::grmShaderGroup* shaderGroup = m_Context->Drawable->GetShaderGroup();
@@ -930,18 +995,63 @@ void rageam::integration::MaterialEditor::DrawShaderSearchListItem(u16 index)
 		material->CloneFrom(*preset.InstanceData);
 		HandleShaderChange();
 	}
-	ImGui::PopStyleVar();	// ButtonTextAlign
+	ImGui::PopStyleVar();
+	ImRect textRect = GImGui->LastItemData.Rect;
+	ImGui::ScrollingLabel(textRect.Min + GImGui->Style.FramePadding, textRect, preset.Name);
 	ImGui::PopStyleColor(); // Button
 	ImGui::PopFont();
 }
 
 void rageam::integration::MaterialEditor::DrawShaderSearchList()
 {
-	// Search box
-	ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-	if (ImGui::InputText("###SEARCH", m_PresetSearchText, sizeof m_PresetSearchText))
-		DoFuzzySearch();
-	ImGui::InputTextPlaceholder(m_PresetSearchText, "Search...");
+	// Search + Filter
+	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(1, 1));
+	if(ImGui::BeginTable("SEARCH_AND_FILTER", 3))
+	{
+		ImGui::TableSetupColumn("COL_SEARCH", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("COL_CLEAR", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("COL_FILTER", ImGuiTableColumnFlags_WidthFixed);
+
+		// Column: Search
+		ImGui::TableNextColumn();
+		ImGui::SetNextItemWidth(-1); // Stretch text box
+		if (ImGui::InputText("###SEARCH", m_PresetSearchText, sizeof m_PresetSearchText))
+			DoFuzzySearch();
+		ImGui::InputTextPlaceholder(m_PresetSearchText, "Search...");
+
+		// Column: Clear search and filters
+		ImGui::TableNextColumn();
+		bool nothingToClear =
+			String::IsNullOrEmpty(m_PresetSearchText) &&
+			m_PresetSearchCategories == 0 &&
+			m_PresetSearchMaps == 0;
+		if(nothingToClear) ImGui::BeginDisabled();
+		if(ImGui::Button("X"))
+		{
+			m_PresetSearchText[0] = '\0';
+			m_PresetSearchCategories = 0;
+			m_PresetSearchMaps = 0;
+			DoFuzzySearch();
+		}
+		if(nothingToClear) ImGui::EndDisabled();
+
+		// Column: Filter
+		ImGui::TableNextColumn();
+		static constexpr ConstString FILTER_POPUP = "###SEARCH_FILTER";
+		if (ImGui::Button(ICON_AM_FILTER))
+			ImGui::OpenPopup(FILTER_POPUP);
+		if (ImGui::BeginPopup(FILTER_POPUP))
+		{
+			DrawShaderSearchFilters();
+			ImGui::EndPopup();
+		}
+
+		ImGui::EndTable();
+	}
+	ImGui::PopStyleVar();
+
+	// 1 Pixel padding between search + filter and preset list
+	ImGui::Dummy(ImVec2(0, 1));
 
 	bool hasSearch = m_PresetSearchText[0] != '\0';
 
@@ -969,10 +1079,18 @@ void rageam::integration::MaterialEditor::DrawShaderSearchList()
 	}
 	ImGui::EndChild();
 
+	// Draw line above count text
+	ImRect rect = GImGui->LastItemData.Rect;
+	ImDrawList* dl = ImGui::GetCurrentWindow()->DrawList;
+	dl->AddLine(rect.GetBL(), rect.GetBR(), ImGui::GetColorU32(ImGuiCol_Border));
+
 	// Count on bottom of window
 	u16 itemCount = hasSearch ? m_PresetSearchIndices.GetSize() : m_ShaderPresets.GetSize();
 	ImGui::Dummy(ImVec2(4, 4)); ImGui::SameLine(0, 0); // Window has no padding, we have to add it manually
-	ImGui::Text("%u Item(s)", itemCount);
+	ImGui::PushFont(ImFont_Small);
+	ImGui::AlignTextToFramePadding();
+	ImGui::Text("%u Preset(s)", itemCount);
+	ImGui::PopFont();
 }
 
 void rageam::integration::MaterialEditor::DrawShaderSearchFilters()
@@ -1015,32 +1133,6 @@ void rageam::integration::MaterialEditor::DrawShaderSearchFilters()
 
 #undef CATEGORY_FLAG
 #undef MAP_FLAG
-}
-
-void rageam::integration::MaterialEditor::DrawShaderSearch()
-{
-	if (ImGui::BeginTable("SHADER_LIST_TABLE", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV))
-	{
-		ImGui::TableNextRow();
-
-		// Column: List
-		if (ImGui::TableNextColumn())
-		{
-			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-			DrawShaderSearchList();
-			ImGui::PopStyleVar();
-		}
-
-		// Column: Filters
-		if (ImGui::TableNextColumn())
-		{
-			//SlGui::BeginPadded("SHADER_SEARCH_FILTERS_PADDING", ImVec2(4, 4));
-			DrawShaderSearchFilters();
-			//SlGui::EndPadded();
-		}
-
-		ImGui::EndTable();
-	}
 }
 
 void rageam::integration::MaterialEditor::DrawMaterialList()
@@ -1125,15 +1217,17 @@ void rageam::integration::MaterialEditor::DrawMaterialList()
 				ImGui::Dummy(ImVec2(2, 0)); ImGui::SameLine(); // Padding before text
 				SlGui::CategoryText("Unused");
 
-				//ImGui::PushStyleColor(ImGuiCol_Button, 0);
-				//if (ImGui::Button("Remove all", ImVec2(-1, 0)))
-				//{
-				//	for (asset::MaterialTune& materialTune : drawableTune.MaterialGroup.Items)
-				//	{
-				//		if (materialTune.IsOrphan) materialTune.NoLongerNeeded = true;
-				//	}
-				//}
-				//ImGui::PopStyleColor();
+				ImGui::PushStyleColor(ImGuiCol_Button, 0);
+				if (ImGui::Button("Remove all", ImVec2(-1, 0)))
+				{
+					for(u16 i = 0; i < drawableTune.Materials.GetCount(); i++)
+					{
+						auto& materialTune = drawableTune.Materials.Get(i);
+						if (materialTune->IsRemoved) 
+							materialTune->NoLongerNeeded = true;
+					}
+				}
+				ImGui::PopStyleColor();
 			}
 
 			// And now all unused materials
@@ -1147,12 +1241,6 @@ void rageam::integration::MaterialEditor::DrawMaterialList()
 
 void rageam::integration::MaterialEditor::DrawMaterialVariables()
 {
-	//if (!SlGui::BeginPadded("MaterialEditor_Properties_Padding", ImVec2(6, 6)))
-	//{
-	//	SlGui::EndPadded();
-	//	return;
-	//}
-
 	rage::grmShader* material = GetSelectedMaterial();
 
 	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(6, 2));
@@ -1181,20 +1269,17 @@ void rageam::integration::MaterialEditor::DrawMaterialVariables()
 		{
 			ConstString name = varInfo->GetName();
 
-			if (uiVar)
+			// Retrieve override name from UI config
+			if (uiVar && !String::IsNullOrEmpty(uiVar->OverrideName))
 			{
-				// Retrieve override name from UI config
-				if (!String::IsNullOrEmpty(uiVar->OverrideName))
-				{
-					name = uiVar->OverrideName;
-				}
+				name = uiVar->OverrideName;
+			}
 
-				// Add description from UI config
-				if (!String::IsNullOrEmpty(uiVar->Description))
-				{
-					ImGui::HelpMarker(uiVar->Description);
-					ImGui::SameLine(0, 2);
-				}
+			// Add description from UI config
+			if (uiVar && !String::IsNullOrEmpty(uiVar->Description))
+			{
+				ImGui::HelpMarker(uiVar->Description);
+				ImGui::SameLine(0, ImGui::GetFontSize() * 0.25f);
 			}
 
 			ImGui::Text("%s", name);
@@ -1223,20 +1308,21 @@ void rageam::integration::MaterialEditor::DrawMaterialVariables()
 				switch (varInfo->GetType())
 				{
 				case rage::EFFECT_VALUE_INT:
-				case rage::EFFECT_VALUE_INT1:		edited = ImGui::InputInt(inputID, var->GetValuePtr<int>());						break;
-				case rage::EFFECT_VALUE_INT2:		edited = ImGui::InputInt2(inputID, var->GetValuePtr<int>());					break;
-				case rage::EFFECT_VALUE_INT3:		edited = ImGui::InputInt3(inputID, var->GetValuePtr<int>());					break;
-				case rage::EFFECT_VALUE_FLOAT:		edited = ImGui::DragFloat(inputID, var->GetValuePtr<float>(), 0.1f);			break;
-				case rage::EFFECT_VALUE_VECTOR2:	edited = ImGui::DragFloat2(inputID, var->GetValuePtr<float>(), 0.1f);			break;
-				case rage::EFFECT_VALUE_VECTOR3:	edited = ImGui::DragFloat3(inputID, var->GetValuePtr<float>(), 0.1f);			break;
-				case rage::EFFECT_VALUE_VECTOR4:	edited = edited = ImGui::DragFloat4(inputID, var->GetValuePtr<float>(), 0.1f);	break;
-				case rage::EFFECT_VALUE_BOOL:		edited = SlGui::Checkbox(inputID, var->GetValuePtr<bool>());					break;
+				case rage::EFFECT_VALUE_INT1:		edited = ImGui::InputInt(inputID, var->GetValuePtr<int>());				break;
+				case rage::EFFECT_VALUE_INT2:		edited = ImGui::InputInt2(inputID, var->GetValuePtr<int>());			break;
+				case rage::EFFECT_VALUE_INT3:		edited = ImGui::InputInt3(inputID, var->GetValuePtr<int>());			break;
+				case rage::EFFECT_VALUE_FLOAT:		edited = ImGui::DragFloat(inputID, var->GetValuePtr<float>(), 0.1f);	break;
+				case rage::EFFECT_VALUE_VECTOR2:	edited = ImGui::DragFloat2(inputID, var->GetValuePtr<float>(), 0.1f);	break;
+				case rage::EFFECT_VALUE_VECTOR3:	edited = ImGui::DragFloat3(inputID, var->GetValuePtr<float>(), 0.1f);	break;
+				case rage::EFFECT_VALUE_VECTOR4:	edited = ImGui::DragFloat4(inputID, var->GetValuePtr<float>(), 0.1f);	break;
+				case rage::EFFECT_VALUE_BOOL:		edited = ImGui::Checkbox(inputID, var->GetValuePtr<bool>());			break;
 
 				case rage::EFFECT_VALUE_TEXTURE:
 				{
-					rage::grcTexture* newTexture = TexturePicker(inputID, var->GetValuePtr<rage::grcTexture>());
+					rage::grcTexture* newTexture = TexturePicker(inputID, var->GetTexture());
 					if (newTexture)
 					{
+						m_Context->HotDrawable->NotifyTextureWasUnselected(var->GetTexture());
 						var->SetTexture(newTexture);
 						edited = true;
 					}
@@ -1273,7 +1359,7 @@ void rageam::integration::MaterialEditor::DrawMaterialVariables()
 				case ShaderUIConfig::ToggleFloat:
 				{
 					bool isChecked = rage::AlmostEquals(var->GetValue<float>(), toggleFloatParams.Enabled);
-					if (SlGui::Checkbox(inputID, &isChecked))
+					if (ImGui::Checkbox(inputID, &isChecked))
 					{
 						var->SetValue<float>(isChecked ? toggleFloatParams.Enabled : toggleFloatParams.Disabled);
 						edited = true;
@@ -1291,31 +1377,24 @@ void rageam::integration::MaterialEditor::DrawMaterialVariables()
 				HandleMaterialValueChange(i, var, varInfo);
 		}
 	}
-	ImGui::EndTable();  // MaterialEditor_Properties
-	//SlGui::EndPadded(); // MaterialEditor_Properties_Padding
+	ImGui::EndTable(); // MaterialEditor_Properties
 }
 
 void rageam::integration::MaterialEditor::DrawMaterialOptions() const
 {
-	//if (!SlGui::BeginPadded("MaterialEditor_Options_Padding", ImVec2(6, 6)))
-	//{
-	//	SlGui::EndPadded();
-	//	return;
-	//}
-
 	rage::grmShader* material = GetSelectedMaterial();
 
 	// Draw Bucket
 	static constexpr ConstString s_BucketNames[] =
 	{
-		"0 - Diffuse",
+		"0 - Opaque",
 		"1 - Alpha",
 		"2 - Decal",
-		"3 - Cutout, Shadows",
+		"3 - Cutout",
 		"4 - No Splash",
 		"5 - No Water",
 		"6 - Water",
-		"7 - Lens Distortion",
+		"7 - Displacement Alpha",
 	};
 
 	ImGui::Text("Draw Bucket");
@@ -1323,7 +1402,7 @@ void rageam::integration::MaterialEditor::DrawMaterialOptions() const
 	ImGui::HelpMarker(
 		"Change only if necessary. Bucket will be automatically picked from shader preset (.sps)\n"
 		"Bucket descriptions:\n"
-		"0 - Solid objects (no alpha)\n"
+		"0 - Solid objects (no alpha / opaque)\n"
 		"1 - Alpha without shadows, commonly used on glass\n"
 		"2 - Decals with alpha, no shadows\n"
 		"3 - Cutout with alpha + shadows, used on fences.\n"
@@ -1358,8 +1437,6 @@ void rageam::integration::MaterialEditor::DrawMaterialOptions() const
 		ImGui::CheckboxFlags("Mirror", &renderFlags, rage::RF_MIRROR);
 	}
 	renderMask.SetRenderFlags(renderFlags);
-
-	//SlGui::EndPadded();
 }
 
 void rageam::integration::MaterialEditor::StoreMaterialValue(u16 materialIndex, u16 varIndex)
@@ -1402,6 +1479,161 @@ void rageam::integration::MaterialEditor::RestoreMaterialValue(u16 materialIndex
 	}
 }
 
+void rageam::integration::MaterialEditor::CopyMaterialSettingsButton()
+{
+	static bool s_KeepShader = false;
+
+	rage::grmShaderGroup* shaderGroup = m_Context->Drawable->GetShaderGroup();
+
+	// TODO: We should refactor this into copy dialog class
+	// NOTE: This code is copied and adopted from Txd Editor
+	static constexpr ConstString COPY_SETTINGS_POPUP = "Copy settings###COPY_MAT_SETTINGS_POPUP";
+	if (ImGui::MenuItem(ICON_AM_COPY" Copy settings"))
+	{
+		// Reset selection from previous copying
+		m_MarkedShaders.Destroy();
+		m_IgnoredShaderVars.Destroy();
+		m_MarkedShaders.Resize(shaderGroup->GetShaderCount());
+		m_IgnoredShaderVars.Resize(GetSelectedMaterial()->GetVarCount());
+		s_KeepShader = false;
+
+		ImGui::OpenPopup(COPY_SETTINGS_POPUP);
+	}
+	ImGui::SetNextWindowSize(ImVec2(0, ImGui::GetFrameHeight() * 12), ImGuiCond_Appearing);
+	if (!ImGui::BeginPopupModal(COPY_SETTINGS_POPUP))
+		return;
+	
+	ImGui::Text("Copy settings from '%s' to selected materials:", GetSelectedMaterialTune()->Name.GetCStr());
+	ImGui::Checkbox("Keep shader", &s_KeepShader);
+	ImGui::SameLine();
+	ImGui::HelpMarker("Copy only shader variables & textures and don't change the shader.");
+
+	if (ImGui::CollapsingHeader("Variables"))
+	{
+		rage::grmShader* material = GetSelectedMaterial();
+		rage::grcEffect* effect = material->GetEffect();
+		// Pack items as dense as possible
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 1));
+		for (u16 i = 0; i < material->GetVarCount(); i++)
+		{
+			// TODO: We should move this out to helper function, code duplicate
+			// Material (shader in rage terms) holds variable values without any metadata,
+			// we have to query effect variable to get name and type
+			rage::grcEffectVar* varInfo = effect->GetVarByIndex(i);
+			ShaderUIConfig::UIVar* uiVar = m_UIConfig.GetUIVarFor(varInfo);
+			ConstString name = uiVar ? uiVar->OverrideName.GetCStr() : varInfo->GetName();
+			bool isSelected = !m_IgnoredShaderVars[i]; // We have to invert 'ignored'
+			ImGui::Checkbox(ImGui::FormatTemp("%s###IGNORE_SHADER_VARS_%i", name, i), &isSelected);
+			m_IgnoredShaderVars[i] = !isSelected;
+		}
+		ImGui::PopStyleVar(); // ItemSpacing
+	}
+
+	// Batch selection / deselection
+	bool selectAll = ImGui::Button("Select All");
+	ImGui::SameLine();
+	bool selectNone = ImGui::Button("Select None");
+	if (selectAll || selectNone)
+	{
+		for (int i = 0; i < shaderGroup->GetShaderCount(); i++)
+		{
+			// Skip current material
+			if (i == m_SelectedMaterialIndex)
+				continue;
+
+			// selectAll will be false if 'Select None' was pressed
+			m_MarkedShaders[i] = selectAll;
+		}
+	}
+
+	// Texture list for picking (with checkboxes), we hold it in child for scrolling 
+	ImVec2 childSize( // Leave space for buttons, they're horizontal, so it's frame height and padding
+		0,
+		ImGui::GetContentRegionAvail().y - (ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.y));
+	if (childSize.y < 0) childSize.y = 0;
+	// Pack items as dense as possible
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 1));
+	if (ImGui::BeginChild("COPY_MAT_LIST", childSize))
+	{
+		asset::MaterialTuneGroup& materialTunes = m_Context->DrawableAsset->GetDrawableTune().Materials;
+
+		for (u32 i = 0; i < shaderGroup->GetShaderCount(); i++)
+		{
+			ConstString materialName = materialTunes.Get(i)->Name;
+
+			// Don't skip source material because it makes harder to navigate, display it as disabled instead
+			bool disabled = i == m_SelectedMaterialIndex;
+
+			if (disabled) ImGui::BeginDisabled();
+			ImGui::Checkbox(materialName, &m_MarkedShaders[i]);
+			if (disabled) ImGui::EndDisabled();
+		}
+
+	}
+	ImGui::EndChild();
+	ImGui::PopStyleVar(); // ItemSpacing
+
+	// Bottom panel
+	if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape))
+	{
+		ImGui::CloseCurrentPopup();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("OK"))
+	{
+		rage::grmShader* srcMaterial = shaderGroup->GetShader(m_SelectedMaterialIndex);
+			
+		//UndoStack* undo = UndoStack::GetCurrent();
+		//undo->BeginGroup();
+		for (u32 i = 0; i < shaderGroup->GetShaderCount(); i++)
+		{
+			if (!m_MarkedShaders[i])
+				continue;
+
+			// TODO: Undo...
+
+			rage::grmShader* dstMaterial = shaderGroup->GetShader(i);
+			if (!s_KeepShader)
+				dstMaterial->SetEffect(srcMaterial->GetEffect());
+
+			for(u16 k = 0; k < srcMaterial->GetVarCount(); k++)
+			{
+				if (m_IgnoredShaderVars[k])
+					continue;
+
+				rage::grcInstanceVar* srcVar = srcMaterial->GetVarByIndex(k);
+				rage::grcInstanceVar* dstVar;
+				// Layout is the same for identical effects, for different effects we'll have to do search...
+				if (srcMaterial->GetEffect() == dstMaterial->GetEffect())
+				{
+					dstVar = dstMaterial->GetVarByIndex(k);
+				}
+				else
+				{
+					rage::atHashValue varName = srcMaterial->GetEffect()->GetVarByIndex(k)->GetNameHash();
+					rage::fxHandle_t varHandle = dstMaterial->GetEffect()->LookupVarByHashKey(varName);
+
+					// No such var in shader, skip
+					if (varHandle == rage::INVALID_FX_HANDLE)
+						continue;
+
+					dstVar = dstMaterial->GetVar(varHandle);
+				}
+
+				// Finally, copy value of matched variable
+				if (dstVar->IsTexture())
+					m_Context->HotDrawable->NotifyTextureWasUnselected(dstVar->GetTexture());
+				dstVar->CopyFrom(srcVar);
+			}
+		}
+		//undo->EndGroup();
+
+		ImGui::CloseCurrentPopup();
+	}
+
+	ImGui::EndPopup(); // COPY_SETTINGS_POPUP
+}
+
 rageam::integration::MaterialEditor::MaterialEditor(ModelSceneContext* sceneContext)
 {
 	m_UIConfig.Load();
@@ -1423,30 +1655,24 @@ void rageam::integration::MaterialEditor::Render()
 
 	bool isOpen = IsOpen;
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-	bool window = ImGui::Begin(ICON_AM_BALL" Material Editor", &isOpen/*, ImGuiWindowFlags_MenuBar*/);
+	bool window = ImGui::Begin(ICON_AM_BALL" Material Editor", &isOpen, ImGuiWindowFlags_MenuBar);
 	ImGui::PopStyleVar(1); // WindowPadding
 	IsOpen = isOpen;
 
 	if (window)
 	{
+		if (ImGui::BeginMenuBar())
+		{
+			CopyMaterialSettingsButton();
+			ImGui::EndMenuBar();
+		}
+
 		// Reload UI config if file was changed
 		if (m_UIConfigWatcher.GetChangeOccuredAndReset())
 		{
 			m_UIConfig.Load();
 		}
 
-		//if (ImGui::BeginMenuBar())
-		//{
-		//	static bool s_ShowShaders = true;
-		//	if (SlGui::ToggleButton("Show Shaders", s_ShowShaders))
-		//	{
-
-		//	}
-
-		//	ImGui::EndMenuBar();
-		//}
-
-		ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0, 0));
 		if (ImGui::BeginTable("MaterialEditor_SplitView", 3, ImGuiTableFlags_Resizable))
 		{
 			float defaultListWidth = ImGui::GetTextLineHeight() * 10;
@@ -1463,40 +1689,45 @@ void rageam::integration::MaterialEditor::Render()
 			// Column: Mat Properties
 			if (ImGui::TableNextColumn())
 			{
-				//SlGui::BeginPadded("MATERIAL_PROPERTIES_PADDING", ImVec2(4, 4));
-				ImGui::Text("Shader: %s.fxc", GetSelectedMaterial()->GetEffect()->GetName());
-				ImGui::SameLine();
-				ImGui::HelpMarker(
-					"Shader (.fxc) name, not preset (.sps)!\n"
-					"Preset only contains shader and settings (for example draw bucket index).");
-				if (ImGui::BeginTabBar("SHADERS_TAB_BAR"))
+				// For separate scrolling region
+				if (ImGui::BeginChild("MAT_PROPERTIES"))
 				{
-					if (ImGui::BeginTabItem("Variables"))
+					ImGui::Text("Material: %s", GetSelectedMaterialTune()->Name.GetCStr());
+					ImGui::Text("Shader: %s.fxc", GetSelectedMaterial()->GetEffect()->GetName());
+					ImGui::SameLine();
+					ImGui::HelpMarker(
+						"Shader (.fxc) name, not preset (.sps)!\n"
+						"Preset only contains shader and settings (for example draw bucket index).");
+					if (ImGui::BeginTabBar("SHADERS_TAB_BAR"))
 					{
-						DrawMaterialVariables();
-						ImGui::EndTabItem();
-					}
+						if (ImGui::BeginTabItem("Variables"))
+						{
+							DrawMaterialVariables();
+							ImGui::EndTabItem();
+						}
 
-					if (ImGui::BeginTabItem("Options"))
-					{
-						DrawMaterialOptions();
-						ImGui::EndTabItem();
-					}
+						if (ImGui::BeginTabItem("Options"))
+						{
+							DrawMaterialOptions();
+							ImGui::EndTabItem();
+						}
 
-					ImGui::EndTabBar();
+						ImGui::EndTabBar();
+					}
 				}
-				//SlGui::EndPadded();
+				ImGui::EndChild();
 			}
 
 			// Column: Shaders
 			if (ImGui::TableNextColumn())
 			{
-				DrawShaderSearch();
+				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+				DrawShaderSearchList();
+				ImGui::PopStyleVar();
 			}
 
 			ImGui::EndTable();
 		}
-		ImGui::PopStyleVar(1); // CellPadding
 	}
 	ImGui::End();
 }
