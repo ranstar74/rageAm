@@ -1,12 +1,12 @@
-#include "am/ui/slwidgets.h"
 #ifdef AM_INTEGRATED
 
 #include "lighteditor.h"
 #include "ImGuizmo.h"
-#include "am/graphics/shapetest.h"
-#include "am/ui/font_icons/icons_am.h"
 #include "modelscene.h"
+#include "am/graphics/shapetest.h"
 #include "am/integration/im3d.h"
+#include "am/ui/slwidgets.h"
+#include "am/ui/font_icons/icons_am.h"
 #include "game/viewport.h"
 #include "rage/math/math.h"
 
@@ -534,7 +534,12 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 					if (ImGui::Button(">")) light->Flashiness++;
 					ImGui::EndDisabled();
 
-					static auto getFlashinessState = gmAddress::Scan("48 8B C4 48 89 58 10 48 89 68 18 48 89 70 20 57 48 83 EC 60 0F 29 70 E8 0F 29 78 D8 49")
+					static auto getFlashinessState = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+						"80 7C 24 30 07", "CLightEntity::ApplyEffectsToLightCommon+0x31").GetAt(-0x31)
+#else
+						"8D 41 F5 3C 02", "CLightEntity::ApplyEffectsToLightCommon+0x53").GetAt(-0x53)
+#endif
 						.ToFunc<void(u8 flashiness, rage::Mat34V * transform, float& outIntensity, bool& outIsDrawn)>();
 
 					ImGui::Dummy(tilePadding); // Add extra padding before flashiness tiles
