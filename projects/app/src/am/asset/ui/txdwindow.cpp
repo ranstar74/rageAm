@@ -59,15 +59,17 @@ bool rageam::ui::RenderCompressOptionsControls(graphics::ImageCompressorOptions&
 	SlGui::CategoryText("Post Processing");
 
 	// Max size
-	static constexpr int s_MaxResolutions[] = { 0, 1 << 14, 1 << 13, 1 << 12, 1 << 11, 1 << 10, 1 << 9, 1 << 8, 1 << 7 };
-	static constexpr ConstString s_MaxResolutionStrings[] = { "-", "16384", "8192", "4096", "2048", "1024", "512", "256", "128" };
+	static constexpr int s_MaxResolutions[] = { 0, 1 << 11, 1 << 10, 1 << 9, 1 << 8, 1 << 7, 1 << 6, 1 << 5 };
+	static constexpr ConstString s_MaxResolutionStrings[] = { "-", "2048", "1024", "512", "256", "128", "64", "32" };
 	// Linear search for max size index
-	int maxResolutionIndex = std::ranges::distance(
-		s_MaxResolutions, std::ranges::find(s_MaxResolutions, options.MaxResolution));
-	ImGui::SetNextItemWidth(itemWidth);
-	if (ImGui::Combo("Max Size", &maxResolutionIndex, s_MaxResolutionStrings, IM_ARRAYSIZE(s_MaxResolutionStrings)))
+	int maxResCurrIndex = std::ranges::distance(s_MaxResolutions, std::ranges::find(s_MaxResolutions, options.MaxResolution));
+	bool addSubMaxSize = 
+		ImGui::AddSubButtons<int>("MaxSizeAddSub", maxResCurrIndex, 0, IM_ARRAYSIZE(s_MaxResolutionStrings) - 1, false);
+	ImGui::SameLine(0, 1);
+	ImGui::SetNextItemWidth(itemWidth * 0.6f);
+	if (ImGui::Combo("Max Size", &maxResCurrIndex, s_MaxResolutionStrings, IM_ARRAYSIZE(s_MaxResolutionStrings)) || addSubMaxSize)
 	{
-		options.MaxResolution = s_MaxResolutions[maxResolutionIndex];
+		options.MaxResolution = s_MaxResolutions[maxResCurrIndex];
 		needRecompress = true;
 	}
 
