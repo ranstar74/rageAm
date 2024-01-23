@@ -164,7 +164,8 @@ void rageam::ui::ImImage::Render(float width, float height)
 	// Accept loaded image...
 	if (m_HasPending)
 	{
-		m_Layers = std::move(m_LayersPending);
+		m_Layers = m_LayersPending;
+		m_LayersPending = {};
 		m_HasPending = false;
 	}
 

@@ -188,8 +188,11 @@ void rageam::ui::TextureVM::AsyncImage::CancelAsyncLoading()
 ImTextureID rageam::ui::TextureVM::AsyncImage::GetTextureID()
 {
 	std::unique_lock lock(Mutex);
-	if(ViewPending)
-		View = std::move(ViewPending);
+	if (ViewPending)
+	{
+		View = ViewPending;
+		ViewPending = nullptr;
+	}
 	return View.Get();
 }
 
