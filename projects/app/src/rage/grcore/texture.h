@@ -24,27 +24,27 @@ namespace rage
 
 	struct grcTextureLock
 	{
-		int		MipLevel;
-		pVoid	Base;
-		int		Pitch;
-		int		BitsPerPixel;
-		int		Width;
-		int		Height;
-		int		RawFormat;
-		int		Layer;
+		int   MipLevel;
+		pVoid Base;
+		int   Pitch;
+		int   BitsPerPixel;
+		int   Width;
+		int   Height;
+		int   RawFormat;
+		int   Layer;
 	};
 
 	struct grcPoint { int x, y; };
-	struct grcRect { int x1, y1, x2, y2; };
+	struct grcRect  { int x1, y1, x2, y2; };
 
 	enum grcLockType_
 	{
-		grcsRead = 1 << 0,
-		grcsWrite = 1 << 1,
-		grcsDoNotWait = 1 << 2,
-		grcsDiscard = 1 << 3,
-		grcsNoOverwrite = 1 << 4,
-		grcsNoDirty = 1 << 5,
+		grcsRead          = 1 << 0,
+		grcsWrite         = 1 << 1,
+		grcsDoNotWait     = 1 << 2,
+		grcsDiscard       = 1 << 3,
+		grcsNoOverwrite   = 1 << 4,
+		grcsNoDirty       = 1 << 5,
 		grcsAllowVRAMLock = 1 << 6,
 
 		grcsReadWrite = grcsRead | grcsWrite,
@@ -71,14 +71,14 @@ namespace rage
 
 	enum grcBindFlag_
 	{
-		grcBindNone = 0,
-		grcBindVertexBuffer = 1 << 0,
-		grcBindIndexBuffer = 1 << 1,
-		grcBindConstantBuffer = 1 << 2,
-		grcBindShaderResource = 1 << 3,
-		grcBindStreamOutput = 1 << 4,
-		grcBindRenderTarget = 1 << 5,
-		grcBindDepthStencil = 1 << 6,
+		grcBindNone            = 0,
+		grcBindVertexBuffer    = 1 << 0,
+		grcBindIndexBuffer     = 1 << 1,
+		grcBindConstantBuffer  = 1 << 2,
+		grcBindShaderResource  = 1 << 3,
+		grcBindStreamOutput    = 1 << 4,
+		grcBindRenderTarget    = 1 << 5,
+		grcBindDepthStencil    = 1 << 6,
 		grcBindUnorderedAccess = 1 << 7,
 	};
 	typedef int grcBindFlag;
@@ -95,13 +95,13 @@ namespace rage
 
 	enum eTextureConversionFlags
 	{
-		TEXTURE_CONVERSION_FLAG_PROCESSED = 0x80,
-		TEXTURE_CONVERSION_FLAG_SKIPPED = 0x40,
+		TEXTURE_CONVERSION_FLAG_PROCESSED         = 0x80,
+		TEXTURE_CONVERSION_FLAG_SKIPPED           = 0x40,
 		TEXTURE_CONVERSION_FLAG_FAILED_PROCESSING = 0x20,
-		TEXTURE_CONVERSION_FLAG_INVALID_METADATA = 0x10,
-		TEXTURE_CONVERSION_FLAG_OPTIMISED_DXT = 0x8,
-		TEXTURE_CONVERSION_FLAG_NO_PROCESSING = 0x60,
-		TEXTURE_CONVERSION_FLAG_MASK = 0xF8,
+		TEXTURE_CONVERSION_FLAG_INVALID_METADATA  = 0x10,
+		TEXTURE_CONVERSION_FLAG_OPTIMISED_DXT     = 0x8,
+		TEXTURE_CONVERSION_FLAG_NO_PROCESSING     = 0x60,
+		TEXTURE_CONVERSION_FLAG_MASK              = 0xF8,
 	};
 
 	enum eTextureType
@@ -143,21 +143,21 @@ namespace rage
 		TEXTURE_TEMPLATE_TYPE_DONOTOPTIMIZE,
 		TEXTURE_TEMPLATE_TYPE_TEST,
 		TEXTURE_TEMPLATE_TYPE_COUNT,
-		TEXTURE_TEMPLATE_TYPE_MASK = 0x1F,
-		TEXTURE_TEMPLATE_TYPE_FLAG_NOT_HALF = 0x20,
-		TEXTURE_TEMPLATE_TYPE_FLAG_HD_SPLIT = 0x40,
-		TEXTURE_TEMPLATE_TYPE_FLAG_FULL = 0x80,
-		TEXTURE_TEMPLATE_TYPE_FLAG_MAPS_HALF = 0x100,
-		TEXTURE_TEMPLATE_TYPE_FLAG_MASK = 0x1E0,
-		TEXTURE_TEMPLATE_TYPE_VERSION_MASK = 0xE00,
-		TEXTURE_TEMPLATE_TYPE_VERSION_SHIFT = 0x9,
+		TEXTURE_TEMPLATE_TYPE_MASK            = 0x1F,
+		TEXTURE_TEMPLATE_TYPE_FLAG_NOT_HALF   = 0x20,
+		TEXTURE_TEMPLATE_TYPE_FLAG_HD_SPLIT   = 0x40,
+		TEXTURE_TEMPLATE_TYPE_FLAG_FULL       = 0x80,
+		TEXTURE_TEMPLATE_TYPE_FLAG_MAPS_HALF  = 0x100,
+		TEXTURE_TEMPLATE_TYPE_FLAG_MASK       = 0x1E0,
+		TEXTURE_TEMPLATE_TYPE_VERSION_MASK    = 0xE00,
+		TEXTURE_TEMPLATE_TYPE_VERSION_SHIFT   = 0x9,
 		TEXTURE_TEMPLATE_TYPE_VERSION_CURRENT = 0x200,
 	};
 
 	class grcTexture : public pgBase
 	{
-		static constexpr u8 TYPE_MASK = 0x3;
-		static constexpr u8 CONVERSION_FLAGS_MASK = 0xF8;
+		static constexpr u8  TYPE_MASK = 0x3;
+		static constexpr u8  CONVERSION_FLAGS_MASK = 0xF8;
 		static constexpr u32 PHYSICAL_SIZE_MASK = 0x7FFFF80;
 
 	protected:
@@ -202,7 +202,7 @@ namespace rage
 		static inline thread_local bool tl_KeepResourcePixelData = false;
 
 		eTextureType GetResourceType() const { return eTextureType(m_ResourceTypeAndConversionFlags & TYPE_MASK); }
-		int GetConversionFlags() const { return m_ResourceTypeAndConversionFlags & CONVERSION_FLAGS_MASK; }
+		int  GetConversionFlags() const { return m_ResourceTypeAndConversionFlags & CONVERSION_FLAGS_MASK; }
 		void SetConversionFlags(int flags)
 		{
 			m_ResourceTypeAndConversionFlags &= ~CONVERSION_FLAGS_MASK;
@@ -222,7 +222,7 @@ namespace rage
 
 		// NOTE: This is used as debug metrics but modded resources don't account this variable,
 		// it is either set to invalid value or just zero
-		u32 GetPhysicalSize() const { return m_PhysicalSizeAndTemplateType & PHYSICAL_SIZE_MASK; }
+		u32  GetPhysicalSize() const { return m_PhysicalSizeAndTemplateType & PHYSICAL_SIZE_MASK; }
 		void SetPhysicalSize(u32 size)
 		{
 			m_PhysicalSizeAndTemplateType &= ~PHYSICAL_SIZE_MASK;
@@ -236,19 +236,23 @@ namespace rage
 		}
 		void SetName(ConstString name) { m_Name = name; }
 
-		u32 GetHandleIndex() const override { return m_HandleIndex; }
+		u32  GetHandleIndex() const override { return m_HandleIndex; }
 		void SetHandleIndex(u32 index) override { m_HandleIndex = index; }
+
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		ConstString GetDebugName() override { return GetName(); }
+#endif
 
 		// Ancient PS2 leftover, ensures that texture is loaded
 		virtual void Download() const { }
-		virtual int GetDownloadSize() const { return 0; }
+		virtual int  GetDownloadSize() const { return 0; }
 
 		virtual u16 GetWidth() const = 0;
 		virtual u16 GetHeight() const = 0;
 		virtual u16 GetDepth() const = 0;
-		virtual u8 GetMipMapCount() const = 0;
-		virtual u8 GetArraySize() const { return 1; }
-		virtual u8 GetBitsPerPixel() const = 0;
+		virtual u8  GetMipMapCount() const = 0;
+		virtual u8  GetArraySize() const { return 1; }
+		virtual u8  GetBitsPerPixel() const = 0;
 
 		virtual bool IsValid() const { return true; }
 
@@ -257,21 +261,17 @@ namespace rage
 		virtual bool IsGammaEnabled() const { return false; }
 		virtual void SetGammaEnabled(bool on) {}
 
-		virtual int GetTextureSignedMask() const { return 0; }
+		virtual int  GetTextureSignedMask() const { return 0; }
 		virtual void SetTextureSignedMask(int mask) {}
 
 		virtual const grcTexture* GetReference() const { return this; }
-		virtual grcTexture* GetReference() { return this; }
+		virtual grcTexture*       GetReference() { return this; }
 
 		virtual bool IsSRGB() const = 0;
 
-#if APP_BUILD_2699_16_RELEASE_NO_OPT
-		virtual ConstString GetDebugName(char* buffer, size_t bufferSize) const { return GetName(); }
-#endif
-
 		virtual const void* GetTexturePtr() const { return m_CachedTexture.Get(); }
-		virtual void* GetTexturePtr() { return m_CachedTexture.Get(); }
-		virtual void* GetTextureView() const = 0;
+		virtual void*       GetTexturePtr() { return m_CachedTexture.Get(); }
+		virtual void*       GetTextureView() const = 0;
 
 		virtual void UpdateGPUCopy() {}
 
