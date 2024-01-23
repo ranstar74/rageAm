@@ -17,6 +17,8 @@
 #include <imgui_internal.h>
 #include <misc/freetype/imgui_freetype.h>
 
+#include "font_icons/icons_awesome.h"
+
 void ImGui::PushFont(ImFonts font)
 {
 	ImGuiIO& io = GetIO();
@@ -220,11 +222,19 @@ void rageam::ui::ImGlue::CreateDefaultFonts(const ImWchar* fontRanges) const
 	fontConfig.OversampleH = 1;
 	fontConfig.OversampleV = 1;
 
+	ImFontConfig iconConfig{};
+	iconConfig.MergeMode = true;
+	iconConfig.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_LoadColor;
+
+	static constexpr ImWchar iconRange[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+
 	file::U8Path regular = PATH_TO_UTF8(DataManager::GetFontsFolder() / L"NotoSans.ttf");
 	file::U8Path medium = PATH_TO_UTF8(DataManager::GetFontsFolder() / L"NotoSansMedium.ttf");
-	io.Fonts->AddFontFromFileTTF(regular, fontSize, &fontConfig, fontRanges);
-	io.Fonts->AddFontFromFileTTF(regular, fontSize - 2, &fontConfig, fontRanges);
-	io.Fonts->AddFontFromFileTTF(medium, fontSize, &fontConfig, fontRanges);
+	file::U8Path awesome = PATH_TO_UTF8(DataManager::GetFontsFolder() / L"Font Awesome 6.ttf");
+	io.Fonts->AddFontFromFileTTF(regular, fontSize, &fontConfig, fontRanges);		// Regular
+	io.Fonts->AddFontFromFileTTF(awesome, fontSize, &iconConfig, iconRange);		// Awesome icons (merged into regular)
+	io.Fonts->AddFontFromFileTTF(regular, fontSize - 2, &fontConfig, fontRanges);	// Small
+	io.Fonts->AddFontFromFileTTF(medium, fontSize, &fontConfig, fontRanges);		// Medium
 }
 
 void rageam::ui::ImGlue::CreateBankFont() const
