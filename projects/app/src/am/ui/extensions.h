@@ -195,7 +195,7 @@ namespace ImGui
 		if(sameLine)
 			SameLine(0, 1);
 		BeginDisabled(noSub);
-		if (Button("<"))
+		if (Button(FormatTemp("<###%s_SUB", id)))
 		{
 			--value;
 			edited = true;
@@ -203,7 +203,7 @@ namespace ImGui
 		EndDisabled();
 		BeginDisabled(noInc);
 		SameLine(0, 1);
-		if (Button(">"))
+		if (Button(FormatTemp(">###%s_ADD", id)))
 		{
 			++value;
 			edited = true;
