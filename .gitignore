@@ -403,3 +403,6 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /rageAm
+
+## bc7 object files
+!projects/app/vendor/bc7enc_rdo/*.obj
