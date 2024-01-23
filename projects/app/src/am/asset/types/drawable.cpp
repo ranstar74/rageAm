@@ -1117,24 +1117,21 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 			// Locate texture
 			if (varInfo->IsTexture())
 			{
-				bool textureResolved = true;
-
 				string textureName = param.GetValue<string>();
 				if (String::IsNullOrEmpty(textureName))
 				{
 					AM_WARNINGF("Texture is not specified for '%s' in material '%s'",
 						param.Name.GetCStr(), matTune->Name.GetCStr());
-					textureResolved = false;
+
+					var->SetTexture(TxdAsset::CreateNoneTexture());
 				}
 				else if (!ResolveAndSetTexture(var, textureName))
 				{
 					AM_WARNINGF("Texture '%s' is not found in any known dictionary in material '%s'.",
 						textureName.GetCStr(), matTune->Name.GetCStr());
-					textureResolved = false;
-				}
 
-				if (!textureResolved)
 					SetMissingTexture(var, textureName);
+				}
 			}
 			else // Other simple types
 			{

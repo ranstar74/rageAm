@@ -185,6 +185,24 @@ namespace rage
 		// ReSharper disable once CppPossiblyUninitializedMember
 		grcInstanceVar(const datResource& rsc);
 
+		void CopyFrom(grcInstanceVar* other)
+		{
+			m_ValueCount = other->m_ValueCount;
+			unk1 = other->unk1;
+			SamplerIndex = other->SamplerIndex;
+			unk3 = other->unk3;
+			unk4 = other->unk4;
+
+			if(IsTexture())
+			{
+				SetTexture(other->GetTexture());
+			}
+			else
+			{
+				memcpy(m_ValuePtr, other->m_ValuePtr, 16 * m_ValueCount);
+			}
+		}
+
 		u8 GetValueCount() const { return m_ValueCount; }
 
 		template<typename T>
@@ -314,14 +332,25 @@ namespace rage
 	// Effect handles (which is just index + 1) were used most likely to make API more similar to DirectX FX,
 	// where NULL indicating invalid handle
 
-#define INVALID_FX_HANDLE 0
 	using fxHandle_t = u16;
+	static constexpr fxHandle_t INVALID_FX_HANDLE = 0;
 	inline fxHandle_t fxIndexToHandle(u16 index) { return index + 1; }
 	inline u16 fxHandleToIndex(fxHandle_t handle)
 	{
 		AM_ASSERT(handle != 0, "ConvertHandleToIndex() -> Handle was NULL.");
 		return static_cast<u16>(handle - 1);
 	}
+
+	class grcInstanceDataIterator
+	{
+		grcInstanceVar* m_Begin;
+		grcInstanceVar* m_End;
+	public:
+		grcInstanceDataIterator(grcInstanceVar* begin, grcInstanceVar* end) : m_Begin(begin), m_End(end) {}
+
+		grcInstanceVar* begin() const { return m_Begin; }
+		grcInstanceVar* end() const { return m_End; }
+	};
 
 	/**
 	 * \brief In simple words - Material.
@@ -414,6 +443,25 @@ namespace rage
 		}
 
 		u16 GetTextureVarCount() const { return m_TextureVarCount; }
+
+		enum
+		{
+			ITERATOR_TEX_MODE_INCLUDE, // All variables
+			ITERATOR_TEX_MODE_EXCLUDE, // Ignore texture variables
+			ITERATOR_TEX_MODE_ONLY,	   // Only texture variables
+		};
+		grcInstanceDataIterator GetIterator(int texMode = ITERATOR_TEX_MODE_INCLUDE) const
+		{
+			switch (texMode)
+			{
+				// Textures always placed first
+				case ITERATOR_TEX_MODE_INCLUDE: return grcInstanceDataIterator(m_Vars, m_Vars + m_VarCount);
+				case ITERATOR_TEX_MODE_EXCLUDE: return grcInstanceDataIterator(m_Vars + m_TextureVarCount, m_Vars + m_VarCount);
+				case ITERATOR_TEX_MODE_ONLY:	return grcInstanceDataIterator(m_Vars, m_Vars + m_TextureVarCount);
+				default: AM_UNREACHABLE("grcInstanceData::GetIterator() -> Unknown tex mode '%i'!", texMode);
+			}
+		}
+		grcInstanceDataIterator GetTextureIterator() const { return GetIterator(ITERATOR_TEX_MODE_ONLY); }
 	};
 
 	class grcEffect

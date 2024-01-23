@@ -44,9 +44,10 @@ namespace rageam::asset
 
 		TextureTune(AssetBase* parent, ConstWString fileName);
 
-		TxdAsset* GetTXD() const;
-		TextureOptions& GetCustomOptionsOrFromPreset(amPtr<TexturePreset>* outPreset = nullptr);
+		TxdAsset*            GetTXD() const;
+		TextureOptions&      GetCustomOptionsOrFromPreset(amPtr<TexturePreset>* outPreset = nullptr);
 		amPtr<TexturePreset> MatchPreset() const;
+		bool				 GetValidatedTextureName(file::Path& name, bool showWarningMessage = true) const;
 
 		void Serialize(XmlHandle& node) const override;
 		void Deserialize(const XmlHandle& node) override;
@@ -61,6 +62,8 @@ namespace rageam::asset
 	{
 		// Pink-black checker
 		static inline rage::grcTexture* sm_MissingTexture = nullptr;
+		// Reference to sm_MissingTexture
+		static inline rage::grcTexture* sm_NoneTexture = nullptr;
 
 		Textures m_TextureTunes;
 
@@ -109,13 +112,18 @@ namespace rageam::asset
 
 		static void ShutdownClass()
 		{
+			delete sm_NoneTexture;
 			delete sm_MissingTexture;
 			sm_MissingTexture = nullptr;
+			sm_NoneTexture = nullptr;
 		}
 
 		static file::WPath GetTxdAssetPathFromTexture(const file::WPath& texturePath);
 		static bool GetTxdAssetPathFromTexture(const file::WPath& texturePath, file::WPath& path);
 
+		// (None)###NONE
+		static rage::grcTexture* CreateNoneTexture();
+		static bool IsNoneTexture(const rage::grcTexture* texture);
 		// Missing texture name is composed in format:
 		// TEX_NAME (Missing)###$MT_TEXNAME
 		// ## is ImGui special char sequence, everything past ## is ignored visually but used as ID
@@ -124,8 +132,8 @@ namespace rageam::asset
 		// Gets whether given texture was created using CreateMissingTexture function
 		static bool IsMissingTexture(const rage::grcTexture* texture);
 		// Gets actual name from missing texture name (which is in format 'TEX_NAME (Missing)###$MT_TEXNAME')
-		// Returns NULL if texture is not missing or if texture was NULL
-		static ConstString GetMissingTextureName(const rage::grcTexture* texture);
+		// If texture is not missing, returns just texture name
+		static ConstString UndecorateMissingTextureName(const rage::grcTexture* texture);
 	};
 	using TxdAssetPtr = amPtr<TxdAsset>;
 }

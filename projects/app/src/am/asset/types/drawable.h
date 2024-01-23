@@ -43,8 +43,9 @@ namespace rageam::asset
 	struct DrawableTxd
 	{
 		TxdAssetPtr					  Asset;
-		rage::grcTextureDictionaryPtr Dict;	   // May be null if failed to compile
+		rage::grcTextureDictionaryPtr Dict;	    // May be null if failed to compile
 		bool						  IsEmbed;
+		bool						  IsOrphan; // Used only by HotDrawable for storing missing textures
 
 		bool TryCompile();
 	};

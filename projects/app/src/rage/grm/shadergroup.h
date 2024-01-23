@@ -100,7 +100,10 @@ namespace rage
 		// Copies embed dictionary and clones shaders, those don't go into container
 		void CopyToContainer(grmShaderGroup* containerInst) const;
 
-		u32 GetContainerBlockSize() const { return static_cast<u32>(m_ContainerBlockSize) * 16; }
+		u32  GetContainerBlockSize() const { return static_cast<u32>(m_ContainerBlockSize) * 16; }
 		void SetContainerBlockSize(u32 size) { m_ContainerBlockSize = static_cast<u16>(size / 16); }
+
+		grmShader** begin() const { return (grmShader**) m_Shaders.begin(); }
+		grmShader** end()   const { return (grmShader**) m_Shaders.end(); }
 	};
 }

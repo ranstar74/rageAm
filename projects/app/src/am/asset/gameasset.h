@@ -143,6 +143,8 @@ namespace rageam::asset
 		u32          GetHashKey() const { return m_HashKey; }
 
 		static u32 ComputeHashKey(ConstWString path) { return Hash(path); }
+
+		bool operator==(const AssetSource& other) const { return m_HashKey == other.m_HashKey; }
 	};
 
 	/**

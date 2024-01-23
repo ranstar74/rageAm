@@ -86,6 +86,11 @@ rageam::asset::TexturePresetPtr rageam::asset::TextureTune::MatchPreset() const
 	return presetStore->MatchPreset(*this, OverridePreset);
 }
 
+bool rageam::asset::TextureTune::GetValidatedTextureName(file::Path& name, bool showWarningMessage) const
+{
+	return GetTXD()->GetValidatedTextureName(GetFilePath(), name, showWarningMessage);
+}
+
 void rageam::asset::TextureTune::Serialize(XmlHandle& node) const
 {
 	node.SetAttribute("OverridePreset", OverridePreset);
@@ -380,6 +385,22 @@ bool rageam::asset::TxdAsset::GetTxdAssetPathFromTexture(const file::WPath& text
 	return ImmutableWString(path).EndsWith(ASSET_ITD_EXT);
 }
 
+rage::grcTexture* rageam::asset::TxdAsset::CreateNoneTexture()
+{
+	if(!sm_NoneTexture)
+	{
+		sm_NoneTexture = new rage::grcTextureDX11((rage::grcTextureDX11&)*CreateMissingTexture(""));
+		sm_NoneTexture->SetName("(None)##NONE");
+	}
+	return sm_NoneTexture;
+}
+
+bool rageam::asset::TxdAsset::IsNoneTexture(const rage::grcTexture* texture)
+{
+	AM_ASSERTS(texture);
+	return String::Equals(texture->GetName(), "(None)##NONE");
+}
+
 rage::grcTexture* rageam::asset::TxdAsset::CreateMissingTexture(ConstString textureName)
 {
 	if(!sm_MissingTexture)
@@ -407,13 +428,13 @@ bool rageam::asset::TxdAsset::IsMissingTexture(const rage::grcTexture* texture)
 	return texName.Contains("(Missing)##$MT_");
 }
 
-ConstString rageam::asset::TxdAsset::GetMissingTextureName(const rage::grcTexture* texture)
+ConstString rageam::asset::TxdAsset::UndecorateMissingTextureName(const rage::grcTexture* texture)
 {
 	if (!texture)
 		return nullptr;
 	ImmutableString texName = texture->GetName();
 	int tokenIndex = texName.IndexOf("##$MT_");
 	if (tokenIndex == -1)
-		return nullptr;
+		return texture->GetName();
 	return texName.Substring(tokenIndex + 6); // Length of ##$MT_
 }
