@@ -51,6 +51,7 @@ namespace rageam
 
 #ifdef AM_INTEGRATED
 		amUPtr<integration::GameIntegration> m_Integration;
+		amUPtr<gmAddressCache>				 m_AddressCache;
 #endif
 
 		amUPtr<asset::TexturePresetStore>	m_TexturePresetManager;

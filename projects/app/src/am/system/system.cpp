@@ -116,6 +116,7 @@ void rageam::System::Destroy()
 	SaveDataToXML();
 
 	AM_INTEGRATED_ONLY(Hook::Shutdown());
+	AM_INTEGRATED_ONLY(m_AddressCache = nullptr);
 
 	rage::SystemHeap::Shutdown();
 
@@ -128,7 +129,8 @@ void rageam::System::Init(bool withUI)
 
 	// Core
 	AM_INTEGRATED_ONLY(Hook::Init());
-	m_TexturePresetManager = std::make_unique<asset::TexturePresetStore>(); // Depends on LoadData
+	AM_INTEGRATED_ONLY(m_AddressCache = std::make_unique<gmAddressCache>());
+	m_TexturePresetManager = std::make_unique<asset::TexturePresetStore>();
 	LoadDataFromXML();
 	ExceptionHandler::Init();
 	asset::AssetFactory::Init();

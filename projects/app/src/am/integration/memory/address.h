@@ -7,19 +7,55 @@
 //
 #pragma once
 
-#include "common/types.h"
+#include "am/types.h"
+#include "am/system/singleton.h"
+
+class gmAddressCache : public rageam::Singleton<gmAddressCache>
+{
+	static constexpr ConstWString FILE_NAME = L"Memory.xml";
+
+	struct Scan
+	{
+		u64 ModuleOffset;
+		u32 PatternHash;
+		u32 ByteHash;
+		int NumBytes;
+	};
+
+	rageam::List<Scan>   m_Scans;
+	rageam::HashSet<u32> m_PatternToScanIndex;
+	u64                  m_ModuleBase;
+	u64                  m_ModuleSize;
+	std::mutex           m_Mutex;
+
+	u32 ComputeByteHash(u64 offset, int numBytes) const;
+	u64 OffsetToAddress(u64 offset) const { return m_ModuleBase + offset; }
+
+	void EmplaceScan(Scan& scan);
+
+	void SaveToXml() const;
+	void ReadFromXml();
+
+public:
+	gmAddressCache();
+	~gmAddressCache() override;
+
+	void AddScanResult(ConstString pattern, u64 offset, int numBytes);
+	u64  GetScanResult(ConstString pattern);
+};
 
 /**
  * \brief Provides compact utility to scan patterns and manipulate addresses.
  */
 struct gmAddress
 {
+	static constexpr u64 MAX_SANE_SCAN_MS = 50;
+
 	u64 Value = 0;
 
 	gmAddress(u64 value) : Value(value) {}
 	gmAddress() : gmAddress(0) {}
 
-	// TODO: Store offset from image base in HashSet + game version
 	static gmAddress Scan(const char* patternStr, const char* debugName = nullptr);
 
 	// A bit of ugly address manipulations, here's short explanation how this works and used:
