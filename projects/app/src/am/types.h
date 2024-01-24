@@ -55,8 +55,8 @@ namespace rageam
 
 	using HashValue = rage::atHashValue;
 
-	constexpr u32 Hash(ConstString str, u32 seed = 0) { return rage::atStringHash(str, seed); }
-	constexpr u32 Hash(ConstWString str, u32 seed = 0) { return rage::atStringHash(str, seed); }
+	constexpr u32 Hash(ConstString str, u32 seed = 0) { return rage::atStringHash(str, true, seed); }
+	constexpr u32 Hash(ConstWString str, u32 seed = 0) { return rage::atStringHash(str, true, seed); }
 	inline u32 DataHash(pConstVoid data, u32 dataSize, u32 seed = 0) { return rage::atDataHash(data, dataSize, seed); }
 
 	// Math
