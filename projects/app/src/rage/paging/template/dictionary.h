@@ -102,7 +102,7 @@ namespace rage
 		// Destroys all existing items
 		void Clear() { m_Items.Clear(); m_Keys.Clear(); }
 		// If key is in the set
-		bool Contains(u32 key) const { return m_Keys.Find(key); }
+		bool Contains(u32 key) const { return m_Keys.Find(key) != -1; }
 		bool Contains(ConstString key) const { return Contains(atStringHash(key)); }
 		// Returns NULL if element is not in the set
 		T* Find(u32 key)

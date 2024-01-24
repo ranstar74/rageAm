@@ -148,7 +148,7 @@ bool rageam::asset::TxdAsset::CompileToGame(rage::grcTextureDictionary* object)
 
 				mutex.lock();
 				// For sanity check, we must ensure that there are no multiple textures with the same name
-				if (!txd.Contains(gameTexture->GetName()))
+				if (txd.Contains(gameTexture->GetName()))
 				{
 					AM_ERRF("TxdAsset::CompileToGame() -> Found 2 textures with the same name ('%s'), this cannot continue.",
 						gameTexture->GetName());
