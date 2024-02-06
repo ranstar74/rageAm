@@ -1,5 +1,6 @@
 #include "render.h"
 
+#include "am/asset/types/hotdrawable.h"
 #include "am/system/asserts.h"
 #include "am/graphics/window.h"
 #include "am/integration/integration.h"
@@ -15,7 +16,7 @@ namespace
 #ifdef AM_INTEGRATED
 	gmAddress        s_Addr_PresentImage = 0;
 	gmAddress        s_Addr_DeviceManage = 0;
-	gmAddress        s_Addr_IdleSection = 0;
+	gmAddress        s_Addr_RemoveAllRefs = 0;
 	std::atomic_bool s_BgThreadNeedToStop;
 	std::atomic_bool s_BgThreadStopped = true;
 	std::atomic_bool s_UpdatedPlatforms = true;
@@ -28,6 +29,12 @@ namespace
 }
 
 #ifdef AM_INTEGRATED
+void(*gImpl_RemoveAllRefs)(pVoid drawList, int flags);
+void aImpl_RemoveAllRefs(pVoid drawList, int flags)
+{
+	gImpl_RemoveAllRefs(drawList, flags);
+	rageam::graphics::Render::GetInstance()->ReleaseAllRefs();
+}
 void(*gImpl_DeviceManage)();
 void aImpl_DeviceManage()
 {
@@ -64,6 +71,7 @@ void aImpl_PresentImage()
 	{
 		// Dispatch our calls right before game present
 		rageam::graphics::Render::GetInstance()->DoRender();
+
 		gImpl_PresentImage();
 	}
 	s_Rendering = false;
@@ -186,7 +194,7 @@ rageam::graphics::Render::~Render()
 
 	// Present image hook is removed in aImpl_PresentImage
 	Hook::Remove(s_Addr_DeviceManage);
-	Hook::Remove(s_Addr_IdleSection);
+	Hook::Remove(s_Addr_RemoveAllRefs);
 #endif
 }
 
@@ -222,6 +230,8 @@ void rageam::graphics::Render::DoRender() AM_INTEGRATED_ONLY(const)
 	// In integrated mode present is called by native render system
 #ifdef AM_STANDALONE
 	(void)Swapchain->Present(1, 0);
+
+	ReleaseAllRefs();
 #endif
 }
 
@@ -286,13 +296,20 @@ void rageam::graphics::Render::EnterRenderLoop() AM_INTEGRATED_ONLY(const)
 #endif
 		"rage::grcDevice::EndFrame");
 	s_Addr_DeviceManage = gmAddress::Scan("7E 0F 48 8B 0D", "rage::grcDevice::Manage+0x1B0").GetAt(-0x1B0);
+	s_Addr_RemoveAllRefs = gmAddress::Scan("89 01 E9 65 FF FF FF", "rage::dlDrawListMgr::RemoveAllRefs+0xD2").GetAt(-0xD2);
 
 	Hook::Create(s_Addr_DeviceManage, aImpl_DeviceManage, &gImpl_DeviceManage);
 	Hook::Create(s_Addr_PresentImage, aImpl_PresentImage, &gImpl_PresentImage);
+	Hook::Create(s_Addr_RemoveAllRefs, aImpl_RemoveAllRefs, &gImpl_RemoveAllRefs);
 
 	// Render is now initialized, we can enable UI
 	ui->SetEnabled(true);
 #endif
+}
+
+void rageam::graphics::Render::ReleaseAllRefs() const
+{
+	asset::HotDrawable::RemoveTexturesFromRenderThread(false);
 }
 
 void rageam::graphics::Render::Lock() const

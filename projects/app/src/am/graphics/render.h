@@ -43,6 +43,8 @@ namespace rageam::graphics
 		// In case of integration mode hooks render thread and immediately returns
 		void EnterRenderLoop() AM_INTEGRATED_ONLY(const);
 
+		void ReleaseAllRefs() const;
+
 		// Pauses caller thread until frame render is finished and pauses render
 		// thread until Unlock() is called
 		// If was called during frame execution, frame is first finished and only then paused
