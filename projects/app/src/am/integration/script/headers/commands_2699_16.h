@@ -13,6 +13,60 @@
 
 // TODO: GET_ENTITY_MATRIX
 
+inline void scrSetClockTime(int h, int m, int s)
+{
+	using namespace rageam::integration;
+	static scrSignature s_Handler = scrLookupHandler(0xaa27c85e5be092aa);
+	scrValue params[3];
+	params[0].Int = h;
+	params[1].Int = m;
+	params[2].Int = s;
+	scrInfo info;
+	info.ResultPtr = nullptr;
+	info.ParamCount = 3;
+	info.Params = params;
+	s_Handler(info);
+}
+
+inline int scrGetClockHours()
+{
+	using namespace rageam::integration;
+	static scrSignature s_Handler = scrLookupHandler(0x09fc827691dace59);
+	int result;
+	scrInfo info;
+	info.ResultPtr = (scrValue*)&result;
+	info.ParamCount = 0;
+	info.Params = nullptr;
+	s_Handler(info);
+	return result;
+}
+
+inline int scrGetClockMinutes()
+{
+	using namespace rageam::integration;
+	static scrSignature s_Handler = scrLookupHandler(0x80f97d7d29800a1a);
+	int result;
+	scrInfo info;
+	info.ResultPtr = (scrValue*)&result;
+	info.ParamCount = 0;
+	info.Params = nullptr;
+	s_Handler(info);
+	return result;
+}
+
+inline int scrGetClockSeconds()
+{
+	using namespace rageam::integration;
+	static scrSignature s_Handler = scrLookupHandler(0xaa2844cad88768b5);
+	int result;
+	scrInfo info;
+	info.ResultPtr = (scrValue*)&result;
+	info.ParamCount = 0;
+	info.Params = nullptr;
+	s_Handler(info);
+	return result;
+}
+
 inline scrShapetestStatus scrGetShapeTestResult(scrShapetestIndex shapeTestGuid, bool& bHitSomething, scrVector& vPos, scrVector& vNormal, scrEntityIndex& EntityIndex)
 {
 	using namespace rageam::integration;

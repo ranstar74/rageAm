@@ -141,8 +141,17 @@ void rageam::integration::StarBar::OnRender()
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1);
-	if (ImGui::BeginMenu(ICON_AM_VISIBILITY" Overlay"))
+	// Game time
+	float time = scrGetTimeFloat();
+	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 5.0f);
+	if (ImGui::DragFloat("Time", &time, 0.0015f, -1.0f, 1.0f, "%.3f", ImGuiSliderFlags_NoRoundToFormat))
 	{
+		// We allow negative time to allow natural wrapping
+		if (time < 0.0f)
+			time += 1.0f;
+
+		scrSetTimeFloat(time);
+	}
 		SlGui::CategoryText("Lights");
 		{
 			SlGui::Checkbox("Outlines", &m_ModelScene->LightEditor.ShowLightOutlines);
