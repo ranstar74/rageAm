@@ -335,7 +335,7 @@ rageam::graphics::CompressedImageInfo rageam::graphics::ImageCompressor::GetInfo
 		"ImageCompressor::GetInfoAndHash() -> Max resolution is not power of two (%u)!", options.MaxResolution);
 
 	// Compression is not currently implemented for other pixel formats...
-	if (!options.AllowRecompress && imgInfo.PixelFormat != ImagePixelFormat_U32 && imgInfo.PixelFormat != ImagePixelFormat_U24)
+	if (!options.AllowRecompress && ImageIsCompressedFormat(imgInfo.PixelFormat))
 	{
 		AM_UNREACHABLE("ImageCompressor::GetInfoAndHash() -> Pixel format '%s' is not implemented.",
 			Enum::GetName(imgInfo.PixelFormat));

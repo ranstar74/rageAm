@@ -1184,7 +1184,20 @@ void rageam::graphics::ImageConvertPixelFormat(pVoid dst, pVoid src, ImagePixelF
 	}
 
 	// Gray -> RGB
-	if (fromFmt == ImagePixelFormat_U16 && toFmt == ImagePixelFormat_U24)
+	if (fromFmt == ImagePixelFormat_U8 && toFmt == ImagePixelFormat_U24)
+	{
+		for (int i = 0; i < remainderPixels; i++)
+		{
+			int k = pixelsXmm + i;
+			dstData->U24[k][0] = srcData->U8[k][0];	// R
+			dstData->U24[k][1] = srcData->U8[k][0];	// G
+			dstData->U24[k][2] = srcData->U8[k][0];	// B
+		}
+		return;
+	}
+
+	// Gray -> RGBA
+	if (fromFmt == ImagePixelFormat_U8 && toFmt == ImagePixelFormat_U32)
 	{
 		for (int i = 0; i < remainderPixels; i++)
 		{
@@ -1192,6 +1205,7 @@ void rageam::graphics::ImageConvertPixelFormat(pVoid dst, pVoid src, ImagePixelF
 			dstData->U32[k][0] = srcData->U8[k][0];	// R
 			dstData->U32[k][1] = srcData->U8[k][0];	// G
 			dstData->U32[k][2] = srcData->U8[k][0];	// B
+			dstData->U32[k][3] = srcData->U8[k][0];	// A
 		}
 		return;
 	}
