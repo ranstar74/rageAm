@@ -35,7 +35,6 @@ namespace rageam::graphics
 
 		HMODULE m_Module = NULL;
 		HWND	m_Handle = NULL;
-		bool	m_MouseClipped = false;
 
 		void Create(int width, int height, int x, int y);
 		void Destroy();
@@ -45,12 +44,7 @@ namespace rageam::graphics
 		~Window() override;
 
 		void SetMouseVisible(bool visibility) const;
-		// Whether mouse cursor is locked within window bounds
-		bool GetMouseClipped() const;
-		void SetMouseClipped(bool clipped);
-
 		void GetSize(int& outWidth, int& outHeight) const;
-
 		// Relative to the window rect
 		void GetMousePosition(int& outX, int& outY) const;
 		void GetPosition(int& outX, int& outY) const;

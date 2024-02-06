@@ -17,17 +17,17 @@
 
 namespace
 {
-	std::mutex		s_Mutex;
 	int				s_NewWidth = 0;
 	int				s_NewHeight = 0;
 	bool			s_UpdatedPosition;
 	RECT			s_LastWindowRect;
 	WINDOWPLACEMENT s_LastWindowPlacement;
+	bool			s_CursorVisible = false;
 
 #ifdef AM_INTEGRATED
+	std::mutex		s_Mutex;
 	gmAddress		s_Addr_WndProc;
 	bool			s_HooksInitialized = false;
-	bool			s_CursorVisible = false;
 #endif
 }
 
@@ -39,7 +39,10 @@ int aImpl_ShowCursor(bool visible)
 	return visible ? 0 : -1;
 }
 void (*gImpl_ClipCursor)(LPRECT);
-void aImpl_ClipCursor(LPRECT) {}
+void aImpl_ClipCursor(LPRECT rect)
+{
+	gImpl_ClipCursor(s_CursorVisible ? NULL : rect);
+}
 LRESULT(*gImpl_WndProc)(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #endif
 
@@ -56,8 +59,7 @@ void ClipCursorToWindowRect(HWND handle, bool clip)
 
 LRESULT rageam::graphics::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-	if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
-		return true;
+	ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam);
 
 #ifdef AM_INTEGRATED
 	gImpl_WndProc(hWnd, msg, wParam, lParam);
@@ -138,6 +140,7 @@ void rageam::graphics::Window::Create(int width, int height, int x, int y)
 	AM_ASSERT(m_Handle, "latformWindow::Create() -> Unable to find grcWindow, did you inject DLL into correct process?");
 
 	SetWindowTextW(m_Handle, WINDOW_NAME);
+
 #endif
 }
 
@@ -166,6 +169,7 @@ rageam::graphics::Window::Window()
 	int x = -1;
 	int y = -1;
 
+#ifdef AM_STANDALONE
 	// Try to get previous session window rect
 	System* sys = System::GetInstance();
 	bool maximized = false;
@@ -178,15 +182,20 @@ rageam::graphics::Window::Window()
 		y = wndData.Y;
 		maximized = wndData.Maximized;
 	}
+#endif
 
 	Create(width, height, x, y);
 
+#ifdef AM_STANDALONE
 	if (maximized)
 		PostMessage(m_Handle, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+#endif
 }
 
 rageam::graphics::Window::~Window()
 {
+	// No point to do this with the game...
+#ifdef AM_STANDALONE
 	RECT test;
 	GetWindowRect(m_Handle, &test);
 
@@ -198,6 +207,7 @@ rageam::graphics::Window::~Window()
 	wndData.X = s_LastWindowRect.left;
 	wndData.Y = s_LastWindowRect.top;
 	wndData.Maximized = s_LastWindowPlacement.showCmd == SW_MAXIMIZE;
+#endif
 
 	Destroy();
 }
@@ -206,28 +216,14 @@ void rageam::graphics::Window::SetMouseVisible(bool visibility) const
 {
 	// We call ShowCursor multiple times because it holds counter internally
 	// See remarks https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showcursor
-#ifdef AM_INTEGRATED
 	// Must be called from window thread, we call it in Update
 	s_CursorVisible = visibility;
-#else
+#ifdef AM_INTEGRATED
 	if (visibility)
 		while (ShowCursor(true) < 0) {}
 	else
 		while (ShowCursor(false) >= 0) {}
 #endif
-}
-
-bool rageam::graphics::Window::GetMouseClipped() const
-{
-	std::unique_lock lock(s_Mutex);
-	return m_MouseClipped;
-}
-
-void rageam::graphics::Window::SetMouseClipped(bool clipped)
-{
-	std::unique_lock lock(s_Mutex);
-	m_MouseClipped = clipped;
-	ClipCursorToWindowRect(m_Handle, m_MouseClipped);
 }
 
 void rageam::graphics::Window::GetSize(int& outWidth, int& outHeight) const
@@ -296,8 +292,9 @@ bool rageam::graphics::Window::Update() const
 
 	if (s_UpdatedPosition)
 	{
-		ClipCursorToWindowRect(m_Handle, m_MouseClipped);
+		ClipCursorToWindowRect(m_Handle, s_CursorVisible);
 	}
+
 	return true;
 #else
 	// Update cursor visibility
