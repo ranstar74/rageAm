@@ -23,7 +23,7 @@ void rageam::asset::AssetFactory::Shutdown()
 	sm_ExtToAssetDef.Destroy();
 }
 
-rageam::asset::AssetPtr rageam::asset::AssetFactory::LoadFromPath(const file::WPath& path)
+rageam::asset::AssetPtr rageam::asset::AssetFactory::LoadFromPath(const file::WPath& path, bool tempConfig)
 {
 	const AssetDefinition* def = TryGetDefinition(path);
 
@@ -32,7 +32,7 @@ rageam::asset::AssetPtr rageam::asset::AssetFactory::LoadFromPath(const file::WP
 
 	AssetBase* asset = def->Create(path);
 
-	if (!AM_VERIFY(asset->LoadConfig(), L"AssetFactory::Load() -> Failed to load config for %ls", path.GetCStr()))
+	if (!AM_VERIFY(asset->LoadConfig(tempConfig), L"AssetFactory::Load() -> Failed to load config for %ls", path.GetCStr()))
 		return nullptr;
 
 	return AssetPtr(asset);

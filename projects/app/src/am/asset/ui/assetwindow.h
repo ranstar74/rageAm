@@ -48,7 +48,7 @@ namespace rageam::ui
 		}
 
 	public:
-		AssetWindow(const asset::AssetPtr& asset) : m_Watcher(asset->GetDirectoryPath(), file::NotifyFlags_All, 0, 0)
+		AssetWindow(const asset::AssetPtr& asset) : m_Watcher(asset->GetDirectoryPath(), file::NotifyFlags_All)
 		{
 			m_Asset = asset;
 			AssetWindowFactory::MakeAssetWindowName(m_Title, asset);

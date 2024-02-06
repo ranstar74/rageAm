@@ -200,11 +200,16 @@ namespace rageam::ui
 		void OnRender() override;
 		void OnAssetMenuRender() override;
 
+		// Synchronizes changes with hot drawable (or well, loaded game scene)
+		// so user can instantly preview changes
+		void NotifyHotDrawableThatConfigWasChanged();
+
 		TextureVM& GetVMFromTune(const asset::TextureTune& tune);
 		TextureVM& GetVMFromHashKey(u32 hashKey);
 
 	public:
 		TxdWindow(const asset::AssetPtr& asset);
+		~TxdWindow() override;
 
 		void SaveChanges() override;
 		void Reset() override;

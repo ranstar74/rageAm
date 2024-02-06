@@ -21,12 +21,15 @@ void rageam::asset::AssetBase::SetNewPath(ConstWString newPath, bool updateWorks
 	}
 }
 
-bool rageam::asset::AssetBase::LoadConfig()
+bool rageam::asset::AssetBase::LoadConfig(bool temp)
 {
 	static Logger logger("asset_config");
 	LoggerScoped scopedLogger(logger);
 
-	const file::WPath& configPath = GetConfigPath();
+	file::WPath configPath = GetConfigPath(temp);
+	// Temporary config might not exist... use regular one then
+	if (temp && !IsFileExists(configPath))
+		configPath = GetConfigPath();
 
 	// If config file doesn't exist - create default one
 	if (!IsFileExists(configPath))
@@ -76,9 +79,9 @@ bool rageam::asset::AssetBase::LoadConfig()
 	return true;
 }
 
-bool rageam::asset::AssetBase::SaveConfig() const
+bool rageam::asset::AssetBase::SaveConfig(bool temp) const
 {
-	const file::WPath& configPath = GetConfigPath();
+	const file::WPath& configPath = GetConfigPath(temp);
 
 	// Create root element with asset-specific name, (for txd its TextureDictionary).
 	// It will help to detect errors in xml file faster.

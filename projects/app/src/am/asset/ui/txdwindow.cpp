@@ -331,6 +331,7 @@ void rageam::ui::TextureVM::SetCompressOptionsWithUndo(const graphics::ImageComp
 				m_CompressOptionsPending = state.CompressOptions;
 				m_CompressOptionsMatchPreset = state.CompressOptionsMatchPreset;
 				ReloadImage(true);
+				m_Parent->NotifyHotDrawableThatConfigWasChanged();
 			}));
 }
 
@@ -419,6 +420,7 @@ void rageam::ui::TextureVM::RenderMiscProperties()
 					m_CompressOptionsPending = state.CompressOptions;
 					m_CompressOptionsMatchPreset = state.CompressOptionsMatchPreset;
 					ReloadImage(true);
+					m_Parent->NotifyHotDrawableThatConfigWasChanged();
 				}));
 	}
 	if (!canResetOptions) ImGui::EndDisabled();
@@ -528,6 +530,7 @@ void rageam::ui::TextureVM::RenderMiscProperties()
 			m_Tune->OverridePreset = "";
 			ReloadPreset();
 			ReloadImage();
+			m_Parent->NotifyHotDrawableThatConfigWasChanged();
 		}
 
 		asset::TexturePresetStore* presetStore = asset::TexturePresetStore::GetInstance();
@@ -542,6 +545,7 @@ void rageam::ui::TextureVM::RenderMiscProperties()
 				m_Tune->OverridePreset = preset->Name;
 				SetPreset(preset);
 				ReloadImage();
+				m_Parent->NotifyHotDrawableThatConfigWasChanged();
 			}
 		}
 		presetStore->Unlock();
@@ -1476,6 +1480,7 @@ void rageam::ui::TxdWindow::OnAssetMenuRender()
 			{
 				textureVM.ReloadPreset();
 				textureVM.ReloadImage();
+				NotifyHotDrawableThatConfigWasChanged();
 			}
 		}
 
@@ -1484,6 +1489,28 @@ void rageam::ui::TxdWindow::OnAssetMenuRender()
 	else
 	{
 		m_TexturePresetWizard = nullptr;
+	}
+}
+
+void rageam::ui::TxdWindow::NotifyHotDrawableThatConfigWasChanged()
+{
+	asset::TxdAssetPtr asset = GetAsset();
+	asset::Textures&   tunes = asset->GetTextureTunes();
+
+	// Before saving we have to apply changes, and then un-apply them,
+	// so we clone list with all tunes
+	List<Nullable<asset::TextureOptions>> oldOptions;
+	oldOptions.Reserve(tunes.GetSize());
+	for (asset::TextureTune& tune : tunes)
+		oldOptions.Add(tune.Options);
+
+	SaveChanges();
+	(void) asset->SaveConfig(true);
+
+	// And now we can roll back old tunes back
+	for (u32 i = 0; i < oldOptions.GetSize(); i++)
+	{
+		tunes[i].Options = std::move(oldOptions[i]);
 	}
 }
 
@@ -1516,6 +1543,14 @@ rageam::ui::TextureVM& rageam::ui::TxdWindow::GetVMFromHashKey(u32 hashKey)
 rageam::ui::TxdWindow::TxdWindow(const asset::AssetPtr& asset) : AssetWindow(asset)
 {
 	LoadTexturesFromAsset();
+}
+
+rageam::ui::TxdWindow::~TxdWindow()
+{
+	// Remove temporary config, this will force hot drawable to reload
+	// txd with regular config, applying new changes (or not, if changes weren't saved)
+	file::WPath tempConfigPath = GetAsset()->GetConfigPath(true);
+	DeleteFileW(tempConfigPath);
 }
 
 void rageam::ui::TxdWindow::SaveChanges()

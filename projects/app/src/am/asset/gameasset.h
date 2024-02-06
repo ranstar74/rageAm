@@ -16,6 +16,8 @@
 namespace rageam::asset
 {
 #define ASSET_CONFIG_NAME L"tune.xml"
+	// Currently used for easy communication between TXD editor and Hot drawable
+#define ASSET_CONFIG_NAME_TEMP L"tune_temp.xml"
 
 	// Must be implemented in all asset classes that are used in AssetFactory
 #define ASSET_IMPLEMENT_ALLOCATE(name)									\
@@ -70,9 +72,9 @@ namespace rageam::asset
 
 		// Loads asset configuration file from "config.xml", if config doesn't exist - creates default one.
 		// Note that this function automatically calls refresh!
-		bool LoadConfig();
+		bool LoadConfig(bool temp = false);
 		// Saves asset configuration file to "config.xml".
-		bool SaveConfig() const;
+		bool SaveConfig(bool temp = false) const;
 		// Useful when some data needs to be set only on config creation
 		bool HasSavedConfig() const { return m_HasSavedConfig; }
 
@@ -86,7 +88,7 @@ namespace rageam::asset
 		// Gets name in format 'adder.itd'
 		ConstWString GetAssetName() const { return file::GetFileName(m_Directory.GetCStr()); }
 		// Gets full path to asset config 'x:/assets/adder.itd/config.xml', config name is defined by ASSET_CONFIG_NAME
-		file::WPath GetConfigPath() const { return m_Directory / ASSET_CONFIG_NAME; }
+		file::WPath GetConfigPath(bool temp = false) const { return m_Directory / (temp ? ASSET_CONFIG_NAME_TEMP : ASSET_CONFIG_NAME); }
 		// Gets default path where asset is compiled, 'x:/assets/adder.itd' will compile into 'x:/assets/adder.ytd' binary
 		file::WPath GetCompilePath() const
 		{
@@ -145,6 +147,7 @@ namespace rageam::asset
 		static u32 ComputeHashKey(ConstWString path) { return Hash(path); }
 
 		bool operator==(const AssetSource& other) const { return m_HashKey == other.m_HashKey; }
+		AssetSource& operator=(const AssetSource&) = default;
 	};
 
 	/**

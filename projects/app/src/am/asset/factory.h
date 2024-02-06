@@ -32,14 +32,14 @@ namespace rageam::asset
 		static void Init();
 		static void Shutdown();
 
-		static AssetPtr LoadFromPath(const file::WPath& path);
+		static AssetPtr LoadFromPath(const file::WPath& path, bool tempConfig = false);
 		// Converts compiled game asset to asset
 		static AssetPtr ParseFromPath(const file::WPath& path);
 
 		template<typename TAsset>
-		static amPtr<TAsset> LoadFromPath(const file::WPath& path)
+		static amPtr<TAsset> LoadFromPath(const file::WPath& path, bool tempConfig = false)
 		{
-			return std::dynamic_pointer_cast<TAsset>(LoadFromPath(path));
+			return std::dynamic_pointer_cast<TAsset>(LoadFromPath(path, tempConfig));
 		}
 
 		static bool IsAsset(const file::WPath& path);
