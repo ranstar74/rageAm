@@ -1322,8 +1322,9 @@ void rageam::integration::MaterialEditor::DrawMaterialVariables()
 					rage::grcTexture* newTexture = TexturePicker(inputID, var->GetTexture());
 					if (newTexture)
 					{
-						m_Context->HotDrawable->NotifyTextureWasUnselected(var->GetTexture());
+						rage::grcTexture* oldTexture = var->GetTexture();
 						var->SetTexture(newTexture);
+						m_Context->HotDrawable->NotifyTextureWasUnselected(oldTexture);
 						edited = true;
 					}
 				}
@@ -1448,7 +1449,11 @@ void rageam::integration::MaterialEditor::StoreMaterialValue(u16 materialIndex, 
 	VarBlob& blob = m_MaterialValues[materialIndex].InsertAt(varInfo->GetNameHash(), VarBlob());
 	if (var->IsTexture())
 	{
-		blob.Texture = var->GetTexture();
+		rage::grcTexture* varTexture = var->GetTexture();
+		if (varTexture)
+			String::Copy(blob.TextureName, sizeof VarBlob::TextureName, varTexture->GetName());
+		else
+			blob.TextureName[0] = '\0'; // No texture, empty name...
 	}
 	else
 	{
@@ -1469,7 +1474,8 @@ void rageam::integration::MaterialEditor::RestoreMaterialValue(u16 materialIndex
 	{
 		if (var->IsTexture())
 		{
-			var->SetTexture(blob->Texture);
+			rage::grcTexture* varTexture = m_Context->HotDrawable->LookupTexture(blob->TextureName);
+			var->SetTexture(varTexture);
 		}
 		else
 		{

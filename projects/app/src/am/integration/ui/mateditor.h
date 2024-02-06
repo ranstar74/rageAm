@@ -119,8 +119,9 @@ namespace rageam::integration
 			// rage::grcInstanceVar data is divided on 16 byte blocks,
 			// maximum data size we can have is 4x4 mat (64 bytes)
 			char Data[64];
-			// Textures however are stored differently
-			rage::grcTexture* Texture;
+			// We can't store grcTexture pointer because it won't be synced
+			// with HotDrawable, instead we store texture name
+			char TextureName[128];
 		};
 
 		ModelSceneContext*				m_Context;
