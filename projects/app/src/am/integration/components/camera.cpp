@@ -51,17 +51,21 @@ void rageam::integration::CameraComponentBase::OnStart()
 
 void rageam::integration::CameraComponentBase::OnEarlyUpdate()
 {
-	m_Velocity = m_Pos - m_OldPos;
-	m_OldPos = m_Pos;
-
-	// Load map around camera
-	scrSetFocusPosAndVel(m_Pos, m_Velocity);
-
-	// Update camera
-	if (m_Camera)
+	// Update only if position has changed
+	if (m_OldPos != m_Pos)
 	{
-		u64 frame = (u64)m_Camera + 0x20;
-		*(rage::Mat44V*)(frame + 0x10) = GetMatrix();
+		m_Velocity = m_Pos - m_OldPos;
+		m_OldPos = m_Pos;
+
+		// Load map around camera
+		scrSetFocusPosAndVel(m_Pos, m_Velocity);
+
+		// Update camera
+		if (m_Camera)
+		{
+			u64 frame = (u64)m_Camera + 0x20;
+			*(rage::Mat44V*)(frame + 0x10) = GetMatrix();
+		}
 	}
 
 	// Update blip
