@@ -17,32 +17,34 @@ namespace rageam::file
 {
 	enum eWatcherFlags_
 	{
-		WatcherFlags_None = 0,
-		WatcherFlags_Recurse = 1 << 0,
+		WatcherFlags_None     = 0,
+		WatcherFlags_Recurse  = 1 << 0,
+		WatcherFlags_Blocking = 1 << 1, // Blocks caller thread until change occures
 	};
 	using eWatcherFlags = int;
 
 	// Filters tracked actions on file system entry
 	enum eNotifyFlags_
 	{
-		NotifyFlags_FileName = 1 << 0,
+		NotifyFlags_FileName      = 1 << 0,
 		NotifyFlags_DirectoryName = 1 << 1,
-		NotifyFlags_Attributes = 1 << 2,
-		NotifyFlags_FileSize = 1 << 3,
-		NotifyFlags_LastWrite = 1 << 4,
-		NotifyFlags_LastAccess = 1 << 5,
+		NotifyFlags_Attributes    = 1 << 2,
+		NotifyFlags_FileSize      = 1 << 3,
+		NotifyFlags_LastWrite     = 1 << 4,
+		NotifyFlags_LastAccess    = 1 << 5,
 
-		NotifyFlags_All = (1 << 5) - 1,
+		NotifyFlags_All			  = (1 << 5) - 1,
 	};
 	using eNotifyFlags = int;
 
 	// Action that was done to file system entry
 	enum eChangeAction // Those map to WinApi FILE_ACTION_
 	{
-		ChangeAction_Added = 1,
-		ChangeAction_Removed = 2,
+		ChangeAction_Invalid  = 0,
+		ChangeAction_Added    = 1,
+		ChangeAction_Removed  = 2,
 		ChangeAction_Modified = 3,
-		ChangeAction_Renamed = 4,
+		ChangeAction_Renamed  = 4,
 	};
 
 	struct DirectoryChange
@@ -57,29 +59,28 @@ namespace rageam::file
 	 */
 	class Watcher
 	{
-		static constexpr size_t BUFFER_SIZE = 0x1000; // For FILE_NOTIFY_INFORMATION
+		// This is not good to have such large buffer for performance reasons,
+		// but otherwise we're risking to get buffer overflow, especially with textures (when there is a lot of files)
+		static constexpr size_t BUFFER_SIZE = 4 * 1024 * 1024; // For FILE_NOTIFY_INFORMATION
 
-		WPath				m_Path;
-		HANDLE				m_DirectoryHandle = INVALID_HANDLE_VALUE;
-		eWatcherFlags		m_Flags = 0;
-		eNotifyFlags		m_Filter = 0;
-		alignas(4) char		m_Buffer[BUFFER_SIZE] = {};
-		u32					m_Offset = 0;
-		bool				m_HasChanges = false;
-		bool				m_ChangesRequested = false;
-		OVERLAPPED			m_PollOverlap = {};
-		u32					m_WaitTime;
-		std::atomic_bool	m_StopRequested = false;
+		WPath           m_Path;
+		HANDLE          m_DirectoryHandle = INVALID_HANDLE_VALUE;
+		eWatcherFlags   m_Flags = 0;
+		eNotifyFlags    m_Filter = 0;
+		alignas(4) char m_Buffer[BUFFER_SIZE] = {};
+		u32             m_Offset = 0;
+		OVERLAPPED      m_PollOverlap = {};
 
-		bool RequestChanges()
+		bool BeginReadChanges()
 		{
-			DWORD bytesReturned;
+			m_PollOverlap = {};
+
 			BOOL read = ReadDirectoryChangesW(
 				m_DirectoryHandle,
 				m_Buffer, BUFFER_SIZE,
 				m_Flags & WatcherFlags_Recurse,
 				m_Filter,
-				&bytesReturned, &m_PollOverlap, NULL);
+				NULL, &m_PollOverlap, NULL);
 
 			if (!read)
 			{
@@ -116,61 +117,47 @@ namespace rageam::file
 			return true;
 		}
 
-	public:
-		// waitTime specifies how much time (in ms) thread will wait when polling changes from OS
-		Watcher(ConstWString dirPath, eNotifyFlags filter, eWatcherFlags flags = 0, u32 waitTime = INFINITY)
-		{
-			m_Filter = filter;
-			m_Flags = flags;
-			m_WaitTime = waitTime;
-			InitWatch(dirPath);
-		}
-
-		~Watcher()
+		void Destroy()
 		{
 			CloseHandle(m_DirectoryHandle);
 			CloseHandle(m_PollOverlap.hEvent);
+			m_DirectoryHandle = INVALID_HANDLE_VALUE;
+			m_PollOverlap = {};
 		}
 
-		void RequestStop()
+	public:
+		Watcher(ConstWString dirPath, eNotifyFlags filter, eWatcherFlags flags = 0)
 		{
-			// Stop worker thread from waiting for changes and instantly exit
-			m_StopRequested = true;
-			SetEvent(m_PollOverlap.hEvent);
+			m_Path = dirPath;
+			m_Filter = filter;
+			m_Flags = flags;
+
+			InitWatch(dirPath);
+			BeginReadChanges();
 		}
 
-		// NOTE: Current thread will be paused until change occurs!
-		// Don't use in main thread or it will stuck.
+
+		~Watcher()
+		{
+			Destroy();
+		}
+
 		bool GetNextChange(DirectoryChange& change)
 		{
-			if (m_StopRequested)
+			if (m_DirectoryHandle == INVALID_HANDLE_VALUE)
 				return false;
 
-			// We are loading batch of changes from win api and iterating them one by one
+			DWORD bytesTransfered;
+			if (!GetOverlappedResult(m_DirectoryHandle, &m_PollOverlap, &bytesTransfered, m_Flags & WatcherFlags_Blocking))
+				return false;
 
-			// Request changes from WinApi
-			if (!m_ChangesRequested)
+			// AM_DEBUGF("file::Watcher::GetNextChange() -> %u bytes received.", bytesTransfered);
+			if (bytesTransfered == 0)
 			{
-				RequestChanges();
-				m_ChangesRequested = true;
-			}
-
-			// Try to pull new changes
-			if (!m_HasChanges)
-			{
-				// Pull changes
-				if (WaitForSingleObject(m_PollOverlap.hEvent, m_WaitTime) == WAIT_TIMEOUT)
-				{
-					return false;
-				}
-
-				// Skip was requested, exit
-				if (m_StopRequested)
-				{
-					return false;
-				}
-
-				m_HasChanges = true;
+				// WinApi doc states that this may happen if buffer was either too small...
+				AM_ERRF("file::Watcher::GetNextChanges() -> Buffer size is too small... Stopping watcher.");
+				Destroy();
+				return false;
 			}
 
 			auto getNotifyInfo = [&](u32 offset)
@@ -186,11 +173,12 @@ namespace rageam::file
 			m_Offset += notifyInfo->NextEntryOffset;
 
 			// Fill change
-			// NOTE: Paths in FILE_NOTIFY_INFORMATION are not null terminated! Specified length is byte width
+			// NOTE: Paths in FILE_NOTIFY_INFORMATION are not null terminated! Specified length is byte width,
 			// so we have to additionally divide it by two (because wchar_t is 2 bytes) to get actual length
 			change = DirectoryChange();
 			change.Action = eChangeAction(notifyInfo->Action); // Actions directly map to WinApi enum
-			change.Path = m_Path; // Change path's are relative, start with absolute path to append relative later
+			change.Path = m_Path; // Change paths are relative, start with absolute path to append relative later
+
 			if (notifyInfo->Action != FILE_ACTION_RENAMED_OLD_NAME)
 			{
 				change.Path.Join(notifyInfo->FileName, (int)notifyInfo->FileNameLength / 2);
@@ -207,6 +195,7 @@ namespace rageam::file
 				// Now get the new name
 				// NOTE: m_Offset was already set to next item before
 				notifyInfo = getNotifyInfo(m_Offset);
+				AM_ASSERTS(notifyInfo->Action == FILE_ACTION_RENAMED_NEW_NAME);
 				change.NewPath = m_Path;
 				change.NewPath.Join(notifyInfo->FileName, (int)notifyInfo->FileNameLength / 2);
 
@@ -217,14 +206,13 @@ namespace rageam::file
 			// Next offset 0 indicates that this was the last entry
 			if (notifyInfo->NextEntryOffset == 0)
 			{
-				m_ChangesRequested = false;
-				m_HasChanges = false;
 				m_Offset = 0;
 				memset(m_Buffer, 0, BUFFER_SIZE);
+				BeginReadChanges();
 			}
 
 			// WinApi sends modified 'event' for parent directory if file was changed, we don't need this
-			if (change.Action == ChangeAction_Modified && file::IsDirectory(change.Path))
+			if (change.Action == ChangeAction_Modified && IsDirectory(change.Path))
 				return false;
 
 			return true;
