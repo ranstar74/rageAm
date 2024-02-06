@@ -385,6 +385,12 @@ bool rageam::asset::TxdAsset::GetTxdAssetPathFromTexture(const file::WPath& text
 	return ImmutableWString(path).EndsWith(ASSET_ITD_EXT);
 }
 
+bool rageam::asset::TxdAsset::IsTextureInTxdAssetDirectory(const file::WPath& texturePath)
+{
+	file::WPath txdPath; // Unused...
+	return GetTxdAssetPathFromTexture(texturePath, txdPath);
+}
+
 rage::grcTexture* rageam::asset::TxdAsset::CreateNoneTexture()
 {
 	if(!sm_NoneTexture)

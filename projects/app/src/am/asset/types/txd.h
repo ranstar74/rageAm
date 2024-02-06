@@ -28,11 +28,15 @@ namespace rageam::asset
 
 		graphics::ImageCompressorOptions CompressorOptions;
 
+		TextureOptions() = default;
+		TextureOptions(const TextureOptions&) = default;
+
 		void SerializeChanged(const XmlHandle& node, const TextureOptions& options) const;
 		void Serialize(XmlHandle& node) const override;
 		void Deserialize(const XmlHandle& node) override;
 
 		bool operator==(const TextureOptions&) const = default;
+		TextureOptions& operator=(const TextureOptions&) = default;
 	};
 
 	struct TextureTune : AssetSource
@@ -43,6 +47,7 @@ namespace rageam::asset
 		string						OverridePreset;
 
 		TextureTune(AssetBase* parent, ConstWString fileName);
+		TextureTune(const TextureTune&) = default;
 
 		TxdAsset*            GetTXD() const;
 		TextureOptions&      GetCustomOptionsOrFromPreset(amPtr<TexturePreset>* outPreset = nullptr);
@@ -51,6 +56,8 @@ namespace rageam::asset
 
 		void Serialize(XmlHandle& node) const override;
 		void Deserialize(const XmlHandle& node) override;
+
+		TextureTune& operator=(const TextureTune&) = default;
 	};
 	using Textures = List<TextureTune>;
 
@@ -120,6 +127,7 @@ namespace rageam::asset
 
 		static file::WPath GetTxdAssetPathFromTexture(const file::WPath& texturePath);
 		static bool GetTxdAssetPathFromTexture(const file::WPath& texturePath, file::WPath& path);
+		static bool IsTextureInTxdAssetDirectory(const file::WPath& texturePath);
 
 		// (None)###NONE
 		static rage::grcTexture* CreateNoneTexture();

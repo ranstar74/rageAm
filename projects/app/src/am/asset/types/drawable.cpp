@@ -18,8 +18,10 @@ bool rageam::asset::DrawableTxd::TryCompile()
 	rage::grcTextureDictionary* dict = new rage::grcTextureDictionary();
 	if (!Asset->CompileToGame(dict))
 	{
-		AM_ERRF(L"DrawableTxd::TryCompile() -> Failed to compile workspace TXD '%ls'", Asset->GetDirectoryPath().GetCStr());
+		AM_ERRF(L"DrawableTxd::TryCompile() -> Failed to compile TXD '%ls'",
+			Asset->GetDirectoryPath().GetCStr());
 		delete dict;
+		// AM_ERRF("LEAKING ON PURPOES FOR TESTING, LEAKING ON PURPOES FOR TESTING!");
 		return false;
 	}
 
