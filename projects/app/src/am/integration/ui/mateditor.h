@@ -59,28 +59,28 @@ namespace rageam::integration
 	// Shader 'Kinds'
 	enum ShaderCategories : u32
 	{
-		ST_Vehicle = 1 << 0,
-		ST_Ped = 1 << 1,
-		ST_Weapon = 1 << 2,
-		ST_Terrain = 1 << 3,
-		ST_Glass = 1 << 4,
-		ST_Decal = 1 << 5,
-		ST_Cloth = 1 << 6,
-		ST_Cutout = 1 << 7,
+		ST_Vehicle  = 1 << 0,
+		ST_Ped      = 1 << 1,
+		ST_Weapon   = 1 << 2,
+		ST_Terrain  = 1 << 3,
+		ST_Glass    = 1 << 4,
+		ST_Decal    = 1 << 5,
+		ST_Cloth    = 1 << 6,
+		ST_Cutout   = 1 << 7,
 		ST_Emissive = 1 << 8,
 		ST_Parallax = 1 << 9,
-		ST_Misc = 1 << 10,		// For shaders like 'minimap' that don't fit anywhere else
+		ST_Misc     = 1 << 10, // For shaders like 'minimap' that don't fit anywhere else
 	};
 	static constexpr u32 SHADER_CATEGORIES_COUNT = 11;
 
 	// Texture types that shader supports
 	enum ShaderMaps : u32
 	{
-		SM_Detail = 1 << 0,
+		SM_Detail   = 1 << 0,
 		SM_Specular = 1 << 1,
-		SM_Normal = 1 << 2,
-		SM_Cubemap = 1 << 3,
-		SM_Tint = 1 << 4,
+		SM_Normal   = 1 << 2,
+		SM_Cubemap  = 1 << 3,
+		SM_Tint     = 1 << 4,
 	};
 	static constexpr u32 SHADER_MAPS_COUNT = 5;
 
