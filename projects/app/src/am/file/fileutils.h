@@ -40,7 +40,14 @@ namespace rageam::file
 	{
 		FILE* fs;
 		FSHandle(FILE* fs) { this->fs = fs; }
-		~FSHandle() { CloseFileStream(fs); fs = nullptr; }
+		~FSHandle()
+		{
+			if (fs) // Null pointer is not considered as valid stream
+			{
+				CloseFileStream(fs);
+				fs = nullptr;
+			}
+		}
 
 		FILE* Get() const { return fs; }
 
