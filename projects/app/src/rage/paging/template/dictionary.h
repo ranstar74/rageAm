@@ -101,6 +101,8 @@ namespace rage
 		u16 GetCapacity() const { return m_Items.GetCapacity(); }
 		// Destroys all existing items
 		void Clear() { m_Items.Clear(); m_Keys.Clear(); }
+		// NOTE: This is not the same as Destroy, Destroy is pgBase function!
+		void DestroyDictionary() { m_Items.Destroy(); m_Keys.Destroy(); }
 		// If key is in the set
 		bool Contains(u32 key) const { return m_Keys.Find(key) != -1; }
 		bool Contains(ConstString key) const { return Contains(atStringHash(key)); }
@@ -148,18 +150,28 @@ namespace rage
 		}
 		void Remove(ConstString key) { Remove(atStringHash(key)); }
 		// Transfers ownership of the value to caller and removes the item from collection
-		// NULL is returned if key is not present in the collection
-		T* Move(u32 key)
+		T* MoveFrom(s32 index)
 		{
-			int index = IndexOf(key);
-			if (index == -1) return nullptr;
+			AM_ASSERTS(index != -1, index < GetSize());
 			m_Keys.RemoveAt(index);
 			T* item = m_Items[index].Get();
 			m_Items[index].Set(nullptr); // Force set pointer to NULL without deleting
 			m_Items.RemoveAt(index);
 			return item;
 		}
+		T* Move(u32 key)
+		{
+			int index = IndexOf(key);
+			return MoveFrom(index);
+		}
 		T* Move(ConstString key) { return Move(atStringHash(key)); }
+		T* MoveIfExists(u32 key)
+		{
+			int index = IndexOf(key);
+			if (index != -1) return MoveFrom(index);
+			return nullptr;
+		}
+		T* MoveIfExists(ConstString key) { return MoveIfExists(atStringHash(key)); }
 
 		IMPLEMENT_REF_COUNTER(pgDictionary);
 	};
