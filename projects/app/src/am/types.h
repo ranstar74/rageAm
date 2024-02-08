@@ -59,6 +59,11 @@ namespace rageam
 	constexpr u32 Hash(ConstWString str, u32 seed = 0) { return rage::atStringHash(str, true, seed); }
 	inline u32 DataHash(pConstVoid data, u32 dataSize, u32 seed = 0) { return rage::atDataHash(data, dataSize, seed); }
 
+	constexpr u32 PathHash(ConstWString path)
+	{
+		return Hash(file::WPath(path).Normalized());
+	}
+
 	// Math
 
 	using Scalar = float;
