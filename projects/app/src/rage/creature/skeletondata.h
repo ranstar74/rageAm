@@ -59,10 +59,10 @@ namespace rage
 		u16 GetBoneCount() const { return m_NumBones; }
 		crBoneData* GetBone(u16 index);
 
-		const Mat44V& GetBoneWorldTransform(u16 index);
+		Mat44V		  GetBoneWorldTransform(u16 index);
 		const Mat44V& GetBoneLocalTransform(u16 index);
 		const Mat44V& GetBoneLocalTransform(const crBoneData* bone) { return GetBoneLocalTransform(bone->GetIndex()); }
-		const Mat44V& GetBoneWorldTransform(const crBoneData* bone) { return GetBoneWorldTransform(bone->GetIndex()); }
+		Mat44V		  GetBoneWorldTransform(const crBoneData* bone) { return GetBoneWorldTransform(bone->GetIndex()); }
 
 		// Performs linear search for bone with given name
 		// Use GetBoneIndexFromTag & pre-computed bone tag if possible

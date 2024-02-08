@@ -105,7 +105,7 @@ rage::crBoneData* rage::crSkeletonData::GetBone(u16 index)
 	return &m_Bones[index];
 }
 
-const rage::Mat44V& rage::crSkeletonData::GetBoneWorldTransform(u16 index)
+rage::Mat44V rage::crSkeletonData::GetBoneWorldTransform(u16 index)
 {
 	crBoneData* bone = GetBone(index);
 

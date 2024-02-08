@@ -158,7 +158,7 @@ namespace rageam::graphics
 		bool HasSkin() const override;
 		u16 GetBoneCount() const override;
 		SceneNode* GetBone(u16 index) override;
-		const rage::Mat44V& GetWorldBoneTransform(u16 index) override;
+		rage::Mat44V GetWorldBoneTransform(u16 index) override;
 
 		//bool HasLocalWorldMatrices() override { return true; }
 

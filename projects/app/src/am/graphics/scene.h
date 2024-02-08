@@ -218,7 +218,7 @@ namespace rageam::graphics
 		// Gets skinned bone node
 		virtual SceneNode* GetBone(u16 index) = 0;
 		//virtual const rage::Mat44V& GetInverseBoneMatrix(u16 index) = 0;
-		virtual const rage::Mat44V& GetWorldBoneTransform(u16 index) = 0;
+		virtual rage::Mat44V GetWorldBoneTransform(u16 index) = 0;
 
 		bool HasMesh() const { return GetMesh() != nullptr; }
 

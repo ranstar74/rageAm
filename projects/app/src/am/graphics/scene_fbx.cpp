@@ -396,7 +396,7 @@ rageam::graphics::SceneNode* rageam::graphics::SceneNodeFbx::GetBone(u16 index)
 	return ((SceneFbx*)m_Scene)->GetNodeFromUNode(boneNode);
 }
 
-const rage::Mat44V& rageam::graphics::SceneNodeFbx::GetWorldBoneTransform(u16 index)
+rage::Mat44V rageam::graphics::SceneNodeFbx::GetWorldBoneTransform(u16 index)
 {
 	return GetBone(index)->GetWorldTransform();
 }

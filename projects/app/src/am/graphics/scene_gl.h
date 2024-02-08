@@ -148,7 +148,7 @@ namespace rageam::graphics
 		u16 GetBoneCount() const override;
 		SceneNode* GetBone(u16 index) override;
 		//const rage::Mat44V& GetInverseBoneMatrix(u16 index) override;
-		const rage::Mat44V& GetWorldBoneTransform(u16 boneIndex) override;
+		rage::Mat44V GetWorldBoneTransform(u16 boneIndex) override;
 
 		bool HasTranslation() const override { return m_Node->has_translation; }
 		bool HasRotation() const override { return m_Node->has_rotation; }

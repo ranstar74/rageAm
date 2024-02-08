@@ -341,7 +341,7 @@ rageam::graphics::SceneNode* rageam::graphics::SceneNodeGl::GetBone(u16 index)
 //	return m_InverseBindMatrices[index];
 //}
 
-const rage::Mat44V& rageam::graphics::SceneNodeGl::GetWorldBoneTransform(u16 boneIndex)
+rage::Mat44V rageam::graphics::SceneNodeGl::GetWorldBoneTransform(u16 boneIndex)
 {
 	// https://stackoverflow.com/questions/64745393/gltf-are-bone-matrices-specified-in-local-or-model-space
 	// jointMatrix(j) =
