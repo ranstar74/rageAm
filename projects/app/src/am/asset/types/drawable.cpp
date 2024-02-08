@@ -218,7 +218,17 @@ void rageam::asset::MaterialTune::SetTextureNamesFromSceneMaterial(const graphic
 
 bool rageam::asset::MaterialTuneGroup::ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const
 {
+	if (String::Equals(tune->Name, DEFAULT_MATERIAL_NAME))
+	{
+		return scene->NeedDefaultMaterial();
+	}
+
 	return scene->GetMaterialByName(tune->Name);
+}
+
+int rageam::asset::MaterialTuneGroup::IndexOf(const graphics::Scene* scene, ConstString itemName) const
+{
+	return scene->GetMaterialByName(itemName)->GetIndex();
 }
 
 rageam::asset::SceneTunePtr rageam::asset::MaterialTuneGroup::CreateTune() const
@@ -285,6 +295,11 @@ void rageam::asset::ModelTune::Deserialize(const XmlHandle& node)
 bool rageam::asset::ModelTuneGroup::ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const
 {
 	return scene->GetNodeByName(tune->Name) != nullptr;
+}
+
+int rageam::asset::ModelTuneGroup::IndexOf(const graphics::Scene* scene, ConstString itemName) const
+{
+	return scene->GetNodeByName(itemName)->GetIndex();
 }
 
 rageam::asset::SceneTunePtr rageam::asset::ModelTuneGroup::CreateTune() const
@@ -384,6 +399,16 @@ bool rageam::asset::LightTuneGroup::ExistsInScene(graphics::Scene* scene, const 
 {
 	graphics::SceneNode* sceneNode = scene->GetNodeByName(tune->Name);
 	return sceneNode && sceneNode->HasLight();
+}
+
+int rageam::asset::LightTuneGroup::IndexOf(const graphics::Scene* scene, ConstString itemName) const
+{
+	for (u16 i = 0; i < scene->GetLightCount(); i++)
+	{
+		if (String::Equals(scene->GetLight(i)->GetName(), itemName))
+			return i;
+	}
+	return -1;
 }
 
 rageam::asset::SceneTunePtr rageam::asset::LightTuneGroup::CreateTune() const
@@ -541,8 +566,8 @@ void rageam::asset::DrawableTune::Serialize(XmlHandle& node) const
 	node.AddChild("SceneFile", String::ToUtf8Temp(SceneFileName));
 
 	XmlHandle xLodGroup = node.AddChild("LodGroup");
-	Lods.Serialize(xLodGroup);
 
+	Lods.Serialize(xLodGroup);
 	Materials.Serialize(node);
 	Lights.Serialize(node);
 }
@@ -554,8 +579,8 @@ void rageam::asset::DrawableTune::Deserialize(const XmlHandle& node)
 	SceneFileName = String::Utf8ToWideTemp(fileName);
 
 	XmlHandle xLodGroup = node.GetChild("LodGroup");
-	Lods.Deserialize(xLodGroup);
 
+	Lods.Deserialize(xLodGroup);
 	Materials.Deserialize(node);
 	Lights.Deserialize(node);
 }
@@ -739,7 +764,7 @@ rageam::List<rageam::asset::DrawableAsset::SplittedGeometry> rageam::asset::Draw
 u16 rageam::asset::DrawableAsset::GetSceneGeometryMaterialIndex(const graphics::SceneGeometry* sceneGeometry) const
 {
 	u16 nodeMaterial = sceneGeometry->GetMaterialIndex();
-	if (m_Scene->NeedDefaultMaterial())
+	if (m_DrawableTune.Materials.ContainsTune(DEFAULT_MATERIAL_NAME))
 	{
 		if (nodeMaterial == graphics::DEFAULT_MATERIAL)
 			return 0;
@@ -1082,26 +1107,17 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 {
 	rage::grmShaderGroup* shaderGroup = m_Drawable->GetShaderGroup();
 
-	// Since we're using list to store materials, quick lookup table
-	HashSet<graphics::SceneMaterial*> matNameToSceneMat;
-	for (u16 i = 0; i < m_Scene->GetMaterialCount(); i++)
-	{
-		graphics::SceneMaterial* sceneMat = m_Scene->GetMaterial(i);
-		matNameToSceneMat.InsertAt(sceneMat->GetNameHash(), sceneMat);
-	}
-
 	// For each material tune param:
 	// - Try find parameter metadata (grcEffectVar) in grcEffect
 	// - Simply copy value for regular types, for texture we have to resolve it from string
-	for (const auto& matTune : m_DrawableTune.Materials)
+	for (const amPtr<MaterialTune>& materialTune : m_DrawableTune.Materials)
 	{
-		const EffectInfo& effectInfo = m_EffectCache.GetAt(Hash(matTune->Effect));
+		const EffectInfo& effectInfo = m_EffectCache.GetAt(Hash(materialTune->Effect));
 
 		rage::grcEffect* effect = effectInfo.Effect;
 		rage::grmShader* shader = new rage::grmShader(effect);
-		shader->SetDrawBucket(matTune->DrawBucket);
-		shader->SetTessellated(false);
-		for (MaterialTune::Param& param : matTune->Params)
+		shader->SetDrawBucket(materialTune->DrawBucket);
+		for (MaterialTune::Param& param : materialTune->Params)
 		{
 			u16 varIndex;
 			rage::grcEffectVar* varInfo = effect->GetVar(param.Name, &varIndex);
@@ -1110,7 +1126,7 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 			if (!varInfo)
 			{
 				AM_WARNINGF("Unable to find variable '%s' in shader effect '%s'.fxc",
-					param.Name.GetCStr(), matTune->Effect.GetCStr());
+					param.Name.GetCStr(), materialTune->Effect.GetCStr());
 				continue;
 			}
 
@@ -1123,14 +1139,14 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 				if (String::IsNullOrEmpty(textureName))
 				{
 					AM_WARNINGF("Texture is not specified for '%s' in material '%s'",
-						param.Name.GetCStr(), matTune->Name.GetCStr());
+						param.Name.GetCStr(), materialTune->Name.GetCStr());
 
 					var->SetTexture(TxdAsset::CreateNoneTexture());
 				}
 				else if (!ResolveAndSetTexture(var, textureName))
 				{
 					AM_WARNINGF("Texture '%s' is not found in any known dictionary in material '%s'.",
-						textureName.GetCStr(), matTune->Name.GetCStr());
+						textureName.GetCStr(), materialTune->Name.GetCStr());
 
 					SetMissingTexture(var, textureName);
 				}
@@ -1157,13 +1173,13 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 
 		u16 shaderIndex = shaderGroup->GetShaderCount();
 		// Map graphics::SceneMaterial -> rage::grmShader
-		if (matTune->IsDefault || matTune->IsRemoved) // Default implicit & orphan materials have no scene material linkage
+		if (materialTune->IsDefault || materialTune->IsRemoved) // Default implicit & orphan materials have no scene material linkage
 		{
 			CompiledDrawableMap->ShaderToSceneMaterial.Add(u16(-1));
 		}
 		else
 		{
-			u16 materialIndex = m_Scene->GetMaterialByName(matTune->Name)->GetIndex();
+			u16 materialIndex = m_Scene->GetMaterialByName(materialTune->Name)->GetIndex();
 			CompiledDrawableMap->SceneMaterialToShader[materialIndex] = shaderIndex;
 			CompiledDrawableMap->ShaderToSceneMaterial.Add(materialIndex);
 		}
@@ -1173,6 +1189,19 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 
 bool rageam::asset::DrawableAsset::ResolveAndSetTexture(rage::grcInstanceVar* var, ConstString textureName)
 {
+	if (tl_SkipTextures)
+	{
+		rage::grcTexture* missingTexture = m_EmbedDict->Find(textureName);
+		if (!missingTexture)
+		{
+			// Create new missing texture...
+			missingTexture = m_EmbedDict->Insert(textureName, TxdAsset::CreateMissingTexture(textureName));
+		}
+
+		var->SetTexture(missingTexture);
+		return true;
+	}
+
 	// Try to resolve first in embed dictionary (it has the highest priority)
 	if (m_EmbedDict)
 	{
@@ -1230,6 +1259,14 @@ void rageam::asset::DrawableAsset::SetMissingTexture(rage::grcInstanceVar* var, 
 
 bool rageam::asset::DrawableAsset::CompileAndSetEmbedDict()
 {
+	// For simplicity reasons, we always create dictionary for 'missing' texture
+	if (tl_SkipTextures)
+	{
+		m_EmbedDict = new rage::grcTextureDictionary();
+		m_Drawable->GetShaderGroup()->SetEmbedTextureDict(rage::pgPtr(m_EmbedDict));
+		return true;
+	}
+
 	// Don't create empty embed dictionary 
 	if (m_EmbedDictTune->GetTextureTuneCount() == 0)
 		return true;
@@ -1534,6 +1571,10 @@ bool rageam::asset::DrawableAsset::TryCompileToGame()
 	CalculateLodExtents();
 
 	m_Drawable->GetLodGroup().ComputeBucketMask(m_Drawable->GetShaderGroup());
+	for (u16 i = 0; i < m_Drawable->GetShaderGroup()->GetShaderCount(); i++)
+	{
+		m_Drawable->ComputeTessellationForShader(i);
+	}
 
 	return true;
 }
@@ -1743,12 +1784,17 @@ void rageam::asset::DrawableAsset::Refresh()
 		return;
 	}
 
-	RefreshTXDWorkspace();
-	RefreshEmbedDict();
-	RefreshTuneFromScene();
+	RefreshTunesFromScene();
 
 	// Since it only contains metadata, we don't need it anymore
 	m_Scene = nullptr;
+}
+
+void rageam::asset::DrawableAsset::RefreshTunesFromScene()
+{
+	RefreshTXDWorkspace();
+	RefreshEmbedDict();
+	RefreshTuneFromScene();
 }
 
 void rageam::asset::DrawableAsset::Serialize(XmlHandle& node) const

@@ -88,7 +88,7 @@ rageam::asset::TexturePresetPtr rageam::asset::TextureTune::MatchPreset() const
 
 bool rageam::asset::TextureTune::GetValidatedTextureName(file::Path& name, bool showWarningMessage) const
 {
-	return GetTXD()->GetValidatedTextureName(GetFilePath(), name, showWarningMessage);
+	return TxdAsset::GetValidatedTextureName(GetFilePath(), name, showWarningMessage);
 }
 
 void rageam::asset::TextureTune::Serialize(XmlHandle& node) const
@@ -144,9 +144,19 @@ bool rageam::asset::TxdAsset::CompileToGame(rage::grcTextureDictionary* object)
 				sema.release();
 
 				if (!gameTexture)
+				{
+					if (!UseMissingTexturesInsteadOfFailing)
 					return false;
 
-				mutex.lock();
+					file::Path textureName;
+					if (!tune.GetValidatedTextureName(textureName, false))
+						return false;
+
+					gameTexture = CreateMissingTexture(textureName);
+				}
+
+				std::unique_lock lock(mutex);
+
 				// For sanity check, we must ensure that there are no multiple textures with the same name
 				if (txd.Contains(gameTexture->GetName()))
 				{
@@ -281,7 +291,7 @@ rageam::asset::TextureTune& rageam::asset::TxdAsset::AddTune(ConstWString filePa
 	return m_TextureTunes.Construct(this, filePath);
 }
 
-bool rageam::asset::TxdAsset::GetValidatedTextureName(const file::WPath& texturePath, file::Path& outName, bool showWarningMessage) const
+bool rageam::asset::TxdAsset::GetValidatedTextureName(const file::WPath& texturePath, file::Path& outName, bool showWarningMessage)
 {
 	outName = "";
 
@@ -424,7 +434,7 @@ rage::grcTexture* rageam::asset::TxdAsset::CreateMissingTexture(ConstString text
 	sprintf_s(nameBuffer, sizeof nameBuffer, "%s (Missing)##$MT_%s", textureName, textureName);
 
 	rage::grcTextureDX11* texture = new rage::grcTextureDX11((rage::grcTextureDX11&)*sm_MissingTexture);
-	texture->SetName(nameBuffer);
+	SetMissingTextureName(texture, textureName);
 	return texture;
 }
 
@@ -443,4 +453,11 @@ ConstString rageam::asset::TxdAsset::UndecorateMissingTextureName(const rage::gr
 	if (tokenIndex == -1)
 		return texture->GetName();
 	return texName.Substring(tokenIndex + 6); // Length of ##$MT_
+}
+
+void rageam::asset::TxdAsset::SetMissingTextureName(rage::grcTexture* texture, ConstString textureName)
+{
+	char nameBuffer[256];
+	sprintf_s(nameBuffer, sizeof nameBuffer, "%s (Missing)##$MT_%s", textureName, textureName);
+	texture->SetName(nameBuffer);
 }

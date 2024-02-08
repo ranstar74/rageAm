@@ -100,7 +100,8 @@ namespace rageam::asset
 		u32 GetTextureTuneCount() const { return m_TextureTunes.GetSize(); }
 
 		// Gets error-checked texture name from absolute/relative texture file path
-		bool GetValidatedTextureName(const file::WPath& texturePath, file::Path& outName, bool showWarningMessage = true) const;
+		static bool GetValidatedTextureName(const file::WPath& texturePath, file::Path& outName, bool showWarningMessage = true);
+
 		bool ContainsTextureWithName(ConstString name) const;
 
 		TextureTune* TryFindTuneFromPath(ConstWString path) const;
@@ -131,7 +132,7 @@ namespace rageam::asset
 
 		// (None)###NONE
 		static rage::grcTexture* CreateNoneTexture();
-		static bool IsNoneTexture(const rage::grcTexture* texture);
+		static bool              IsNoneTexture(const rage::grcTexture* texture);
 		// Missing texture name is composed in format:
 		// TEX_NAME (Missing)###$MT_TEXNAME
 		// ## is ImGui special char sequence, everything past ## is ignored visually but used as ID
@@ -142,6 +143,15 @@ namespace rageam::asset
 		// Gets actual name from missing texture name (which is in format 'TEX_NAME (Missing)###$MT_TEXNAME')
 		// If texture is not missing, returns just texture name
 		static ConstString UndecorateMissingTextureName(const rage::grcTexture* texture);
+		static void        SetMissingTextureName(rage::grcTexture* texture, ConstString textureName);
+
+		// When texture fails to compress, instead of failing, uses missing texture instead
+		static inline thread_local bool UseMissingTexturesInsteadOfFailing = false;
 	};
 	using TxdAssetPtr = amPtr<TxdAsset>;
+
+	struct TxdAssetHashFn
+	{
+		u32 operator()(const TxdAssetPtr& txd) const { return txd->GetHashKey(); }
+	};
 }

@@ -16,8 +16,9 @@
 enum AssetHotFlags_ : u32
 {
 	AssetHotFlags_None				= 0,		// No change was applied
-	AssetHotFlags_DrawableCompiled	= 1 << 0,	// Scene was loaded and drawable compiled
-	AssetHotFlags_TxdModified		= 1 << 1,	// Txd or texture was added or removed
+	AssetHotFlags_DrawableUnloaded	= 1 << 0,	// Scene was unloaded
+	AssetHotFlags_DrawableCompiled	= 1 << 1,	// Scene was loaded and drawable compiled
+	AssetHotFlags_TxdModified		= 1 << 2,	// Txd or texture was added or removed
 };
 typedef u32 AssetHotFlags;
 
@@ -27,11 +28,11 @@ namespace rageam::asset
 
 	struct HotDrawableInfo
 	{
-		DrawableTxdSet*  TXDs;			// All texture dictionaries in the workspace + embed
-		DrawableAssetPtr DrawableAsset;
-		gtaDrawablePtr   Drawable;
-		bool             IsLoading;		// Drawable asset compiling?
-		AssetHotFlags    HotFlags;		// For current frame only!
+		DrawableAssetPtr            DrawableAsset;
+		gtaDrawablePtr              Drawable;
+		bool                        IsLoading;		// Drawable asset compiling?
+		AssetHotFlags               HotFlags;		// For current frame only!
+		rage::grcTextureDictionary* MegaDictionary;
 	};
 
 	/**
@@ -39,13 +40,6 @@ namespace rageam::asset
 	 */
 	class HotDrawable
 	{
-		enum TaskID
-		{
-			TaskID_None,
-			TaskID_CompileTex,
-			TaskID_CompileTxd,
-		};
-
 		static constexpr file::eNotifyFlags WATCHER_NOTIFY_FLAGS =
 			file::NotifyFlags_DirectoryName |
 			file::NotifyFlags_FileName |
@@ -57,6 +51,30 @@ namespace rageam::asset
 			// Those are moved from drawable asset copy
 			graphics::ScenePtr        Scene;
 			amUPtr<DrawableAssetMap>  Map;
+		};
+
+		struct TextureInfo
+		{
+			// Empty if texture is missing orphan (has no parent TXD, but still used in drawable)
+			file::WPath TxdPath;
+			HashValue	TxdHashValue;
+			string		Name;
+
+			bool IsOprhan() const { return String::IsNullOrEmpty(TxdPath); }
+			void SetTxd(const TxdAssetPtr& txdAsset)
+			{
+				TxdPath = txdAsset->GetDirectoryPath();
+				TxdHashValue = txdAsset->GetHashKey();
+			}
+			void MakeOrphan()
+			{
+				TxdPath = L"";
+				TxdHashValue = 0;
+			}
+		};
+		struct TextureInfoHashFn
+		{
+			u32 operator()(const TextureInfo& info) const { return atStringHash(info.Name); }
 		};
 
 		// When we remove texture we must be sure that it is not referenced in draw list
@@ -72,14 +90,16 @@ namespace rageam::asset
 		Tasks							m_AsyncTasks;
 		DrawableAssetPtr				m_Asset;
 		gtaDrawablePtr					m_CompiledDrawable;
-		// Holds every compiled TXD from workspace including embed (for simpler access)
-		// Key is the full wide path to the TXD
-		DrawableTxdSet					m_TXDs;
-		// Those textures were left without dictionary (dict was removed)...
-		// We have to keep track of them to prevent memory leaks
-		rage::grcTextureDictionaryPtr	m_OrphanMissingTextures;
 		AssetHotFlags					m_HotFlags = AssetHotFlags_None;
 		List<file::DirectoryChange>		m_PendingChanges;
+		bool							m_JustRequestedLoad = false;
+
+		// We store all the textures in the single dictionary. This simplifies access and editing interface.
+		// All the extra metadata for the specific texture is stored in separate hashmap m_TextureInfos.
+		// This allows us to lazy load textures after entity was spawned, greatly reducing loading time
+		rage::grcTextureDictionaryPtr			m_MegaDictionary;
+		HashSet<TextureInfo, TextureInfoHashFn>	m_TextureInfos;
+		HashSet<TxdAssetPtr, TxdAssetHashFn>	m_TxdAssetStore; // Instead of loading TXD asset every time, we cache them here
 
 		// Iterates all textures in drawable shader group variables
 		// If textureName is not NULL, only textures with given name are yielded, excluding vars with NULL texture
@@ -87,59 +107,55 @@ namespace rageam::asset
 		void ForAllDrawableTextures(
 			const std::function<bool(rage::grcInstanceVar*)>& delegate, ConstString textureName = nullptr) const;
 
-		// If orphan missing texture is not referenced anywhere anymore, remove it
-		void RemoveFromMissingOrphans(ConstString textureName) const;
-
-		// See explanation comments for RemoveTexturesFromRenderThread & sm_TexturesToRemove
+		// Every created grcTexture must be not deleted manually but added in delete list
+		// Texture will only be removed when draw list does not reference it anymore
 		void AddTextureToDeleteList(rage::grcTexture* texture) const;
-		void AddTxdTexturesToDeleteList(const rage::grcTextureDictionaryPtr& dict) const;
 
-		void AddNewTxdAsync(const file::WPath& path);
-		void CompileTxdAsync(DrawableTxd* txd);
-		void CompileTexAsync(DrawableTxd* txd, TextureTune* tune);
+		void SetTexture(ConstString textureName, rage::grcTexture* texture) const;
 
-		// Marks all the textures as missing orphans and removes TXD from the store
-		void DeleteTxdAndRemoveFromTheList(const DrawableTxd& txd);
-		void DeleteTxdAndRemoveFromTheList(ConstWString path);
+		void LoadTextureAsync(const TxdAssetPtr& txdAsset, TextureTune* tune);
+		void LoadTextureAsync(ConstWString texturePath);
+		void LoadTxdAsync(ConstWString txdPath);
 
-		bool IsMissingOrphanTexture(ConstString textureName) const { return m_OrphanMissingTextures->Contains(textureName); }
-		// Texture's parent dictionary is gone, and we must remove the texture, but
-		// if it still referenced somewhere, we must create missing texture and add it to orphans
-		void MarkTextureAsMissingOrphan(ConstString textureName) const;
-		void MarkTextureAsMissing(ConstString textureName, const DrawableTxd& txd) const;
-		void MarkTextureAsMissing(const TextureTune& textureTune, const DrawableTxd& txd) const;
+		TxdAssetPtr GetTxdAssetFromTexturePath(ConstWString texturePath);
+		TxdAssetPtr GetTxdAssetFromPath(ConstWString txdPath);
+		void		ReloadTxdAsset(ConstWString txdPath);
+
 		// Replaces existing and missing textures
 		void ReplaceDrawableTexture(ConstString textureName, rage::grcTexture* newTexture) const;
 		bool IsTextureUsedInDrawable(ConstString textureName) const;
+		// Removes texture and sets missing one if it's still used in drawable
+		void RemoveTexture(ConstString textureName);
+		void RemoveTxd(ConstWString txdPath);
+		// Puts missing texture and returns the texture that was used
+		rage::grcTexture* MarkTextureAsMissing(ConstString textureName) const;
 
 		void HandleChange_Texture(const file::DirectoryChange& change);
 		void HandleChange_Txd(const file::DirectoryChange& change);
-		void HandleChange_Scene(const file::DirectoryChange& change);
 		void HandleChange(const file::DirectoryChange& change);
 
 		void UpdateBackgroundJobs();
-		void CheckIfDrawableHasCompiled();
+		void UpdateDrawableCompiling();
 
 	public:
 		HotDrawable(ConstWString assetPath);
 
 		// Flushes current state and fully reloads asset
 		void LoadAndCompileAsync(bool keepAsset = true);
-		// Texture is not used by drawable anymore and if it was missing we can safely remove it from list now
-		void NotifyTextureWasUnselected(const rage::grcTexture* texture) const;
-
+		// Event when texture was unset in shader variable
+		void NotifyTextureWasUnselected(const rage::grcTexture* texture);
 		// Must be called on early update/tick for synchronization of drawable changes
 		HotDrawableInfo UpdateAndApplyChanges();
 
-		rage::grcTexture* LookupTexture(ConstString name) const;
+		const file::WPath&  GetPath() const { return m_AssetPath; }
+		ConstWString		GetTxdPathFromTexture(ConstString textureName, HashValue* outTxdHashValue = nullptr) const;
+		const auto&			GetTXDs() { return m_TxdAssetStore; }
+		rage::grcTexture*   LookupTexture(ConstString name) const;
 
 		// All removed textures are added in single list and removed on the end of the frame to prevent
 		// removing textures that are still currently in draw list
 		static void RemoveTexturesFromRenderThread(bool forceAll);
 		static void ShutdownClass() { RemoveTexturesFromRenderThread(true); }
-
-		const file::WPath&          GetPath() const { return m_AssetPath; }
-		rage::grcTextureDictionary& GetOrphanMissingTextures() { return *m_OrphanMissingTextures; }
 
 		// Drawable compile callback
 		// NOTE: This delegate is not thread-safe!

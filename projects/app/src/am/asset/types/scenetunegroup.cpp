@@ -14,7 +14,7 @@ void rageam::asset::SceneTuneGroupBase::Serialize(XmlHandle& node) const
 
 void rageam::asset::SceneTuneGroupBase::Deserialize(const XmlHandle& node)
 {
-	XmlHandle xTunes = node.AddChild(GetName());
+	XmlHandle xTunes = node.GetChild(GetName());
 	for (const XmlHandle& xTune : XmlIterator(xTunes, "Item"))
 	{
 		SceneTunePtr tune = CreateTune();
@@ -29,10 +29,7 @@ void rageam::asset::SceneTuneGroupBase::Refresh(graphics::Scene* scene)
 	for (u16 i = 0; i < Items.GetSize(); i++)
 	{
 		SceneTunePtr& tune = Items[i];
-		if (!ExistsInScene(scene, tune))
-		{
-			tune->IsRemoved = true;
-		}
+		tune->IsRemoved = !ExistsInScene(scene, tune);
 	}
 
 	// We need this for ContainsTune, refresh is done after deserializing
@@ -40,7 +37,6 @@ void rageam::asset::SceneTuneGroupBase::Refresh(graphics::Scene* scene)
 	RebuildNameMap();
 
 	// Add tune for new items
-	bool anyTuneAdded = false;
 	for (u16 i = 0; i < GetSceneItemCount(scene); i++)
 	{
 		ConstString itemName = GetItemName(scene, i);
@@ -49,12 +45,20 @@ void rageam::asset::SceneTuneGroupBase::Refresh(graphics::Scene* scene)
 			SceneTunePtr tune = CreateDefaultTune(scene, i);
 			tune->Name = itemName;
 			Items.Emplace(std::move(tune));
-			anyTuneAdded = true;
 		}
 	}
 
-	if (anyTuneAdded)
-		RebuildNameMap();
+	// Now we have to sort all items to match scene indices
+	SmallList<SceneTunePtr> sortedItems;
+	sortedItems.Resize(Items.GetSize());
+	for (u16 i = 0; i < Items.GetSize(); i++)
+	{
+		int sceneIndex = IndexOf(scene, Items[i]->Name);
+		sortedItems[sceneIndex] = std::move(Items[i]);
+	}
+	Items = std::move(sortedItems);
+
+	RebuildNameMap();
 }
 
 bool rageam::asset::SceneTuneGroupBase::ContainsTune(ConstString name) const

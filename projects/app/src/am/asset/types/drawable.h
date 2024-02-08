@@ -153,6 +153,7 @@ namespace rageam::asset
 	struct MaterialTuneGroup : SceneTuneGroup<MaterialTune>
 	{
 		bool         ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const override;
+		int          IndexOf(const graphics::Scene* scene, ConstString itemName) const override;
 		SceneTunePtr CreateTune() const override;
 		SceneTunePtr CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const override;
 		ConstString  GetItemName(graphics::Scene* scene, u16 itemIndex) const override;
@@ -179,6 +180,7 @@ namespace rageam::asset
 	struct ModelTuneGroup : SceneTuneGroup<ModelTune>
 	{
 		bool         ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const override;
+		int          IndexOf(const graphics::Scene* scene, ConstString itemName) const override;
 		SceneTunePtr CreateTune() const override;
 		SceneTunePtr CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const override;
 		ConstString  GetItemName(graphics::Scene* scene, u16 itemIndex) const override;
@@ -240,6 +242,7 @@ namespace rageam::asset
 	struct LightTuneGroup : SceneTuneGroup<LightTune>
 	{
 		bool         ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const override;
+		int			 IndexOf(const graphics::Scene* scene, ConstString itemName) const override;
 		SceneTunePtr CreateTune() const override;
 		SceneTunePtr CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const override;
 		ConstString  GetItemName(graphics::Scene* scene, u16 itemIndex) const override;
@@ -399,7 +402,6 @@ namespace rageam::asset
 		bool ResolveAndSetTexture(rage::grcInstanceVar* var, ConstString textureName);
 		// Sets missing checker texture (similar to half life 2)
 		void SetMissingTexture(rage::grcInstanceVar* var, ConstString textureName) const;
-
 		bool CompileAndSetEmbedDict();
 
 		// Creates collision bound from scene model
@@ -448,6 +450,8 @@ namespace rageam::asset
 		void ParseFromGame(gtaDrawable* object) override;
 		void Refresh() override;
 
+		void RefreshTunesFromScene();
+
 		ConstWString GetXmlName()			const override { return L"Drawable"; }
 		ConstWString GetCompileExtension()	const override { return L"ydr"; }
 		u32 GetFormatVersion()				const override { return 0; }
@@ -476,8 +480,6 @@ namespace rageam::asset
 		// NOTE: There's no checks if path is valid or not, used only by hot reload currently
 		void		SetScenePath(const file::WPath& path) { m_DrawableTune.SceneFileName = path.GetFileName(); }
 
-		bool HasEmbedTXD() const { return true; } // TODO: Currently embed dictionary is always compiled! Even if there's no textures.
-
 		// Only to be used if asset was compiled successfully!
 		amUPtr<DrawableAssetMap> CompiledDrawableMap;
 		// Workspace with shared texture dictionaries loaded, may be NULL
@@ -485,6 +487,10 @@ namespace rageam::asset
 		// TXDs with textures that are used by drawable materials (NOT including embed TXD)
 		// NOTE: Destroying asset will destroy those dictionaries and all the textures!
 		DrawableTxdSet			 SharedTXDs;
+
+		// Uses missing textures instead of resolving them from texture dictionaries,
+		// all missing textures are added in embed dictionary
+		static inline thread_local bool tl_SkipTextures = false;
 	};
 	using DrawableAssetPtr = amPtr<DrawableAsset>;
 }

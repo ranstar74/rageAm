@@ -780,7 +780,10 @@ void rageam::integration::MaterialEditor::DoTextureSearch()
 	bool isFullSearch = separatorIndex != -1;
 
 	// Performs search in dict and adds matching textures to results
-	auto doSearch = [&](ImmutableString dictName, rage::grcTextureDictionary* dict)
+	auto doSearch = [&]
+			(ImmutableString dictName, 
+			rage::grcTextureDictionary* dict, 
+			ConstWString txdPathFilter)
 		{
 			bool dictNameMatches = true;
 			if (hasDictSearch) dictNameMatches = dictName.StartsWith(dictSearch, true);
@@ -792,9 +795,21 @@ void rageam::integration::MaterialEditor::DoTextureSearch()
 			TextureSearch textureSearch;
 
 			// Dictionary matched, search for textures
+			bool searchingOrphans = String::IsNullOrEmpty(txdPathFilter);
+			HashValue txdFilterHashKey = asset::AssetPathHashFn(txdPathFilter);
 			for (u16 i = 0; i < dict->GetSize(); i++)
 			{
 				ImmutableString texName = dict->GetValueAt(i)->GetName();
+
+				// We use this filtering because all textures are stored in the same TXD,
+				// and we need to group them manually
+				HashValue    textureTxdHashKey;
+				ConstWString textureTxdPath = m_Context->HotDrawable->GetTxdPathFromTexture(texName, &textureTxdHashKey);
+				bool		 isTextureOrphan = String::IsNullOrEmpty(textureTxdPath);
+				if (searchingOrphans != isTextureOrphan)
+					continue;
+				if (!searchingOrphans && textureTxdHashKey != txdFilterHashKey)
+					continue;
 
 				bool texNameMatched = true;
 				if (hasTexSearch) texNameMatched = texName.StartsWith(texSearch, true);
@@ -823,29 +838,23 @@ void rageam::integration::MaterialEditor::DoTextureSearch()
 			m_TextureSearchEntries.Emplace(std::move(textureSearch));
 		};
 
-	// Orphan dict with missing textures
-	auto orphanDict = &m_Context->HotDrawable->GetOrphanMissingTextures();
-	if (orphanDict->GetSize() > 0)
-		doSearch("Missing Orphans", orphanDict);
+	// Orphan
+	doSearch("Missing Orphans", m_Context->MegaDictionary, L"");
 
-	// Add embed dict, if present
-	auto embedDict = m_Context->Drawable->GetShaderGroup()->GetEmbedTextureDictionary().Get();
-	if (embedDict)
-		doSearch("Embed", embedDict);
+	// Embed
+	ConstWString embedPath = m_Context->DrawableAsset->GetEmbedDictionary()->GetDirectoryPath();
+	doSearch("Embed", m_Context->MegaDictionary, embedPath);
 
-	// Add workspace TXDs
-	for (asset::DrawableTxd& txd : *m_Context->TXDs)
+	// Workspace TXDs
+	asset::WorkspacePtr& workspace = m_Context->DrawableAsset->WorkspaceTXD;
+	if (workspace)
 	{
-		// We draw embed dictionary separately with our custom name
-		if (txd.IsEmbed)
-			continue;
-
-		file::WPath txdAssetName = txd.Asset->GetAssetName();
-		// Convert to ansi + remove '.itd' extension
-		file::Path txdName = file::PathConverter::WideToUtf8(txdAssetName);
-		txdName = txdName.GetFileNameWithoutExtension();
-
-		doSearch(txdName.GetCStr(), txd.Dict.Get());
+		for (u16 i = 0; i < workspace->GetTexDictCount(); i++)
+		{
+			const asset::TxdAssetPtr& txdAsset = workspace->GetTexDict(i);
+			ConstString txdName = String::ToAnsiTemp(txdAsset->GetAssetName());
+			doSearch(txdName, m_Context->MegaDictionary, txdAsset->GetDirectoryPath());
+		}
 	}
 }
 
@@ -1161,6 +1170,8 @@ void rageam::integration::MaterialEditor::DrawMaterialList()
 				return;
 
 			ConstString materialName = materialTune.Name;
+			if (String::Equals(materialName, asset::DEFAULT_MATERIAL_NAME))
+				materialName = "Default";
 
 			ConstString nodeName = ImGui::FormatTemp("%s###%s_%i", materialName, materialName, i);
 
@@ -1222,12 +1233,13 @@ void rageam::integration::MaterialEditor::DrawMaterialList()
 				{
 					for(u16 i = 0; i < drawableTune.Materials.GetCount(); i++)
 					{
-						auto& materialTune = drawableTune.Materials.Get(i);
+						amPtr<asset::MaterialTune> materialTune = drawableTune.Materials.Get(i);
 						if (materialTune->IsRemoved) 
 							materialTune->NoLongerNeeded = true;
 					}
 				}
 				ImGui::PopStyleColor();
+				ImGui::Dummy(ImVec2(2, 0)); ImGui::SameLine(); // Padding after text
 			}
 
 			// And now all unused materials
@@ -1451,7 +1463,7 @@ void rageam::integration::MaterialEditor::StoreMaterialValue(u16 materialIndex, 
 	{
 		rage::grcTexture* varTexture = var->GetTexture();
 		if (varTexture)
-			String::Copy(blob.TextureName, sizeof VarBlob::TextureName, varTexture->GetName());
+			blob.TextureName = varTexture->GetName();
 		else
 			blob.TextureName[0] = '\0'; // No texture, empty name...
 	}

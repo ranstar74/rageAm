@@ -39,6 +39,8 @@ namespace rageam::asset
 	static constexpr ConstWString ASSET_ITD_EXT = L".itd";
 	static constexpr ConstWString ASSET_IDR_EXT = L".idr";
 
+	static HashValue AssetPathHashFn(ConstWString path) { return PathHash(path); }
+
 	/**
 	 * \brief Base class for assets.
 	 * \remarks This class is only to be used AssetFactory! Use GameAsset / GameRscAsset for anything else.
@@ -78,7 +80,7 @@ namespace rageam::asset
 		// Useful when some data needs to be set only on config creation
 		bool HasSavedConfig() const { return m_HasSavedConfig; }
 
-		// atStringHash of directory path
+		// Hash of directory path
 		u32 GetHashKey() const { return m_HashKey; }
 		// Gets full path to asset directory 'x:/assets/adder.itd'
 		const file::WPath& GetDirectoryPath() const { return m_Directory; }
@@ -144,7 +146,7 @@ namespace rageam::asset
 		ConstWString GetFilePath() const { return m_FilePath; }
 		u32          GetHashKey() const { return m_HashKey; }
 
-		static u32 ComputeHashKey(ConstWString path) { return Hash(path); }
+		static u32 ComputeHashKey(ConstWString path) { return PathHash(path); }
 
 		bool operator==(const AssetSource& other) const { return m_HashKey == other.m_HashKey; }
 		AssetSource& operator=(const AssetSource&) = default;

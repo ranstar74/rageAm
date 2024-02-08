@@ -65,8 +65,8 @@ namespace rageam::asset
 		u16 GetTotalTdCount() const { return m_TotalTDs; }
 		u16 GetTotalDrCount() const { return m_TotalDRs; }
 
-		auto GetTexDict(u16 index) const -> const amPtr<TxdAsset>&;
-		auto GetDrawable(u16 index) const -> const amPtr<DrawableAsset>&;
+		auto GetTexDict(u16 index) const -> amPtr<TxdAsset>;
+		auto GetDrawable(u16 index) const -> amPtr<DrawableAsset>;
 
 		// Absolute path of this workspace
 		ConstWString GetPath() const { return m_Path; }

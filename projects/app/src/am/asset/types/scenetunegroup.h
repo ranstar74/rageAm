@@ -42,7 +42,7 @@ namespace rageam::asset
 	struct SceneTuneGroupBase : IXml
 	{
 		SmallList<SceneTunePtr> Items;
-		HashSet<u16>			NameToItem;
+		HashSet<u16>			NameToItem; // TODO: Do we need it if all items are sorted?
 
 		SceneTuneGroupBase() = default;
 		SceneTuneGroupBase(const SceneTuneGroupBase& other) : NameToItem(other.NameToItem)
@@ -58,10 +58,11 @@ namespace rageam::asset
 		void Deserialize(const XmlHandle& node) override;
 
 		virtual bool ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const = 0;
+		virtual int  IndexOf(const graphics::Scene* scene, ConstString itemName) const = 0;
 		virtual SceneTunePtr CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const = 0;
 		virtual SceneTunePtr CreateTune() const = 0;
-		virtual ConstString GetItemName(graphics::Scene* scene, u16 itemIndex) const = 0;
-		virtual u16 GetSceneItemCount(graphics::Scene* scene)const = 0;
+		virtual ConstString  GetItemName(graphics::Scene* scene, u16 itemIndex) const = 0;
+		virtual u16			 GetSceneItemCount(graphics::Scene* scene)const = 0;
 		// Name as it will appear in the config
 		virtual ConstString GetName() const = 0;
 		// Deletes all unused tunes (that are not in the scene anymore) and adds tunes for new ones
@@ -78,7 +79,7 @@ namespace rageam::asset
 		SceneTuneGroup(const SceneTuneGroup& other) : SceneTuneGroupBase(other) {}
 
 		u16 GetCount() const { return Items.GetSize(); }
-		const amPtr<TSceneTune>& Get(u16 index) const { return std::reinterpret_pointer_cast<TSceneTune>(Items[index]); }
+		amPtr<TSceneTune> Get(u16 index) const { return std::reinterpret_pointer_cast<TSceneTune>(Items[index]); }
 
 		amPtr<TSceneTune>* begin() const { return (amPtr<TSceneTune>*)Items.begin(); }
 		amPtr<TSceneTune>* end() const { return (amPtr<TSceneTune>*)Items.end(); }

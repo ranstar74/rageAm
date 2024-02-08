@@ -25,17 +25,6 @@ void rageam::asset::HotDrawable::ForAllDrawableTextures(
 	}
 }
 
-void rageam::asset::HotDrawable::RemoveFromMissingOrphans(ConstString textureName) const
-{
-	// For safety reasons the move function throws exception if index is invalid, so we have to check first...
-	int index = m_OrphanMissingTextures->IndexOf(textureName);
-	if (index == -1) // Already removed...
-		return;
-
-	rage::grcTexture* texture = m_OrphanMissingTextures->MoveFrom(index);
-	AddTextureToDeleteList(texture);
-}
-
 void rageam::asset::HotDrawable::AddTextureToDeleteList(rage::grcTexture* texture) const
 {
 	if (!texture)
@@ -46,285 +35,163 @@ void rageam::asset::HotDrawable::AddTextureToDeleteList(rage::grcTexture* textur
 	sm_TexturesToRemove.Emplace(std::move(textureToRemove));
 }
 
-void rageam::asset::HotDrawable::AddTxdTexturesToDeleteList(const rage::grcTextureDictionaryPtr& dict) const
+void rageam::asset::HotDrawable::SetTexture(ConstString textureName, rage::grcTexture* texture) const
 {
-	if (!dict)
-		return;
+	rage::atHashValue hashKey = rage::atStringHash(textureName);
 
-	std::unique_lock lock(sm_TexturesToRemoveMutex);
-	u16 dictSize = dict->GetSize();
-	for (u16 i = 0; i < dictSize; i++)
-	{
-		// NOTE: We're using index 0 here because Move function removes the texture and shifts all elements,
-		// we can't use i for indexing here
-		rage::grcTexture* texture = dict->MoveFrom(0);
-		TextureToRemove   textureToRemove(amUPtr<rage::grcTexture>(texture), ImGui::GetFrameCount());
-		sm_TexturesToRemove.Emplace(std::move(textureToRemove));
-	}
+	// Add existing texture in delete list
+	s32 existingTextureIndex = m_MegaDictionary->IndexOf(hashKey);
+	if (existingTextureIndex != -1)
+		AddTextureToDeleteList(m_MegaDictionary->MoveFrom(existingTextureIndex));
+
+	// Set new texture in dictionary and drawable
+	m_MegaDictionary->Insert(hashKey, texture);
+	ReplaceDrawableTexture(textureName, texture);
 }
 
-void rageam::asset::HotDrawable::AddNewTxdAsync(const file::WPath& path)
+void rageam::asset::HotDrawable::LoadTextureAsync(const TxdAssetPtr& txdAsset, TextureTune* tune)
 {
-	bool isEmbed = m_Asset->GetEmbedDictionaryPath() == path;
-	bool isPlacedInDrawable = path.GetParentDirectory() == m_Asset->GetDirectoryPath();
-	if (!isEmbed && isPlacedInDrawable)
-	{
-		AM_ERRF(
-			"HotDrawable::AddNewTxdAsync() -> Embed TXD in drawable director must be called '%ls%ls'",
-			EMBED_DICT_NAME, ASSET_ITD_EXT);
+	file::Path textureName;
+	if (!tune->GetValidatedTextureName(textureName))
 		return;
-	}
 
-	// External TXD must be placed in workspace
-	if (!Workspace::IsInWorkspace(path) && !isEmbed)
+	rage::atHashValue textureHashKey = rage::atStringHash(textureName);
+
+	// Create missing dummy texture if it was just added so user can instantly see it in the list
+	if (!m_MegaDictionary->Contains(textureHashKey))
+		m_MegaDictionary->Insert(textureHashKey, TxdAsset::CreateMissingTexture(textureName));
+
+	// We must ensure that texture is not duplicated in other dictionary
+	// We also should check if there's multiple textures with the same name but different extension
+	TextureInfo* existingTextureInfo = m_TextureInfos.TryGetAt(textureHashKey);
+	if (existingTextureInfo)
 	{
-		AM_ERRF(
-			"HotDrawable::AddNewTxdAsync() -> Added TXD is not placed in workspace directory");
-		return;
-	}
-
-	TxdAssetPtr asset = AssetFactory::LoadFromPath<TxdAsset>(path, true /* Support hot reload */);
-	if (!asset)
-	{
-		AM_ERRF("HotDrawable::AddNewTxdAsync() -> Failed to load TXD asset.");
-		return;
-	}
-
-	// We're using raw Hash function here to emplace because asset is not set yet,
-	// this must be synced with DrawableTxdHashFn...
-	DrawableTxd txd(asset);
-	txd.IsEmbed = isEmbed;
-	CompileTxdAsync(&m_TXDs.Emplace(std::move(txd)));
-
-	m_HotFlags |= AssetHotFlags_TxdModified;
-}
-
-void rageam::asset::HotDrawable::CompileTxdAsync(DrawableTxd* txd)
-{
-	AM_ASSERTS(txd);
-
-	// We must preserve old dictionary because it still might be referenced
-	// We can destroy it right now but this would cause micro-flickering
-	//  during the frames when textures are compiling
-	rage::grcTextureDictionaryPtr oldDict = std::move(txd->Dict);
-
-	AM_DEBUGF("HotDrawable::CompileTxdAsync() -> Old dict ptr: %p", oldDict.Get());
-
-	// Reload the asset, we use temporary config (if it exists) to sync changes in real-time
-	// with the TXD editor, so user can preview them easily
-	file::WPath assetPath = txd->Asset->GetDirectoryPath();
-	txd->Asset = AssetFactory::LoadFromPath<TxdAsset>(assetPath, true /* Support hot reload */);
-	if (!txd->Asset)
-	{
-		AM_ERRF("HotDrawable::CompileTxdAsync() -> Failed to load TXD asset.");
-		DeleteTxdAndRemoveFromTheList(*txd);
-		return;
-	}
-
-	BackgroundTaskPtr task = BackgroundWorker::Run([txd]
-	{
-		return txd->TryCompile();
-	});
-
-	// This will be executed in UpdateBackgroundJobs
-	task->UserData = TaskID_CompileTxd;
-	task->UserDelegate = [this, txd, oldDict]
-	{
-		// TXD failed to compile... get rid of the old one completely
-		if (!txd->Dict)
+		if (existingTextureInfo->IsOprhan())
 		{
-			// In UnlinkTxdFromDrawable we need Dict to be set to the old one
-			txd->Dict = std::move(oldDict);
-			DeleteTxdAndRemoveFromTheList(*txd);
+			// Texture was orphan, update TXD asset
+			existingTextureInfo->SetTxd(txdAsset);
+		}
+		// Texture with the same name was already loaded from different dictionary? ...
+		else if (existingTextureInfo->TxdPath != txdAsset->GetDirectoryPath())
+		{
+			AM_ERRF("HotDrawable::LoadTextureAsync() -> Texture '%s' exists in multiple dictionaries! '%ls' and '%ls'",
+			        textureName.GetCStr(),
+			        existingTextureInfo->TxdPath.GetCStr(),
+			        txdAsset->GetDirectoryPath().GetCStr());
 			return;
 		}
+	}
+	else
+	{
+		// Create info for newly added texture
+		TextureInfo textureInfo;
+		textureInfo.Name = textureName;
+		textureInfo.SetTxd(txdAsset);
+		m_TextureInfos.EmplaceAt(textureHashKey, std::move(textureInfo));
+	}
 
-		AM_DEBUGF(L"HotDrawable::AddNewTxdAsync() -> Compiled TXD (IsEmbed: %i, Ptr: %p) '%ls'",
-		          txd->IsEmbed, txd->Dict.Get(), txd->Asset->GetDirectoryPath().GetCStr());
-
-		// Try to resolve missing textures if compiled successfully
-		for (u16 i = 0; i < txd->Dict->GetSize(); i++)
+	// NOTE: We assume that txdAsset will not be touched when this task is active!
+	BackgroundTaskPtr task = BackgroundWorker::Run([txdAsset, tune]
 		{
-			rage::grcTexture* addedTexture = txd->Dict->GetValueAt(i);
-			ConstString textureName = addedTexture->GetName();
+			rage::pgUPtr texture = rage::pgUPtr((rage::grcTextureDX11*) txdAsset->CompileSingleTexture(*tune));
+			bool success = texture != nullptr; // Check here because SetCurrentResult will move pointer
+			BackgroundWorker::SetCurrentResult(texture);
+			if (success)
+				AM_DEBUGF("HotDrawable::LoadTextureAsync() -> Compiled texture '%ls'", tune->GetName());
+			else
+				AM_DEBUGF("HotDrawable::LoadTextureAsync() -> Failed to compile texture '%ls'", tune->GetName());
+			return success;
+		});
 
-			ReplaceDrawableTexture(textureName, addedTexture);
-			RemoveFromMissingOrphans(textureName);
-		}
-
-		// We must remove all textures that are not in new dictionary
-		if (oldDict)
+	task->UserDelegate = [this, task, textureName]
 		{
-			for (u16 i = 0; i < oldDict->GetSize(); i++)
+			// We used pointer wrapper to prevent memory leak, but we don't need it anymore because ownership will move to TXD
+			rage::grcTexture* texture;
+			if (task->IsSuccess())
 			{
-				auto pair = oldDict->GetAt(i);
-				if (!txd->Dict->Contains(pair.Key)) // New txd does not contain one of old textures?
-				{
-					// Texture is not in new dictionary, we must create missing texture...
-					MarkTextureAsMissingOrphan(pair.Value->GetName());
-				}
+				auto& texturePtr = task->GetResult<rage::pgUPtr<rage::grcTextureDX11>>();
+				texture = texturePtr.Get();
+				texturePtr.SuppressDelete();
+			}
+			else
+			{
+				// Texture failed to compile, create missing dummy
+				texture = TxdAsset::CreateMissingTexture(textureName);
 			}
 
-			AddTxdTexturesToDeleteList(oldDict);
-		}
+			SetTexture(textureName, texture);
 
-		// If compiled TXD was embed, set it to drawable
-		if (txd->IsEmbed)
-		{
-			rage::grmShaderGroup* shaderGroup = m_CompiledDrawable->GetShaderGroup();
-
-			// Sanity check: embed dictionary must be equal to the old one
-			AM_DEBUGF("HotDrawable::AddNewTxdAsync() -> Drawable dict ptr: %p",
-			          shaderGroup->GetEmbedTextureDictionary().Get());
-			AM_ASSERTS(shaderGroup->GetEmbedTextureDictionary() == oldDict);
-
-			shaderGroup->SetEmbedTextureDict(txd->Dict);
-		}
-
-		m_HotFlags |= AssetHotFlags_TxdModified;
-	};
-
+			m_HotFlags |= AssetHotFlags_TxdModified;
+		};
 	m_AsyncTasks.Emplace(std::move(task));
 }
 
-void rageam::asset::HotDrawable::CompileTexAsync(DrawableTxd* txd, TextureTune* tune)
+void rageam::asset::HotDrawable::LoadTextureAsync(ConstWString texturePath)
 {
-	file::Path textureName;
-	tune->GetValidatedTextureName(textureName);
-
-	// We're compiling texture in TXD, it can't be orphan
-	if (IsMissingOrphanTexture(textureName))
-		RemoveFromMissingOrphans(textureName);
-
-	// We must add dummy texture first before compiling, so it instantly appears in the list
-	// Also if we don't do that and texture fails to compile, MarkTextureIsMissing will
-	// fail too because texture was not added yet
-	if (!txd->Dict->Contains(textureName))
-		// This might be true if texture is already marked as missing (failed to compile, but used)
-		txd->Dict->Insert(textureName, TxdAsset::CreateMissingTexture(textureName));
-
-	BackgroundTaskPtr task = BackgroundWorker::Run([tune, txd]
-	{
-		auto gameTexture = rage::pgUPtr((rage::grcTextureDX11*)txd->Asset->CompileSingleTexture(*tune));
-		bool success = gameTexture != nullptr; // Check here because SetCurrentResult will move pointer
-		BackgroundWorker::SetCurrentResult(gameTexture);
-		if (success)
-			AM_DEBUGF("HotDrawable::CompileTexAsync() -> Recompiled texture '%ls'", tune->GetName());
-		else
-			AM_DEBUGF("HotDrawable::CompileTexAsync() -> Failed to compile texture '%ls'", tune->GetName());
-		return success;
-	});
-
-	task->UserData = TaskID_CompileTex;
-	task->UserDelegate = [this, task, txd, tune]
-	{
-		if (task->IsSuccess())
-		{
-			auto& texture = task->GetResult<rage::pgUPtr<rage::grcTextureDX11>>();
-
-			ReplaceDrawableTexture(texture->GetName(), texture.Get());
-
-			// Make sure texture is not marked as missing anymore
-			RemoveFromMissingOrphans(texture->GetName());
-
-			// Remove existing texture in TXD
-			s32 existingIndex = txd->Dict->IndexOf(texture->GetName());
-			if (existingIndex != -1)
-				AddTextureToDeleteList(txd->Dict->MoveFrom(existingIndex));
-
-			// Move ownership to TXD...
-			txd->Dict->Insert(texture->GetName(), texture.Get());
-			texture.SuppressDelete();
-		}
-		else
-		{
-			file::Path textureName;
-			// Totally ignore texture if name is so fucked up that it was the reason why compilation failed
-			if (tune->GetValidatedTextureName(textureName))
-			{
-				MarkTextureAsMissing(textureName, *txd);
-			}
-		}
-
-		m_HotFlags |= AssetHotFlags_TxdModified;
-	};
-
-	m_AsyncTasks.Emplace(std::move(task));
-}
-
-void rageam::asset::HotDrawable::MarkTextureAsMissingOrphan(ConstString textureName) const
-{
-	if (IsMissingOrphanTexture(textureName))
+	TxdAssetPtr txdAsset = GetTxdAssetFromTexturePath(texturePath);
+	if (!txdAsset)
 		return;
 
-	if (!IsTextureUsedInDrawable(textureName))
+	TextureTune* textureTune = txdAsset->TryFindTuneFromPath(texturePath);
+	if (!textureTune)
+	{
+		// Texture was just added, create a new tune for it
+		textureTune = &txdAsset->AddTune(texturePath);
+		AM_DEBUGF(L"HotDrawable::AddTextureAsync() -> Created tune for '%ls'", texturePath);
+	}
+
+	LoadTextureAsync(txdAsset, textureTune);
+}
+
+void rageam::asset::HotDrawable::LoadTxdAsync(ConstWString txdPath)
+{
+	TxdAssetPtr txdAsset = GetTxdAssetFromPath(txdPath);
+	if (!txdAsset)
 		return;
 
-	rage::grcTexture* missingTexture = TxdAsset::CreateMissingTexture(textureName);
-	m_OrphanMissingTextures->Insert(textureName, missingTexture);
-
-	ReplaceDrawableTexture(textureName, missingTexture);
+	for (TextureTune& textureTune : txdAsset->GetTextureTunes())
+	{
+		LoadTextureAsync(txdAsset, &textureTune);
+	}
 }
 
-void rageam::asset::HotDrawable::DeleteTxdAndRemoveFromTheList(const DrawableTxd& txd)
+rageam::asset::TxdAssetPtr rageam::asset::HotDrawable::GetTxdAssetFromTexturePath(ConstWString texturePath)
 {
-	// Make sure that drawable does not reference TXD textures anymore by
-	// replacing them to missing ones, if they were used
-	if (txd.Dict)
+	file::WPath txdPath;
+	if (!TxdAsset::GetTxdAssetPathFromTexture(texturePath, txdPath))
 	{
-		for (u16 i = 0; i < txd.Dict->GetSize(); i++)
-		{
-			rage::grcTexture* texture = txd.Dict->GetValueAt(i);
-
-			// Texture might be missing in TXD, undecorated the name
-			ConstString textureName = TxdAsset::UndecorateMissingTextureName(texture);
-			MarkTextureAsMissingOrphan(textureName);
-
-			// MarkTextureAsMissingOrphan(texture->GetName());
-		}
-
-		AddTxdTexturesToDeleteList(txd.Dict);
+		AM_ERRF(L"HotDrawable::GetTxdAssetFromTexturePath() -> Texture is not in a dictionary! '%ls'", texturePath);
+		return nullptr;
 	}
 
-	// Embed dict was removed, unlink it from drawable
-	if (txd.IsEmbed)
+	return GetTxdAssetFromPath(txdPath);
+}
+
+rageam::asset::TxdAssetPtr rageam::asset::HotDrawable::GetTxdAssetFromPath(ConstWString txdPath)
+{
+	TxdAssetPtr  txdAsset;
+	TxdAssetPtr* ppTxdAsset = m_TxdAssetStore.TryGetAt(AssetPathHashFn(txdPath));
+
+	if (ppTxdAsset)
+		return *ppTxdAsset;
+
+	// New TXD? Load and cache it
+	txdAsset = AssetFactory::LoadFromPath<TxdAsset>(txdPath, true /* Use temp config for TXD editor hot reload */);
+	if (txdAsset)
 	{
-		rage::grmShaderGroup* shaderGroup = m_CompiledDrawable->GetShaderGroup();
-
-		// Sanity check: there can be only one embed dictionary and it must match
-		AM_DEBUGF("HotDrawable::DeleteTxdAndRemoveFromTheList() -> Drawable dict ptr: %p",
-		          shaderGroup->GetEmbedTextureDictionary().Get());
-		AM_ASSERTS(txd.Dict == shaderGroup->GetEmbedTextureDictionary());
-
-		shaderGroup->SetEmbedTextureDict(nullptr);
+		m_TxdAssetStore.Insert(txdAsset);
+		return txdAsset;
 	}
-	m_TXDs.Remove(txd);
+
+	return nullptr;
 }
 
-void rageam::asset::HotDrawable::DeleteTxdAndRemoveFromTheList(ConstWString path)
+void rageam::asset::HotDrawable::ReloadTxdAsset(ConstWString txdPath)
 {
-	DrawableTxd* txd = m_TXDs.TryGetAt(Hash(path));
-	if (!txd) // Txd already was removed...
-	{
-		AM_DEBUGF("HotDrawable::DeleteTxdAndRemoveFromTheList() -> TXD was already removed '%ls'", path);
-		return;
-	}
-	DeleteTxdAndRemoveFromTheList(*txd);
-}
-
-void rageam::asset::HotDrawable::MarkTextureAsMissing(ConstString textureName, const DrawableTxd& txd) const
-{
-	rage::grcTexture* missingTexture = TxdAsset::CreateMissingTexture(textureName);
-	ReplaceDrawableTexture(textureName, missingTexture);
-	AddTextureToDeleteList(txd.Dict->Move(textureName));
-	txd.Dict->Insert(textureName, missingTexture);
-}
-
-void rageam::asset::HotDrawable::MarkTextureAsMissing(const TextureTune& textureTune, const DrawableTxd& txd) const
-{
-	file::Path textureName;
-	if (textureTune.GetValidatedTextureName(textureName))
-		MarkTextureAsMissing(textureName, txd);
+	// Reload it completely because temp config that we use for hot reloading might be just created or removed
+	TxdAssetPtr txdAsset = AssetFactory::LoadFromPath<TxdAsset>(txdPath, true /* Use temp config for TXD editor hot reload */);
+	if (txdAsset)
+		m_TxdAssetStore.Insert(txdAsset);
 }
 
 void rageam::asset::HotDrawable::ReplaceDrawableTexture(ConstString textureName, rage::grcTexture* newTexture) const
@@ -347,70 +214,75 @@ bool rageam::asset::HotDrawable::IsTextureUsedInDrawable(ConstString textureName
 	return used;
 }
 
+void rageam::asset::HotDrawable::RemoveTexture(ConstString textureName)
+{
+	rage::atHashValue textureHashKey = rage::atStringHash(textureName);
+
+	if (IsTextureUsedInDrawable(textureName))
+	{
+		rage::grcTexture* removedTexture = MarkTextureAsMissing(textureName);
+		AddTextureToDeleteList(removedTexture);
+	}
+	else
+	{
+		// Texture is not used, remove completely
+		rage::grcTexture* removedTexture = m_MegaDictionary->Move(textureHashKey);
+		AddTextureToDeleteList(removedTexture);
+		m_TextureInfos.RemoveAt(textureHashKey);
+	}
+}
+
+void rageam::asset::HotDrawable::RemoveTxd(ConstWString txdPath)
+{
+	TxdAssetPtr txd = GetTxdAssetFromPath(txdPath);
+	for (TextureTune& tune : txd->GetTextureTunes())
+	{
+		file::Path textureName;
+		if (!tune.GetValidatedTextureName(textureName))
+			continue;
+
+		RemoveTexture(textureName);
+	}
+	m_TxdAssetStore.RemoveAt(txd->GetHashKey());
+}
+
+rage::grcTexture* rageam::asset::HotDrawable::MarkTextureAsMissing(ConstString textureName) const
+{
+	rage::atHashValue textureHashKey = rage::atStringHash(textureName);
+	rage::grcTexture* oldTexture = m_MegaDictionary->Move(textureName);
+	rage::grcTexture* missingTexture = TxdAsset::CreateMissingTexture(textureName);
+	ReplaceDrawableTexture(textureName, missingTexture);
+	m_MegaDictionary->Insert(textureHashKey, missingTexture);
+	TextureInfo& textureInfo = m_TextureInfos.GetAt(textureHashKey);
+	textureInfo.MakeOrphan();
+	return oldTexture;
+}
+
 void rageam::asset::HotDrawable::HandleChange_Texture(const file::DirectoryChange& change)
 {
-	m_HotFlags |= AssetHotFlags_TxdModified;
-
-	file::WPath txdPath = TxdAsset::GetTxdAssetPathFromTexture(change.Path);
-	DrawableTxd* txd = m_TXDs.TryGetAt(Hash(txdPath));
-
-	// Dictionary wasn't registered yet... this can happen only with embed one
-	if (!txd)
-	{
-		AM_DEBUGF(
-			"HotDrawable::HandleChange() -> Texture was changed in not registered yet dictionary, adding new txd...");
-		AddNewTxdAsync(txdPath);
-		return;
-	}
-
-	// Dict failed to compile before, try to compile it again
-	if (!txd->Dict)
-	{
-		AM_DEBUGF(
-			"HotDrawable::HandleChange() -> Texture was changed in dictionary that wasn't compiled, trying to compile...");
-		CompileTxdAsync(txd);
-		return;
-	}
-
-	// Weird-named file was renamed into valid texture...
+	// Invalid file (non-texture) was renamed
+	// If this is a bit unclear, ::HandleChange calls this function if either old or new path is valid,
+	// if old path is invalid - the new one is valid
 	if (!TxdAsset::IsSupportedImageFile(change.Path) /* New path is valid ... */)
 	{
-		TextureTune* tune = &txd->Asset->AddTune(change.NewPath);
-		CompileTexAsync(txd, tune);
+		LoadTextureAsync(change.NewPath);
 		return;
 	}
-
-	// Find the changed texture in asset
-	TextureTune* textureTune = txd->Asset->TryFindTuneFromPath(change.Path);
-	if (!textureTune)
-	{
-		textureTune = &txd->Asset->AddTune(change.Path);
-		AM_DEBUGF(L"HotDrawable::HandleChange() -> Added texture tune '%ls' in TXD '%ls'",
-		          textureTune->GetName(), txd->Asset->GetDirectoryPath().GetCStr());
-
-		if (change.Action == file::ChangeAction_Removed)
-		{
-			// We must keep tune but since it was just added, it is already 'removed'.
-			// (only tune exists, but not compiled texture in dictionary)
-			return;
-		}
-	}
-
-	file::Path textureName;
-	if (!textureTune->GetValidatedTextureName(textureName))
-		return;
 
 	if (change.Action == file::ChangeAction_Added || 
 		change.Action == file::ChangeAction_Modified)
 	{
-		CompileTexAsync(txd, textureTune);
+		LoadTextureAsync(change.Path);
 		return;
 	}
 
+	file::Path textureName;
+	if (!TxdAsset::GetValidatedTextureName(change.Path, textureName))
+		return;
+
 	if (change.Action == file::ChangeAction_Removed)
 	{
-		MarkTextureAsMissingOrphan(textureName);
-		AddTextureToDeleteList(txd->Dict->Move(textureName));
+		RemoveTexture(textureName);
 		return;
 	}
 
@@ -423,25 +295,38 @@ void rageam::asset::HotDrawable::HandleChange_Texture(const file::DirectoryChang
 		AM_DEBUGF("HotDrawable::HandleChange() -> Texture '%s' was renamed, used=%i",
 		          textureName.GetCStr(), IsTextureUsedInDrawable(textureName));
 
-		MarkTextureAsMissingOrphan(textureName);
+		// Create a copy of current texture info
+		// It must be done now because SetMissingTexture will unlink it from TXD
+		TextureInfo newInfo = m_TextureInfos.GetAt(rage::atStringHash(textureName));
 
-		// Renamed to invalid extension, delete the texture
-		if (!TxdAsset::IsSupportedImageFile(change.NewPath))
+		// Replace old texture with missing
+		rage::grcTexture* renamedTexture = MarkTextureAsMissing(textureName);
+
+		// Renamed to non-image file, delete the texture
+		file::Path newTextureName;
+		if (!TxdAsset::IsSupportedImageFile(change.NewPath) || 
+			!TxdAsset::GetValidatedTextureName(change.NewPath, newTextureName))
 		{
-			AddTextureToDeleteList(txd->Dict->Move(textureName));
+			AddTextureToDeleteList(renamedTexture);
 			return;
 		}
 
-		// Rename tune and get new texture name
-		textureTune->SetFilePath(change.NewPath);
-		file::Path newTextureName;
-		if (!textureTune->GetValidatedTextureName(newTextureName))
-			return;
+		rage::atHashValue newTextureHashKey = rage::atStringHash(newTextureName);
 
-		// Rename texture 
-		rage::grcTexture* texture = txd->Dict->Move(textureName);
-		texture->SetName(newTextureName);
-		txd->Dict->Insert(newTextureName, texture);
+		// Insert info for new name
+		newInfo.Name = newTextureName;
+		m_TextureInfos.Emplace(std::move(newInfo));
+		
+		// Rename texture
+		if (TxdAsset::IsMissingTexture(renamedTexture))
+			TxdAsset::SetMissingTextureName(renamedTexture, newTextureName);
+		else
+			renamedTexture->SetName(newTextureName);
+
+		// Reinsert it at new slot and set it in drawable
+		AddTextureToDeleteList(m_MegaDictionary->MoveIfExists(newTextureHashKey));
+		m_MegaDictionary->Insert(newTextureHashKey, renamedTexture);
+		ReplaceDrawableTexture(newTextureName, renamedTexture);
 
 		return;
 	}
@@ -449,69 +334,57 @@ void rageam::asset::HotDrawable::HandleChange_Texture(const file::DirectoryChang
 
 void rageam::asset::HotDrawable::HandleChange_Txd(const file::DirectoryChange& change)
 {
-	m_HotFlags |= AssetHotFlags_TxdModified;
-
-	// TXD was added
 	if (change.Action == file::ChangeAction_Added)
 	{
-		AddNewTxdAsync(change.Path);
+		LoadTxdAsync(change.Path);
 		return;
 	}
 
-	// TXD was renamed
+	if (change.Action == file::ChangeAction_Removed)
+	{
+		AM_DEBUGF(L"HotDrawable::HandleChange() -> Removing TXD '%ls'", change.Path.GetCStr());
+		RemoveTxd(change.Path);
+		return;
+	}
+
 	if (change.Action == file::ChangeAction_Renamed)
 	{
-		HashValue pathHashValue = Hash(change.Path);
-
 		// Embed dictionary was renamed to wrong name, it must be called EMBED_DICT_NAME
 		bool isEmbed = m_Asset->GetEmbedDictionaryPath() == change.Path;
 		bool isNewEmbed = m_Asset->GetEmbedDictionaryPath() == change.NewPath;
 		if (isEmbed && !isNewEmbed)
 		{
-			DeleteTxdAndRemoveFromTheList(change.Path);
+			RemoveTxd(change.Path);
 			AM_ERRF(
 				"HotDrawable::HandleChange() -> Embed TXD in drawable director must be called '%ls%ls'",
 				EMBED_DICT_NAME, ASSET_ITD_EXT);
 			return;
 		}
 
-		// Retrieve TXD from storage if it exists, in case if TXD was added it won't yet exist in cache
-		DrawableTxd* txd = m_TXDs.TryGetAt(pathHashValue);
-
-		// Non .itd was renamed in .itd
-		if (!txd && AssetFactory::GetAssetType(change.NewPath) == AssetType_Txd)
+		// Update asset in store set
+		HashValue    txdPathHash = AssetPathHashFn(change.Path);
+		TxdAssetPtr* ppRenamedTxd = m_TxdAssetStore.TryGetAt(txdPathHash);
+		if (!ppRenamedTxd) // Might be NULL if was removed before (see the case above)
 		{
-			AM_TRACEF("HotDrawable::HandleChange() -> TXD doesn't exist, adding new...");
-			AddNewTxdAsync(change.NewPath);
+			LoadTxdAsync(change.NewPath);
+			return;
 		}
-		// .itd name was changed, reinsert it with new path
-		else
+
+		TxdAssetPtr renamedTxd = *ppRenamedTxd;
+		renamedTxd->SetNewPath(change.NewPath);
+		m_TxdAssetStore.RemoveAt(txdPathHash);
+		m_TxdAssetStore.Insert(renamedTxd);
+
+		// Update txd reference in every existing texture info
+		for (TextureInfo& info : m_TextureInfos)
 		{
-			AM_TRACEF("HotDrawable::HandleChange() -> Renaming existing TXD...");
-			DrawableTxd renamedTxd = *txd;
-			renamedTxd.Asset->SetNewPath(change.NewPath);
-			m_TXDs.RemoveAt(pathHashValue);
-			m_TXDs.Emplace(std::move(renamedTxd));
+			if (info.IsOprhan())
+				continue;
+
+			if (info.TxdHashValue == txdPathHash)
+				info.SetTxd(renamedTxd);
 		}
-		return;
-	}
 
-	// TXD was removed
-	if (change.Action == file::ChangeAction_Removed)
-	{
-		AM_DEBUGF(L"HotDrawable::HandleChange() -> Removed TXD '%ls'", change.Path.GetCStr());
-		DeleteTxdAndRemoveFromTheList(change.Path);
-		return;
-	}
-}
-
-void rageam::asset::HotDrawable::HandleChange_Scene(const file::DirectoryChange& change)
-{
-	// File was modified, fully reload scene
-	if (change.Action == file::ChangeAction_Modified)
-	{
-		AM_DEBUGF("HotDrawable::HandleChange() -> Scene file was modified, reloading...");
-		LoadAndCompileAsync();
 		return;
 	}
 }
@@ -530,7 +403,13 @@ void rageam::asset::HotDrawable::HandleChange(const file::DirectoryChange& chang
 	// Scene model file (gltf/fbx) was changed
 	if (change.Path == m_Asset->GetScenePath())
 	{
-		HandleChange_Scene(change);
+		// File was modified, fully reload scene
+		if (change.Action == file::ChangeAction_Modified)
+		{
+			AM_DEBUGF("HotDrawable::HandleChange() -> Scene file was modified, reloading...");
+			LoadAndCompileAsync();
+			return;
+		}
 		return;
 	}
 
@@ -539,6 +418,7 @@ void rageam::asset::HotDrawable::HandleChange(const file::DirectoryChange& chang
 		AssetFactory::GetAssetType(change.NewPath) == AssetType_Txd)
 	{
 		HandleChange_Txd(change);
+		m_HotFlags |= AssetHotFlags_TxdModified;
 		return;
 	}
 
@@ -551,13 +431,11 @@ void rageam::asset::HotDrawable::HandleChange(const file::DirectoryChange& chang
 		file::WPath txdPath = change.Path.GetParentDirectory();
 		if (AssetFactory::GetAssetType(txdPath) == AssetType_Txd)
 		{
-			DrawableTxd* txd = m_TXDs.TryGetAt(Hash(txdPath));
-			if (txd)
-				CompileTxdAsync(txd);
-			else
-				AddNewTxdAsync(txdPath);
 			AM_DEBUGF(L"HotDrawable::HandleChange() -> Config changed in '%ls'", txdPath.GetCStr());
+			ReloadTxdAsset(txdPath);
+			LoadTxdAsync(txdPath);
 		}
+		m_HotFlags |= AssetHotFlags_TxdModified;
 		return;
 	}
 
@@ -566,11 +444,14 @@ void rageam::asset::HotDrawable::HandleChange(const file::DirectoryChange& chang
 	// - Drawable shader group variables (they directly reference grcTexture)
 	// - Texture in the dictionary itself
 	// - Texture tune in TXD asset
-	file::WPath textureTxdPath;
-	if (TxdAsset::GetTxdAssetPathFromTexture(change.Path, textureTxdPath) &&
-		(TxdAsset::IsSupportedImageFile(change.Path) || TxdAsset::IsSupportedImageFile(change.NewPath)))
+	bool isInTxdAsset = TxdAsset::IsTextureInTxdAssetDirectory(change.Path);
+	bool isNewOrOldNameAnImage = 
+		TxdAsset::IsSupportedImageFile(change.Path) || 
+		TxdAsset::IsSupportedImageFile(change.NewPath);
+	if (isInTxdAsset && isNewOrOldNameAnImage)
 	{
 		HandleChange_Texture(change);
+		m_HotFlags |= AssetHotFlags_TxdModified;
 		return;
 	}
 }
@@ -620,7 +501,7 @@ void rageam::asset::HotDrawable::UpdateBackgroundJobs()
 		m_AsyncTasks.RemoveAt(index);
 }
 
-void rageam::asset::HotDrawable::CheckIfDrawableHasCompiled()
+void rageam::asset::HotDrawable::UpdateDrawableCompiling()
 {
 	// Check if drawable is done compiling...
 	if (!m_LoadingTask || !m_LoadingTask->IsFinished())
@@ -635,31 +516,64 @@ void rageam::asset::HotDrawable::CheckIfDrawableHasCompiled()
 	m_CompiledDrawable = std::move(compileResult->Drawable);
 	// Update asset from copy
 	m_Asset->SetScene(compileResult->Scene);
+	m_Asset->RefreshTunesFromScene();
 	m_Asset->CompiledDrawableMap = std::move(compileResult->Map);
 
-	// Add embed dictionary to TXDs
-	if (m_Asset->HasEmbedTXD())
+	// Initialize our mega dictionary with textures from embed and workspace dictionaries
+	if (!m_MegaDictionary)
 	{
-		const amPtr<TxdAsset>& embedTxdAsset = m_Asset->GetEmbedDictionary();
-		const rage::grcTextureDictionaryPtr& embedTxd =
-				m_CompiledDrawable->GetShaderGroup()->GetEmbedTextureDictionary();
+		m_MegaDictionary = rage::pgPtr(new rage::grcTextureDictionary());
 
-		m_TXDs.Emplace(DrawableTxd(embedTxdAsset, embedTxd, true));
+		LoadTxdAsync(m_Asset->GetEmbedDictionaryPath());
+
+		if (m_Asset->WorkspaceTXD)
+		{
+			AM_DEBUGF("HotDrawable::UpdateAndApplyChanges() -> %u TXDs in workspace",
+			          m_Asset->WorkspaceTXD->GetTexDictCount());
+
+			for (u16 i = 0; i < m_Asset->WorkspaceTXD->GetTexDictCount(); i++)
+			{
+				ConstWString wsTxdPath = m_Asset->WorkspaceTXD->GetTexDict(i)->GetDirectoryPath();
+				LoadTxdAsync(wsTxdPath);
+			}
+		}
 	}
 
-	// Add workspace dictionaries to TXDs
-	// There might be not workspace... if drawable is not in workspace
-	if (m_Asset->WorkspaceTXD)
+	// Set our mega texture dictionary in drawable and resolve textures
+	if (m_CompiledDrawable)
 	{
-		AM_DEBUGF("HotDrawable::UpdateAndApplyChanges() -> %u TXDs in workspace",
-		          m_Asset->WorkspaceTXD->GetTexDictCount());
+		rage::grmShaderGroup* shaderGroup = m_CompiledDrawable->GetShaderGroup();
 
-		// Compile all workspace TXDs
-		for (u16 i = 0; i < m_Asset->WorkspaceTXD->GetTexDictCount(); i++)
+		// Drawable is compiled without actual textures, only placeholders, resolve them if possible
+		// (see DrawableAsset::tl_SkipTextures)
+		rage::grcTextureDictionaryPtr dummyDictionary = shaderGroup->GetEmbedTextureDictionary();
+		u16 dummyTextureCount = dummyDictionary->GetSize();
+		for (u16 i = 0; i < dummyTextureCount; i++)
 		{
-			const amPtr<TxdAsset>& txdAsset = m_Asset->WorkspaceTXD->GetTexDict(i);
-			CompileTxdAsync(&m_TXDs.Emplace(DrawableTxd(txdAsset)));
+			// Use index 0 because MoveFrom removes the texture
+			auto pair = dummyDictionary->GetAt(0);
+			rage::grcTexture* missingTexture = dummyDictionary->MoveFrom(0);
+
+			// Note that we're using pair.Key here because texture->GetName is in different format
+			// (see TxdAsset::CreateMissingTexture)
+			if (m_MegaDictionary->Contains(pair.Key))
+			{
+				// Texture is already loaded, just remove this missing dummy and update it in drawable
+				AddTextureToDeleteList(missingTexture);
+
+				ConstString       textureName = TxdAsset::UndecorateMissingTextureName(missingTexture);
+				rage::grcTexture* loadedTexture = m_MegaDictionary->Find(pair.Key);
+				ReplaceDrawableTexture(textureName, loadedTexture);
+			}
+			else
+			{
+				// A new texture was added after loading drawable that is not in our mega dictionary
+				// We can't resolve it, leave it as missing
+				m_MegaDictionary->Insert(pair.Key, missingTexture);
+			}
 		}
+
+		shaderGroup->SetEmbedTextureDict(m_MegaDictionary);
 	}
 
 	m_HotFlags |= AssetHotFlags_DrawableCompiled;
@@ -668,11 +582,12 @@ void rageam::asset::HotDrawable::CheckIfDrawableHasCompiled()
 rageam::asset::HotDrawable::HotDrawable(ConstWString assetPath)
 {
 	m_AssetPath = assetPath;
-	m_OrphanMissingTextures = rage::pgPtr(new rage::grcTextureDictionary());
 }
 
 void rageam::asset::HotDrawable::LoadAndCompileAsync(bool keepAsset)
 {
+	m_JustRequestedLoad = true;
+
 	// Wait for existing background stuff to finish...
 	// We may want cancellation token here
 	BackgroundWorker::WaitFor(m_AsyncTasks);
@@ -680,13 +595,16 @@ void rageam::asset::HotDrawable::LoadAndCompileAsync(bool keepAsset)
 
 	m_LoadingTask = nullptr;
 	m_CompiledDrawable = nullptr;
-	m_TXDs.Destroy();
 	m_AsyncTasks.Destroy();
 
 	if (!m_Asset || !keepAsset)
 	{
 		m_Asset = AssetFactory::LoadFromPath<DrawableAsset>(m_AssetPath);
 		m_Asset->CompileCallback = CompileCallback;
+
+		m_MegaDictionary = nullptr;
+		m_TxdAssetStore.Destroy();
+		m_TextureInfos.Destroy();
 
 		// Failed to load...
 		if (!m_Asset)
@@ -721,7 +639,14 @@ void rageam::asset::HotDrawable::LoadAndCompileAsync(bool keepAsset)
 	m_LoadingTask = BackgroundWorker::Run([assetCopy]
 	{
 		gtaDrawablePtr drawable = rage::pgCountedPtr(new gtaDrawable());
-		if (!assetCopy->CompileToGame(drawable.Get()))
+
+		bool oldSkipTextures = DrawableAsset::tl_SkipTextures;
+		// We lazy load textures (after scene was loaded) and handle them different way (with single TXD)
+		DrawableAsset::tl_SkipTextures = true;
+		bool success = assetCopy->CompileToGame(drawable.Get());
+		DrawableAsset::tl_SkipTextures = oldSkipTextures;
+
+		if (!success)
 		{
 			AM_ERRF("HotDrawable::LoadAndCompileAsync() -> Failed to compile new scene...");
 			return false;
@@ -735,15 +660,30 @@ void rageam::asset::HotDrawable::LoadAndCompileAsync(bool keepAsset)
 	});
 }
 
-void rageam::asset::HotDrawable::NotifyTextureWasUnselected(const rage::grcTexture* texture) const
+void rageam::asset::HotDrawable::NotifyTextureWasUnselected(const rage::grcTexture* texture)
 {
+	// There are textures that were removed but still referenced in drawable, we call them
+	// missing orphans. We can safely remove them only when they're not referenced anymore
 	if (!texture)
 		return;
 
-	// Texture is not used anymore in drawable... we don't need to keep it as missing anymore
-	ConstString textureName = TxdAsset::UndecorateMissingTextureName(texture);
-	if (!IsTextureUsedInDrawable(textureName))
-		RemoveFromMissingOrphans(textureName);
+	if (!TxdAsset::IsMissingTexture(texture))
+		return;
+
+	ConstString       textureName = TxdAsset::UndecorateMissingTextureName(texture);
+	rage::atHashValue textureHashKey = rage::atStringHash(textureName);
+	TextureInfo&      textureInfo = m_TextureInfos.GetAt(textureHashKey);
+
+	// Only orphan texture can be removed when it's no longer referenced
+	if (!textureInfo.IsOprhan())
+		return;
+
+	if (IsTextureUsedInDrawable(textureName))
+		return;
+
+	// Missing orphan texture is not referenced in drawable anymore, we can remove it for good
+	AddTextureToDeleteList(m_MegaDictionary->Move(textureHashKey));
+	m_TextureInfos.RemoveAt(textureHashKey);
 }
 
 rageam::asset::HotDrawableInfo rageam::asset::HotDrawable::UpdateAndApplyChanges()
@@ -751,15 +691,33 @@ rageam::asset::HotDrawableInfo rageam::asset::HotDrawable::UpdateAndApplyChanges
 	m_HotFlags = AssetHotFlags_None;
 
 	UpdateBackgroundJobs();
-	CheckIfDrawableHasCompiled();
+	UpdateDrawableCompiling();
+
+	// We have to set flag via m_JustRequestedLoad because Load function can be called from anywhere
+	if (m_JustRequestedLoad)
+	{
+		m_HotFlags |= AssetHotFlags_DrawableUnloaded;
+		m_JustRequestedLoad = false;
+	}
 
 	HotDrawableInfo info;
 	info.IsLoading = m_LoadingTask != nullptr;
 	info.Drawable = m_CompiledDrawable;
 	info.DrawableAsset = m_Asset;
 	info.HotFlags = m_HotFlags;
-	info.TXDs = &m_TXDs;
+	info.MegaDictionary = m_MegaDictionary.Get();
 	return info;
+}
+
+ConstWString rageam::asset::HotDrawable::GetTxdPathFromTexture(ConstString textureName, HashValue* outTxdHashValue) const
+{
+	TextureInfo* info = m_TextureInfos.TryGetAt(rage::atStringHash(textureName));
+	if (info)
+	{
+		if (outTxdHashValue) *outTxdHashValue = info->TxdHashValue;
+		return info->TxdPath;
+	}
+	return L"";
 }
 
 rage::grcTexture* rageam::asset::HotDrawable::LookupTexture(ConstString name) const
@@ -767,23 +725,7 @@ rage::grcTexture* rageam::asset::HotDrawable::LookupTexture(ConstString name) co
 	if (String::IsNullOrEmpty(name))
 		return nullptr;
 
-	rage::atHashValue nameHash = rage::atStringHash(name);
-
-	for (DrawableTxd& txd : m_TXDs)
-	{
-		if (!txd.Dict)
-			continue;
-
-		s32 index = txd.Dict->IndexOf(nameHash);
-		if (index != -1)
-			return txd.Dict->GetValueAt(index);
-	}
-
-	s32 orphanIndex = m_OrphanMissingTextures->IndexOf(nameHash);
-	if (orphanIndex != -1)
-		return m_OrphanMissingTextures->GetValueAt(orphanIndex);
-
-	return nullptr;
+	return m_MegaDictionary->Find(name);
 }
 
 void rageam::asset::HotDrawable::RemoveTexturesFromRenderThread(bool forceAll)

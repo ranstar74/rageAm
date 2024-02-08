@@ -16,15 +16,15 @@ namespace rageam::integration
 	// Data shared between all components of the scene (scene graph, light editor, material editor etc.)
 	struct ModelSceneContext
 	{
-		bool                    IsDrawableLoading;
-		int                     EntityHandle;
-		Mat44V                  EntityWorld;
-		pVoid                   EntityPtr;			// fwEntity
-		AssetHotFlags           HotFlags;
-		amPtr<gtaDrawable>      Drawable;
-		asset::DrawableAssetPtr DrawableAsset;
-		asset::DrawableTxdSet*  TXDs;				// All texture dictionaries in the workspace + embed
-		asset::HotDrawable*		HotDrawable;
+		bool                        IsDrawableLoading;
+		int                         EntityHandle;
+		Mat44V                      EntityWorld;
+		pVoid                       EntityPtr; // fwEntity
+		AssetHotFlags               HotFlags;
+		gtaDrawablePtr              Drawable;
+		asset::DrawableAssetPtr     DrawableAsset;
+		rage::grcTextureDictionary* MegaDictionary;
+		asset::HotDrawable*         HotDrawable;
 	};
 
 	struct DrawableStats
@@ -43,7 +43,8 @@ namespace rageam::integration
 
 	static const Vec3V SCENE_ISOLATED_POS = { -1700, -6000, 310 };
 	//static const Vec3V SCENE_POS = { -676, 167, 73.55f };
-	static const Vec3V SCENE_POS = { 285, -1580, 30 };
+	// static const Vec3V SCENE_POS = { 285, -1580, 30 };
+	static const Vec3V SCENE_POS = { 0, 0, 5 };
 
 	class ModelScene : public ui::App
 	{
@@ -80,7 +81,7 @@ namespace rageam::integration
 		bool							m_AssetTuneChanged = false;		 // Set by UI to post reload request on the end of frame
 		bool							m_ResetUIAfterCompiling = false; // We don't want to reset UI when just recompiling drawable
 
-		auto GetDrawable()					const { return m_Context.Drawable.get(); }
+		auto GetDrawable()					const { return m_Context.Drawable.Get(); }
 		auto GetDrawableMap()				const -> const asset::DrawableAssetMap&;
 		auto GetMeshAttr(u16 nodeIndex)		const -> rage::grmModel*;
 		auto GetBoneAttr(u16 nodeIndex)		const -> rage::crBoneData*;
@@ -108,7 +109,7 @@ namespace rageam::integration
 		ModelScene();
 
 		// Unloads currently loaded scene and destroys spawned drawable
-		void Unload();
+		void Unload(bool keepHotDrawable = false);
 		void LoadFromPatch(ConstWString path);
 		// Sets scene + camera position way outside of the map, isolating scene from game map
 		// NOTE: This calls ResetCameraPosition after toggling!
@@ -116,6 +117,8 @@ namespace rageam::integration
 		bool IsIsolatedSceneOn() const { return m_IsolatedSceneOn; }
 		// Sets active debug camera (if there's any) position to target spawned prop
 		void ResetCameraPosition() const;
+
+		bool IsLoaded() const { return m_Context.Drawable != nullptr; }
 
 		LightEditor		LightEditor;
 		MaterialEditor	MaterialEditor;

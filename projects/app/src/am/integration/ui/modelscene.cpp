@@ -1,3 +1,4 @@
+#include "am/asset/ui/assetwindowfactory.h"
 #ifdef AM_INTEGRATED
 
 #include "modelscene.h"
@@ -11,10 +12,13 @@ rageam::integration::DrawableStats rageam::integration::DrawableStats::ComputeFr
 {
 	using namespace rage;
 
+	DrawableStats stats = {};
+	if (!drawable)
+		return stats;
+
 	const spdAABB& bb = drawable->GetLodGroup().GetBoundingBox();
 	const crSkeletonData* skeleton = drawable->GetSkeletonData().Get();
 
-	DrawableStats stats = {};
 	stats.Dimensions = bb.Max - bb.Min;
 	stats.Lights = drawable->GetLightCount();
 	if (skeleton)
@@ -81,7 +85,7 @@ void rageam::integration::ModelScene::CreateArchetypeDefAndSpawnGameEntity()
 	static constexpr u32 ASSET_NAME_HASH = rage::atStringHash("amTestBedArchetype");
 
 	// Make sure that lod distance is not smaller than drawable itself
-	float lodDistance = m_Context.Drawable->GetBoundingSphere().GetRadius().Get();
+	float lodDistance = GetDrawable()->GetBoundingSphere().GetRadius().Get();
 	lodDistance += 100.0f;
 
 	m_ArchetypeDef = std::make_shared<CBaseArchetypeDef>();
@@ -91,7 +95,7 @@ void rageam::integration::ModelScene::CreateArchetypeDefAndSpawnGameEntity()
 	m_ArchetypeDef->LodDist = lodDistance;
 	m_ArchetypeDef->Flags = FLAG_IS_TYPE_OBJECT | FLAG_IS_FIXED | FLAG_HAS_ANIM;
 
-	m_GameEntity.Create(m_Context.Drawable, m_ArchetypeDef, GetScenePosition());
+	m_GameEntity.Create(m_Context.Drawable, m_ArchetypeDef.get(), GetScenePosition());
 	//m_GameEntity->Spawn(m_Context.Drawable, m_ArchetypeDef, GetScenePosition());
 	//m_DrawableRender.Create();
 	//m_DrawableRender->SetEntity(m_GameEntity);
@@ -105,7 +109,7 @@ void rageam::integration::ModelScene::WarpEntityToScenePosition()
 
 void rageam::integration::ModelScene::OnDrawableCompiled()
 {
-	m_DrawableStats = DrawableStats::ComputeFrom(m_Context.Drawable.get());
+	m_DrawableStats = DrawableStats::ComputeFrom(GetDrawable());
 	m_CompilerMessages.Destroy();
 	m_CompilerProgress = 1.0;
 
@@ -134,7 +138,7 @@ void rageam::integration::ModelScene::UpdateHotDrawableAndContext()
 	m_Context.IsDrawableLoading = info.IsLoading;
 	m_Context.DrawableAsset = info.DrawableAsset;
 	m_Context.Drawable = info.Drawable;
-	m_Context.TXDs = info.TXDs;
+	m_Context.MegaDictionary = info.MegaDictionary;
 	m_Context.HotFlags = info.HotFlags;
 	m_Context.HotDrawable = m_HotDrawable.get();
 
@@ -395,6 +399,7 @@ void rageam::integration::ModelScene::DrawDrawableUI()
 			};
 			static constexpr ConstString s_OutlineModeDisplay[] = { "Scene", "Skeleton" };
 			static int s_OutlineModeSelected = OutlineMode_Scene;
+			ImGui::SetNextItemWidth(ImGui::GetFontSize() * 5.0f);
 			ImGui::Combo("Graph Mode", &s_OutlineModeSelected, s_OutlineModeDisplay, IM_ARRAYSIZE(s_OutlineModeDisplay));
 
 			graphics::SceneNode* rootNode = m_Context.DrawableAsset->GetScene()->GetFirstNode();
@@ -407,42 +412,67 @@ void rageam::integration::ModelScene::DrawDrawableUI()
 			ImGui::EndTabItem();
 		}
 
-		if (ImGui::BeginTabItem("Extras"))
-		{
-			rage::Vector3 scenePos = m_ScenePosition;
-			if (ImGui::InputFloat3("Scene Position", (float*)&scenePos, "%g"))
-			{
-				m_ScenePosition = scenePos;
-				WarpEntityToScenePosition();
-			}
+		//if (ImGui::BeginTabItem("Extras"))
+		//{
+		//	rage::Vector3 scenePos = m_ScenePosition;
+		//	if (ImGui::InputFloat3("Scene Position", (float*)&scenePos, "%g"))
+		//	{
+		//		m_ScenePosition = scenePos;
+		//		WarpEntityToScenePosition();
+		//	}
 
-			if (ImGui::Button("Pin scene to interior"))
+		//	if (ImGui::Button("Pin scene to interior"))
+		//	{
+		//		//scrBegin();
+		//		{
+		//			//SHV::Ped localPed = SHV::PLAYER::GET_PLAYER_PED(-1);
+		//			//SHV::Hash room = SHV::INTERIOR::GET_ROOM_KEY_FROM_ENTITY(localPed);
+		//			//SHV::Interior interior = SHV::INTERIOR::GET_INTERIOR_FROM_ENTITY(localPed);
+		//			//SHV::INTERIOR::FORCE_ROOM_FOR_ENTITY(m_Context.EntityHandle, interior, room);
+		//		}
+		//		//scrEnd();
+		//	}
+		//	ImGui::SameLine();
+		//	ImGui::HelpMarker("Force entity into current player interior room.");
+
+		//	ImGui::EndTabItem();
+		//}
+
+		//if (ImGui::BeginTabItem("Debug"))
+		//{
+		//	ImGui::Text("Entity Handle: %i", m_Context.EntityHandle);
+		//	char ptrBuf[64];
+		//	sprintf_s(ptrBuf, 64, "%p", m_Context.Drawable.get());
+		//	ImGui::InputText("Drawable Ptr", ptrBuf, 64, ImGuiInputTextFlags_ReadOnly);
+		//	sprintf_s(ptrBuf, 64, "%p", m_Context.EntityPtr);
+		//	ImGui::InputText("Entity Ptr", ptrBuf, 64, ImGuiInputTextFlags_ReadOnly);
+		//	ImGui::EndTabItem();
+		//}
+
+		if (ImGui::BeginTabItem("TXDs"))
+		{
+			ImGui::HelpMarker(
+				"Here you can see available texture dictionaries, including embed one\n"
+				"Press on button to open TXD editor\n"
+				"You can add shared dictionaries by placing them in workspace folder with '.ws' extension\n"
+				"NOTE: Game TXD linking system is slightly different, it is either done via .gtxd config file or in an archetype", 
+				"Quick Info ");
+			ImGui::BeginChild("TXD_LIST");
+			int txdIndex = 0;
+			for (asset::TxdAssetPtr& txdAsset : m_Context.HotDrawable->GetTXDs())
 			{
-				//scrBegin();
+				bool isEmbed = txdAsset->GetHashKey() == m_Context.DrawableAsset->GetEmbedDictionary()->GetHashKey();
+				ConstString name = isEmbed ? "Embed" : String::ToAnsiTemp(txdAsset->GetAssetName());
+
+				if (ImGui::ButtonEx(ImGui::FormatTemp("%s###TXD_%i", name, txdIndex++), ImVec2(-1, 0)))
 				{
-					//SHV::Ped localPed = SHV::PLAYER::GET_PLAYER_PED(-1);
-					//SHV::Hash room = SHV::INTERIOR::GET_ROOM_KEY_FROM_ENTITY(localPed);
-					//SHV::Interior interior = SHV::INTERIOR::GET_INTERIOR_FROM_ENTITY(localPed);
-					//SHV::INTERIOR::FORCE_ROOM_FOR_ENTITY(m_Context.EntityHandle, interior, room);
+					ui::AssetWindowFactory::OpenNewOrFocusExisting(txdAsset);
 				}
-				//scrEnd();
 			}
-			ImGui::SameLine();
-			ImGui::HelpMarker("Force entity into current player interior room.");
-
+			ImGui::EndChild();
 			ImGui::EndTabItem();
 		}
 
-		if (ImGui::BeginTabItem("Debug"))
-		{
-			ImGui::Text("Entity Handle: %i", m_Context.EntityHandle);
-			char ptrBuf[64];
-			sprintf_s(ptrBuf, 64, "%p", m_Context.Drawable.get());
-			ImGui::InputText("Drawable Ptr", ptrBuf, 64, ImGuiInputTextFlags_ReadOnly);
-			sprintf_s(ptrBuf, 64, "%p", m_Context.EntityPtr);
-			ImGui::InputText("Entity Ptr", ptrBuf, 64, ImGuiInputTextFlags_ReadOnly);
-			ImGui::EndTabItem();
-		}
 		ImGui::EndTabBar();
 	}
 
@@ -457,6 +487,11 @@ void rageam::integration::ModelScene::OnRender()
 	m_AssetTuneChanged = false;
 
 	UpdateHotDrawableAndContext();
+
+	if (m_Context.HotFlags & AssetHotFlags_DrawableUnloaded)
+	{
+		Unload(true);
+	}
 
 	// Drawable was successfully compiled, we can spawn entity now
 	if (m_Context.HotFlags & AssetHotFlags_DrawableCompiled)
@@ -476,7 +511,7 @@ void rageam::integration::ModelScene::OnRender()
 		{
 			if(ImGui::MenuItem(ICON_AM_SAVE" Save"))
 			{
-				m_Context.DrawableAsset->ParseFromGame(m_Context.Drawable.get());
+				m_Context.DrawableAsset->ParseFromGame(GetDrawable());
 				if(!m_Context.DrawableAsset->SaveConfig())
 				{
 					AM_ERRF("ModelScene::OnRender() -> Failed to save config...");
@@ -489,11 +524,11 @@ void rageam::integration::ModelScene::OnRender()
 				needUnload = true;
 			}
 
-			if (ImGui::MenuItem(ICON_AM_BALL" Material Editor"))
-			{
-				MaterialEditor.IsOpen = !MaterialEditor.IsOpen;
-				// TODO: We can split material editor on Graphics & Physical materials
-			}
+			//if (ImGui::MenuItem(ICON_AM_BALL" Materials"))
+			//{
+			//	MaterialEditor.IsOpen = !MaterialEditor.IsOpen;
+			//	// TODO: We can split material editor on Graphics & Physical materials
+			//}
 
 			ImGui::EndMenuBar();
 		}
@@ -527,7 +562,7 @@ void rageam::integration::ModelScene::OnRender()
 			//ImGui::ProgressBar(static_cast<float>(m_CompilerProgress));
 		}
 
-		if (isSpawned)
+		if (isSpawned && !isLoading)
 		{
 			DrawDrawableUI();
 		}
@@ -540,7 +575,7 @@ void rageam::integration::ModelScene::OnRender()
 		return;
 	}
 
-	if (isSpawned)
+	if (isSpawned && !isLoading)
 	{
 		LightEditor.Render();
 		MaterialEditor.Render();
@@ -570,10 +605,9 @@ rageam::integration::ModelScene::ModelScene() : LightEditor(&m_Context), Materia
 	m_DrawableStats = {};
 }
 
-void rageam::integration::ModelScene::Unload()
+void rageam::integration::ModelScene::Unload(bool keepHotDrawable)
 {	
 	//m_DrawableRender.Release();
-	//m_GameEntity.Release();
 
 	m_CompilerMessages.Clear();
 	m_CompilerProgress = 0.0;
@@ -582,15 +616,20 @@ void rageam::integration::ModelScene::Unload()
 	m_Context = {};
 	m_GameEntity = nullptr;
 
-	// m_HotDrawable = nullptr;
+	if (!keepHotDrawable)
+		m_HotDrawable = nullptr;
 }
 
 void rageam::integration::ModelScene::LoadFromPatch(ConstWString path)
 {
-	Unload();
+	Unload(true);
 
 	if (!m_HotDrawable || m_HotDrawable->GetPath() != path)
+	{
+		m_HotDrawable = nullptr;
 		m_HotDrawable = std::make_unique<asset::HotDrawable>(path);
+	}
+
 	// Setup callback to display progress in UI
 	m_HotDrawable->CompileCallback = [&](ConstWString message, double progress)
 		{
@@ -630,6 +669,7 @@ void rageam::integration::ModelScene::ResetCameraPosition() const
 		camPos = scenePos;
 		// Shift camera away to fully see bounding sphere + add light padding
 		camPos += rage::VEC_BACK * bs.GetRadius() * 1.5f;
+		camPos += rage::VEC_UP * bs.GetRadius() * 0.45f;
 		// Entities are spawned with bottom of bounding box aligned to specified coord
 		targetPos = scenePos + rage::VEC_UP * bb.Height() * rage::S_HALF;
 	}

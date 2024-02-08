@@ -13,11 +13,11 @@ rageam::asset::AssetBase::AssetBase(const file::WPath& path)
 void rageam::asset::AssetBase::SetNewPath(ConstWString newPath, bool updateWorkspace)
 {
 	m_Directory = newPath;
-	m_HashKey = Hash(newPath);
+	m_HashKey = AssetPathHashFn(newPath);
 	if (updateWorkspace)
 	{
 		Workspace::GetParentWorkspacePath(newPath, m_WorkspaceDirectory);
-		m_WorkspaceDirectoryHash = Hash(m_WorkspaceDirectory);
+		m_WorkspaceDirectoryHash = AssetPathHashFn(m_WorkspaceDirectory);
 	}
 }
 

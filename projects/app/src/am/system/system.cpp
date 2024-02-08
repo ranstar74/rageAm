@@ -2,6 +2,7 @@
 
 #include "datamgr.h"
 #include "am/asset/factory.h"
+#include "am/asset/types/hotdrawable.h"
 #include "am/asset/ui/assetwindowfactory.h"
 #include "am/xml/doc.h"
 #include "rage/grcore/fvf.h"
@@ -107,6 +108,7 @@ void rageam::System::Destroy()
 	// Ideally we can destroy them in the right order if we add rendering function
 	AM_INTEGRATED_ONLY(m_Integration = nullptr);
 
+	asset::HotDrawable::ShutdownClass();
 	asset::TxdAsset::ShutdownClass();
 	asset::AssetFactory::Shutdown();
 	ui::AssetWindowFactory::Shutdown();

@@ -74,12 +74,12 @@ void rageam::asset::Workspace::Refresh()
 		AM_ERRF("AssetWorkspace::Refresh() -> Failed to load %u assets.", m_FailedCount);
 }
 
-const amPtr<rageam::asset::TxdAsset>& rageam::asset::Workspace::GetTexDict(u16 index) const
+amPtr<rageam::asset::TxdAsset> rageam::asset::Workspace::GetTexDict(u16 index) const
 {
 	return std::reinterpret_pointer_cast<TxdAsset>(m_Assets[m_TDs[index]]);
 }
 
-const amPtr<rageam::asset::DrawableAsset>& rageam::asset::Workspace::GetDrawable(u16 index) const
+amPtr<rageam::asset::DrawableAsset> rageam::asset::Workspace::GetDrawable(u16 index) const
 {
 	return std::reinterpret_pointer_cast<DrawableAsset>(m_Assets[m_DRs[index]]);
 }
