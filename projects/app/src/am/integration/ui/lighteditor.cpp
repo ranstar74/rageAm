@@ -775,7 +775,7 @@ rageam::integration::LightEditor::LightEditor(ModelSceneContext* sceneContext)
 
 void rageam::integration::LightEditor::Render()
 {
-	gtaDrawable* drawable = m_SceneContext->Drawable.get();
+	gtaDrawable* drawable = m_SceneContext->Drawable.Get();
 
 	u16 lightCount = drawable->GetLightCount();
 	if (lightCount == 0)
