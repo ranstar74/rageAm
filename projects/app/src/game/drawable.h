@@ -49,3 +49,5 @@ public:
 		rmcDrawable::DrawSkinned(mtx, a3, mask, lod);
 	}
 };
+
+using gtaDrawablePtr = rage::pgCountedPtr<gtaDrawable>;

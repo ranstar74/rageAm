@@ -120,6 +120,71 @@ namespace rage
 	};
 
 	/**
+	 * \brief Pointer with internal ref counter, for classes like rmcDrawable
+	 */
+	template<typename T>
+	class pgCountedPtr : public pgPtrBase<T>
+	{
+		s16* m_RefCount = nullptr;
+
+		void AddRef() const { if(m_RefCount) ++(*m_RefCount); }
+		s16  Release() const { return --(*m_RefCount); }
+
+	public:
+		pgCountedPtr() = default;
+		explicit pgCountedPtr(T* object)
+		{
+			this->m_Pointer = object;
+			m_RefCount = new s16(1);
+		}
+		pgCountedPtr(const pgCountedPtr& other)
+		{
+			this->m_Pointer = other.m_Pointer;
+			m_RefCount = other.m_RefCount;
+			AddRef();
+		}
+		pgCountedPtr(pgCountedPtr&& other) noexcept
+		{
+			std::swap(this->m_Pointer, other.m_Pointer);
+			std::swap(m_RefCount, other.m_RefCount);
+		}
+		~pgCountedPtr() { Reset(); }
+
+		void Reset()
+		{
+			if (m_RefCount && Release() == 0)
+			{
+				delete this->m_Pointer;
+				delete m_RefCount;
+			}
+			this->m_Pointer = nullptr;
+			m_RefCount = nullptr;
+		}
+
+		pgCountedPtr& operator=(const pgCountedPtr& other)
+		{
+			Reset();
+			m_RefCount = other.m_RefCount;
+			this->m_Pointer = other.m_Pointer;
+			AddRef();
+			return *this;
+		}
+
+		pgCountedPtr& operator=(pgCountedPtr&& other) noexcept
+		{
+			std::swap(this->m_Pointer, other.m_Pointer);
+			std::swap(this->m_RefCount, other.m_RefCount);
+			return *this;
+		}
+
+		pgCountedPtr& operator=(nullptr_t)
+		{
+			Reset();
+			return *this;
+		}
+	};
+
+	/**
 	 * \brief Shared pointer holder for paged objects.
 	 * T class must implement AddRef & Release functions.
 	 */
