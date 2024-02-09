@@ -180,6 +180,7 @@ public:
 	virtual rage::atHashString  GetExpressionSet() { return rage::atHashString::Null(); } // ->fwMvExpressionSetId
 	virtual void                InitWaterSamples();
 
+	void		  SetIsStreamedArchetype(bool v) { m_IsStreamed = v; }
 	bool          IsStreamedArchetype() const { return m_IsStreamed; }
 	ModelInfoType GetModelType() const { return ModelInfoType(m_Type); }
 
