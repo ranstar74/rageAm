@@ -123,7 +123,9 @@ void rageam::System::Destroy()
 	AM_INTEGRATED_ONLY(Hook::Shutdown());
 	AM_INTEGRATED_ONLY(m_AddressCache = nullptr);
 
+#ifdef AM_EASYPROFILER
 	profiler::dumpBlocksToFile("session.prof");
+#endif
 
 	rage::SystemHeap::Shutdown();
 
