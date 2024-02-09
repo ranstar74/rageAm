@@ -59,22 +59,23 @@ namespace rageam
 
 		Nullable(const T& value)
 		{
-			m_Holder.Value = value;
+			new (&m_Holder.Value) T(value);
 			m_HasValue = true;
 		}
 
 		Nullable(T&& value)
 		{
-			m_Holder.Value = std::move(value);
+			new (&m_Holder.Value) T(std::move(value));
 			m_HasValue = true;
 		}
 
 		Nullable(const Nullable& other)
 		{
-			m_Holder.Destroy();
-			m_Holder.Value = other.m_Holder.Value;
-			m_HasValue = other.m_Holder.Value;
-			return *this;
+			if (other.m_HasValue)
+			{
+				new (&m_Holder.Value) T(other.m_Holder.Value);
+				m_HasValue = true;
+			}
 		}
 
 		T& GetValue()
@@ -110,6 +111,18 @@ namespace rageam
 				m_Holder.Destroy();
 			new (&m_Holder.Value) T(value);
 			m_HasValue = true;
+			return *this;
+		}
+
+		Nullable& operator=(const Nullable& other)
+		{
+			if (m_HasValue)
+				m_Holder.Destroy();
+			if (other.HasValue())
+			{
+				new (&m_Holder.Value) T(other.GetValue());
+				m_HasValue = true;
+			}
 			return *this;
 		}
 
