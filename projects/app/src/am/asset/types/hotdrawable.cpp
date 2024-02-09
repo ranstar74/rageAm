@@ -235,6 +235,9 @@ void rageam::asset::HotDrawable::RemoveTexture(ConstString textureName)
 void rageam::asset::HotDrawable::RemoveTxd(ConstWString txdPath)
 {
 	TxdAssetPtr txd = GetTxdAssetFromPath(txdPath);
+	if (!txd) 
+		return;
+
 	for (TextureTune& tune : txd->GetTextureTunes())
 	{
 		file::Path textureName;
@@ -361,10 +364,17 @@ void rageam::asset::HotDrawable::HandleChange_Txd(const file::DirectoryChange& c
 			return;
 		}
 
+		// .itd renamed to .itd_ or any other invalid extension
+		if (AssetFactory::GetAssetType(change.NewPath) != AssetType_Txd)
+		{
+			RemoveTxd(change.Path);
+			return;
+		}
+
 		// Update asset in store set
 		HashValue    txdPathHash = AssetPathHashFn(change.Path);
 		TxdAssetPtr* ppRenamedTxd = m_TxdAssetStore.TryGetAt(txdPathHash);
-		if (!ppRenamedTxd) // Might be NULL if was removed before (see the case above)
+		if (!ppRenamedTxd) // Might be NULL if was removed before (see the cases above)
 		{
 			LoadTxdAsync(change.NewPath);
 			return;
