@@ -276,12 +276,12 @@ namespace rage
 		/**
 		 * \brief Gets last element in the array.
 		 */
-		T& Last() { return m_Items[m_Size - 1]; }
+		T& Last() { AM_ASSERTS(m_Size != 0); return m_Items[m_Size - 1]; }
 
 		/**
 		 * \brief Gets first element in the array.
 		 */
-		T& First() { return m_Items[0]; }
+		T& First() { AM_ASSERTS(m_Size != 0); return m_Items[0]; }
 
 		/**
 		 * \brief Gets pointer to underlying buffer array, with size of GetCapacity() and usable range of GetSize().
