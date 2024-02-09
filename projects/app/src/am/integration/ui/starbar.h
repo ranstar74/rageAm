@@ -32,6 +32,13 @@ namespace rageam::integration
 		void UpdateCamera();
 		void OnStart() override;
 		void OnRender() override;
+
+	public:
+		void SetCameraEnabled(bool b)
+		{
+			m_CameraEnabled = b;
+			UpdateCamera();
+		}
 	};
 }
 
