@@ -16,7 +16,7 @@
 #include <d3d11.h>
 
 // TODO:
-// - Brightness / contrast / levels
+// - HSV / Levels
 // - Large allocator for images, currently we use malloc
 // - Alpha test coverage in encoder is done even if texture has no alpha
 //
@@ -36,8 +36,8 @@ namespace rageam::graphics
 	// NOTE: Third party libraries will use SSE2 regardless! This option exists only for testing / benchmarking
 #define AM_IMAGE_USE_SIMD
 
-	static constexpr int IMAGE_MAX_RESOLUTION = 1 << 14;	// Maximum supported by DX11
-	static constexpr int IMAGE_MAX_MIP_MAPS = 14;			// 16384 -> 1
+	static constexpr int	IMAGE_MAX_RESOLUTION = 1 << 14;	// Maximum supported by DX11
+	static constexpr int	IMAGE_MAX_MIP_MAPS = 14;			// 16384 -> 1
 	static constexpr size_t IMAGE_RGBA_PITCH = 4;
 	static constexpr size_t IMAGE_RGB_PITCH = 3;
 
@@ -47,8 +47,8 @@ namespace rageam::graphics
 	pVoid ImageAllocTemp(u32 size);
 	pVoid ImageReAlloc(pVoid block, u32 newSize);
 	pVoid ImageReAllocTemp(pVoid block, u32 newSize);
-	void ImageFree(pVoid block);
-	void ImageFreeTemp(pVoid block);
+	void  ImageFree(pVoid block);
+	void  ImageFreeTemp(pVoid block);
 
 	enum ImageFileKind
 	{
@@ -281,19 +281,19 @@ namespace rageam::graphics
 	{
 		// Mip maps will be created only if they don't exist 
 		// already and pixel format is not compressed (BC#)
-		bool			CreateMips = true;
+		bool CreateMips = true;
 		// Image will be fit into given size rect
-		int				MaxResolution = 0;
+		int	 MaxResolution = 0;
 		// Filter for generating mip maps, Box is good and fast option
 		ResizeFilter	MipFilter = ResizeFilter_Box;
 		// Image will be converted to suitable for displaying format if needed,
 		// for example BC encoded images with size non power of two, or RGB images
 		// Those needs to be converted to RGBA before creating DX resource
-		bool			AllowImageConversion = true;
-		bool			PadToPowerOfTwo = false;
+		bool AllowImageConversion = true;
+		bool PadToPowerOfTwo = false;
 		// Replaces initial pixel data with new if image was converted/padded/mip-mapped
 		// A bit hacky but useful in some scenarios when we want to have full copy of GPU texture
-		bool			UpdateSourceImage = false;
+		bool UpdateSourceImage = false;
 	};
 
 	// Optionally ref counted pixel data pointer
@@ -303,12 +303,12 @@ namespace rageam::graphics
 	{
 		using pRefs = int*;
 
-		pRefs	m_RefCount; // Shared between all owned copies, pixel data is deleted when last instance is released
-		pChar	m_Data;
-		bool	m_Owned;
+		pRefs m_RefCount; // Shared between all owned copies, pixel data is deleted when last instance is released
+		pChar m_Data;
+		bool  m_Owned;
 
 		void AddRef() const;
-		int DecRef() const;
+		int  DecRef() const;
 
 	public:
 		PixelDataOwner();
@@ -343,15 +343,15 @@ namespace rageam::graphics
 	{
 		friend class ImageFactory;
 
-		wstring				m_DebugName;
-		Nullable<u32>		m_FastHashKey;
-		file::WPath			m_FilePath;			// In case if image was loaded from file
-		int					m_Width;
-		int					m_Height;
-		int					m_MipCount;
-		ImagePixelFormat	m_PixelFormat;
-		PixelDataOwner		m_PixelData;
-		Nullable<bool>		m_HasAlphaPixels;
+		wstring			 m_DebugName;
+		Nullable<u32>	 m_FastHashKey;
+		file::WPath		 m_FilePath;		// In case if image was loaded from file
+		int				 m_Width;
+		int				 m_Height;
+		int				 m_MipCount;
+		ImagePixelFormat m_PixelFormat;
+		PixelDataOwner	 m_PixelData;
+		Nullable<bool>	 m_HasAlphaPixels;
 
 	public:
 		Image(const PixelDataOwner& pixelData, ImagePixelFormat pixelFormat, int width, int height, int mipCount, bool copyPixels = false);
@@ -359,10 +359,10 @@ namespace rageam::graphics
 		Image(const Image& other) = delete;
 		Image(Image&&) = default;
 
-		ImageInfo GetInfo() const;
-		int GetWidth() const { return m_Width; }
-		int GetHeight() const { return m_Height; }
-		int GetMipCount() const { return m_MipCount; }
+		ImageInfo        GetInfo() const;
+		int              GetWidth() const { return m_Width; }
+		int              GetHeight() const { return m_Height; }
+		int              GetMipCount() const { return m_MipCount; }
 		ImagePixelFormat GetPixelFormat() const { return m_PixelFormat; }
 
 		bool IsBlockCompressed() const { return ImageIsCompressedFormat(m_PixelFormat); }
@@ -376,7 +376,7 @@ namespace rageam::graphics
 		// Set to image file name with extension by default
 		// For memory images, 'None' is default
 		ConstWString GetDebugName() const { return m_DebugName; }
-		void SetDebugName(ConstWString newName) { m_DebugName = newName; }
+		void		 SetDebugName(ConstWString newName) { m_DebugName = newName; }
 
 		// NOTE: Might be null if pixel data was not loaded / previously failed to load
 		// In case of DDS mip maps are placed next to each other
@@ -415,7 +415,7 @@ namespace rageam::graphics
 		// the solution is to add empty padding pixels and draw using adjusted UV coordinates
 		// If image is already sized power of two, clone is returned
 		amPtr<Image> PadToPowerOfTwo(Vec2S& outUvExtent) const;
-		Vec2S ComputePadExtent() const;
+		Vec2S		 ComputePadExtent() const;
 		// If format matches current, shallow clone is returned
 		amPtr<Image> ConvertPixelFormat(ImagePixelFormat formatTo) const;
 		// Will return existing pixel data if image already have more than 1 mip map or pixels are block compressed
@@ -423,10 +423,10 @@ namespace rageam::graphics
 		// Makes sure that image resolution is smaller equal to given constraint,
 		// If maximumResolution is set to 0, shallow clone is returned
 		amPtr<Image> FitMaximumResolution(int maximumResolution, ResizeFilter filter = ResizeFilter_Box);
+		amPtr<Image> AdjustBrightnessAndContrast(int brightness, int contrast) const;
 
 		// NOTE: This operation alters pixel data of THIS image!
 		void Swizzle(ImageSwizzle r, ImageSwizzle g, ImageSwizzle b, ImageSwizzle a) const;
-		amPtr<Image> AdjustBrightnessAndContrast(int brightness, int contrast) const;
 
 		// tex is optional parameter and reference is released if set to NULL
 		bool CreateDX11Resource(
@@ -446,7 +446,7 @@ namespace rageam::graphics
 	class ImageFactory
 	{
 		// Makes sure that image resolution is less or equal than IMAGE_MAX_RESOLUTION, such images are not supported
-		static bool VerifyImageSize(const ImagePtr& image);
+		static bool		VerifyImageSize(const ImagePtr& image);
 		static ImagePtr TryLoadFromPath(ConstWString path, bool onlyMeta);
 
 	public:
