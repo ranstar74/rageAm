@@ -28,6 +28,8 @@ struct CharBase
 	static bool IsUpper(TChar value);
 	static bool IsLower(TChar value);
 
+	static TChar PathSeparator();
+
 	static TChar ToUpper(TChar value);
 	static TChar ToLower(TChar value);
 
@@ -44,6 +46,7 @@ template<> inline bool CharBase<char>::IsPathSeparator(char value) { return valu
 template<> inline bool CharBase<char>::IsUpper(char value) { return isupper(value); }
 template<> inline bool CharBase<char>::IsLower(char value) { return islower(value); }
 
+template<> inline char CharBase<char>::PathSeparator() { return '\\'; }
 template<> inline char CharBase<char>::ToUpper(char value) { return (char)toupper(value); }
 template<> inline char CharBase<char>::ToLower(char value) { return (char)tolower(value); }
 
@@ -55,6 +58,8 @@ template<> inline bool CharBase<wchar_t>::IsWhiteSpace(wchar_t value) { return i
 template<> inline bool CharBase<wchar_t>::IsPathSeparator(wchar_t value) { return value == L'/' || value == L'\\'; }
 template<> inline bool CharBase<wchar_t>::IsUpper(wchar_t value) { return IsCharUpperW(value); }
 template<> inline bool CharBase<wchar_t>::IsLower(wchar_t value) { return IsCharLowerW(value); }
+
+template<> inline wchar_t CharBase<wchar_t>::PathSeparator() { return L'\\'; }
 
 // towlower & towupper don't support unicode so use WinApi's CharUpperW and CharLowerW
 // If the high-order word of this parameter is zero, the low-order word must contain a single character to be converted.

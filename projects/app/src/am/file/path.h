@@ -172,6 +172,31 @@ namespace rageam::file
 		}
 
 		/**
+		 * \brief Converts all separators to one type.
+		 */
+		PathBase Normalized() const
+		{
+			PathBase result;
+
+			u32 i = 0;
+			while (true)
+			{
+				Char c = m_Buffer[i];
+
+				if (Char::IsPathSeparator(c))
+					result.m_Buffer[i] = Char::PathSeparator();
+				else
+					result.m_Buffer[i] = c;
+				i++;
+
+				if (c == '\0')
+					break;
+			}
+
+			return result;
+		}
+
+		/**
 		 * \brief Performs C string format into internal buffer.
 		 */
 		void Format(TString fmt, ...)
