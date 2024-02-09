@@ -11,6 +11,9 @@
 #include <rgbcx.h>
 #include <icbc.h>
 #include <bc7decomp.h>
+#include <easy/profiler.h>
+
+rageam::BackgroundWorker* rageam::graphics::ImageCompressor::sm_RegionWorker = nullptr;
 
 rageam::graphics::BlockFormat rageam::graphics::ImagePixelFormatToBlockFormat(ImagePixelFormat fmt)
 {
@@ -163,6 +166,8 @@ void rageam::graphics::ImageCompressor::CompressBlocks(const EncoderState& encod
 
 void rageam::graphics::ImageCompressor::CompressMipRegion(const EncoderState& encoderState, const Region& region)
 {
+	EASY_FUNCTION("");
+
 	char* srcPixels = region.SrcPixels;
 	char* dstPixels = region.DstPixels;
 
@@ -264,6 +269,8 @@ void rageam::graphics::ImageCompressor::CompressMipRegion(const EncoderState& en
 
 void rageam::graphics::ImageCompressor::CompressMip(EncoderState& imgEncData)
 {
+	EASY_FUNCTION();
+
 	ImageInfo imgInfo = imgEncData.Image->GetInfo();
 
 	char* srcPixels = imgEncData.Image->GetPixelDataBytes();
@@ -297,6 +304,8 @@ void rageam::graphics::ImageCompressor::CompressMip(EncoderState& imgEncData)
 	u32 srcRegionSlicePitch = imgEncData.SrcRowPitch * regionPixelRows;
 	u32 dstRegionSlicePitch = imgEncData.DstRowPitch * regionBlocksCount;
 
+	BackgroundWorker::Push(sm_RegionWorker);
+
 	for (int i = 0; i < regionCount; i++)
 	{
 		Region& regEncData = imgEncData.Regions[i];
@@ -318,6 +327,8 @@ void rageam::graphics::ImageCompressor::CompressMip(EncoderState& imgEncData)
 	{
 		regionTasks[k]->Wait();
 	}
+
+	BackgroundWorker::Pop();
 }
 
 rageam::graphics::CompressedImageInfo rageam::graphics::ImageCompressor::GetInfoAndHash(
@@ -328,6 +339,8 @@ rageam::graphics::CompressedImageInfo rageam::graphics::ImageCompressor::GetInfo
 	ImagePixelData pixelData,
 	u32 pixelDataSize)
 {
+	EASY_FUNCTION();
+
 	AM_ASSERT(options.Format == BlockFormat_None || ImageIsResolutionValidForMipMapsAndCompression(imgInfo.Width, imgInfo.Height),
 		"ImageCompressor::GetInfoAndHash() -> Given image can't be compressed!");
 
@@ -367,6 +380,8 @@ rageam::graphics::CompressedImageInfo rageam::graphics::ImageCompressor::GetInfo
 	encodeInfo.AlphaTestCoverage = options.AlphaTestCoverage;
 	encodeInfo.AlphaTestThreshold = options.AlphaTestCoverage ? options.AlphaTestThreshold : 0;
 	encodeInfo.IsSourceCompressed = ImageIsCompressedFormat(imgInfo.PixelFormat);
+	encodeInfo.Brightness = options.Brightness;
+	encodeInfo.Contrast = options.Contrast;
 
 	// Threshold 0 causes weird artifacts (because whole image turned opaque), clamp to 1
 	if (encodeInfo.CutoutAlphaThreshold == 0)
@@ -435,6 +450,8 @@ rageam::graphics::CompressedImageInfo rageam::graphics::ImageCompressor::GetInfo
 rageam::graphics::ImagePtr rageam::graphics::ImageCompressor::Compress(
 	const ImagePtr& img, const ImageCompressorOptions& options, const u32* pixelHashOverride, CompressedImageInfo* outCompInfo, ImageCompressorToken* token)
 {
+	EASY_FUNCTION();
+
 	if (token) token->Reset();
 
 	u32 cacheHash;
@@ -577,7 +594,9 @@ rageam::graphics::ImagePtr rageam::graphics::ImageCompressor::Compress(
 	ImageInfo mipInfo;
 	for (int i = 0; i < mipCount; i++)
 	{
-		mipInfo = preparedImage->GetInfo();
+		// NOTE: We keep mipImage as separate copy so post-processing doesn't stack up...
+		ImagePtr  mipImage = preparedImage;
+		mipInfo = mipImage->GetInfo();
 
 		u32 encodedMipSlicePitch = ImageComputeSlicePitch(mipInfo.Width, mipInfo.Height, encodedImageInfo.PixelFormat);
 
@@ -585,7 +604,7 @@ rageam::graphics::ImagePtr rageam::graphics::ImageCompressor::Compress(
 		if (encodeInfo.AlphaTestCoverage)
 		{
 			float alphaCoverage = ImageAlphaTestCoverageRGBA(
-				preparedImage->GetPixelDataBytes(), mipInfo.Width, mipInfo.Height, encodeInfo.AlphaTestThreshold);
+				mipImage->GetPixelDataBytes(), mipInfo.Width, mipInfo.Height, encodeInfo.AlphaTestThreshold);
 
 			// Compute alpha coverage if we're on the first mip (as reference) and then
 			if (i == 0)
@@ -596,14 +615,21 @@ rageam::graphics::ImagePtr rageam::graphics::ImageCompressor::Compress(
 			else
 			{
 				encoderState.AlphaCoverageScale = ImageAlphaTestFindBestScaleRGBA(
-					preparedImage->GetPixelDataBytes(), mipInfo.Width, mipInfo.Height, encodeInfo.AlphaTestThreshold,
+					mipImage->GetPixelDataBytes(), mipInfo.Width, mipInfo.Height, encodeInfo.AlphaTestThreshold,
 					encoderState.DesiredAlphaCoverage);
 			}
 		}
 
+		// Post-processing, we do it per mip because it's very fast
+		// If we do processing on the first mip, it will invalidate caching for Image::Resize...
+		if (encodeInfo.Brightness != 0 || encodeInfo.Contrast != 0)
+		{
+			mipImage = mipImage->AdjustBrightnessAndContrast(encodeInfo.Brightness, encodeInfo.Contrast);
+		}
+
 		if (options.Format != BlockFormat_None)
 		{
-			encoderState.Image = preparedImage;
+			encoderState.Image = mipImage;
 			encoderState.DstPixels = encodedPixels;
 			encoderState.DstPixelFormat = encodeInfo.ImageInfo.PixelFormat;
 			encoderState.SrcRowPitch = ImageComputeRowPitch(mipInfo.Width, mipInfo.PixelFormat);
@@ -615,7 +641,7 @@ rageam::graphics::ImagePtr rageam::graphics::ImageCompressor::Compress(
 		else
 		{
 			// For RGBA we just need to copy pixels
-			memcpy(encodedPixels, preparedImage->GetPixelDataBytes(), encodedMipSlicePitch);
+			memcpy(encodedPixels, mipImage->GetPixelDataBytes(), encodedMipSlicePitch);
 
 			// For BC we process this in compress block function
 			if (encodeInfo.CutoutAlpha)
@@ -642,7 +668,7 @@ rageam::graphics::ImagePtr rageam::graphics::ImageCompressor::Compress(
 	timer.Stop();
 	if (cache->ShouldStore(timer.GetElapsedMilliseconds()))
 	{
-		cache->Cache(compImage, cacheHash, encodedDataSize, true, outCompInfo->UV2);
+		cache->Cache(compImage, cacheHash, encodedDataSize, ImageCacheEntryFlags_StoreInFileSystem, outCompInfo->UV2);
 	}
 
 	return compImage;
@@ -657,50 +683,6 @@ rageam::graphics::ImagePtr rageam::graphics::ImageCompressor::Decompress(const I
 	PixelDataOwner decodedPixels = ImageDecodeBCToRGBA(img->GetPixelData(mipIndex), mipWidth, mipHeight, info.PixelFormat);
 
 	return ImageFactory::Create(decodedPixels, ImagePixelFormat_U32, mipWidth, mipHeight);
-
-	//if (info.PixelFormat == ImagePixelFormat_U32)
-	//{
-	//	return ImageFactory::Create(img->GetPixelData(mipIndex), ImagePixelFormat_U32, info.Width, info.Height);
-	//}
-
-	//char* mipBytes = img->GetPixelDataBytes(mipIndex);
-	//int mipWidth = info.Height >> mipIndex;
-	//int mipHeight = info.Height >> mipIndex;
-	//int blocksX = mipWidth / 4;
-	//int blocksY = mipHeight / 4;
-	//u32 blockWidth = BlockFormatToBlockSize[ImagePixelFormatToBlockFormat(info.PixelFormat)];
-	//u32 encodedRowPitch = blocksX * blockWidth;
-	//u32 decodedRowPitch = mipWidth * IMAGE_RGBA_PITCH;
-
-	//PixelDataOwner decodedDataOwner = PixelDataOwner::AllocateForImage(mipWidth, mipHeight, ImagePixelFormat_U32);
-	//char* decodedPixels = decodedDataOwner.Data()->Bytes;
-
-	//for (int blockY = 0; blockY < blocksY; blockY++)
-	//{
-	//	int y = blockY * 4;
-	//	for (int blockX = 0; blockX < blocksX; blockX++)
-	//	{
-	//		int x = blockX * 4;
-
-	//		// Decode 4x4 pixels block
-	//		char decodedBlock[IMAGE_BC_BLOCK_SLICE_PITCH];
-	//		char* encodedBlock = mipBytes + static_cast<size_t>(blockY * encodedRowPitch + blockX * blockWidth);
-	//		DecompressBlock(encodedBlock, decodedBlock, info.PixelFormat);
-
-	//		// Copy it line by line to the decoded pixel array
-	//		char* dstRow = decodedPixels + static_cast<size_t>(decodedRowPitch) * y + IMAGE_RGBA_PITCH * x;
-	//		for (int i = 0; i < 4; i++)
-	//		{
-	//			char* srcRow = decodedBlock + i * IMAGE_BC_BLOCK_ROW_PITCH;
-
-	//			memcpy(dstRow, srcRow, IMAGE_RGBA_PITCH * 4);
-
-	//			dstRow += decodedRowPitch;
-	//		}
-	//	}
-	//}
-
-	//return ImageFactory::Create(decodedDataOwner, ImagePixelFormat_U32, mipWidth, mipHeight);
 }
 
 void rageam::graphics::ImageCompressor::DecompressBlock(const char* inBlock, char* outPixels, ImagePixelFormat fmt)
@@ -734,4 +716,15 @@ void rageam::graphics::ImageCompressor::DecompressBlock(const char* inBlock, cha
 
 	default: AM_UNREACHABLE("DecompressBlock() -> Unsupported format '%s'", Enum::GetName(fmt));
 	}
+}
+
+void rageam::graphics::ImageCompressor::InitClass()
+{
+	sm_RegionWorker = new BackgroundWorker("Img BC", IMAGE_BC_MULTITHREAD_MAX_REGIONS);
+}
+
+void rageam::graphics::ImageCompressor::ShutdownClass()
+{
+	delete sm_RegionWorker;
+	sm_RegionWorker = nullptr;
 }

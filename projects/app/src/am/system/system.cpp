@@ -8,6 +8,8 @@
 #include "rage/grcore/fvf.h"
 #include "exception/handler.h"
 
+#include <easy/profiler.h>
+
 #ifdef AM_INTEGRATED
 #include "am/integration/memory/hook.h"
 #endif
@@ -112,13 +114,16 @@ void rageam::System::Destroy()
 	asset::TxdAsset::ShutdownClass();
 	asset::AssetFactory::Shutdown();
 	ui::AssetWindowFactory::Shutdown();
-	BackgroundWorker::Shutdown();
+	graphics::ImageCompressor::ShutdownClass();
+	m_MainWorker = nullptr;
 	ExceptionHandler::Shutdown();
 
 	SaveDataToXML();
 
 	AM_INTEGRATED_ONLY(Hook::Shutdown());
 	AM_INTEGRATED_ONLY(m_AddressCache = nullptr);
+
+	profiler::dumpBlocksToFile("session.prof");
 
 	rage::SystemHeap::Shutdown();
 
@@ -129,17 +134,23 @@ void rageam::System::Init(bool withUI)
 {
 	Timer timer = Timer::StartNew();
 
+	EASY_PROFILER_ENABLE;
+	AM_STANDALONE_ONLY(EASY_THREAD("Main Thread"));
+
 	// Core
+	m_MainWorker = std::make_unique<BackgroundWorker>("System", 8);
+	BackgroundWorker::SetMainInstance(m_MainWorker.get());
 	AM_INTEGRATED_ONLY(Hook::Init());
 	AM_INTEGRATED_ONLY(m_AddressCache = std::make_unique<gmAddressCache>());
 	m_TexturePresetManager = std::make_unique<asset::TexturePresetStore>();
 	LoadDataFromXML();
 	ExceptionHandler::Init();
 	asset::AssetFactory::Init();
+	graphics::ImageCompressor::InitClass();
 	m_ImageCache = std::make_unique<graphics::ImageCache>();
 
 	// Not a render thread in integrated mode, because called from Init launcher function
-	AM_STANDALONE_ONLY((void)SetThreadDescription(GetCurrentThread(), L"[RAGEAM] Render Thread"));
+	AM_STANDALONE_ONLY((void)SetThreadDescription(GetCurrentThread(), L"[RAGEAM] Main Thread"));
 	// Window (UI) + Render
 	if (withUI)
 		m_PlatformWindow = std::make_unique<graphics::Window>();
@@ -160,4 +171,9 @@ void rageam::System::Init(bool withUI)
 	{
 		m_Render->EnterRenderLoop();
 	}
+}
+
+void rageam::System::Update() const
+{
+	m_ImageCache->DeleteOldEntries();
 }

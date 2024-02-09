@@ -4,6 +4,7 @@
 #include "am/file/fileutils.h"
 #include "am/file/pathutils.h"
 #include "am/system/enum.h"
+#include "helpers/dx11.h"
 #include "imagecache.h"
 #include "bc.h"
 
@@ -14,8 +15,7 @@
 #include <stb_image.h>
 #include <ddraw.h> // DDS
 #include <lunasvg.h>
-
-#include "helpers/dx11.h"
+#include <easy/profiler.h>
 
 pVoid rageam::graphics::ImageAlloc(u32 size)
 {
@@ -881,6 +881,8 @@ bool rageam::graphics::ImageReadDDS(ConstWString path, int& w, int& h, int& mips
 
 bool rageam::graphics::ImageRead(ConstWString path, int& w, int& h, int& mips, ImagePixelFormat& fmt, ImageFileKind* outKind, bool onlyMeta, PixelDataOwner* outPixels)
 {
+	EASY_FUNCTION();
+
 	// Mips are used only on DDS
 	mips = 1;
 
@@ -923,6 +925,8 @@ bool rageam::graphics::ImageRead(ConstWString path, int& w, int& h, int& mips, I
 
 bool rageam::graphics::ImageWrite(ConstWString path, int w, int h, int mips, ImagePixelFormat fmt, const PixelDataOwner& pixelData, ImageFileKind kind, float quality)
 {
+	EASY_FUNCTION();
+
 	char* pixels = pixelData.Data()->Bytes;
 
 	switch (kind)
@@ -963,6 +967,8 @@ void rageam::graphics::ImageResize(
 	int xTo, int yTo,
 	bool hasAlphaPixels)
 {
+	EASY_FUNCTION();
+
 	AM_ASSERT(!ImageIsCompressedFormat(fmt), "ResizeImagePixels() -> Compressed formats are not supported.");
 
 	// Input is identical to output size, just copy source pixels
@@ -1046,6 +1052,8 @@ rageam::graphics::ColorU32 rageam::graphics::ImageGetPixelColor(char* pixelData,
 
 void rageam::graphics::ImageConvertPixelFormat(pVoid dst, pVoid src, ImagePixelFormat fromFmt, ImagePixelFormat toFmt, int width, int height)
 {
+	EASY_FUNCTION();
+
 	AM_ASSERT(!ImageIsCompressedFormat(fromFmt) && !ImageIsCompressedFormat(toFmt), "ConvertImagePixels() -> BC Formats are not supported!");
 
 	ImagePixelData srcData = static_cast<ImagePixelData>(src);
@@ -1216,6 +1224,8 @@ void rageam::graphics::ImageConvertPixelFormat(pVoid dst, pVoid src, ImagePixelF
 
 void rageam::graphics::ImageFlipY(char* pixels, int width, int height, ImagePixelFormat fmt)
 {
+	EASY_FUNCTION();
+
 	size_t rowPitch = ImageComputeRowPitch(width, fmt);
 	pVoid scanlineBuffer = ImageAlloc(rowPitch);
 
@@ -1236,6 +1246,8 @@ void rageam::graphics::ImageFlipY(char* pixels, int width, int height, ImagePixe
 void rageam::graphics::ImageDoSwizzle(
 	char* pixelData, int width, int height, ImageSwizzle r, ImageSwizzle g, ImageSwizzle b, ImageSwizzle a)
 {
+	EASY_FUNCTION();
+
 	// No component will be reordered, we can safely skip
 	if (r == ImageSwizzle_R &&
 		g == ImageSwizzle_G &&
@@ -1287,35 +1299,140 @@ void rageam::graphics::ImageDoSwizzle(
 	}
 }
 
-void rageam::graphics::ImageAdjustBrightnessAndConstrastRGBA(char* pixels, int width, int height, int brightness, int contrast)
+void rageam::graphics::ImageAdjustBrightnessAndConstrastRGBA(char* pixelData, int width, int height, int brightness, int contrast)
 {
-	ColorU32* pixel = reinterpret_cast<ColorU32*>(pixels);
+	EASY_FUNCTION();
 
-	float fContrast = static_cast<float>(contrast) / 255.0f;
-	float fBrightness = static_cast<float>(brightness) / 255.0f;
+	if (brightness == 0 && contrast == 0)
+		return;
 
-	auto adjustBrightnessAndConstrast = [&](u8& color)
-		{
-			float fColor = static_cast<float>(color) / 255.0f;;
-			fColor += fBrightness;
-			fColor *= fContrast;
-			if (fColor > 1.0f) fColor = 1.0f;
-			else if (fColor < 0.0f) fColor = 0.0f;
-			color = static_cast<u8>(fColor * 255.0f);
-		};
+	// Contrast equation:
+	// ContrastFactor = (259 * (Color + 255)) / (255 * (259 -c))
+	// Color = ContrastFactor * (Color - 128) + 128
+
+	bool  hasContrast = contrast != 0;
+	bool  hasBrightness = brightness != 0;
+	float contrastFactor = 259.0f * ((float)contrast + 255.0f) / (255.0f * (259.0f - (float)contrast));
+
+	ColorU32* pixels = reinterpret_cast<ColorU32*>(pixelData);
 
 	int totalPixels = width * height;
-	for (int i = 0; i < totalPixels; i++)
+	int remainderPixels = totalPixels;
+	int pixelsXmm = 0;
+
+#ifdef AM_IMAGE_USE_SIMD
+	if (totalPixels > 4)
 	{
-		adjustBrightnessAndConstrast(pixel[i].R);
-		adjustBrightnessAndConstrast(pixel[i].G);
-		adjustBrightnessAndConstrast(pixel[i].B);
-		pixel++;
+		remainderPixels = totalPixels % 4;
+		pixelsXmm = totalPixels - remainderPixels;
+
+		// Shuffle for unpacking every U32 pixel to 4 floats
+		__m128i _bytesToFloatsShuffle[4] =
+		{
+			_mm_set_epi8(-128, -128, -128, 3,  /**/ -128, -128, -128, 2,  /**/ -128, -128, -128, 1,  /**/ -128, -128, -128, 0),
+			_mm_set_epi8(-128, -128, -128, 7,  /**/ -128, -128, -128, 6,  /**/ -128, -128, -128, 5,  /**/ -128, -128, -128, 4),
+			_mm_set_epi8(-128, -128, -128, 11, /**/ -128, -128, -128, 10, /**/ -128, -128, -128, 9,  /**/ -128, -128, -128, 8),
+			_mm_set_epi8(-128, -128, -128, 15, /**/ -128, -128, -128, 14, /**/ -128, -128, -128, 13, /**/ -128, -128, -128, 12),
+		};
+		__m128i _floatsToBytesShuffle[4] =
+		{
+			_mm_set_epi8(-128, -128, -128, -128, /**/ -128, -128, -128, -128, /**/ -128, -128, -128, -128, /**/ 12, 8, 4, 0),
+			_mm_set_epi8(-128, -128, -128, -128, /**/ -128, -128, -128, -128, /**/ 12, 8, 4, 0,            /**/ -128, -128, -128, -128),
+			_mm_set_epi8(-128, -128, -128, -128, /**/ 12, 8, 4, 0,            /**/ -128, -128, -128, -128, /**/ -128, -128, -128, -128),
+			_mm_set_epi8(12, 8, 4, 0,            /**/ -128, -128, -128, -128, /**/ -128, -128, -128, -128, /**/ -128, -128, -128, -128),
+		};
+		__m128i _keepPixelMasks[4] =
+		{
+			_mm_set_epi8(0, 0, 0, 0,     /**/ 0, 0, 0, 0,     /**/ 0, 0, 0, 0,     /**/ -1, -1, -1, -1),
+			_mm_set_epi8(0, 0, 0, 0,     /**/ 0, 0, 0, 0,     /**/ -1, -1, -1, -1, /**/ 0, 0, 0, 0),
+			_mm_set_epi8(0, 0, 0, 0,     /**/ -1, -1, -1, -1, /**/ 0, 0, 0, 0,     /**/ 0, 0, 0, 0),
+			_mm_set_epi8(-1, -1, -1, -1, /**/ 0, 0, 0, 0,     /**/ 0, 0, 0, 0,     /**/ 0, 0, 0, 0),
+		};
+		__m128i _erasePixelMasks[4] = // We keep alpha here because contrast shouldn't change it
+		{
+			_mm_set_epi8(-1, -1, -1, -1, /**/ -1, -1, -1, -1, /**/ -1, -1, -1, -1, /**/ -1, 0, 0, 0),
+			_mm_set_epi8(-1, -1, -1, -1, /**/ -1, -1, -1, -1, /**/ -1, 0, 0, 0,    /**/ -1, -1, -1, -1),
+			_mm_set_epi8(-1, -1, -1, -1, /**/ -1, 0, 0, 0,    /**/ -1, -1, -1, -1, /**/ -1, -1, -1, -1),
+			_mm_set_epi8(-1, 0, 0, 0,    /**/ -1, -1, -1, -1, /**/ -1, -1, -1, -1, /**/ -1, -1, -1, -1),
+		};
+
+		__m128 _128 = _mm_set_ps1(128.0f);
+		__m128 _0 = _mm_set_ps1(0.0f);
+		__m128 _255 = _mm_set_ps1(255.0f);
+		__m128 _contrastFactor = _mm_set_ps1(contrastFactor);
+
+		// We load absolute value because we can't do unsigned + signed saturated operation, instead we use branching
+		__m128i _brightness = _mm_set1_epi8((char)abs(brightness));
+		// Get rid of alpha component
+		_brightness = _mm_and_epi32(_brightness, IMAGE_RGBA_RGB_MASK);
+
+		bool addBrightness = brightness >= 0;
+
+		int xmmGroupCount = pixelsXmm / 4;
+		for (int i = 0; i < xmmGroupCount; i++)
+		{
+			__m128i fourPixels;
+			fourPixels = _mm_loadu_epi8(pixels);
+
+			if (hasBrightness)
+			{
+				if (addBrightness)  fourPixels = _mm_adds_epu8(fourPixels, _brightness);
+				else				fourPixels = _mm_subs_epu8(fourPixels, _brightness);
+			}
+
+			if (hasContrast)
+			{
+				// We have to convert 16 pixels from U8 to floats
+				// 16 floats = 64 bytes = 512 bits
+				for (int k = 0; k < 4; k++)
+				{
+					__m128i contrastedPixel;
+					__m128  floatPixel;
+
+					// Mask out other pixels and shuffle every pixel U8 component to U32
+					contrastedPixel = _mm_and_epi32(fourPixels, _keepPixelMasks[k]);
+					contrastedPixel = _mm_shuffle_epi8(contrastedPixel, _bytesToFloatsShuffle[k]);
+
+					// Color = ContrastFactor * (Color - 128) + 128
+					floatPixel = _mm_cvtepi32_ps(contrastedPixel);
+					floatPixel = _mm_sub_ps(floatPixel, _128);
+					floatPixel = _mm_mul_ps(floatPixel, _contrastFactor);
+					floatPixel = _mm_add_ps(floatPixel, _128);
+
+					// Values must be clamped to 0-255 range
+					floatPixel = _mm_min_ps(floatPixel, _255);
+					floatPixel = _mm_max_ps(floatPixel, _0);
+
+					contrastedPixel = _mm_cvtps_epi32(floatPixel);
+					contrastedPixel = _mm_shuffle_epi8(contrastedPixel, _floatsToBytesShuffle[k]);
+					contrastedPixel = _mm_and_epi32(contrastedPixel, IMAGE_RGBA_RGB_MASK); // Mask alpha out
+
+					// Mask out source pixels and put new values in
+					fourPixels = _mm_and_epi32(fourPixels, _erasePixelMasks[k]);
+					fourPixels = _mm_or_epi32(fourPixels, contrastedPixel);
+				}
+			}
+
+			_mm_storeu_si128(reinterpret_cast<__m128i*>(pixels), fourPixels);
+			pixels += 4;
+		}
+	}
+
+#endif
+	// And then remainders without intrinsics
+	for (int i = 0; i < remainderPixels; i++)
+	{
+		pixels->R = (u8)std::clamp<float>(contrastFactor * (float)(pixels->R + brightness - 128) + 128, 0, 255);
+		pixels->G = (u8)std::clamp<float>(contrastFactor * (float)(pixels->G + brightness - 128) + 128, 0, 255);
+		pixels->B = (u8)std::clamp<float>(contrastFactor * (float)(pixels->B + brightness - 128) + 128, 0, 255);
+		pixels++;
 	}
 }
 
 void rageam::graphics::ImageCutoutAlphaRGBA(char* const pixelData, int width, int height, int threshold)
 {
+	EASY_FUNCTION();
+
 	ColorU32* pixels = reinterpret_cast<ColorU32*>(pixelData);
 
 	int totalPixels = width * height;
@@ -1362,6 +1479,8 @@ void rageam::graphics::ImageCutoutAlphaRGBA(char* const pixelData, int width, in
 
 void rageam::graphics::ImageScaleAlphaRGBA(char* pixelData, int width, int height, float alphaScale)
 {
+	EASY_FUNCTION();
+
 	ColorU32* pixels = reinterpret_cast<ColorU32*>(pixelData);
 	int totalPixels = width * height;
 	for (int i = 0; i < totalPixels; i++)
@@ -1394,6 +1513,8 @@ float rageam::graphics::ImageAlphaTestCoverageRGBA(char* pixelData, int width, i
 
 float rageam::graphics::ImageAlphaTestFindBestScaleRGBA(char* pixelData, int width, int height, int threshold, float desiredCoverage)
 {
+	EASY_FUNCTION();
+
 	// https://github.com/castano/nvidia-texture-tools/blob/master/src/nvimage/FloatImage.cpp#L1453
 	float minAlphaScale = 0.0f;
 	float maxAlphaScale = 4.0f;
@@ -1569,6 +1690,20 @@ rageam::graphics::ImageInfo rageam::graphics::Image::GetInfo() const
 	return info;
 }
 
+u32 rageam::graphics::Image::ComputeHashKey() const
+{
+	// Descending by processing time...
+
+	if (m_FastHashKey.HasValue())
+		return m_FastHashKey.GetValue();
+
+	if (!String::IsNullOrEmpty(m_FilePath))
+		return ImageFactory::GetFastHashKey(m_FilePath);
+
+	ImageCache* cache = ImageCache::GetInstance();
+	return cache->ComputeImageHash(m_PixelData.Data(), ComputeTotalSizeWithMips());
+}
+
 rageam::graphics::PixelDataOwner rageam::graphics::Image::GetPixelData(int mipIndex) const
 {
 	if (mipIndex == 0)
@@ -1582,10 +1717,33 @@ rageam::graphics::PixelDataOwner rageam::graphics::Image::GetPixelData(int mipIn
 
 bool rageam::graphics::Image::EnsurePixelDataLoaded()
 {
+	EASY_FUNCTION();
+
 	if (m_PixelData.Data())
 		return true;
 
-	return ImageRead(m_FilePath, m_Width, m_Height, m_MipCount, m_PixelFormat, nullptr, false, &m_PixelData);
+	ImageCache* cache = ImageCache::GetInstance();
+	u32			fastHashKey = ImageFactory::GetFastHashKey(m_FilePath);
+	ImagePtr	cachedImage = cache->GetFromCache(fastHashKey);
+	if (!cachedImage)
+	{
+		EASY_EVENT("Cache miss");
+		cachedImage = ImageFactory::LoadFromPath(m_FilePath);
+		if (!cachedImage)
+			return false;
+	}
+	else 
+	{
+		EASY_EVENT("Loaded from cache");
+	}
+
+	m_PixelData = cachedImage->GetPixelData();
+	m_Width = cachedImage->m_Width;
+	m_Height = cachedImage->m_Height;
+	m_MipCount = cachedImage->m_MipCount;
+	m_PixelFormat = cachedImage->m_PixelFormat;
+	m_HasAlphaPixels.Reset();
+	return true;
 }
 
 bool rageam::graphics::Image::ScanAlpha()
@@ -1609,6 +1767,29 @@ rageam::graphics::ColorU32 rageam::graphics::Image::GetPixel(int x, int y, int m
 
 amPtr<rageam::graphics::Image> rageam::graphics::Image::Resize(int newWidth, int newHeight, ResizeFilter resizeFilter)
 {
+	EASY_FUNCTION();
+
+	// Nothing to resize, create dummy copy
+	if (m_Width == newWidth && m_Height == newHeight)
+		return ImageFactory::Clone(*this);
+
+	// Resizing is pretty expensive operation, use caching
+	ImageCache* cache = ImageCache::GetInstance();
+
+	u32 hashKey = ComputeHashKey();
+
+	// Mix hash key with new dimensions to get new unique key
+	hashKey = DataHash(&newWidth, sizeof (int), hashKey);
+	hashKey = DataHash(&newHeight, sizeof (int), hashKey);
+
+	ImagePtr cachedImage = cache->GetFromCache(hashKey);
+	if (cachedImage)
+	{
+		EASY_EVENT("Loaded from cache");
+		return cachedImage;
+	}
+	EASY_EVENT("Cache miss");
+
 	ImageInfo info = GetInfo();
 
 	PixelDataOwner resizedData = PixelDataOwner::AllocateForImage(newWidth, newHeight, info.PixelFormat);
@@ -1618,7 +1799,11 @@ amPtr<rageam::graphics::Image> rageam::graphics::Image::Resize(int newWidth, int
 
 	ImageResize(dst, src, resizeFilter, info.PixelFormat, info.Width, info.Height, newWidth, newHeight, ScanAlpha());
 
-	return ImageFactory::Create(resizedData, info.PixelFormat, newWidth, newHeight, false);
+	ImagePtr resizedImage = ImageFactory::Create(resizedData, info.PixelFormat, newWidth, newHeight, false);
+	// NOTE: We don't store this in file system because it would cause ridiculous spam!
+	cache->Cache(resizedImage, hashKey, ComputeSlicePitch(), ImageCacheEntryFlags_Temp, Vec2S(1.0f, 1.0f));
+
+	return resizedImage;
 }
 
 amPtr<rageam::graphics::Image> rageam::graphics::Image::PadToPowerOfTwo(Vec2S& outUvExtent) const
@@ -1756,6 +1941,15 @@ amPtr<rageam::graphics::Image> rageam::graphics::Image::FitMaximumResolution(int
 void rageam::graphics::Image::Swizzle(ImageSwizzle r, ImageSwizzle g, ImageSwizzle b, ImageSwizzle a) const
 {
 	ImageDoSwizzle(m_PixelData.Data()->Bytes, m_Width, m_Height, r, g, b, a);
+}
+
+amPtr<rageam::graphics::Image> rageam::graphics::Image::AdjustBrightnessAndContrast(int brightness, int contrast) const
+{
+	AM_ASSERTS(m_PixelFormat == ImagePixelFormat_U32);
+	ImagePtr imageCopy = ImageFactory::Copy(*this);
+	ImageAdjustBrightnessAndConstrastRGBA(
+		imageCopy->GetPixelDataBytes(), imageCopy->m_Width, imageCopy->m_Height, brightness, contrast);
+	return imageCopy;
 }
 
 bool rageam::graphics::Image::CreateDX11Resource(
@@ -2014,6 +2208,8 @@ rageam::graphics::ImageFileKind rageam::graphics::ImageFactory::GetImageKindFrom
 
 rageam::graphics::ImagePtr rageam::graphics::ImageFactory::LoadFromPath(ConstWString path, bool onlyMeta, bool useCache)
 {
+	EASY_FUNCTION();
+
 	// Special cases for ICO and SVG
 	ImageFileKind imageKind = GetImageKindFromPath(path);
 	if (imageKind == ImageKind_ICO)
@@ -2053,7 +2249,11 @@ rageam::graphics::ImagePtr rageam::graphics::ImageFactory::LoadFromPath(ConstWSt
 
 		ImagePtr cachedImage = imageCache->GetFromCache(hash);
 		if (cachedImage)
+		{
+			EASY_EVENT("Loaded from cache");
 			return cachedImage;
+		}
+		EASY_EVENT("Cache miss");
 	}
 
 	Timer timer = Timer::StartNew();
@@ -2069,8 +2269,10 @@ rageam::graphics::ImagePtr rageam::graphics::ImageFactory::LoadFromPath(ConstWSt
 	if (!onlyMeta && useCache && imageCache->ShouldStore(timer.GetElapsedMilliseconds()))
 	{
 		u32 pixelDataSize = ImageComputeSlicePitch(image->m_Width, image->m_Height, image->m_PixelFormat);
-		imageCache->Cache(image, hash, pixelDataSize, false, Vec2S(1.0f, 1.0f));
+		imageCache->Cache(image, hash, pixelDataSize, ImageCacheEntryFlags_None, Vec2S(1.0f, 1.0f));
 	}
+
+	image->m_FastHashKey = GetFastHashKey(path);
 
 	return image;
 }
@@ -2078,6 +2280,8 @@ rageam::graphics::ImagePtr rageam::graphics::ImageFactory::LoadFromPath(ConstWSt
 rageam::graphics::ImagePtr rageam::graphics::ImageFactory::LoadFromPathAndCompress(
 	ConstWString path, const ImageCompressorOptions& compOptions, CompressedImageInfo* outCompInfo, ImageCompressorToken* token)
 {
+	EASY_FUNCTION();
+
 	if (GetImageKindFromPath(path) == ImageKind_DDS && !compOptions.AllowRecompress)
 	{
 		ImagePtr compressedImage = LoadFromPath(path);

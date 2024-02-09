@@ -187,3 +187,14 @@ project "rageAm"
 	defines { "APP_BUILD_2699_16_FINAL=0" }
 	defines { "APP_BUILD_2699_16_RELEASE=1" }
 	defines { "APP_BUILD_2699_16_RELEASE_NO_OPT=1" } -- Includes APP_BUILD_2699_16_RELEASE, but higher priority
+
+	-- Profiler
+	include_vendors {
+		"easy_profiler",
+	}
+	defines { "BUILD_WITH_EASY_PROFILER" }
+	defines { "_BUILD_PROFILER" }
+	defines { "EASY_PROFILER_VERSION_MAJOR=2" }
+	defines { "EASY_PROFILER_VERSION_MINOR=1" }
+	defines { "EASY_PROFILER_VERSION_PATCH=0" }
+	defines { "EASY_PRODUCT_VERSION_STRING=\"2.1.0\"" }

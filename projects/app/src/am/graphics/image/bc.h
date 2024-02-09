@@ -15,6 +15,11 @@
 #include <bc7e_ispc_sse2.h>
 #endif
 
+namespace rageam
+{
+	class BackgroundWorker;
+}
+
 namespace rageam::graphics
 {
 	// Used terms:
@@ -34,8 +39,8 @@ namespace rageam::graphics
 #define IMAGE_BC_USE_MULTITHREADING
 
 #ifdef IMAGE_BC_USE_MULTITHREADING
-	static constexpr int IMAGE_BC_MULTITHREAD_MAX_REGIONS = 32;	// Max threads
-	static constexpr int IMAGE_BC_MULTITHREAD_MIN_REGION_SIZE = 32;
+	static constexpr int IMAGE_BC_MULTITHREAD_MAX_REGIONS = 12;		// Max threads
+	static constexpr int IMAGE_BC_MULTITHREAD_MIN_REGION_SIZE = 16;	// Num of Y blocks per one region
 #else
 	static constexpr int IMAGE_BC_MULTITHREAD_MAX_REGIONS = 1;
 	static constexpr int IMAGE_BC_MULTITHREAD_MIN_REGION_SIZE = IMAGE_MAX_RESOLUTION / 4;
@@ -124,6 +129,8 @@ namespace rageam::graphics
 		int					CutoutAlphaThreshold = 127;
 		bool				AlphaTestCoverage = false;	// Makes sure that % of alpha is preserved on mip maps
 		int					AlphaTestThreshold = 170;
+		int					Brightness = 0;
+		int					Contrast = 0;
 		bool				PadToPowerOfTwo = false;
 		bool				AllowRecompress = false; 	// For users that want to re-compress .dds for their own reasons
 
@@ -158,6 +165,8 @@ namespace rageam::graphics
 		int						CutoutAlphaThreshold;
 		bool					AlphaTestCoverage;
 		int						AlphaTestThreshold;
+		int						Brightness;
+		int						Contrast;
 		BlockCompressorImpl		EncoderImpl;
 		EncoderData_bc7enc_rdo	EncoderData_bc7enc_rdo;
 		EncoderData_icbc		EncoderData_icbc;
@@ -237,6 +246,11 @@ namespace rageam::graphics
 			ImagePixelData pixelData = nullptr,
 			u32 pixelDataSize = 0);
 
+		// We have separate from system worker because:
+		// - Need more threads
+		// - Scenario when all system worker threads are used would cause deadlock
+		static BackgroundWorker* sm_RegionWorker;
+
 	public:
 		// Compresses given image with given options and returns newly created image
 		// pixelHashOverride is used to compute the final hash sum of the image, iterating over pixel data is a bit expensive,
@@ -254,5 +268,8 @@ namespace rageam::graphics
 
 		// Decodes single block of given format and outputs 4x4 RGBA pixels
 		static void DecompressBlock(const char* inBlock, char* outPixels, ImagePixelFormat fmt);
+
+		static void InitClass();
+		static void ShutdownClass();
 	};
 }

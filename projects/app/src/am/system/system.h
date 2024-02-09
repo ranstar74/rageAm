@@ -54,6 +54,7 @@ namespace rageam
 		amUPtr<gmAddressCache>				 m_AddressCache;
 #endif
 
+		amUPtr<BackgroundWorker>			m_MainWorker;
 		amUPtr<asset::TexturePresetStore>	m_TexturePresetManager;
 		amUPtr<graphics::Window>			m_PlatformWindow;
 		amUPtr<graphics::Render>			m_Render;
@@ -72,6 +73,8 @@ namespace rageam
 		void Destroy();
 		// Non ui option available if we want command line application
 		void Init(bool withUI);
+
+		void Update() const;
 
 		SystemData	Data = {};
 		bool		HasData = false; // Was data loaded from XML file this session?

@@ -20,6 +20,8 @@ void rageam::asset::TextureOptions::SerializeChanged(const XmlHandle& node, cons
 	TEX_SET_IF_CHANGED(Quality);
 	TEX_SET_IF_CHANGED(MaxResolution);
 	TEX_SET_IF_CHANGED(GenerateMipMaps);
+	TEX_SET_IF_CHANGED(Brightness);
+	TEX_SET_IF_CHANGED(Contrast);
 	TEX_SET_IF_CHANGED(CutoutAlpha);
 	TEX_SET_IF_CHANGED(CutoutAlphaThreshold);
 	TEX_SET_IF_CHANGED(AlphaTestCoverage);
@@ -36,6 +38,8 @@ void rageam::asset::TextureOptions::Serialize(XmlHandle& node) const
 	XML_SET_CHILD_VALUE(node, CompressorOptions.Quality);
 	XML_SET_CHILD_VALUE(node, CompressorOptions.MaxResolution);
 	XML_SET_CHILD_VALUE(node, CompressorOptions.GenerateMipMaps);
+	XML_SET_CHILD_VALUE(node, CompressorOptions.Brightness);
+	XML_SET_CHILD_VALUE(node, CompressorOptions.Contrast);
 	XML_SET_CHILD_VALUE(node, CompressorOptions.CutoutAlpha);
 	XML_SET_CHILD_VALUE(node, CompressorOptions.CutoutAlphaThreshold);
 	XML_SET_CHILD_VALUE(node, CompressorOptions.AlphaTestCoverage);
@@ -50,6 +54,8 @@ void rageam::asset::TextureOptions::Deserialize(const XmlHandle& node)
 	XML_GET_CHILD_VALUE(node, CompressorOptions.Quality);
 	XML_GET_CHILD_VALUE(node, CompressorOptions.MaxResolution);
 	XML_GET_CHILD_VALUE(node, CompressorOptions.GenerateMipMaps);
+	XML_GET_CHILD_VALUE(node, CompressorOptions.Brightness);
+	XML_GET_CHILD_VALUE(node, CompressorOptions.Contrast);
 	XML_GET_CHILD_VALUE(node, CompressorOptions.CutoutAlpha);
 	XML_GET_CHILD_VALUE(node, CompressorOptions.CutoutAlphaThreshold);
 	XML_GET_CHILD_VALUE(node, CompressorOptions.AlphaTestCoverage);
@@ -146,7 +152,7 @@ bool rageam::asset::TxdAsset::CompileToGame(rage::grcTextureDictionary* object)
 				if (!gameTexture)
 				{
 					if (!UseMissingTexturesInsteadOfFailing)
-					return false;
+						return false;
 
 					file::Path textureName;
 					if (!tune.GetValidatedTextureName(textureName, false))
@@ -182,7 +188,6 @@ bool rageam::asset::TxdAsset::CompileToGame(rage::grcTextureDictionary* object)
 						presetName);
 					CompileCallback(message, progress);
 				}
-				mutex.unlock();
 
 				return true;
 			}));
@@ -429,9 +434,6 @@ rage::grcTexture* rageam::asset::TxdAsset::CreateMissingTexture(ConstString text
 			checker->GetWidth(), checker->GetHeight(), checker->GetMipCount(), 
 			ImagePixelFormatToDXGI(checker->GetPixelFormat()), checker->GetPixelDataBytes());
 	}
-
-	char nameBuffer[256];
-	sprintf_s(nameBuffer, sizeof nameBuffer, "%s (Missing)##$MT_%s", textureName, textureName);
 
 	rage::grcTextureDX11* texture = new rage::grcTextureDX11((rage::grcTextureDX11&)*sm_MissingTexture);
 	SetMissingTextureName(texture, textureName);

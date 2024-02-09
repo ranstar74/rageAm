@@ -4,6 +4,7 @@
 #include "am/system/asserts.h"
 #include "am/graphics/window.h"
 #include "am/integration/integration.h"
+#include "am/system/system.h"
 #include "am/ui/imglue.h"
 
 #ifdef AM_INTEGRATED
@@ -52,6 +53,11 @@ void aImpl_DeviceManage()
 		}
 
 		rageam::graphics::Window::GetInstance()->Update();
+
+		// Not exact place, but very close
+		// Platform code is executed one of the first in the rendering pipeline
+		if (s_Locked) {} // Wait until render is unlocked...
+		s_Rendering = true;
 	}
 }
 void(*gImpl_PresentImage)();
@@ -65,9 +71,7 @@ void aImpl_PresentImage()
 		s_Initialized = true;
 	}
 
-	if (s_Locked) {} // Wait until render is unlocked...
-
-	s_Rendering = true;
+	// ...
 	{
 		// Dispatch our calls right before game present
 		rageam::graphics::Render::GetInstance()->DoRender();
@@ -244,6 +248,9 @@ void rageam::graphics::Render::BuildDrawList() const
 #endif
 
 	ui::GetUI()->BuildDrawList();
+
+	// TODO: This really shouldn't be called from render thread
+	System::GetInstance()->Update();
 
 #ifdef AM_INTEGRATED
 	s_UpdatedPlatforms = false;

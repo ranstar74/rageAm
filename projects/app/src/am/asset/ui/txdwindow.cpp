@@ -73,6 +73,14 @@ bool rageam::ui::RenderCompressOptionsControls(graphics::ImageCompressorOptions&
 		needRecompress = true;
 	}
 
+	ImGui::SetNextItemWidth(itemWidth);
+	if (ImGui::SliderInt("Brightness", &options.Brightness, -100, 100))
+		needRecompress = true;
+
+	ImGui::SetNextItemWidth(itemWidth);
+	if (ImGui::SliderInt("Contrast", &options.Contrast, -100, 100))
+		needRecompress = true;
+
 	// Cutout alpha
 	if (ImGui::Checkbox("Cutout Alpha", &options.CutoutAlpha))
 		needRecompress = true;
@@ -558,7 +566,7 @@ void rageam::ui::TextureVM::RenderImageProperties()
 {
 	// Make sure that image is not modified when we're using it....
 	amUPtr<AsyncImage>& im = m_DisplayCompressed ? m_Compressed : m_Raw;
-	std::unique_lock lock(im->Mutex);
+	im->Mutex.lock();
 
 	float fontSize = ImGui::GetFontSize();
 	float itemWidth = fontSize * 7.0f;
@@ -605,6 +613,7 @@ void rageam::ui::TextureVM::RenderImageProperties()
 
 	if (uiDisabled) ImGui::EndDisabled();
 
+	im->Mutex.unlock();
 	if (needRecompress)
 	{
 		SetCompressOptionsWithUndo(m_CompressOptionsPending);

@@ -7,14 +7,13 @@
 //
 #pragma once
 
+#include "am/system/enum.h"
 #include "am/graphics/color.h"
 #include "am/system/nullable.h"
 #include "am/system/ptr.h"
 #include "am/types.h"
 
 #include <d3d11.h>
-
-#include "am/system/enum.h"
 
 // TODO:
 // - Brightness / contrast / levels
@@ -248,7 +247,7 @@ namespace rageam::graphics
 
 	// NOTE: Following functions with 'RGBA' postfix expect input pixels in RGBA 32 bit format
 
-	void ImageAdjustBrightnessAndConstrastRGBA(char* pixels, int width, int height, int brightness, int contrast);
+	void ImageAdjustBrightnessAndConstrastRGBA(char* pixelData, int width, int height, int brightness, int contrast);
 	// Sets all pixels below threshold to 0 and all greater or equal to 255
 	// Threshold must be between 0 and 255
 	void ImageCutoutAlphaRGBA(char* pixelData, int width, int height, int threshold);
@@ -345,6 +344,7 @@ namespace rageam::graphics
 		friend class ImageFactory;
 
 		wstring				m_DebugName;
+		Nullable<u32>		m_FastHashKey;
 		file::WPath			m_FilePath;			// In case if image was loaded from file
 		int					m_Width;
 		int					m_Height;
@@ -370,6 +370,8 @@ namespace rageam::graphics
 		u32 ComputeRowPitch() const { return ImageComputeRowPitch(m_Width, m_PixelFormat); }
 		u32 ComputeSlicePitch() const { return ImageComputeSlicePitch(m_Width, m_Height, m_PixelFormat); }
 		u32 ComputeTotalSizeWithMips() const { return ImageComputeTotalSizeWithMips(m_Width, m_Height, m_MipCount, m_PixelFormat); }
+
+		u32 ComputeHashKey() const;
 
 		// Set to image file name with extension by default
 		// For memory images, 'None' is default
@@ -424,6 +426,7 @@ namespace rageam::graphics
 
 		// NOTE: This operation alters pixel data of THIS image!
 		void Swizzle(ImageSwizzle r, ImageSwizzle g, ImageSwizzle b, ImageSwizzle a) const;
+		amPtr<Image> AdjustBrightnessAndContrast(int brightness, int contrast) const;
 
 		// tex is optional parameter and reference is released if set to NULL
 		bool CreateDX11Resource(

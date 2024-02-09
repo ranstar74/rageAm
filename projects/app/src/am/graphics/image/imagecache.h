@@ -11,8 +11,7 @@ namespace rageam::graphics
 #include "common/logger.h"
 #define IMAGE_CACHE_LOG(fmt, ...) AM_TRACEF(fmt, __VA_ARGS__)
 #else
-	inline void ImageCacheLogPlaceHolder(ConstString, ...) {}
-#define IMAGE_CACHE_LOG(fmt, ...) ImageCacheLogPlaceHolder(fmt, __VA_ARGS__)
+#define IMAGE_CACHE_LOG(fmt, ...) 
 #endif
 
 	struct CompressedImageInfo;
@@ -28,6 +27,14 @@ namespace rageam::graphics
 		u32	DX11ViewCount;
 	};
 
+	enum ImageCacheEntryFlags_
+	{
+		ImageCacheEntryFlags_None = 0,
+		ImageCacheEntryFlags_StoreInFileSystem = 1 << 0,	// Entry will be unloaded to file system, incompatible with Temp
+		ImageCacheEntryFlags_Temp = 1 << 1,					// Entry will be removed if it wasn't accessed for few minutes
+	};
+	typedef int ImageCacheEntryFlags;
+
 	/**
 	 * \brief Two level image cache - in memory and in file system.
 	 */
@@ -41,14 +48,17 @@ namespace rageam::graphics
 		static constexpr u32 CACHE_LIST_VERSION = 0;
 		static constexpr ConstWString DEFAULT_CACHE_DIRECTORY_NAME = L"CompressorCache";
 		static constexpr ConstWString CACHE_LIST_NAME = L"List.xml";
+		static constexpr double TEMP_REMOVE_TIME = 60.0f;
 
 		struct CacheEntry
 		{
-			ImagePtr			Image;
-			u32					ImageSize;
-			ImageFileKind		ImageKind;			// We store kind to get file extension when loading image from file system
-			Vec2S				ImagePaddingUV2;	// In case if image was padded, contains adjusted UV2
-			bool				StoreInFileSystem;
+			u32                  Hash;
+			ImagePtr             Image;
+			u32                  ImageSize;
+			ImageFileKind        ImageKind;			// We store kind to get file extension when loading image from file system
+			Vec2S                ImagePaddingUV2;	// In case if image was padded, contains adjusted UV2
+			ImageCacheEntryFlags Flags = ImageCacheEntryFlags_None;
+			double               LastAccessTime = -1.0f;
 		};
 
 		struct CacheEntryDX11
@@ -105,7 +115,7 @@ namespace rageam::graphics
 		bool GetFromCacheDX11(u32 hash, amComPtr<ID3D11ShaderResourceView>& outView, Vec2S* outUV2 = nullptr, amComPtr<ID3D11Texture2D>* tex = nullptr);
 		// If store in file system is set to true, image will be moved to file on disk when ram budget is reached
 		// Image size is used for accounting budget
-		void Cache(const ImagePtr& image, u32 hash, u32 imageSize, bool storeInFileSystem, Vec2S uv2);
+		void Cache(const ImagePtr& image, u32 hash, u32 imageSize, ImageCacheEntryFlags entryFlags, Vec2S uv2);
 		void CacheDX11(u32 hash, const amComPtr<ID3D11ShaderResourceView>& view, const amComPtr<ID3D11Texture2D>& tex, Vec2S uv2);
 
 		// Computes unique hash based on pixel data and compression options
@@ -115,6 +125,7 @@ namespace rageam::graphics
 		// Checks if given time is greater than threshold
 		bool ShouldStore(u32 elapsedMilliseconds) const { return elapsedMilliseconds >= m_Settings.TimeToCacheThreshold; }
 
+		void DeleteOldEntries();
 		void Clear();
 
 		ImageCacheState GetState();

@@ -3,13 +3,17 @@
 #include "am/file/fileutils.h"
 #include "am/system/datamgr.h"
 #include "am/xml/doc.h"
-#include "am/file/iterator.h"
 #include "am/xml/iterator.h"
 #include "helpers/format.h"
 #include "bc.h"
 
+#include <easy/profiler.h>
+
+#include "imgui.h"
+
 rageam::HashValue rageam::graphics::ImageCache::ComputeImageHash(ImagePixelData imageData, u32 imageDataSize, const CompressedImageInfo& compInfo) const
 {
+	EASY_FUNCTION();
 	u32 hash;
 	hash = rage::atDataHash(imageData, imageDataSize);
 	hash = rage::atDataHash(&compInfo, sizeof CompressedImageInfo, hash);
@@ -149,7 +153,7 @@ void rageam::graphics::ImageCache::CleanUpOldEntriesToFitBudget()
 
 		m_SizeRam -= entry.ImageSize;
 
-		if (entry.StoreInFileSystem)
+		if (entry.Flags & ImageCacheEntryFlags_StoreInFileSystem)
 		{
 			MoveImageToFileSystem(entry, hash);
 			m_SizeFs += entry.ImageSize;
@@ -234,11 +238,10 @@ rageam::graphics::ImageCache::ImageCache()
 			CacheEntry entry = {};
 			entry.ImageKind = imageKind;
 			entry.ImageSize = imageSize;
-			entry.StoreInFileSystem = true;
+			entry.Flags |= ImageCacheEntryFlags_StoreInFileSystem;
 
 			m_Entries.EmplaceAt(hash, std::move(entry));
 			m_NewToOldEntriesFS.Add(hash);
-
 		}
 
 		m_SizeFs = totalSize;
@@ -278,7 +281,7 @@ rageam::graphics::ImageCache::~ImageCache()
 	{
 		CacheEntry& entry = m_Entries.GetAt(hash);
 
-		if (entry.StoreInFileSystem)
+		if (entry.Flags & ImageCacheEntryFlags_StoreInFileSystem)
 		{
 			MoveImageToFileSystem(entry, hash);
 			m_SizeFs += entry.ImageSize;
@@ -321,6 +324,8 @@ rageam::graphics::ImagePtr rageam::graphics::ImageCache::GetFromCache(u32 hash, 
 	CacheEntry* entry = m_Entries.TryGetAt(hash);
 	if (!entry)
 		return nullptr;
+
+	entry->LastAccessTime = ImGui::GetTime();
 
 	// Image was unloaded to file system before, load it now
 	if (!entry->Image)
@@ -391,12 +396,19 @@ bool rageam::graphics::ImageCache::GetFromCacheDX11(
 	return false;
 }
 
-void rageam::graphics::ImageCache::Cache(const ImagePtr& image, u32 hash, u32 imageSize, bool storeInFileSystem, Vec2S uv2)
+void rageam::graphics::ImageCache::Cache(const ImagePtr& image, u32 hash, u32 imageSize, ImageCacheEntryFlags entryFlags, Vec2S uv2)
 {
 	std::unique_lock lock(m_Mutex);
 
+	bool storeFs = entryFlags & ImageCacheEntryFlags_StoreInFileSystem;
+	bool storeTemp = entryFlags & ImageCacheEntryFlags_Temp;
+	if (storeFs && storeTemp)
+	{
+		AM_UNREACHABLE("ImageCache::Cache() -> Can't store temp entry in file system");
+	}
+
 	IMAGE_CACHE_LOG("ImageCache::Cache() -> Adding to cache, hash: %x; image size: %x or %s; fs store: %i",
-		hash, imageSize, FormatSize(imageSize), storeInFileSystem);
+		hash, imageSize, FormatSize(imageSize), entryFlags & ImageCacheEntryFlags_Temp);
 
 	if (imageSize > m_Settings.MemoryStoreBudget)
 	{
@@ -405,11 +417,13 @@ void rageam::graphics::ImageCache::Cache(const ImagePtr& image, u32 hash, u32 im
 	}
 
 	CacheEntry entry;
+	entry.Hash = hash;
 	entry.Image = image;
 	entry.ImageSize = imageSize;
 	entry.ImageKind = ImageIsCompressedFormat(image->GetPixelFormat()) ? ImageKind_DDS : ImageKind_PNG;
-	entry.StoreInFileSystem = storeInFileSystem;
+	entry.Flags = entryFlags;
 	entry.ImagePaddingUV2 = uv2;
+	entry.LastAccessTime = ImGui::GetTime();
 	m_Entries.EmplaceAt(hash, std::move(entry));
 
 	m_SizeRam += imageSize;
@@ -439,6 +453,39 @@ void rageam::graphics::ImageCache::CacheDX11(u32 hash, const amComPtr<ID3D11Shad
 		u32 oldestHash = m_NewToOldEntriesDX11.Last();
 		m_NewToOldEntriesDX11.RemoveLast();
 		m_EntriesDX11.RemoveAt(oldestHash);
+	}
+}
+
+void rageam::graphics::ImageCache::DeleteOldEntries()
+{
+	struct EntryToRemove
+	{
+		u32 Hash, ImageSize;
+	};
+
+	List<EntryToRemove> entriesToRemove;
+	for (CacheEntry& entry : m_Entries)
+	{
+		if (!(entry.Flags & ImageCacheEntryFlags_Temp))
+			continue;
+
+		double deltaTime = ImGui::GetTime() - entry.LastAccessTime;
+		if (deltaTime > TEMP_REMOVE_TIME)
+		{
+			EntryToRemove entryToRemove;
+			entryToRemove.Hash = entry.Hash;
+			entryToRemove.ImageSize= entry.ImageSize;
+			entriesToRemove.Add(entryToRemove);
+		}
+	}
+
+	for (EntryToRemove entry : entriesToRemove)
+	{
+		IMAGE_CACHE_LOG("ImageCache::DeleteOldEntries() -> Removing %u", entry.Hash);
+
+		m_SizeRam -= entry.ImageSize;
+		m_NewToOldEntriesRAM.Remove(entry.Hash);
+		m_Entries.RemoveAt(entry.Hash);
 	}
 }
 
