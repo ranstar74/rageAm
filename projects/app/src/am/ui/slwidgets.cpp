@@ -41,14 +41,14 @@ bool SlGui::ToggleButton(ConstString text, bool& isActive)
 	if (pressed) isActive = !isActive;
 	ImGui::PopStyleVar();
 	ImGui::PopStyleColor();
-
+		
 	// Render underline for active button
 	if (isActive)
 	{
+		ImU32 col = rageam::graphics::ColorU32(75, 165, 255, (int)(alpha * 255.0f)); // Light blue
 		ImRect& btnRect = GImGui->LastItemData.Rect;
 		constexpr float lineHeight = 2.0f;
-		ImGui::RenderFrame(btnRect.GetBL() + ImVec2(0, lineHeight), btnRect.GetBR(),
-			ImGui::GetColorU32(ImGuiCol_ButtonActive));
+		ImGui::RenderFrame(btnRect.GetBL() + ImVec2(0, lineHeight), btnRect.GetBR(), col);
 	}
 
 	return pressed;
