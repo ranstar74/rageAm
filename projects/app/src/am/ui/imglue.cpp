@@ -17,7 +17,9 @@
 #include <imgui_internal.h>
 #include <misc/freetype/imgui_freetype.h>
 
-#include "font_icons/icons_awesome.h"
+#ifdef AM_INTEGRATED
+#include <am/integration/script/core.h>
+#endif
 
 void ImGui::PushFont(ImFonts font)
 {
