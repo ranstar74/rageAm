@@ -25,9 +25,15 @@ void rage::SystemHeap::Init()
 	static sysMemMultiAllocator			s_Multi;
 
 	s_Multi.AddAllocator(&s_General);
-	s_Multi.AddAllocator(&s_Virtual);
-	s_Multi.AddAllocator(&s_Physical);
-	s_Multi.AddAllocator(&s_Physical);
+
+	// NOTE: Using system allocator everywhere for testing purposes...
+	s_Multi.AddAllocator(&s_General);
+	s_Multi.AddAllocator(&s_General);
+	s_Multi.AddAllocator(&s_General);
+	//s_Multi.AddAllocator(&s_Virtual);
+	//s_Multi.AddAllocator(&s_Physical);
+	//s_Multi.AddAllocator(&s_Physical);
+
 	s_Multi.AddAllocator(&s_General);
 
 #ifndef AM_UNIT_TESTS
