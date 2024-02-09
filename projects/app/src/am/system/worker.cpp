@@ -1,48 +1,54 @@
 #include "worker.h"
-
-#include <utility>
-
 #include "am/system/timer.h"
 
-HANDLE rageam::BackgroundWorker::sm_ThreadPool[MAX_BACKGROUND_THREADS];
-rageam::List<amUPtr<rageam::BackgroundWorker::BackgroundJob>> rageam::BackgroundWorker::sm_Jobs;
-std::mutex rageam::BackgroundWorker::sm_Mutex;
-std::condition_variable rageam::BackgroundWorker::sm_Condition;
+#include <utility>
+#include <easy/profiler.h>
+
+thread_local rage::atFixedArray<rageam::BackgroundWorker*, 8> rageam::BackgroundWorker::sm_Stack;
 
 DWORD rageam::BackgroundWorker::ThreadProc(LPVOID lpParam)
 {
-	u64 workerId = u64(lpParam);
+	ThreadProcArg*     arg = static_cast<ThreadProcArg*>(lpParam);
+	BackgroundWorker*  worker = arg->Instance;
+	int				   workerID = arg->WorkerID;
+	delete arg;
+	arg = nullptr;
 
 	// Add thread name so it can be seen in debugger
 	{
 		wchar_t nameBuffer[64];
-		swprintf_s(nameBuffer, 64, L"[RAGEAM] Background Worker %llu", workerId);
-		(void)SetThreadDescription(GetCurrentThread(), nameBuffer);
+		swprintf_s(nameBuffer, 64, L"[RAGEAM] Worker %hs [%i]", worker->m_Name, workerID);
+		(void) SetThreadDescription(GetCurrentThread(), nameBuffer);
+
+		EASY_THREAD(String::ToAnsiTemp(nameBuffer));
 	}
 
-	while (!sm_WeAreClosing)
+	while (!worker->m_WeAreClosing)
 	{
-		amUniquePtr<BackgroundJob> job;
+		// Wait for the next job
+		amUPtr<BackgroundJob> job;
 		{
-			std::unique_lock lock(sm_Mutex);
-			sm_Condition.wait(lock, []
+			std::unique_lock lock(worker->m_Mutex);
+			worker->m_Condition.wait(lock, [&]
 				{
-					return sm_Jobs.Any() || sm_WeAreClosing;
+					return worker->m_Jobs.Any() || worker->m_WeAreClosing;
 				});
 
-			if (sm_WeAreClosing)
+			if (worker->m_WeAreClosing)
 				break;
 
-			job = std::move(sm_Jobs.First());
-			sm_Jobs.RemoveAt(0);
+			job = std::move(worker->m_Jobs.First());
+			worker->m_Jobs.RemoveAt(0);
 		}
 
 		Timer timer = Timer::StartNew();
-		job->GetTask()->m_State = TASK_STATE_RUNNING;
+		auto& task = job->GetTask();
+		task->m_WorkerID = workerID;
+		task->m_State = TASK_STATE_RUNNING;
 		bool success = job->GetLambda()();
+		task->m_Result = std::move(tl_Result);
+		task->m_State = success ? TASK_STATE_SUCCESS : TASK_STATE_FAILED;
 		timer.Stop();
-		job->GetTask()->m_State = success ? TASK_STATE_SUCCESS : TASK_STATE_FAILED;
-		job->GetTask()->m_Result = std::move(tl_Result);
 
 		wchar_t buffer[256];
 		if (String::IsNullOrEmpty(job->GetName()))
@@ -50,19 +56,19 @@ DWORD rageam::BackgroundWorker::ThreadProc(LPVOID lpParam)
 		else
 			swprintf_s(buffer, 256, L"[%ls] %hs, %llu ms", job->GetName(), success ? "OK" : "FAIL", timer.GetElapsedMilliseconds());
 
-		// AM_DEBUGF(L"[BG Task] wID:%llu, %s", workerId, buffer);
+#ifdef WORKER_ENABLE_LOGGING
+		 AM_TRACEF(L"[W: %hs] wID:%i, %s", worker->m_Name, workerID, buffer);
+#endif
 
-		if (TaskCallback)
-			TaskCallback(buffer);
+		 if (worker->TaskCallback)
+		 	worker->TaskCallback(buffer);
 	}
 	return 0;
 }
 
 amPtr<rageam::BackgroundTask> rageam::BackgroundWorker::RunVA(const TLambda& lambda, ConstWString fmt, va_list args)
 {
-	std::unique_lock lock(sm_Mutex);
-	if (!sm_Initialized)
-		Init();
+	std::unique_lock lock(m_Mutex);
 
 	amPtr<BackgroundTask> task = std::make_shared<BackgroundTask>();
 	task->m_State = TASK_STATE_PENDING;
@@ -70,41 +76,42 @@ amPtr<rageam::BackgroundTask> rageam::BackgroundWorker::RunVA(const TLambda& lam
 	wchar_t buffer[256];
 	vswprintf_s(buffer, 256, fmt, args);
 
-	sm_Jobs.Construct(new BackgroundJob(task, lambda, buffer));
+	m_Jobs.Construct(new BackgroundJob(task, lambda, buffer));
 
-	sm_Condition.notify_one();
+	m_Condition.notify_one();
 	return task;
 }
 
-void rageam::BackgroundWorker::Init()
+rageam::BackgroundWorker::BackgroundWorker(ConstString name, int threadCount)
 {
-	for (u64 i = 0; i < MAX_BACKGROUND_THREADS; i++)
+	m_Name = name;
+	m_ThreadPool.Resize(threadCount);
+	for (u64 i = 0; i < threadCount; i++)
 	{
-		HANDLE thread = CreateThread(NULL, 0, ThreadProc, LPVOID(i), 0, NULL);
+		ThreadProcArg* arg = new ThreadProcArg(this, i);
+		HANDLE thread = CreateThread(NULL, 0, ThreadProc, arg, 0, NULL);
 		AM_ASSERT(thread, "BackgroundWorker::Init() -> Failed to create thread, last error: %x", GetLastError());
-		sm_ThreadPool[i] = thread;
+		m_ThreadPool[i] = thread;
 	}
-	sm_Initialized = true;
 }
 
-void rageam::BackgroundWorker::Shutdown()
+rageam::BackgroundWorker::~BackgroundWorker()
 {
-	sm_WeAreClosing = true;
-	sm_Condition.notify_all();
+	m_WeAreClosing = true;
+	m_Condition.notify_all();
 
-	for (HANDLE thread : sm_ThreadPool)
+	for (HANDLE thread : m_ThreadPool)
 	{
 		WaitForSingleObject(thread, INFINITE);
 		CloseHandle(thread);
 	}
-	sm_Jobs.Destroy();
 }
 
 amPtr<rageam::BackgroundTask> rageam::BackgroundWorker::Run(const TLambda& lambda, ConstString fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	amPtr<BackgroundTask> result = RunVA(lambda, String::ToWideTemp(fmt), args);
+	amPtr<BackgroundTask> result = GetInstance()->RunVA(lambda, String::ToWideTemp(fmt), args);
 	va_end(args);
 	return result;
 }
@@ -113,7 +120,7 @@ amPtr<rageam::BackgroundTask> rageam::BackgroundWorker::Run(const TLambda& lambd
 {
 	va_list args;
 	va_start(args, fmt);
-	amPtr<BackgroundTask> result = RunVA(lambda, fmt, args);
+	amPtr<BackgroundTask> result = GetInstance()->RunVA(lambda, fmt, args);
 	va_end(args);
 	return result;
 }

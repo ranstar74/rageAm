@@ -7,19 +7,19 @@
 //
 #pragma once
 
-#include <any>
-
 #include "am/string/string.h"
 #include "am/system/ptr.h"
-#include "rage/atl/array.h"
 #include "am/types.h"
 
 #include <functional>
 #include <mutex>
 #include <Windows.h>
+#include <any>
 
 namespace rageam
 {
+// #define WORKER_ENABLE_LOGGING
+
 	enum eBackgroundTaskState
 	{
 		TASK_STATE_PENDING,
@@ -29,11 +29,6 @@ namespace rageam
 	};
 
 	/**
-	 * \brief Dummy structure for task without return value.
-	 */
-	struct BackgroundTaskEmptyResult {};
-
-	/**
 	 * \brief State of background task.
 	 */
 	class BackgroundTask
@@ -41,16 +36,15 @@ namespace rageam
 		friend class BackgroundWorker;
 
 		std::atomic<eBackgroundTaskState> m_State;
-
-	protected:
-
 		// This value must be set before returning from worker function
 		std::any m_Result;
+		// For debugging
+		int m_WorkerID = -1;
 
 	public:
 		eBackgroundTaskState GetState() const { return m_State; }
 
-		bool IsSuccess() const  { return m_State == TASK_STATE_SUCCESS; }
+		bool IsSuccess()  const { return m_State == TASK_STATE_SUCCESS; }
 		bool IsFinished() const { return m_State == TASK_STATE_SUCCESS || m_State == TASK_STATE_FAILED; }
 
 		void Wait() const { while (!IsFinished()) { /* ... */ } }
@@ -62,6 +56,8 @@ namespace rageam
 			AM_ASSERTS(IsSuccess());
 			return std::any_cast<T&>(m_Result);
 		}
+
+		u32 UserData = 0;
 
 		std::function<void()> UserDelegate;
 	};
@@ -95,22 +91,29 @@ namespace rageam
 			ConstWString           GetName() const { return m_Name; }
 		};
 
-		static constexpr u32 MAX_BACKGROUND_THREADS = 16;
+		struct ThreadProcArg
+		{
+			BackgroundWorker* Instance;
+			int				  WorkerID;
+		};
 
-		static HANDLE                       sm_ThreadPool[];
-		static List<amUPtr<BackgroundJob>>  sm_Jobs;
-		static std::mutex                   sm_Mutex;
-		static std::condition_variable      sm_Condition;
-		static inline std::atomic_bool      sm_WeAreClosing = false;
-		static inline bool                  sm_Initialized = false;
+		ConstString					m_Name;
+		List<HANDLE>                m_ThreadPool;
+		List<amUPtr<BackgroundJob>> m_Jobs;
+		std::mutex                  m_Mutex;
+		std::condition_variable     m_Condition;
+		std::atomic_bool			m_WeAreClosing = false;
+
+		static thread_local rage::atFixedArray<BackgroundWorker*, 8> sm_Stack;
 		static inline thread_local std::any tl_Result; // Per-worker unique result value, set from lambda function
+		static inline BackgroundWorker* sm_MainInstance = nullptr;
 
 		static DWORD ThreadProc(LPVOID lpParam);
-		static amPtr<BackgroundTask> RunVA(const TLambda& lambda, ConstWString fmt, va_list args);
-		static void Init();
+		amPtr<BackgroundTask> RunVA(const TLambda& lambda, ConstWString fmt, va_list args);
 
 	public:
-		static void Shutdown();
+		BackgroundWorker(ConstString name, int threadCount);
+		~BackgroundWorker();
 
 		WPRINTF_ATTR(2, 3) static amPtr<BackgroundTask> Run(const TLambda& lambda, ConstString  fmt, ...);
 		PRINTF_ATTR(2, 3)  static amPtr<BackgroundTask> Run(const TLambda& lambda, ConstWString fmt, ...);
@@ -124,8 +127,23 @@ namespace rageam
 
 		// Call it from lambda function to set BackgroundTask::GetResult, must be allocated via operator new
 		template<typename T>
-		static void SetCurrentResult(const T& object) { tl_Result = object; }
+		static void SetCurrentResult(T& object) { tl_Result = std::move(object); }
 
-		static inline std::function<void(const wchar_t*)> TaskCallback; // Used for UI status bar
+		std::function<void(const wchar_t*)> TaskCallback; // Used for UI status bar
+
+		static void Push(BackgroundWorker* worker) { sm_Stack.Add(worker); }
+		static void Pop() { sm_Stack.RemoveLast(); }
+		static BackgroundWorker* GetInstance()
+		{
+			// Initialize current thread...
+			if (!sm_Stack.Any())
+			{
+				AM_ASSERTS(sm_MainInstance);
+				sm_Stack.Add(sm_MainInstance);
+			}
+
+			return sm_Stack.Last();
+		}
+		static void SetMainInstance(BackgroundWorker* worker) { sm_MainInstance = worker; }
 	};
 }
