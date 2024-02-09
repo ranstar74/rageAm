@@ -1,5 +1,10 @@
 require 'vendor'
 
+-- Build configurations
+platform_integrated = "Integrated"
+platform_standalone = "Standalone"
+platform_unit_tests = "Unit Tests"
+
 function default_config()
 	language "C++"
 	targetdir "bin/%{cfg.buildcfg}"
@@ -12,15 +17,15 @@ function default_config()
 	filter { "options:avx2" }
 		vectorextensions "AVX2"
 		defines { "AM_IMAGE_USE_AVX2" }
-	
+
 	filter { "not options:avx2" }
 		vectorextensions "SSE2"
 
-	filter "configurations:Debug"
+	filter { "configurations:Debug" }
 		defines { "DEBUG" }
 		intrinsics "On"
-
-	filter "configurations:Release"
+		
+	filter { "configurations:Release" }
 		defines { "NDEBUG" }
 		optimize "Speed"
 		intrinsics "On"
@@ -51,43 +56,37 @@ function add_launcher_events(build_dir)
 end
 
 newoption {
-   trigger = "standalone",
-   description = "Compile rageAm as command line offline resource compiler."
-}
-
-newoption {
-   trigger = "unittests",
-   description = "Enable microsoft native unit tests."
-}
-
-newoption {
    trigger = "nostacksymbols",
    description = "Disables .pdb symbols in stack trace."
 }
-
 newoption {
 	trigger = "avx2",
 	description = "Enables AVX2 SIMD instruction set.",
 }
-
-newoption {
-	trigger = "integrated",
-	description = "Enables game-specific hooks and integration components.",
-}
-
-newoption {
-	trigger = "injected",
-	description = "Compiles project as DLL to inject in running game instance.",
-}
-
 newoption {
 	trigger = "exe",
 	description = "Name of game executable to inject DLL in.",
 	default = "GTA5.exe",
 }
+newoption {
+	trigger = "easyprofiler",
+	description = "Enables EasyProfiler.",
+}
+newoption { 
+	trigger = "gamebuild",
+	description = "Target build version of the game",
+}
 
 workspace "rageAm"
 	configurations { "Debug", "Release" }
+	
+	platforms
+	{ 
+		platform_integrated,
+		platform_standalone,
+		platform_unit_tests,
+	}
+	
 	location "projects"
 
 project "Launcher"
@@ -102,38 +101,46 @@ project "Launcher"
 		"projects/launcher/src/**.cpp" 
 	}
 
+function setup_game_build_version()
+	-- 2699.16 Master
+	filter { "options:gamebuild=2699_16" }
+		defines { "APP_BUILD_2699_16=1" }
+	-- 2699.16 Release (Built from source code)
+	filter { "options:gamebuild=2699_16_RELEASE_NO_OPT" }
+		defines { "APP_BUILD_2699_16_RELEASE=1" }
+		defines { "APP_BUILD_2699_16_RELEASE_NO_OPT=1" } -- Includes APP_BUILD_2699_16_RELEASE, but higher priority
+	
+	filter {}
+end
+
 project "rageAm"
 	debugdir "bin/%{cfg.buildcfg}" -- Work directory
-	
-	-- Unit Tests: DLL
-	-- Standalone: EXE
+
 	-- Integrated: DLL
-	
-	filter { "options:unittests" }
+	filter { "platforms:" .. platform_integrated }
+		kind "SharedLib"
+		defines { "AM_INTEGRATED" }
+		add_launcher_events("bin/%{cfg.buildcfg}" .. "/")
+		setup_game_build_version()
+	-- Standalone: EXE
+	filter { "platforms:" .. platform_standalone }
+		kind "ConsoleApp"
+		defines { "AM_STANDALONE" }
+	-- Unit Tests: DLL
+	filter { "platforms:" .. platform_unit_tests }
 		kind "SharedLib"
 		defines { "AM_STANDALONE" }
 		defines { "AM_UNIT_TESTS" }
 
-	filter { "options:standalone" }
-		kind "ConsoleApp"
-		defines { "AM_STANDALONE" }
-	
-	filter { "options:integrated" }
-		defines { "AM_INTEGRATED" }
-
-	filter { "options:injected" }
-		kind "SharedLib"
-		add_launcher_events("bin/%{cfg.buildcfg}" .. "/")
-	
 	filter { "not options:nostacksymbols" }
 		defines { "AM_STACKTRACE_SYMBOLS" }
 
-	filter{}
+	filter {}
 	
 	location "projects/app"
-
 	default_config()
-	
+	dpiawareness "HighPerMonitor"
+
 	files 
 	{ 
 		"projects/app/src/**.h", 
@@ -179,22 +186,18 @@ project "rageAm"
 		buildaction "Natvis"
 	filter{}
 	
-	dpiawareness "HighPerMonitor"
-
 	defines { "NOMINMAX" }
 
-	defines { "APP_BUILD_2699_16=1" }
-	defines { "APP_BUILD_2699_16_FINAL=0" }
-	defines { "APP_BUILD_2699_16_RELEASE=1" }
-	defines { "APP_BUILD_2699_16_RELEASE_NO_OPT=1" } -- Includes APP_BUILD_2699_16_RELEASE, but higher priority
-
-	-- Profiler
+	-- Easy Profiler
 	include_vendors {
 		"easy_profiler",
 	}
-	defines { "BUILD_WITH_EASY_PROFILER" }
-	defines { "_BUILD_PROFILER" }
 	defines { "EASY_PROFILER_VERSION_MAJOR=2" }
 	defines { "EASY_PROFILER_VERSION_MINOR=1" }
 	defines { "EASY_PROFILER_VERSION_PATCH=0" }
 	defines { "EASY_PRODUCT_VERSION_STRING=\"2.1.0\"" }
+	defines { "_BUILD_PROFILER" }
+	filter { "options:easyprofiler" }
+		defines { "AM_EASYPROFILER" }
+		defines { "BUILD_WITH_EASY_PROFILER" }
+	filter {}
