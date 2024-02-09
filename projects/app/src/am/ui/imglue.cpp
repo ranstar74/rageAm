@@ -7,10 +7,10 @@
 #include "am/system/system.h"
 #include "imgui_impl_dx11.h"
 
-#include "am/uiapps/uitestbed.h"
 #include "am/uiapps/skeleton.h"
-#include "am/uiapps/igtestbed.h"
 #include "am/uiapps/testbed.h"
+
+#include "font_icons/icons_awesome.h"
 
 #include <backends/imgui_impl_win32.h>
 #include <implot.h>
@@ -421,8 +421,6 @@ void rageam::ui::ImGlue::RegisterSystemApps()
 	AddApp(Windows);
 
 	AddApp(new Skeleton());
-	AddApp(new UITestbed());
-	AddApp(new IGTestbed());
 	AddApp(new TestbedApp());
 }
 
