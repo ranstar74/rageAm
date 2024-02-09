@@ -35,9 +35,6 @@ namespace rageam::ui
 			if (ImGui::IsKeyPressed(ImGuiKey_F10))
 			{
 				ui->IsDisabled = !ui->IsDisabled;
-				// We clip cursor (keep it within game window) when UI is in background
-				bool cursorClipped = ui->IsDisabled;
-				graphics::Window::GetInstance()->SetMouseClipped(cursorClipped);
 			}
 
 			// We don't want game controls to mess up with the UI
