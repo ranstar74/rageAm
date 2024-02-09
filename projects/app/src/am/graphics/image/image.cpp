@@ -1299,7 +1299,7 @@ void rageam::graphics::ImageDoSwizzle(
 	}
 }
 
-void rageam::graphics::ImageAdjustBrightnessAndConstrastRGBA(char* pixelData, int width, int height, int brightness, int contrast)
+void rageam::graphics::ImageAdjustBrightnessAndContrastRGBA(char* pixelData, int width, int height, int brightness, int contrast)
 {
 	EASY_FUNCTION();
 
@@ -1947,7 +1947,7 @@ amPtr<rageam::graphics::Image> rageam::graphics::Image::AdjustBrightnessAndContr
 {
 	AM_ASSERTS(m_PixelFormat == ImagePixelFormat_U32);
 	ImagePtr imageCopy = ImageFactory::Copy(*this);
-	ImageAdjustBrightnessAndConstrastRGBA(
+	ImageAdjustBrightnessAndContrastRGBA(
 		imageCopy->GetPixelDataBytes(), imageCopy->m_Width, imageCopy->m_Height, brightness, contrast);
 	return imageCopy;
 }

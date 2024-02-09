@@ -247,7 +247,7 @@ namespace rageam::graphics
 
 	// NOTE: Following functions with 'RGBA' postfix expect input pixels in RGBA 32 bit format
 
-	void ImageAdjustBrightnessAndConstrastRGBA(char* pixelData, int width, int height, int brightness, int contrast);
+	void ImageAdjustBrightnessAndContrastRGBA(char* pixelData, int width, int height, int brightness, int contrast);
 	// Sets all pixels below threshold to 0 and all greater or equal to 255
 	// Threshold must be between 0 and 255
 	void ImageCutoutAlphaRGBA(char* pixelData, int width, int height, int threshold);
