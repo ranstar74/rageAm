@@ -7,59 +7,29 @@
 #include "am/graphics/render.h"
 #include "rage/framework/streaming/assetstores.h"
 #include "am/integration/script/core.h"
-//
-//// dlDrawListMgr holds references on game assets (including fwArchetype)
-//// and this cause issues if we want to unload archetype instantly
-//// Solution for this is to hook function that adds ref to archetypes and
-//// ignore it for GTAEntity archetypes
-//rageam::HashSet<u16> s_IgnoredArchetypeIdx;
-//void(*gImpl_CDrawListMgr_AddArchetypeRef)(pVoid drawListMgr, u32 modelIndex);
-//void aImpl_CDrawListMgr_AddArchetypeRef(pVoid drawListMgr, u32 modelIndex)
-//{
-//	if (!s_IgnoredArchetypeIdx.Contains(modelIndex))
-//		gImpl_CDrawListMgr_AddArchetypeRef(drawListMgr, modelIndex);
-//}
-//void InitAddArchetypeHook()
-//{
-//	static bool init = false;
-//	if (init) return;
-//	init = true;
-//
-//#if APP_BUILD_2699_16_RELEASE_NO_OPT
-//	gmAddress addr = gmAddress::Scan("75 FA 8B 94 24 B8 00 00 00", "rage::dlDrawListMgr::AddArchetypeReference+0x14").GetAt(-0x14);
-//#else
-//	gmAddress addr = gmAddress::Scan("45 33 D2 3B 15 ?? ?? ?? ?? 7D 31", "rage::dlDrawListMgr::AddArchetypeReference");
-//#endif
-//	Hook::Create(addr, aImpl_CDrawListMgr_AddArchetypeRef, &gImpl_CDrawListMgr_AddArchetypeRef);
-//}
 
-void rageam::integration::GameEntity::Create(const Vec3V& pos)
+void rageam::integration::GameEntity::Create(rage::fwArchetypeDef* archetypeDef, const Vec3V& pos)
 {
-	u32 assetName = m_ArchetypeDef->AssetName;
-
-	//// Map Types
-	//rage::fwMapTypesStore* mapTypesStore = rage::GetMapTypesStore();
-	//m_MapTypesSlot = mapTypesStore->AddSlot(assetName);
+	u32 assetName = archetypeDef->AssetName;
 
 	// Register drawable
 	rage::fwDrawableStore* dwStore = rage::GetDrawableStore();
 	m_DrawableSlot = dwStore->AddSlot(assetName);
-	dwStore->Set(m_DrawableSlot, m_Drawable.get());
+	dwStore->Set(m_DrawableSlot, m_Drawable.Get());
 
 	// Create and register archetype
 	m_Archetype = std::make_unique<CBaseModelInfo>();
-	m_Archetype->InitArchetypeFromDefinition(rage::INVALID_STR_INDEX/*m_MapTypesSlot*/, m_ArchetypeDef.get(), true);
+	m_Archetype->InitArchetypeFromDefinition(rage::INVALID_STR_INDEX/*m_MapTypesSlot*/, archetypeDef, true);
 	// In game code this is done by CModelInfoStreamingModule::Load
 	m_Archetype->InitMasterDrawableData(0);
+	// Prevent fwEntity from ref counting, we don't need that because we control lifetime manually
+	m_Archetype->SetIsStreamedArchetype(false); // Permanent
 
 	// TODO: This is currently disabled because our implementation of ComputeBucketMask sets 0xFFFF
 	// NOTE: Ugly hack! We set all buckets in drawable render mask to allow easier runtime editing
 	// because it is easier than updating render mask on entities
 	// RefreshDrawable recomputes render mask properly, so we have to reset it again
 	// m_Drawable->ComputeBucketMask(); // Internally sets render mask to 0xFFFF, at least at the moment
-
-	//InitAddArchetypeHook();
-	//s_IgnoredArchetypeIdx.Insert(m_Archetype->GetModelIndex());
 
 	// Spawn entity
 	m_EntityHandle = scrCreateObject(assetName, pos);
@@ -87,15 +57,10 @@ void rageam::integration::GameEntity::OnLateUpdate()
 	}
 }
 
-rageam::integration::GameEntity::GameEntity(
-	const amPtr<gtaDrawable>& drawable,
-	const amPtr<rage::fwArchetypeDef>& archetypeDef,
-	const Vec3V& pos)
+rageam::integration::GameEntity::GameEntity(const gtaDrawablePtr& drawable, rage::fwArchetypeDef* archetypeDef, const Vec3V& pos)
 {
 	m_Drawable = drawable;
-	m_ArchetypeDef = archetypeDef;
-
-	Create(pos);
+	Create(archetypeDef, pos);
 }
 
 rageam::integration::GameEntity::~GameEntity()
@@ -118,7 +83,7 @@ rageam::integration::GameEntity::~GameEntity()
 	static auto flipUpdateFenceIdx = gmAddress::Scan("8B 40 38 FF C0 33 D2", "rage::dlDrawListMgr::FlipUpdateFenceIdx+0xA")
 		.GetAt(-0xA)
 		.ToFunc<void(pVoid)>();
-	// Clear refs in all fences...
+	// Clear refs in all fences... // TODO: Do we still need this?
 	for (int i = 0; i < 4; i++)
 	{
 		flipUpdateFenceIdx(dlDrawListMgr);
@@ -139,26 +104,15 @@ rageam::integration::GameEntity::~GameEntity()
 	m_Entity = nullptr;
 
 	// Archetype
-	//s_IgnoredArchetypeIdx.Remove(m_Archetype->GetModelIndex());
-	//if (s_IgnoredArchetypeIdx.GetNumUsedSlots() == 0)
-	//{
-	//	// To prevent memory leaking destruct if when there's no more entities
-	//	s_IgnoredArchetypeIdx.Destroy();
-	//}
+	m_Archetype->SetIsStreamedArchetype(true); // Set streamed archetype flag back
 	m_Archetype = nullptr;
-	m_ArchetypeDef = nullptr;
 
 	// Drawable
 	rage::fwDrawableStore* dwStore = rage::GetDrawableStore();
 	dwStore->Set(m_DrawableSlot, nullptr);
 	dwStore->RemoveSlot(m_DrawableSlot);
-	m_DrawableSlot = rage::INVALID_STR_INDEX; 
+	m_DrawableSlot = rage::INVALID_STR_INDEX;
 	m_Drawable = nullptr;
-
-	//// Map Types
-	//rage::fwMapTypesStore* mapTypesStore = rage::GetMapTypesStore();
-	//mapTypesStore->RemoveSlot(m_MapTypesSlot);
-	//m_MapTypesSlot = rage::INVALID_STR_INDEX;
 
 	// Now we can safely resume rendering
 	graphics::Render::GetInstance()->Unlock();
