@@ -31,7 +31,7 @@ namespace rageam::graphics
 	{
 		ImageCacheEntryFlags_None = 0,
 		ImageCacheEntryFlags_StoreInFileSystem = 1 << 0,	// Entry will be unloaded to file system, incompatible with Temp
-		ImageCacheEntryFlags_Temp = 1 << 1,					// Entry will be removed if it wasn't accessed for few minutes
+		ImageCacheEntryFlags_Temp = 1 << 1,					// Entry will be removed after # seconds since last access time
 	};
 	typedef int ImageCacheEntryFlags;
 
@@ -48,7 +48,8 @@ namespace rageam::graphics
 		static constexpr u32 CACHE_LIST_VERSION = 0;
 		static constexpr ConstWString DEFAULT_CACHE_DIRECTORY_NAME = L"CompressorCache";
 		static constexpr ConstWString CACHE_LIST_NAME = L"List.xml";
-		static constexpr double TEMP_REMOVE_TIME = 60.0f;
+		static constexpr double TEMP_MIN_INACTIVITY_TIME = 60.0f;	// Temp textures are removed 60 seconds after they're accessed last time
+		static constexpr double TEMP_DELETE_INTERVAL = 10.0f;		// Every 10 seconds
 
 		struct CacheEntry
 		{
@@ -63,9 +64,9 @@ namespace rageam::graphics
 
 		struct CacheEntryDX11
 		{
-			amComPtr<ID3D11ShaderResourceView>	View;
-			amComPtr<ID3D11Texture2D>			Tex;
-			Vec2S								PaddingUV2;
+			amComPtr<ID3D11ShaderResourceView> View;
+			amComPtr<ID3D11Texture2D>		   Tex;
+			Vec2S							   PaddingUV2;
 		};
 
 		struct Settings
@@ -88,6 +89,7 @@ namespace rageam::graphics
 		List<u32>				m_NewToOldEntriesDX11;
 		u64						m_SizeRam = 0;			// Bytes taken by images in memory
 		u64						m_SizeFs = 0;			// Bytes taken by images in file system
+		double					m_NextTempEntriesDeleteTime = 0.0f;
 		std::mutex				m_Mutex;
 
 		u32 BytesToMb(u32 bytes) const { return bytes / (1024u * 1024u); }

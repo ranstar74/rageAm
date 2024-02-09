@@ -458,6 +458,11 @@ void rageam::graphics::ImageCache::CacheDX11(u32 hash, const amComPtr<ID3D11Shad
 
 void rageam::graphics::ImageCache::DeleteOldEntries()
 {
+	double time = ImGui::GetTime();
+	if (time < m_NextTempEntriesDeleteTime)
+		return;
+	m_NextTempEntriesDeleteTime = time + TEMP_DELETE_INTERVAL;
+
 	struct EntryToRemove
 	{
 		u32 Hash, ImageSize;
@@ -469,8 +474,8 @@ void rageam::graphics::ImageCache::DeleteOldEntries()
 		if (!(entry.Flags & ImageCacheEntryFlags_Temp))
 			continue;
 
-		double deltaTime = ImGui::GetTime() - entry.LastAccessTime;
-		if (deltaTime > TEMP_REMOVE_TIME)
+		double deltaTime = time - entry.LastAccessTime;
+		if (deltaTime > TEMP_MIN_INACTIVITY_TIME)
 		{
 			EntryToRemove entryToRemove;
 			entryToRemove.Hash = entry.Hash;
