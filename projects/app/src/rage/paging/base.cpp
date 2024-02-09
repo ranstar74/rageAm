@@ -119,7 +119,7 @@ void rage::pgBase::Destroy() const
 		if (allocator)
 		{
 			//AM_DEBUGF("pgBase::Destroy() -> Not compiled resource, but allocated on heap, deleting this.");
-			allocator->Free((pVoid)this);
+			//allocator->Free((pVoid)this);
 		}
 		else
 		{
