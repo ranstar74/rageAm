@@ -38,6 +38,12 @@ void rageam::ui::ImGlue::CreateContext() const
 	io.ConfigWindowsMoveFromTitleBarOnly = true;
 	io.ConfigDockingWithShift = true;
 
+	// Disable 'alt-tab'-ish window selector
+	// - It crashes game
+	// - Conflicts with debug build hotkey to change keyboard mode
+	GImGui->ConfigNavWindowingKeyNext = 0;
+	GImGui->ConfigNavWindowingKeyPrev = 0;
+
 	ImGui_ImplWin32_Init(graphics::WindowGetHWND());
 	ImGui_ImplDX11_Init(graphics::RenderGetDevice(), graphics::RenderGetContext());
 	ImPlot::CreateContext();
