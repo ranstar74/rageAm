@@ -710,6 +710,12 @@ rageam::asset::HotDrawableInfo rageam::asset::HotDrawable::UpdateAndApplyChanges
 		m_JustRequestedLoad = false;
 	}
 
+	// Editing TXD will invalidate index mapping
+	if (m_HotFlags & AssetHotFlags_TxdModified)
+	{
+		m_HotDictsDirty = true;
+	}
+
 	HotDrawableInfo info;
 	info.IsLoading = m_LoadingTask != nullptr;
 	info.Drawable = m_CompiledDrawable;
@@ -728,6 +734,78 @@ ConstWString rageam::asset::HotDrawable::GetTxdPathFromTexture(ConstString textu
 		return info->TxdPath;
 	}
 	return L"";
+}
+
+const rageam::List<rageam::asset::HotDictionary>& rageam::asset::HotDrawable::GetHotDictionaries()
+{
+	// Rebuild the map...
+	if (m_HotDictsDirty)
+	{
+		m_HotDictsDirty = false;
+
+		Timer timer = Timer::StartNew();
+
+		m_HotDicts.Clear();
+
+		for (const TxdAssetPtr& txdAsset : m_TxdAssetStore)
+		{
+			HotDictionary dict = {};
+			dict.IsEmbed = m_Asset->GetEmbedDictionary()->GetHashKey() == txdAsset->GetHashKey();
+			dict.TxdAssetPath = txdAsset->GetDirectoryPath();
+			dict.TxdName = dict.IsEmbed ? "Embed" : String::ToAnsiTemp(txdAsset->GetAssetName());
+			dict.Indices.Reserve(txdAsset->GetTextureTuneCount());
+
+			for (TextureTune& textureTune : txdAsset->GetTextureTunes())
+			{
+				// Ignore error message because user already seen them and this would only cause spam...
+				file::Path textureName;
+				if (!textureTune.GetValidatedTextureName(textureName, false))
+					continue;
+
+				u32 textureNameHash = rage::atStringHash(textureName);
+
+				// Even though this asset still holds a tune for this texture, it's an orphan now and doesn't really belong to it
+				if (m_TextureInfos.GetAt(textureNameHash).IsOprhan())
+					continue;
+
+				s32 index = m_MegaDictionary->IndexOf(textureNameHash);
+				if (index == -1) // For some reason texture wasn't included, we don't care, it's not in the list
+					continue;
+
+				dict.Indices.Add(index);
+				dict.Hashes.Add(textureNameHash);
+			}
+
+			// Put embed in the first slot for convenience
+			if (dict.IsEmbed)
+				m_HotDicts.EmplaceAt(0, std::move(dict));
+			else
+				m_HotDicts.Emplace(std::move(dict));
+		}
+
+		// Now orphans
+		HotDictionary orphanDict = {};
+		orphanDict.TxdName = "Missing Orphans";
+		orphanDict.IsOrphan = true;
+		for (TextureInfo& info : m_TextureInfos)
+		{
+			if (!info.IsOprhan())
+				continue;
+
+			u32 textureNameHash = atStringHash(info.Name); // TODO: Use pre-computed hash key
+			s32 index = m_MegaDictionary->IndexOf(textureNameHash);
+			AM_ASSERTS(index != -1); // Sanity check
+			orphanDict.Indices.Add(index);
+			orphanDict.Hashes.Add(textureNameHash);
+		}
+		if (orphanDict.Indices.Any())
+			m_HotDicts.Insert(0, orphanDict);
+
+		timer.Stop();
+		AM_DEBUGF("HotDictionary::GetHotTxds() -> Rebuilt map in %llu micros.", timer.GetElapsedMicroseconds());
+	}
+
+	return m_HotDicts;
 }
 
 rage::grcTexture* rageam::asset::HotDrawable::LookupTexture(ConstString name) const

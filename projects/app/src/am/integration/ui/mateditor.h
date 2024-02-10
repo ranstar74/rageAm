@@ -14,6 +14,11 @@
 #include "rage/file/watcher.h"
 #include "am/system/datamgr.h"
 
+namespace rageam::asset
+{
+	struct HotDictionary;
+}
+
 namespace rageam::integration
 {
 	struct ModelSceneContext;
@@ -109,9 +114,8 @@ namespace rageam::integration
 	{
 		struct TextureSearch
 		{
-			char							DictName[128];
-			rage::grcTextureDictionary*		Dict;
-			SmallList<u16>					Textures;
+			asset::HotDictionary* TextureMap;
+			SmallList<u16>		  Indices;
 		};
 
 		struct VarBlob

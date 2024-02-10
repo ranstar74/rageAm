@@ -335,16 +335,16 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_Grid(bool g
 
 		bool dictOpen = true;
 		if (groupByDict)
-			dictOpen = ImGui::CollapsingHeader(search.DictName, ImGuiTreeNodeFlags_DefaultOpen);
+			dictOpen = ImGui::CollapsingHeader(search.TextureMap->TxdName, ImGuiTreeNodeFlags_DefaultOpen);
 
 		if (dictOpen)
 		{
 			// For item wrapping
 			float maxItemX = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
 
-			for (u16 k = 0; k < search.Textures.GetSize(); k++)
+			for (u16 k = 0; k < search.Indices.GetSize(); k++)
 			{
-				rage::grcTexture* texture = search.Dict->GetValueAt(search.Textures[k]);
+				rage::grcTexture* texture = m_Context->MegaDictionary->GetValueAt(search.Indices[k]);
 
 				// Try to place on current line
 				if (groupByDict ? k != 0 : totalTextures != 0)
@@ -400,22 +400,22 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List(float 
 		{
 			if (m_DictionaryIndex == i && moveDir == ImGuiDir_Left)
 			{
-				ImGui::TreeNodeSetOpened(search.DictName, false); ImGui::TreePop();
+				ImGui::TreeNodeSetOpened(search.TextureMap->TxdName, false); ImGui::TreePop();
 			}
 
 			if (m_DictionaryIndex == i && moveDir == ImGuiDir_Right)
 			{
-				ImGui::TreeNodeSetOpened(search.DictName, true); ImGui::TreePop();
+				ImGui::TreeNodeSetOpened(search.TextureMap->TxdName, true); ImGui::TreePop();
 			}
 		}
 
-		u16 dictTexCount = search.Textures.GetSize();
+		u16 dictTexCount = search.Indices.GetSize();
 
 		// Draw dict & textures
 		bool toggled;
 		bool isDictOpen = false;
 		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.65f);
-		bool treeOpen = SlGui::GraphTreeNode(search.DictName, dictSelected, toggled,
+		bool treeOpen = SlGui::GraphTreeNode(search.TextureMap->TxdName, dictSelected, toggled,
 			SlGuiTreeNodeFlags_DefaultOpen | SlGuiTreeNodeFlags_AlwaysShowArrows);
 		if (toggled)
 		{
@@ -436,8 +436,8 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List(float 
 			isDictOpen = true;
 			for (u16 k = 0; k < dictTexCount; k++)
 			{
-				u16 texIndex = search.Textures[k];
-				rage::grcTexture* texture = search.Dict->GetValueAt(texIndex);
+				u16 texIndex = search.Indices[k];
+				rage::grcTexture* texture = m_Context->MegaDictionary->GetValueAt(texIndex);
 
 				// Node
 				ConstString displayName = ImGui::FormatTemp("###%u;%u", i, k);
@@ -529,7 +529,7 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List(float 
 
 			auto getLastDictTexIndex = [&]
 				{
-					return m_TextureSearchEntries[m_DictionaryIndex].Dict->GetSize() - 1;
+					return m_TextureSearchEntries[m_DictionaryIndex].Indices.GetSize() - 1;
 				};
 
 			u16 maxNavDictIndex = dictCount - 1;
@@ -661,6 +661,26 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker(ConstString
 		m_TextureSearchText[0] = '\0';
 		DoTextureSearch();
 
+		// Select current texture in picker
+		if (currentTexture)
+		{
+			rage::atHashValue textureHashKey = rage::atStringHash(
+				asset::TxdAsset::UndecorateMissingTextureName(currentTexture));
+
+			// Search is empty so texture index is simply hash index
+			const auto& hotDicts = m_Context->HotDrawable->GetHotDictionaries();
+			for (u16 i = 0; i < hotDicts.GetSize(); i++)
+			{
+				s32 textureIndex = hotDicts[i].Hashes.IndexOf(textureHashKey);
+				if (textureIndex == -1)
+					continue;
+
+				m_DictionaryIndex = i;
+				m_TextureIndex = textureIndex;
+				break;
+			}
+		}
+
 		// We need ID check or otherwise we gonna draw picker for all textures in shader
 		s_PickTexID = id;
 
@@ -780,11 +800,10 @@ void rageam::integration::MaterialEditor::DoTextureSearch()
 	bool isFullSearch = separatorIndex != -1;
 
 	// Performs search in dict and adds matching textures to results
-	auto doSearch = [&]
-			(ImmutableString dictName, 
-			rage::grcTextureDictionary* dict, 
-			ConstWString txdPathFilter)
+	auto doSearch = [&] (asset::HotDictionary& textureMap)
 		{
+			ImmutableString dictName(textureMap.TxdName);
+
 			bool dictNameMatches = true;
 			if (hasDictSearch) dictNameMatches = dictName.StartsWith(dictSearch, true);
 
@@ -795,21 +814,9 @@ void rageam::integration::MaterialEditor::DoTextureSearch()
 			TextureSearch textureSearch;
 
 			// Dictionary matched, search for textures
-			bool searchingOrphans = String::IsNullOrEmpty(txdPathFilter);
-			HashValue txdFilterHashKey = asset::AssetPathHashFn(txdPathFilter);
-			for (u16 i = 0; i < dict->GetSize(); i++)
+			for (u16 textureIndex : textureMap.Indices)
 			{
-				ImmutableString texName = dict->GetValueAt(i)->GetName();
-
-				// We use this filtering because all textures are stored in the same TXD,
-				// and we need to group them manually
-				HashValue    textureTxdHashKey;
-				ConstWString textureTxdPath = m_Context->HotDrawable->GetTxdPathFromTexture(texName, &textureTxdHashKey);
-				bool		 isTextureOrphan = String::IsNullOrEmpty(textureTxdPath);
-				if (searchingOrphans != isTextureOrphan)
-					continue;
-				if (!searchingOrphans && textureTxdHashKey != txdFilterHashKey)
-					continue;
+				ImmutableString texName = m_Context->MegaDictionary->GetValueAt(textureIndex)->GetName();
 
 				bool texNameMatched = true;
 				if (hasTexSearch) texNameMatched = texName.StartsWith(texSearch, true);
@@ -825,37 +832,20 @@ void rageam::integration::MaterialEditor::DoTextureSearch()
 						continue;
 				}
 
-				textureSearch.Textures.Add(i);
+				textureSearch.Indices.Add(textureIndex);
 			}
 
 			// No textures found, skip
-			if (textureSearch.Textures.GetSize() == 0)
+			if (!textureSearch.Indices.Any())
 				return;
 
-			textureSearch.Dict = dict;
-			String::Copy(textureSearch.DictName, sizeof textureSearch.DictName, dictName);
+			textureSearch.TextureMap = &textureMap;
 
 			m_TextureSearchEntries.Emplace(std::move(textureSearch));
 		};
 
-	// Orphan
-	doSearch("Missing Orphans", m_Context->MegaDictionary, L"");
-
-	// Embed
-	ConstWString embedPath = m_Context->DrawableAsset->GetEmbedDictionary()->GetDirectoryPath();
-	doSearch("Embed", m_Context->MegaDictionary, embedPath);
-
-	// Workspace TXDs
-	asset::WorkspacePtr& workspace = m_Context->DrawableAsset->WorkspaceTXD;
-	if (workspace)
-	{
-		for (u16 i = 0; i < workspace->GetTexDictCount(); i++)
-		{
-			const asset::TxdAssetPtr& txdAsset = workspace->GetTexDict(i);
-			ConstString txdName = String::ToAnsiTemp(txdAsset->GetAssetName());
-			doSearch(txdName, m_Context->MegaDictionary, txdAsset->GetDirectoryPath());
-		}
-	}
+	for (asset::HotDictionary& hotDict : m_Context->HotDrawable->GetHotDictionaries())
+		doSearch(hotDict);
 }
 
 void rageam::integration::MaterialEditor::HandleMaterialValueChange(u16 varIndex, rage::grcInstanceVar* var, const rage::grcEffectVar* varInfo)

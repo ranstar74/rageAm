@@ -459,13 +459,15 @@ void rageam::integration::ModelScene::DrawDrawableUI()
 				"Quick Info ");
 			ImGui::BeginChild("TXD_LIST");
 			int txdIndex = 0;
-			for (asset::TxdAssetPtr& txdAsset : m_Context.HotDrawable->GetTXDs())
+			for (asset::HotDictionary& hotDict : m_Context.HotDrawable->GetHotDictionaries())
 			{
-				bool isEmbed = txdAsset->GetHashKey() == m_Context.DrawableAsset->GetEmbedDictionary()->GetHashKey();
-				ConstString name = isEmbed ? "Embed" : String::ToAnsiTemp(txdAsset->GetAssetName());
+				if (hotDict.IsOrphan)
+					continue;
 
+				ConstString name = hotDict.TxdName;
 				if (ImGui::ButtonEx(ImGui::FormatTemp("%s###TXD_%i", name, txdIndex++), ImVec2(-1, 0)))
 				{
+					const asset::TxdAssetPtr& txdAsset = m_Context.HotDrawable->GetTxdAsset(hotDict.TxdAssetPath);
 					ui::AssetWindowFactory::OpenNewOrFocusExisting(txdAsset);
 				}
 			}

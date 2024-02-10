@@ -36,6 +36,21 @@ namespace rageam::asset
 	};
 
 	/**
+	 * \brief Since HotDrawable stores all textures in single dictionary (MegaDictionary),
+	 * we provide this map for convenient way to access/iterate TXD textures.
+	 * \n This can be seen as 'virtual' dictionary.
+	 */
+	struct HotDictionary
+	{
+		file::WPath TxdAssetPath;
+		file::Path	TxdName;
+		List<u16>   Indices;
+		List<u32>	Hashes;
+		bool		IsEmbed;
+		bool		IsOrphan;
+	};
+
+	/**
 	 * \brief Drawable asset that automatically syncs up with file changes.
 	 */
 	class HotDrawable
@@ -99,7 +114,9 @@ namespace rageam::asset
 		// This allows us to lazy load textures after entity was spawned, greatly reducing loading time
 		rage::grcTextureDictionaryPtr			m_MegaDictionary;
 		HashSet<TextureInfo, TextureInfoHashFn>	m_TextureInfos;
-		HashSet<TxdAssetPtr, TxdAssetHashFn>	m_TxdAssetStore; // Instead of loading TXD asset every time, we cache them here
+		HashSet<TxdAssetPtr, TxdAssetHashFn>	m_TxdAssetStore;	// Instead of loading TXD asset every time, we cache them here
+		List<HotDictionary>						m_HotDicts;			// Mapping between TXD and textures in mega dictionary
+		bool									m_HotDictsDirty = false; // Flag indicating that hot dictionaries must be rebuilt on request
 
 		// Iterates all textures in drawable shader group variables
 		// If textureName is not NULL, only textures with given name are yielded, excluding vars with NULL texture
@@ -147,10 +164,18 @@ namespace rageam::asset
 		// Must be called on early update/tick for synchronization of drawable changes
 		HotDrawableInfo UpdateAndApplyChanges();
 
-		const file::WPath&  GetPath() const { return m_AssetPath; }
-		ConstWString		GetTxdPathFromTexture(ConstString textureName, HashValue* outTxdHashValue = nullptr) const;
-		const auto&			GetTXDs() { return m_TxdAssetStore; }
-		rage::grcTexture*   LookupTexture(ConstString name) const;
+		// Path of loaded scene asset (DrawableAsset)
+		const file::WPath& GetPath() const { return m_AssetPath; }
+		// Attempts to retrieve TXD asset path from texture name
+		ConstWString GetTxdPathFromTexture(ConstString textureName, HashValue* outTxdHashValue = nullptr) const;
+		// Maps path hash to loaded TXD asset
+		const auto&	GetTxdAssets() { return m_TxdAssetStore; }
+		// Looks up cached txd asset by path
+		const auto& GetTxdAsset(ConstWString path) { return GetTxdAssetFromPath(path); }
+		// Maps TXD to textures in HotDrawableInfo::MegaDictionary
+		const List<HotDictionary>& GetHotDictionaries();
+
+		rage::grcTexture* LookupTexture(ConstString name) const;
 
 		// All removed textures are added in single list and removed on the end of the frame to prevent
 		// removing textures that are still currently in draw list
