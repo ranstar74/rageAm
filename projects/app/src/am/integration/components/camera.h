@@ -22,7 +22,7 @@ namespace rageam::integration
 		virtual const Vec3V&  GetUp() const = 0;
 		virtual const Vec3V&  GetPosition() const = 0;
 		virtual const Vec3V&  GetVelocity() = 0;
-		virtual const Mat44V& GetMatrix() const = 0;
+		virtual Mat44V		  GetMatrix() const = 0;
 		virtual void          SetMatrix(const Mat44V& mtx) = 0;
 		virtual void          SetPosition(const Vec3V& position) = 0;
 		virtual void          LookAt(const Vec3V& point) = 0;
@@ -65,7 +65,7 @@ namespace rageam::integration
 		const Vec3V&  GetUp() const override { return m_Up; }
 		const Vec3V&  GetPosition() const override;
 		const Vec3V&  GetVelocity() override;
-		const Mat44V& GetMatrix() const override;
+		Mat44V        GetMatrix() const override;
 		void          SetMatrix(const Mat44V& mtx) override;
 		void          LookAt(const Vec3V& point) override;
 

@@ -128,7 +128,7 @@ void rageam::integration::CameraComponentBase::SetMatrix(const rage::Mat44V& mtx
 	m_Pos = mtx.Pos;
 }
 
-const rage::Mat44V& rageam::integration::CameraComponentBase::GetMatrix() const
+rage::Mat44V rageam::integration::CameraComponentBase::GetMatrix() const
 {
 	rage::Mat34V mtx;
 	mtx.Right = m_Right;
