@@ -2,29 +2,29 @@
 
 #ifdef AM_INTEGRATED
 
-#include "am/integration/memory/hook.h"
-#include "am/types.h"
-#include "am/graphics/render.h"
+#include "rage/framework/entity/archetypemanager.h"
 #include "rage/framework/streaming/assetstores.h"
+#include "am/integration/memory/hook.h"
 #include "am/integration/script/core.h"
+#include "am/types.h"
 
-void rageam::integration::GameEntity::Create(rage::fwArchetypeDef* archetypeDef, const Vec3V& pos)
+void rageam::integration::GameEntity::Spawn()
 {
-	u32 assetName = archetypeDef->AssetName;
+	u32 name = m_ArchetypeDef->Name;
 
 	// Register drawable
 	rage::fwDrawableStore* dwStore = rage::GetDrawableStore();
-	m_DrawableSlot = dwStore->AddSlot(assetName);
+	m_DrawableSlot = dwStore->AddSlot(name);
 	dwStore->Set(m_DrawableSlot, m_Drawable.Get());
 
 	// Create and register archetype
 	m_Archetype = std::make_unique<CBaseModelInfo>();
-	m_Archetype->InitArchetypeFromDefinition(rage::INVALID_STR_INDEX/*m_MapTypesSlot*/, archetypeDef, true);
+	m_Archetype->InitArchetypeFromDefinition(rage::INVALID_STR_INDEX/*m_MapTypesSlot*/, m_ArchetypeDef.get(), true);
 	// In game code this is done by CModelInfoStreamingModule::Load
 	m_Archetype->InitMasterDrawableData(0);
 	// Prevent fwEntity from ref counting, we don't need that because we control lifetime manually
 	m_Archetype->SetIsStreamedArchetype(false); // Permanent
-
+	
 	// TODO: This is currently disabled because our implementation of ComputeBucketMask sets 0xFFFF
 	// NOTE: Ugly hack! We set all buckets in drawable render mask to allow easier runtime editing
 	// because it is easier than updating render mask on entities
@@ -32,7 +32,7 @@ void rageam::integration::GameEntity::Create(rage::fwArchetypeDef* archetypeDef,
 	// m_Drawable->ComputeBucketMask(); // Internally sets render mask to 0xFFFF, at least at the moment
 
 	// Spawn entity
-	m_EntityHandle = scrCreateObject(assetName, pos);
+	m_EntityHandle = scrCreateObject(name, m_DefaultPos);
 
 	// Obtain rage::fwEntity pointer
 	static auto getEntityFromGUID =
@@ -44,7 +44,24 @@ void rageam::integration::GameEntity::Create(rage::fwArchetypeDef* archetypeDef,
 		.ToFunc<pVoid(u32 scriptIndex)>();
 	m_Entity = getEntityFromGUID(m_EntityHandle.Get());
 
-	AM_DEBUGF("GameEntity created; Handle:%i Ptr: %p", m_EntityHandle.Get(), m_Entity);
+	AM_DEBUGF("GameEntity -> created; Handle:%i Ptr: %p", m_EntityHandle.Get(), m_Entity);
+}
+
+void rageam::integration::GameEntity::OnEarlyUpdate()
+{
+	// Already spawned
+	if (m_Entity)
+		return;
+
+	// We can't register archetype&drawable spawn entity if there's other instance that has the same name
+	u32 nameHashKey = m_ArchetypeDef->Name;
+	if (rage::GetDrawableStore()->FindSlotFromHashKey(nameHashKey).IsValid() || rage::fwArchetypeManager::IsArchetypeExists(nameHashKey))
+	{
+		AM_DEBUGF("GameEntity -> entity '%x' still exists, can't spawn", nameHashKey);
+		return;
+	}
+
+	Spawn();
 }
 
 void rageam::integration::GameEntity::OnLateUpdate()
@@ -57,51 +74,30 @@ void rageam::integration::GameEntity::OnLateUpdate()
 	}
 }
 
-rageam::integration::GameEntity::GameEntity(const gtaDrawablePtr& drawable, rage::fwArchetypeDef* archetypeDef, const Vec3V& pos)
+bool rageam::integration::GameEntity::OnAbort()
 {
-	m_Drawable = drawable;
-	Create(archetypeDef, pos);
-}
+	if (!m_DrawableSlot.IsValid())
+		return true;
 
-rageam::integration::GameEntity::~GameEntity()
-{
-	// README:
-	// All rendering code is executed in parallel thread, rendering is started mid-game update (after updating game itself)
-	// and can last up until next 'mid-game update'. This means that if we're going to remove archetype&drawable RIGHT now
-	// render thread still MAY use it (although sometimes rendering can finish even before game early update)
-	// In order to make sure that drawable will not be rendered after destroyed we have to manually sync with render thread
-	graphics::Render::GetInstance()->Lock();
+	// We shouldn't delete entities mid-game update, this is not safe
+	if (ComponentManager::GetUpdateStage() != UpdateStage_Early)
+		return false;
 
-	static auto CDrawListMgr_ReleaseAllRefs = gmAddress::Scan("E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 8B 54 24 38", "CDrawListMgr::ReleaseAllRefs+0x12")
-		.GetAt(-0x12)
-		.ToFunc<void(pVoid mgr, u32 flags)>();
-	static auto dlDrawListMgr = *gmAddress::Scan("41 B9 CE 01 00 00", "rage::fwRenderThreadInterface::GPU_IdleSection+0x2F")
-		.GetAt(-0x2F) // Offset to the function
-		.GetAt(0xC2)  // mov rax, cs:rage::dlDrawListMgr * rage::gDrawListMg
-		.GetRef(3)
-		.To<char**>();
-	static auto flipUpdateFenceIdx = gmAddress::Scan("8B 40 38 FF C0 33 D2", "rage::dlDrawListMgr::FlipUpdateFenceIdx+0xA")
-		.GetAt(-0xA)
-		.ToFunc<void(pVoid)>();
-	// Clear refs in all fences... // TODO: Do we still need this?
-	for (int i = 0; i < 4; i++)
+	// Destroy spawned entity
+	if (m_EntityHandle.IsValid())
 	{
-		flipUpdateFenceIdx(dlDrawListMgr);
-		CDrawListMgr_ReleaseAllRefs(dlDrawListMgr, 0); // gDrawListMgr->RemoveAllRefs();
+		AM_DEBUGF("GameEntity destroyed; Handle:%i Ptr: %p", m_EntityHandle.Get(), m_Entity);
+		scrSetEntityCoordsNoOffset(m_EntityHandle, scrVector(-4000, 6000, -100));
+		scrSetEntityAsMissionEntity(m_EntityHandle, false, true);
+		scrDeleteObject(m_EntityHandle);
+		m_Entity = nullptr;
 	}
+	
+	// Draw list (or possible something else, including entity itself) still holds reference on this drawable
+	if (rage::GetDrawableStore()->GetNumRefs(m_DrawableSlot) > 0 || m_Archetype->GetRefCount() > 0)
+		return false;
 
-	AM_DEBUGF("GameEntity destroyed; Handle:%i Ptr: %p", m_EntityHandle.Get(), m_Entity);
-
-	// Abort is called on early update before updating other components,
-	// we are cleaning up things really fast here so next entity (if there is)
-	// can easily take our place without issues
-	// Destruct everything in the reverse order:
-
-	// Entity
-	scrSetEntityCoordsNoOffset(m_EntityHandle, scrVector(-4000, 6000, -100));
-	scrSetEntityAsMissionEntity(m_EntityHandle, false, true);
-	scrDeleteObject(m_EntityHandle);
-	m_Entity = nullptr;
+	AM_DEBUGF("GameEntity -> no more refs, unregistering archetype and drawable");
 
 	// Archetype
 	m_Archetype->SetIsStreamedArchetype(true); // Set streamed archetype flag back
@@ -114,8 +110,14 @@ rageam::integration::GameEntity::~GameEntity()
 	m_DrawableSlot = rage::INVALID_STR_INDEX;
 	m_Drawable = nullptr;
 
-	// Now we can safely resume rendering
-	graphics::Render::GetInstance()->Unlock();
+	return true;
+}
+
+rageam::integration::GameEntity::GameEntity(const gtaDrawablePtr& drawable, const amPtr<rage::fwArchetypeDef>& archetypeDef, const Vec3V& pos)
+{
+	m_Drawable = drawable;
+	m_ArchetypeDef = archetypeDef;
+	m_DefaultPos = pos;
 }
 
 void rageam::integration::GameEntity::SetPosition(const rage::Vec3V& pos) const

@@ -23,24 +23,29 @@ namespace rageam::integration
 	 */
 	class GameEntity : public IUpdateComponent
 	{
-		gtaDrawablePtr        m_Drawable;
-		amPtr<CBaseModelInfo> m_Archetype;
-		rage::strLocalIndex   m_DrawableSlot;
-		pVoid                 m_Entity; // rage::fwEntity
-		scrObjectIndex        m_EntityHandle;
-		Mat44V                m_EntityWorld;
+		gtaDrawablePtr              m_Drawable;
+		amPtr<CBaseModelInfo>       m_Archetype;
+		amPtr<rage::fwArchetypeDef> m_ArchetypeDef;
+		Vec3V                       m_DefaultPos;
 
-		void Create(rage::fwArchetypeDef* archetypeDef, const Vec3V& pos);
+		rage::strLocalIndex         m_DrawableSlot;
+		pVoid                       m_Entity = nullptr; // rage::fwEntity
+		scrObjectIndex              m_EntityHandle;
+		Mat44V                      m_EntityWorld;
+
+		void Spawn();
+		void OnEarlyUpdate() override;
 		void OnLateUpdate() override;
+		bool OnAbort() override;
 
 	public:
-		GameEntity(const gtaDrawablePtr& drawable, rage::fwArchetypeDef* archetypeDef, const Vec3V& pos);
-		~GameEntity() override;
+		GameEntity(const gtaDrawablePtr& drawable, const amPtr<rage::fwArchetypeDef>& archetypeDef, const Vec3V& pos);
 
 		void           SetPosition(const Vec3V& pos) const;
 		const Mat44V&  GetWorldTransform()	const { return m_EntityWorld; }
 		scrObjectIndex GetEntityHandle()	const { return m_EntityHandle; }
 		pVoid          GetEntityPointer()	const { return m_Entity; }
+		gtaDrawable*   GetDrawable()		const { return m_Drawable.Get(); }
 	};
 }
 
