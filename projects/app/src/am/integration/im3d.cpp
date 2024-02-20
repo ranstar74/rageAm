@@ -73,6 +73,8 @@ void Im3D::Text(const ImVec3V& pos, ConstString fmt, ...)
 	if (!WorldToScreen(pos, sPos))
 		return;
 
+	ImGui::PushFont(ImFont_Medium);
+
 	if (centerNext)
 	{
 		ImVec2 textSize = ImGui::CalcTextSize(text, text_end);
@@ -80,6 +82,8 @@ void Im3D::Text(const ImVec3V& pos, ConstString fmt, ...)
 	}
 
 	GetDrawList()->AddText(sPos, ImGui::GetColorU32(ImGuiCol_Text), text, text_end);
+
+	ImGui::PopFont();
 }
 
 void Im3D::TextBg(const ImVec3V& pos, ConstString fmt, ...)
@@ -102,6 +106,8 @@ void Im3D::TextBgV(const ImVec3V& pos, ConstString fmt, va_list args)
 	if (!WorldToScreen(pos, sPos))
 		return;
 
+	ImGui::PushFont(ImFont_Medium);
+
 	ImVec2 textSize = ImGui::CalcTextSize(text, text_end);
 	if (centerNext)
 	{
@@ -113,6 +119,8 @@ void Im3D::TextBgV(const ImVec3V& pos, ConstString fmt, va_list args)
 	ImVec2 bgTo = sPos + textSize;
 	GetDrawList()->AddRectFilled(bgFrom, bgTo, bgColor);
 	GetDrawList()->AddText(sPos, ImGui::GetColorU32(ImGuiCol_Text), text, text_end);
+
+	ImGui::PopFont();
 }
 
 void Im3D::TextBgColored(const ImVec3V& pos, u32 col, ConstString fmt, ...)
