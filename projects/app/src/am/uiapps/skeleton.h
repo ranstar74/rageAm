@@ -8,6 +8,7 @@
 #pragma once
 
 #include "am/integration/integration.h"
+#include "am/integration/script/extensions.h"
 #include "am/ui/app.h"
 #include "am/ui/extensions.h"
 #include "am/ui/imglue.h"
@@ -23,10 +24,6 @@ namespace rageam::ui
 		{
 			ImGlue* ui = GetUI();
 
-#ifdef AM_INTEGRATED
-			auto integration = integration::GameIntegration::GetInstance();
-#endif
-
 			if (ImGui::IsKeyPressed(ImGuiKey_F9))
 				ui->IsVisible = !ui->IsVisible;
 
@@ -38,10 +35,8 @@ namespace rageam::ui
 			}
 
 			// We don't want game controls to mess up with the UI
-			if (!ui->IsDisabled)
-			{
-				integration->DisableAllControlsThisFrame();
-			}
+			if (!ui->IsDisabled) 
+				scrDisableAllControlsThisFrame();
 
 			bool drawCursor = !ui->IsDisabled;
 			graphics::Window::GetInstance()->SetMouseVisible(drawCursor);
