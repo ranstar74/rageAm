@@ -311,18 +311,9 @@ void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex)
 			rage::grmModel* grmModel = GetMeshAttr(nodeIndex);
 			if (beginAttrTabItem(grmModel, SceneNodeAttr_Mesh, ICON_AM_MESH" Mesh"))
 			{
-				if (SlGui::CollapsingHeader("Render Flags"))
-				{
-					u32 renderFlags = grmModel->GetRenderFlags();
-					if (integration::widgets::EnumFlags<rage::grcRenderFlags>("RENDER_FLAGS", "LF", &renderFlags))
-					{
-						ImGui::CheckboxFlags("Visibility", &renderFlags, rage::RF_VISIBILITY);
-						ImGui::CheckboxFlags("Shadows", &renderFlags, rage::RF_SHADOWS);
-						ImGui::CheckboxFlags("Reflections", &renderFlags, rage::RF_REFLECTIONS);
-						ImGui::CheckboxFlags("Mirror", &renderFlags, rage::RF_MIRROR);
-					}
-					grmModel->SetRenderFlags(renderFlags);
-				}
+				u32 modelDrawMask = grmModel->GetSubDrawBucketMask();
+				if (widgets::SubDrawMaskEditor(modelDrawMask))
+					grmModel->SetSubDrawBucketMask(modelDrawMask);
 
 				ImGui::EndTabItem();
 			}

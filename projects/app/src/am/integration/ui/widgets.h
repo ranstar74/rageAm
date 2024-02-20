@@ -7,6 +7,22 @@
 
 namespace rageam::integration::widgets // rage-specific extensions for ImGui
 {
+	inline bool SubDrawMaskEditor(u32& drawMask)
+	{
+		// NOTE: We don't let user set model visibility (rage::RB_MODEL_DEFAULT) because
+		// it's' used by our tool (for e.g. in tree view) and there's no any logical reason to expose it for user
+
+		bool maskChanged = false;
+		if (ImGui::CheckboxFlags("Drop Shadow", &drawMask, 1 << rage::RB_MODEL_SHADOW)) maskChanged = true;
+
+		ImGui::Text("Reflects in:");
+		if (ImGui::CheckboxFlags("Surface (paraboloid)", &drawMask, 1 << rage::RB_MODEL_REFLECTION_PARABOLOID)) maskChanged = true;
+		if (ImGui::CheckboxFlags("Mirror", &drawMask, 1 << rage::RB_MODEL_REFLECTION_MIRROR)) maskChanged = true;
+		if (ImGui::CheckboxFlags("Water", &drawMask, 1 << rage::RB_MODEL_REFLECTION_WATER))	maskChanged = true;
+
+		return maskChanged;
+	}
+
 	// Allow unknown creates checkbox to show all enum flags (using reflection)
 	// Returns true if user didn't choose to show all flags
 	template<typename TFlagsEnum>

@@ -1428,18 +1428,11 @@ void rageam::integration::MaterialEditor::DrawMaterialOptions() const
 		m_Context->Drawable->ComputeBucketMask();
 	}
 
-	// Render Flags
-	SlGui::CategoryText("Render Flags");
-	rage::grcRenderMask& renderMask = material->GetDrawBucketMask();
-	u32 renderFlags = renderMask.GetRenderFlags();
-	if (widgets::EnumFlags<rage::grcRenderFlags>("RENDER_FLAGS", "LF", &renderFlags))
-	{
-		ImGui::CheckboxFlags("Visibility", &renderFlags, rage::RF_VISIBILITY);
-		ImGui::CheckboxFlags("Shadows", &renderFlags, rage::RF_SHADOWS);
-		ImGui::CheckboxFlags("Reflections", &renderFlags, rage::RF_REFLECTIONS);
-		ImGui::CheckboxFlags("Mirror", &renderFlags, rage::RF_MIRROR);
-	}
-	renderMask.SetRenderFlags(renderFlags);
+	// Render Options
+	SlGui::CategoryText("Render Options");
+	u32 drawBucketMask = material->GetDrawBucketMask();
+	if (widgets::SubDrawMaskEditor(drawBucketMask))
+		material->SetDrawBucketMask(drawBucketMask);
 }
 
 void rageam::integration::MaterialEditor::StoreMaterialValue(u16 materialIndex, u16 varIndex)
