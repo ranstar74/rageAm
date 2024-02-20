@@ -485,12 +485,14 @@ rageam::ui::ImGlue::~ImGlue()
 	DestroyContext();
 }
 
-bool rageam::ui::ImGlue::BuildDrawList()
+bool rageam::ui::ImGlue::BeginFrame()
 {
 	std::unique_lock lock(m_Mutex);
 
-	 if (!m_Enabled)
-		return true;
+#ifdef AM_INTEGRATED
+	if (m_BeganFrame) // No response from render thread... skip frame
+		return false;
+#endif
 
 	// This will destroy all pending textures
 	m_TexturesToDestroy.Clear();
@@ -498,8 +500,6 @@ bool rageam::ui::ImGlue::BuildDrawList()
 	// Don't process UI anymore... we've got assertion before
 	if (ImGetAssertWasThrown())
 		return false;
-
-	Timer timer = Timer::StartNew();
 
 	// Font scale was changed during previous frame,
 	// must be re-created before new frame
@@ -522,7 +522,7 @@ bool rageam::ui::ImGlue::BuildDrawList()
 		case ImStyle_Dark:		ImGui::StyleColorsDark();		break;
 		case ImStyle_Light:		ImGui::StyleColorsLight();		break;
 		case ImStyle_Classic:	ImGui::StyleColorsClassic();	break;
-		default: 
+		default:
 			AM_UNREACHABLE("Style '%s' is not implemented!", Enum::GetName(Style));
 		}
 		m_OldStyle = Style;
@@ -531,6 +531,19 @@ bool rageam::ui::ImGlue::BuildDrawList()
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
+
+#ifdef AM_INTEGRATED
+	m_BeganFrame = true;
+#endif
+
+	return true;
+}
+
+bool rageam::ui::ImGlue::UpdateApps()
+{
+	std::unique_lock lock(m_Mutex);
+
+	Timer timer = Timer::StartNew();
 
 	// Execute all apps
 	bool onlyUpdate = !IsVisible;
@@ -552,8 +565,6 @@ bool rageam::ui::ImGlue::BuildDrawList()
 		return false;
 	}
 
-	ImGui::Render();
-
 	timer.Stop();
 
 	m_LastUpdatedApp = nullptr;
@@ -563,46 +574,54 @@ bool rageam::ui::ImGlue::BuildDrawList()
 	return true;
 }
 
-void rageam::ui::ImGlue::Render() const
+void rageam::ui::ImGlue::EndFrame() AM_STANDALONE_ONLY(const)
 {
 	std::unique_lock lock(m_Mutex);
-
-	if (!m_Enabled)
-		return;
 
 	if (ImGetAssertWasThrown())
 		return;
 
-	ImDrawData* drawData = ImGui::GetDrawData();
-	if (drawData) ImGui_ImplDX11_RenderDrawData(drawData);
-
 	ImGuiIO& io = ImGui::GetIO();
+
+#ifdef AM_INTEGRATED
+	if (!m_BeganFrame)
+	{
+		// Render existing frame...
+		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+			ImGui::RenderPlatformWindowsDefault();
+
+		return;
+	}
+
+	m_BeganFrame = false;
+#endif
+
+	ImGui::Render();
+	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
 	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 	{
+		ImGui::UpdatePlatformWindows();
 		ImGui::RenderPlatformWindowsDefault();
 	}
 }
 
-void rageam::ui::ImGlue::PlatformUpdate() const
+void rageam::ui::ImGlue::AddNoLongerNeededTexture(const amComPtr<ID3D11ShaderResourceView>& view)
 {
-	if (!m_Enabled)
-		return;
-
-	// Racing condition - after DLL injection render thread was invoked before game update...
-	// we must skip this render and wait for next game update
-	if (m_IsFirstFrame)
-		return;
-
-	ImGuiIO& io = ImGui::GetIO();
-	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-	{
-		ImGui::UpdatePlatformWindows();
-	}
+	m_TexturesToDestroy.Add(view);
 }
 
 void rageam::ui::ImGlue::AddApp(App* app)
 {
+	std::unique_lock lock(m_Mutex);
 	m_Apps.Construct(app);
+}
+
+void rageam::ui::ImGlue::KillAllApps()
+{
+	std::unique_lock lock(m_Mutex);
+	m_Apps.Destroy();
 }
 
 rageam::ui::ImImage* rageam::ui::ImGlue::GetIconByHash(HashValue hash)

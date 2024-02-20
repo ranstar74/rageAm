@@ -63,11 +63,19 @@ namespace rageam::ui
 		List<amUPtr<App>>	m_Apps;
 		App*				m_LastUpdatedApp = nullptr;
 		ImImage				m_NotFoundImage;
-		bool				m_Enabled = false;
 		std::atomic_bool	m_IsFirstFrame = true;
-		mutable std::mutex	m_Mutex;
 
 		List<amComPtr<ID3D11ShaderResourceView>> m_TexturesToDestroy;
+
+		mutable std::recursive_mutex m_Mutex;
+
+#ifdef AM_INTEGRATED
+		// Integrated rendering is quite complex, shortly update (when we begin frame & build draw list)
+		// doesn't always match with rendering. For example update is not called during game loading
+		// As simple solution we add this flag
+		bool m_BeganFrame = false;
+#endif
+
 		void CreateContext() const;
 		void DestroyContext() const;
 
@@ -96,16 +104,16 @@ namespace rageam::ui
 		ImGlue();
 		~ImGlue() override;
 
-		// Must be called from update thread
-		bool BuildDrawList();
-		// Renders draw list that was built in BuildDrawList, must be called from render thread
-		void Render() const;
-		// Updates ImGui platform windows, must be called from window thread
-		void PlatformUpdate() const;
+		void Lock() const { m_Mutex.lock(); }
+		void Unlock() const { m_Mutex.unlock(); }
 
-		// UI is disabled by default, game update is initialized before rendering,
-		// and we have to make sure that we start pumping UI only after both render and game update are init
-		void SetEnabled(bool enabled) { m_Enabled = enabled; }
+		bool BeginFrame();
+		bool UpdateApps();
+		void EndFrame() AM_STANDALONE_ONLY(const);
+
+		// Textures with dynamic lifetime must be passed here to ensure that they
+		// won't be destroyed when they're still referenced in the draw list
+		void AddNoLongerNeededTexture(const amComPtr<ID3D11ShaderResourceView>& view);
 
 		// App must be allocated via operator new
 		void AddApp(App* app);
@@ -121,11 +129,14 @@ namespace rageam::ui
 			}
 			return nullptr;
 		}
-		
+
+		void KillAllApps();
+
 		ImImage* GetIcon(ConstString name) { return GetIconByHash(Hash(name)); }
 		ImImage* GetIconByHash(HashValue hash);
 
 		int					FontSize = 16;
+		// bool				FullNames = false;
 		bool				IsDisabled = false; // UI will appear and function as disabled
 		bool				IsVisible = true;	// UI rendering will be skipped, only OnUpdate function will be called for apps
 		ImExtraFontRanges	ExtraFontRanges = 0;
