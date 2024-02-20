@@ -112,12 +112,23 @@ struct CLightAttr
 	rage::Vector3	Extent;					// X is capsule light height/length
 	u32				ProjectedTexture;
 
-	void FixupVft() // Temp hack
+	CLightAttr()
 	{
 #ifndef AM_STANDALONE
-		// Invoke constructor
-		static gmAddress addr = gmAddress::Scan("E8 ?? ?? ?? ?? 0F B7 83 B8 00 00 00").GetCall();
-		addr.To<void(*)(CLightAttr*)>()(this);
+		// Invoke constructor to get VFT
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		static auto fn = gmAddress::Scan("EB 9B 48 8B 44 24 60 48 83 C4 58", "rage::atArray<CLightAttr>::ctor + 0xCA")
+			.GetAt(-0xCA)
+			.GetAt(0xB5)
+			.GetCall()
+			.ToFunc<void(CLightAttr*, pVoid)>();
+		fn(this, nullptr);
+#else
+		static auto fn = gmAddress::Scan("E8 ?? ?? ?? ?? 0F B7 83 B8 00 00 00", "CLightAttr::ctor")
+			.GetCall()
+			.ToFunc<void(CLightAttr*)>();
+		fn(this);
+#endif
 #endif
 	}
 

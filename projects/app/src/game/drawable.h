@@ -28,12 +28,7 @@ public:
 
 	u16 GetLightCount() const { return m_Lights.GetSize(); }
 	CLightAttr* GetLight(u16 index) { return &m_Lights[index]; }
-	CLightAttr& AddLight()
-	{
-		CLightAttr& light = m_Lights.Construct();
-		light.FixupVft();
-		return light;
-	}
+	CLightAttr& AddLight() { return m_Lights.Construct(); }
 	rage::atArray<CLightAttr>& GetLightArray() { return *(rage::atArray<CLightAttr>*)&m_Lights; }
 
 	void SetBound(const rage::phBoundPtr& bound) { m_Bound = bound; }
