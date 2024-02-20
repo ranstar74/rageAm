@@ -11,6 +11,11 @@
 
 #include "core.h"
 
+inline void scrDisableAllControlsThisFrame()
+{
+	scrDisableAllControlActions(scrControlType_Player);
+}
+
 inline scrVector scrGetGroundCoors(const scrVector& coors)
 {
 	scrVector groundCoors = coors;
