@@ -331,7 +331,7 @@ namespace rageam::asset
 
 		struct EffectInfo
 		{
-			rage::grcEffectPtr			Effect;
+			rage::grcEffect*			Effect;
 			graphics::VertexDeclaration VertexDecl;		// VS_Transform
 			graphics::VertexDeclaration VertexDeclSkin;	// VS_TransformSkin
 

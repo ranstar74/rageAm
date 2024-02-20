@@ -5,7 +5,7 @@
 #include "am/file/iterator.h"
 #include "am/graphics/buffereditor.h"
 #include "am/graphics/meshsplitter.h"
-#include "rage/grcore/effect/effectmgr.h"
+#include "rage/grcore/effectmgr.h"
 #include "rage/physics/bounds/composite.h"
 #include "rage/physics/bounds/geometry.h"
 #include "am/xml/iterator.h"
@@ -162,8 +162,8 @@ void rageam::asset::MaterialTune::InitFromShader(const rage::grcInstanceData* sh
 
 	for (u16 i = 0; i < effectVarCount; i++)
 	{
-		rage::grcEffectVar* varInfo = effect->GetVarByIndex(i);
-		rage::grcInstanceVar* var = shader->GetVarByIndex(i);
+		rage::grcEffectVar* varInfo = effect->GetVar(i);
+		rage::grcInstanceVar* var = shader->GetVar(i);
 
 		Param param;
 		param.Name = varInfo->GetName();
@@ -188,7 +188,7 @@ void rageam::asset::MaterialTune::SetTextureNamesFromSceneMaterial(const graphic
 
 	for (u16 i = 0; i < effectVarCount; i++)
 	{
-		rage::grcEffectVar* varInfo = effect->GetVarByIndex(i);
+		rage::grcEffectVar* varInfo = effect->GetVar(i);
 		if (!varInfo->IsTexture())
 			continue;
 
@@ -1129,7 +1129,7 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 				continue;
 			}
 
-			rage::grcInstanceVar* var = shader->GetVarByIndex(varIndex);
+			rage::grcInstanceVar* var = shader->GetVar(varIndex);
 
 			// Locate texture
 			if (varInfo->IsTexture())

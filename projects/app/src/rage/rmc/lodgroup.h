@@ -55,7 +55,7 @@ namespace rage
 		spdAABB			m_BoundingBox;
 		pgUPtr<rmcLod>	m_Lods[LOD_COUNT];
 		float			m_LodThreshold[LOD_COUNT];	// Max render distance for each lod
-		grcRenderMask	m_LodRenderMasks[LOD_COUNT];
+		grcDrawMask		m_LodRenderMasks[LOD_COUNT];
 
 	public:
 		rmcLodGroup();
@@ -85,7 +85,7 @@ namespace rage
 		u32 GetBucketMask(int lod) const;
 		void SetRenderMask(u32 mask, int lod) { m_LodRenderMasks[lod] = mask; }
 
-		void DrawSingle(const grmShaderGroup* shaderGroup, const Mat34V& mtx, grcRenderMask mask, eDrawableLod lod) const
+		void DrawSingle(const grmShaderGroup* shaderGroup, const Mat34V& mtx, grcDrawMask mask, eDrawableLod lod) const
 		{
 			//if (!mask.DoTest(m_LodBucketMasks[lod]))
 			//	return;

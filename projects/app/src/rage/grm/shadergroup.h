@@ -8,7 +8,7 @@
 #pragma once
 
 #include "rage/dat/base.h"
-#include "rage/grcore/effect/effect.h"
+#include "rage/grcore/effect.h"
 #include "rage/paging/resource.h"
 #include "rage/grcore/txd.h"
 
@@ -25,11 +25,11 @@ namespace rage
 		// TODO: Draw functions
 
 		// Returns num of passes
-		u16 BeginDraw(u32 drawType = 0, bool forceRestoreState = false, fxHandle_t techniqueHandle = 0) const
+		u16 BeginDraw(u32 drawType = 0, bool forceRestoreState = false, grcHandle techniqueHandle = grcHandle::Null()) const
 		{
-			static u16(*fn)(const grmShader*, u32, bool, fxHandle_t) =
+			static u16(*fn)(const grmShader*, u32, bool, u16 /*fxHandle_t*/) =
 				gmAddress::Scan("8B 05 ?? ?? ?? ?? 4C 63 DA 83").To<decltype(fn)>();
-			return fn(this, drawType, forceRestoreState, techniqueHandle);
+			return fn(this, drawType, forceRestoreState, techniqueHandle.Handle);
 		}
 
 		void EndDraw() const

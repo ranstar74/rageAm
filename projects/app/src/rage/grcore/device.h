@@ -54,16 +54,15 @@ namespace rage
 		
 		enum MSAAModeEnum
 		{
-			MSAA_None = 0x0,
-			MSAA_NonMaskAble = 0x1,
-			MSAA_2 = 0x2,
-			MSAA_4 = 0x4,
-			MSAA_8 = 0x8,
-			MSAA_2xMS = 0x2,
-			MSAA_Centered4xMS = 0x4,
-			MSAA_Rotated4xMS = 0x8,
+			MSAA_None = 0,
+			MSAA_NonMaskAble = 1,
+			MSAA_2 = 2,
+			MSAA_4 = 4,
+			MSAA_8 = 8,
 		};
 		struct MSAAMode { MSAAModeEnum Mode; };
+
+		static MSAAMode GetMSAA();
 
 		enum class Stereo_t
 		{
@@ -71,6 +70,9 @@ namespace rage
 			STEREO = 0x1,
 			AUTO = 0x2,
 		};
+
+		// TODO: ...
+		static bool IsRenderThread() { return true; }
 	};
 
 	// Extra draw functions

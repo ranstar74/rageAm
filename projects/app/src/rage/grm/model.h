@@ -70,7 +70,7 @@ namespace rage
 		u8						m_Type;
 		// Used for 'transform' skinning without weighting, which basically links model to bone without deformation
 		u8						m_BoneIndex;
-		u8						m_RenderFlags; // Old name - RenderMask
+		u8						m_ModelMask; // Sub draw buckets (RB_MODEL_###)
 		// IsSkinned - the lowest bit, the rest 7 high bits are number of geometries with tessellation
 		u8						m_TesselatedCountAndIsSkinned;
 		// Not sure why this variable exists in the first place because m_Geometries is atArray,
@@ -108,13 +108,11 @@ namespace rage
 		bool IsSkinned() const { return m_TesselatedCountAndIsSkinned & 1; }
 		u8 GetTesselatedGeometryCount() const { return m_TesselatedCountAndIsSkinned >> 1; }
 
-		// Must be called once tessellation was added / removed,
-		// recomputes grcRenderFlags::RF_TESSELLATION in render flags
-		void RecomputeTessellationRenderFlag();
+		// Must be called once tessellation was added / removed, recomputes RB_MODEL_TESSELLATION in draw mask
+		void UpdateTessellationDrawBucket();
 
-		// rage::grcRenderFlags
-		u8 GetRenderFlags() const { return m_RenderFlags; }
-		void SetRenderFlags(u8 flags) { m_RenderFlags = flags; }
+		u32  GetSubDrawBucketMask() const { return m_ModelMask << RB_NUM_BASE_BUCKETS; }
+		void SetSubDrawBucketMask(u32 mask) { m_ModelMask = u8((mask >> RB_NUM_BASE_BUCKETS) & 0xFF); }
 
 		u16 GetGeometryCount() const { return m_GeometryCount; }
 
@@ -140,8 +138,8 @@ namespace rage
 
 		// -- Draw functions --
 
-		void DrawPortion(int a2, u32 startGeometryIndex, u32 totalGeometries, const grmShaderGroup* shaderGroup, grcRenderMask mask) const;
-		void DrawUntessellatedPortion(const grmShaderGroup* shaderGroup, grcRenderMask mask) const;
-		void DrawTesellatedPortion(const grmShaderGroup* shaderGroup, grcRenderMask mask, bool a5) const;
+		void DrawPortion(int a2, u32 startGeometryIndex, u32 totalGeometries, const grmShaderGroup* shaderGroup, grcDrawMask mask) const;
+		void DrawUntessellatedPortion(const grmShaderGroup* shaderGroup, grcDrawMask mask) const;
+		void DrawTesellatedPortion(const grmShaderGroup* shaderGroup, grcDrawMask mask, bool a5) const;
 	};
 }

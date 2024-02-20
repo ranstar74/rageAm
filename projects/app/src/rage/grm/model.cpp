@@ -1,6 +1,6 @@
 #include "model.h"
 #include "shadergroup.h"
-#include "rage/grcore/effect/effect.h"
+#include "rage/grcore/effect.h"
 
 rage::spdAABB* rage::grmAABBGroup::GetAABBs(u16 bbCount)
 {
@@ -97,11 +97,16 @@ rage::grmModel::grmModel()
 	m_Flags = 0;
 	m_Type = 0;
 	m_BoneIndex = 0;
-	m_RenderFlags = RF_ALL;
 	m_GeometryCount = 0;
 
 	SetTesselatedGeometryCount(0);
 	SetIsSkinned(false);
+	SetSubDrawBucketMask(
+		1 << RB_MODEL_DEFAULT | 
+		1 << RB_MODEL_SHADOW |
+		1 << RB_MODEL_REFLECTION_PARABOLOID |
+		1 << RB_MODEL_REFLECTION_MIRROR |
+		1 << RB_MODEL_REFLECTION_WATER);
 }
 
 rage::grmModel::grmModel(const grmModel& other) : m_Geometries(other.m_Geometries)
@@ -116,7 +121,7 @@ rage::grmModel::grmModel(const grmModel& other) : m_Geometries(other.m_Geometrie
 	m_Flags = other.m_Flags;
 	m_Type = other.m_Type;
 	m_BoneIndex = other.m_BoneIndex;
-	m_RenderFlags = other.m_RenderFlags;
+	m_ModelMask = other.m_ModelMask;
 	m_GeometryCount = other.m_GeometryCount;
 	m_TesselatedCountAndIsSkinned = other.m_TesselatedCountAndIsSkinned;
 
@@ -170,14 +175,11 @@ void rage::grmModel::SetIsSkinned(bool skinned, u8 numBones)
 	}
 }
 
-void rage::grmModel::RecomputeTessellationRenderFlag()
+void rage::grmModel::UpdateTessellationDrawBucket()
 {
-	// m_RenderMask is 8-16 bits of bucket mask, so tesselation flag 0x8000 is shifted right by 8
-
-	if (GetTesselatedGeometryCount() == 0)
-		m_RenderFlags &= 0x7F; // Erase last bit
-	else
-		m_RenderFlags |= 0x80;
+	grcDrawMask mask = GetSubDrawBucketMask();
+	mask.SetTessellated(GetTesselatedGeometryCount() > 0);
+	SetSubDrawBucketMask(mask);
 }
 
 void rage::grmModel::ComputeAABB() const
@@ -309,18 +311,18 @@ u32 rage::grmModel::ComputeBucketMask(const grmShaderGroup* shaderGroup) const
 		modelMask |= shaderGroup->GetShader(materialIndex)->GetDrawBucketMask();
 	}
 
-	modelMask |= (u32)m_RenderFlags << 8;
+	modelMask |= (u32)m_ModelMask << 8;
 	return modelMask;
 }
 
-void rage::grmModel::DrawPortion(int a2, u32 startGeometryIndex, u32 totalGeometries, const grmShaderGroup* shaderGroup, grcRenderMask mask) const
+void rage::grmModel::DrawPortion(int a2, u32 startGeometryIndex, u32 totalGeometries, const grmShaderGroup* shaderGroup, grcDrawMask mask) const
 {
 	static auto fn = gmAddress::Scan("48 89 5C 24 08 44 89 4C 24 20 89 54 24 10 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 30")
-		.To<void(*)(const grmModel*, int, u32, u32, const grmShaderGroup*, grcRenderMask)>();
+		.To<void(*)(const grmModel*, int, u32, u32, const grmShaderGroup*, grcDrawMask)>();
 	fn(this, a2, startGeometryIndex, totalGeometries, shaderGroup, mask);
 }
 
-void rage::grmModel::DrawUntessellatedPortion(const grmShaderGroup* shaderGroup, grcRenderMask mask) const
+void rage::grmModel::DrawUntessellatedPortion(const grmShaderGroup* shaderGroup, grcDrawMask mask) const
 {
 	u32 nonTessellatedGeometriesCount = m_GeometryCount - GetTesselatedGeometryCount();
 	if (nonTessellatedGeometriesCount == 0)
@@ -328,7 +330,7 @@ void rage::grmModel::DrawUntessellatedPortion(const grmShaderGroup* shaderGroup,
 	DrawPortion(0, 0 /* Non tessellated models placed first */, nonTessellatedGeometriesCount, shaderGroup, mask);
 }
 
-void rage::grmModel::DrawTesellatedPortion(const grmShaderGroup* shaderGroup, grcRenderMask mask, bool a5) const
+void rage::grmModel::DrawTesellatedPortion(const grmShaderGroup* shaderGroup, grcDrawMask mask, bool a5) const
 {
 	u32 tessellatedGeometriesCount = GetTesselatedGeometryCount();
 	u32 tessellatedGeometriesStartIdx = m_GeometryCount - tessellatedGeometriesCount; // Tessellated geometries placed after non-tessellated ones

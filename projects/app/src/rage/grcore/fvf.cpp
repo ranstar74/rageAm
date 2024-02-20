@@ -2,12 +2,10 @@
 
 #include "device.h"
 #include "fvfchannels.h"
-#include "program.h"
 #include "am/graphics/dxgi_utils.h"
-#include "am/graphics/vertexbufferiterator.h"
-#include "effect/effect.h"
 #include "rage/atl/datahash.h"
 #include "rage/system/new.h"
+#include "effect.h"
 
 rage::atFixedArray<
 	rage::grcVertexDeclaration::DeclPair,
@@ -19,14 +17,14 @@ rage::grcVertexSemantic rage::GetVertexSemanticFromName(ConstString semanticName
 	switch (semanticHash)
 	{
 	case atStringHash("POSITION"):		return POSITION;
-	case atStringHash("POSITIONT"):	return POSITIONT;
+	case atStringHash("POSITIONT"):		return POSITIONT;
 	case atStringHash("NORMAL"):		return NORMAL;
 	case atStringHash("BINORMAL"):		return BINORMAL;
 	case atStringHash("TANGENT"):		return TANGENT;
 	case atStringHash("TEXCOORD"):		return TEXCOORD;
 	case atStringHash("BLENDWEIGHT"):	return BLENDWEIGHT;
-	case atStringHash("BLENDINDICES"): return BLENDINDICES;
-	case atStringHash("COLOR"):		return COLOR;
+	case atStringHash("BLENDINDICES"):	return BLENDINDICES;
+	case atStringHash("COLOR"):			return COLOR;
 
 	default:
 		AM_UNREACHABLE("GetVertexSemanticByName() -> %s is invalid name.", semanticName);

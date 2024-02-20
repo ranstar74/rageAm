@@ -39,12 +39,12 @@ public:
 	void SetBound(const rage::phBoundPtr& bound) { m_Bound = bound; }
 	const rage::phBoundPtr& GetBound() const { return m_Bound; }
 
-	void Draw(const rage::Mat34V& mtx, rage::grcRenderMask mask, rage::eDrawableLod lod) override
+	void Draw(const rage::Mat34V& mtx, rage::grcDrawMask mask, rage::eDrawableLod lod) override
 	{
 		rmcDrawable::Draw(mtx, mask, lod);
 	}
 
-	void DrawSkinned(const rage::Mat34V& mtx, u64 a3, rage::grcRenderMask mask, rage::eDrawableLod lod) override
+	void DrawSkinned(const rage::Mat34V& mtx, u64 a3, rage::grcDrawMask mask, rage::eDrawableLod lod) override
 	{
 		rmcDrawable::DrawSkinned(mtx, a3, mask, lod);
 	}

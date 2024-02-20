@@ -91,9 +91,30 @@ void rage::grcDevice::SetWorldMtx(const Mat34V& mtx)
 
 void rage::grcDevice::GetScreenSize(u32& width, u32& height)
 {
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+	static char* sm_CurrentWindows = gmAddress::Scan(
+		"48 8D 0D ?? ?? ?? ?? 8B 54 24 28 89 54 01 04 EB C3", "rage::grcDevice::sm_CurrentWindows")
+		.GetRef(3)
+		.To<char*>();
+
+	width = *(u32*) (sm_CurrentWindows + 0);
+	height = *(u32*) (sm_CurrentWindows + 4);
+#else
 	static gmAddress addr = gmAddress::Scan("44 8B 1D ?? ?? ?? ?? 48 8B 3C D0");
 	height = *addr.GetRef(3).To<u32*>();
 	width = *addr.GetRef(0xB + 2).To<u32*>();
+#endif
+}
+
+rage::grcDevice::MSAAMode rage::grcDevice::GetMSAA()
+{
+	static MSAAMode* pMode = gmAddress::Scan(
+		"8B 44 24 20 89 04 24 8B 04 24 89 05", "rage::grcDevice::SetSamplesAndFragments+0x8")
+		.GetAt(-0x8)
+		.GetAt(0x12)
+		.GetRef(0x2)
+		.To<MSAAMode*>();
+	return *pMode;
 }
 
 void rage::grcDrawLine()

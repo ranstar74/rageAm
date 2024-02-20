@@ -98,7 +98,7 @@ void rage::rmcDrawable::ComputeTessellationForShader(u16 shaderIndex)
 	grmShader* shader = m_ShaderGroup->GetShader(shaderIndex);
 
 	// Tessellation is ON if 'usetessellation' shader param value is 1.0
-	fxHandle_t useTessellationHandle = shader->GetEffect()->LookupVarByHashKey(atStringHash("useTessellation"));
+	grcHandle useTessellationHandle = shader->GetEffect()->LookupVar(atStringHash("useTessellation"));
 	bool useTessellation = shader->GetVar(useTessellationHandle)->GetValue<float>() == 1.0f;
 
 	// Update draw bucket in shader
@@ -123,7 +123,7 @@ void rage::rmcDrawable::ComputeTessellationForShader(u16 shaderIndex)
 
 			if (modelAffected)
 			{
-				model->RecomputeTessellationRenderFlag();
+				model->UpdateTessellationDrawBucket();
 				model->SortForTessellation(m_ShaderGroup.Get());
 			}
 		}
@@ -148,7 +148,7 @@ void rage::rmcDrawable::Delete()
 	delete this;
 }
 
-void rage::rmcDrawable::Draw(const Mat34V& mtx, grcRenderMask mask, eDrawableLod lod)
+void rage::rmcDrawable::Draw(const Mat34V& mtx, grcDrawMask mask, eDrawableLod lod)
 {
 	static auto rmcLodGroup_DrawSingle = gmAddress::Scan(
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
@@ -156,12 +156,12 @@ void rage::rmcDrawable::Draw(const Mat34V& mtx, grcRenderMask mask, eDrawableLod
 #else
 		"48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 63 B4")
 #endif
-		.ToFunc<void(rmcLodGroup*, grmShaderGroup*, const Mat34V&, grcRenderMask, eDrawableLod)>();
+		.ToFunc<void(rmcLodGroup*, grmShaderGroup*, const Mat34V&, grcDrawMask, eDrawableLod)>();
 	rmcLodGroup_DrawSingle(&m_LodGroup, m_ShaderGroup.Get(), mtx, mask, lod);
 	//m_LodGroup.DrawSingle(m_ShaderGroup.Get(), mtx, mask, lod);
 }
 
-void rage::rmcDrawable::DrawSkinned(const Mat34V& mtx, u64 mtxSet, grcRenderMask mask, eDrawableLod lod)
+void rage::rmcDrawable::DrawSkinned(const Mat34V& mtx, u64 mtxSet, grcDrawMask mask, eDrawableLod lod)
 {
 	struct grmMatrixSet
 	{
@@ -180,7 +180,7 @@ void rage::rmcDrawable::DrawSkinned(const Mat34V& mtx, u64 mtxSet, grcRenderMask
 #else
 		"48 8B C4 48 89 58 08 48 89 68 10 48 89 70 20 4C 89 40 18 57 41 54 41 55 41 56 41 57 48 83 EC 70 48")
 #endif
-		.ToFunc<void(rmcLodGroup*, grmShaderGroup*, const Mat34V&, u64, grcRenderMask, eDrawableLod)>();
+		.ToFunc<void(rmcLodGroup*, grmShaderGroup*, const Mat34V&, u64, grcDrawMask, eDrawableLod)>();
 	rmcLodGroup_DrawMulti(&m_LodGroup, m_ShaderGroup.Get(), mtx, mtxSet, mask, lod);
 }
 

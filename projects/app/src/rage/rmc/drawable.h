@@ -73,8 +73,8 @@ namespace rage
 		virtual bool LoadFromParser(fiTokenizer& T, rmcTypeFileParser* parser = 0, bool configParser = true) { return false; }
 #endif
 
-		virtual void Draw(const Mat34V& mtx, grcRenderMask mask, eDrawableLod lod);
-		virtual void DrawSkinned(const Mat34V& mtx, u64 mtxSet, grcRenderMask mask, eDrawableLod lod);
+		virtual void Draw(const Mat34V& mtx, grcDrawMask mask, eDrawableLod lod);
+		virtual void DrawSkinned(const Mat34V& mtx, u64 mtxSet, grcDrawMask mask, eDrawableLod lod);
 		virtual void DrawNoShaders() {}
 		virtual void DrawSkinnedNoShaders() {}
 		virtual void IsVisible34() {}
