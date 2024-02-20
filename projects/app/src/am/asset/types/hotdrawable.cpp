@@ -831,7 +831,7 @@ void rageam::asset::HotDrawable::RemoveTexturesFromRenderThread(bool forceAll)
 		//  game's draw list may still hold references on it, system is quite complicated
 		//  and this is the easiest way to ensure that texture is not referenced anymore
 		// We take absolute value because frame count may overflow eventually
-		if (forceAll || abs(entry.FrameIndex - ImGui::GetFrameCount()) > 16)
+		if (forceAll || abs(entry.FrameIndex - ImGui::GetFrameCount()) > 4)
 			indices.Insert(0, i);
 	}
 
