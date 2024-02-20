@@ -12,7 +12,7 @@
 #include "dxgi_utils.h"
 #include "am/types.h"
 #include "rage/grcore/fvf.h"
-#include "rage/grcore/effect/effect.h"
+#include "rage/grcore/effect.h"
 
 namespace rageam::graphics
 {
