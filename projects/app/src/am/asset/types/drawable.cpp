@@ -227,7 +227,15 @@ bool rageam::asset::MaterialTuneGroup::ExistsInScene(graphics::Scene* scene, con
 
 int rageam::asset::MaterialTuneGroup::IndexOf(const graphics::Scene* scene, ConstString itemName) const
 {
-	return scene->GetMaterialByName(itemName)->GetIndex();
+	if (String::Equals(itemName, DEFAULT_MATERIAL_NAME))
+		return 0;
+
+	graphics::SceneMaterial* material = scene->GetMaterialByName(itemName);
+	if (!material)
+		return -1;
+
+	int index = material->GetIndex();
+	return scene->NeedDefaultMaterial() ? index + 1 : index;
 }
 
 rageam::asset::SceneTunePtr rageam::asset::MaterialTuneGroup::CreateTune() const

@@ -25,11 +25,25 @@ void rageam::asset::SceneTuneGroupBase::Deserialize(const XmlHandle& node)
 
 void rageam::asset::SceneTuneGroupBase::Refresh(graphics::Scene* scene)
 {
+	SmallList<u16> removedTunesIndices;
+	SmallList<SceneTunePtr> removedTunes;
 	// Mark tunes that are not in the scene anymore as removed
 	for (u16 i = 0; i < Items.GetSize(); i++)
 	{
 		SceneTunePtr& tune = Items[i];
-		tune->IsRemoved = !ExistsInScene(scene, tune);
+		if (!ExistsInScene(scene, tune))
+		{
+			tune->IsRemoved = true;
+			removedTunesIndices.Insert(0, i);
+		}
+	}
+	// Move all removed tunes to separate array, we can't really sort them at
+	// last stage because they don't have scene index, we just add them in the end
+	removedTunes.Reserve(removedTunesIndices.GetSize());
+	for(u16 index : removedTunesIndices)
+	{
+		removedTunes.Emplace(std::move(Items[index]));
+		Items.RemoveAt(index);
 	}
 
 	// We need this for ContainsTune, refresh is done after deserializing
@@ -56,6 +70,8 @@ void rageam::asset::SceneTuneGroupBase::Refresh(graphics::Scene* scene)
 		int sceneIndex = IndexOf(scene, Items[i]->Name);
 		sortedItems[sceneIndex] = std::move(Items[i]);
 	}
+	sortedItems.AddRange(removedTunes);
+
 	Items = std::move(sortedItems);
 
 	RebuildNameMap();
