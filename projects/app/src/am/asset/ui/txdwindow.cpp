@@ -107,6 +107,8 @@ bool rageam::ui::RenderCompressOptionsControls(graphics::ImageCompressorOptions&
 rageam::ui::TextureVM::AsyncImage::~AsyncImage()
 {
 	CancelAsyncLoading();
+
+	ImGlue::GetInstance()->AddNoLongerNeededTexture(View);
 }
 
 void rageam::ui::TextureVM::AsyncImage::LoadAsyncCompressed(const file::WPath& path, const graphics::ImageCompressorOptions& options)

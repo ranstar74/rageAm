@@ -67,6 +67,7 @@ namespace rageam::ui
 		std::atomic_bool	m_IsFirstFrame = true;
 		mutable std::mutex	m_Mutex;
 
+		List<amComPtr<ID3D11ShaderResourceView>> m_TexturesToDestroy;
 		void CreateContext() const;
 		void DestroyContext() const;
 

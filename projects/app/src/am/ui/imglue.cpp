@@ -492,6 +492,9 @@ bool rageam::ui::ImGlue::BuildDrawList()
 	 if (!m_Enabled)
 		return true;
 
+	// This will destroy all pending textures
+	m_TexturesToDestroy.Clear();
+
 	// Don't process UI anymore... we've got assertion before
 	if (ImGetAssertWasThrown())
 		return false;
