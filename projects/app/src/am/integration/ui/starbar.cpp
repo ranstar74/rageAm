@@ -1,4 +1,3 @@
-#include "am/integration/script/extensions.h"
 #ifdef AM_INTEGRATED
 
 #include "starbar.h"
@@ -54,8 +53,6 @@ void rageam::integration::StarBar::OnStart()
 
 void rageam::integration::StarBar::OnRender()
 {
-	auto integration = GameIntegration::GetInstance();
-
 	if (Im3D::IsViewportFocused())
 	{
 		// Switch camera with ']'
@@ -164,9 +161,13 @@ void rageam::integration::StarBar::OnRender()
 
 		// ImGui::SliderFloat("Line Thickness", &DrawList::LineThickness, 0.0f, 0.05f);
 
+		SlGui::CategoryText("Light Outlines");
 		{
-			ImGui::Checkbox("Outlines", &m_ModelScene->LightEditor.ShowLightOutlines);
-			ImGui::Checkbox("Only Selected", &m_ModelScene->LightEditor.ShowOnlySelectedLightOutline);
+			LightEditor::OutlineModes& outlinesMode = m_ModelScene->LightEditor.OutlineMode;
+			if (ImGui::RadioButton("All", outlinesMode == LightEditor::OutlineMode_All))
+				outlinesMode = LightEditor::OutlineMode_All;
+			if (ImGui::RadioButton("Only Selected", outlinesMode == LightEditor::OutlineMode_OnlySelected))
+				outlinesMode = LightEditor::OutlineMode_OnlySelected;
 		}
 		SlGui::CategoryText("Collision");
 		{

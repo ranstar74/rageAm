@@ -216,11 +216,9 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner(const 
 {
 	DrawList& drawList = GetDrawList();
 
-	if (!ShowLightOutlines)
+	if (OutlineMode == OutlineMode_OnlySelected && !ctx.IsSelected)
 	{
-		bool drawThisLight = ShowOnlySelectedLightOutline && ctx.IsSelected;
-		if (!drawThisLight)
-			return graphics::ShapeHit(0, false);
+		return graphics::ShapeHit(0, false);
 	}
 
 	drawList.SetTransform(ctx.LightWorld);

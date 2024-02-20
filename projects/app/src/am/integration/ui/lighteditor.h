@@ -112,8 +112,11 @@ namespace rageam::integration
 			SelectLight(-1);
 		}
 
-		bool ShowLightOutlines = true;
-		bool ShowOnlySelectedLightOutline = true;
+		enum OutlineModes
+		{
+			OutlineMode_All,
+			OutlineMode_OnlySelected,
+		} OutlineMode = OutlineMode_All;
 	};
 }
 
