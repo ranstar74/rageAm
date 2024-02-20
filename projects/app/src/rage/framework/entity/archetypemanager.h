@@ -41,6 +41,13 @@ namespace rage
 #endif
 		}
 
+		static bool IsArchetypeExists(u32 hashKey)
+		{
+			static auto fn = gmAddress::Scan("C7 44 24 20 FF FF 00 00 8B 44 24 20 48 83 C4 38", "rage::fwArchetypeManager::GetArchetypeIndexFromHashKey+0x3D").GetAt(-0x3D)
+				.ToFunc<u16(u32)>();
+			return fn(hashKey) != u16(-1);
+		}
+
 		static constexpr u16 INVALID_STREAM_SLOT = u16(-1);
 	};
 }
