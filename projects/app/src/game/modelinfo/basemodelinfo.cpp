@@ -43,6 +43,7 @@ void CBaseModelInfo::InitArchetypeFromDefinition(rage::strLocalIndex slot, rage:
 
 void CBaseModelInfo::SetPhysics(const rage::phArchetypePtr& physics)
 {
+#ifdef AM_INTEGRATED
 	// This function is quite big and contains a lot of network code to reimplement
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
 	static auto fn = gmAddress::Scan("89 44 24 7C 48 8B 84 24 38 02 00 00", "CBaseModelInfo::SetPhysics + 0xA1D")
@@ -51,6 +52,7 @@ void CBaseModelInfo::SetPhysics(const rage::phArchetypePtr& physics)
 	fn(this, physics);
 #else
 #error CBaseModelInfo::SetPhysics() -> Not implemented
+#endif
 #endif
 }
 
@@ -155,12 +157,14 @@ void CBaseModelInfo::DeleteMasterDrawableData()
 
 void CBaseModelInfo::InitWaterSamples()
 {
+#ifdef AM_INTEGRATED
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
 	static auto fn = gmAddress::Scan("48 89 4C 24 08 55 48 81 EC 20 08", "CBaseModelInfo::InitWaterSamples")
 		.ToFunc<void(CBaseModelInfo*)>();
 	fn(this);
 #else
 #error CBaseModelInfo::InitWaterSamples() -> Not implemented
+#endif
 #endif
 }
 
