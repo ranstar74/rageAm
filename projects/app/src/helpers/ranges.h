@@ -16,3 +16,6 @@
 
 // Gets whether given pointer is within the block of given size
 #define IS_WITHIN(ptr, block, blockSize) ((u64)(ptr) >= (u64)(block) && (u64)(ptr) < ((u64)(block) + (blockSize)))
+
+// Size of a static C-style array. Don't use on pointers!
+#define ARRAYSIZE(_ARR) ((int)(sizeof(_ARR) / sizeof(*(_ARR))))
