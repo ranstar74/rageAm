@@ -128,7 +128,7 @@ void rageam::integration::MaterialEditor::InitializePresetSearch()
 
 		rage::grcEffect* effect = instanceData->GetEffect();
 		// Check if shader can be used for drawables
-		if (effect->LookupTechnique(TECHNIQUE_DRAW) == rage::INVALID_FX_HANDLE)
+		if (effect->LookupTechnique(TECHNIQUE_DRAW).IsNull())
 			continue;
 
 		ShaderPreset shaderPreset;
@@ -871,7 +871,7 @@ void rageam::integration::MaterialEditor::HandleShaderChange()
 			RestoreMaterialValue(i, k);
 
 			// Replace NULL textures with None
-			rage::grcInstanceVar* var = shader->GetVarByIndex(k);
+			rage::grcInstanceVar* var = shader->GetVar(k);
 			if (var->IsTexture() && var->GetTexture() == nullptr)
 				var->SetTexture(asset::TxdAsset::CreateNoneTexture());
 		}
@@ -1261,8 +1261,8 @@ void rageam::integration::MaterialEditor::DrawMaterialVariables()
 
 		// Material (shader in rage terms) holds variable values without any metadata,
 		// we have to query effect variable to get name and type
-		rage::grcInstanceVar* var = material->GetVarByIndex(i);
-		rage::grcEffectVar* varInfo = effect->GetVarByIndex(i);
+		rage::grcInstanceVar* var = material->GetVar(i);
+		rage::grcEffectVar* varInfo = effect->GetVar(i);
 
 		ShaderUIConfig::UIVar* uiVar = m_UIConfig.GetUIVarFor(varInfo);
 
@@ -1309,17 +1309,17 @@ void rageam::integration::MaterialEditor::DrawMaterialVariables()
 			{
 				switch (varInfo->GetType())
 				{
-				case rage::EFFECT_VALUE_INT:
-				case rage::EFFECT_VALUE_INT1:		edited = ImGui::InputInt(inputID, var->GetValuePtr<int>());				break;
-				case rage::EFFECT_VALUE_INT2:		edited = ImGui::InputInt2(inputID, var->GetValuePtr<int>());			break;
-				case rage::EFFECT_VALUE_INT3:		edited = ImGui::InputInt3(inputID, var->GetValuePtr<int>());			break;
-				case rage::EFFECT_VALUE_FLOAT:		edited = ImGui::DragFloat(inputID, var->GetValuePtr<float>(), 0.1f);	break;
-				case rage::EFFECT_VALUE_VECTOR2:	edited = ImGui::DragFloat2(inputID, var->GetValuePtr<float>(), 0.1f);	break;
-				case rage::EFFECT_VALUE_VECTOR3:	edited = ImGui::DragFloat3(inputID, var->GetValuePtr<float>(), 0.1f);	break;
-				case rage::EFFECT_VALUE_VECTOR4:	edited = ImGui::DragFloat4(inputID, var->GetValuePtr<float>(), 0.1f);	break;
-				case rage::EFFECT_VALUE_BOOL:		edited = ImGui::Checkbox(inputID, var->GetValuePtr<bool>());			break;
+				case rage::VT_INT:
+				case rage::VT_INT1:		edited = ImGui::InputInt(inputID, var->GetValuePtr<int>());				break;
+				case rage::VT_INT2:		edited = ImGui::InputInt2(inputID, var->GetValuePtr<int>());			break;
+				case rage::VT_INT3:		edited = ImGui::InputInt3(inputID, var->GetValuePtr<int>());			break;
+				case rage::VT_FLOAT:		edited = ImGui::DragFloat(inputID, var->GetValuePtr<float>(), 0.1f);	break;
+				case rage::VT_VECTOR2:	edited = ImGui::DragFloat2(inputID, var->GetValuePtr<float>(), 0.1f);	break;
+				case rage::VT_VECTOR3:	edited = ImGui::DragFloat3(inputID, var->GetValuePtr<float>(), 0.1f);	break;
+				case rage::VT_VECTOR4:	edited = ImGui::DragFloat4(inputID, var->GetValuePtr<float>(), 0.1f);	break;
+				case rage::VT_BOOL:		edited = ImGui::Checkbox(inputID, var->GetValuePtr<bool>());			break;
 
-				case rage::EFFECT_VALUE_TEXTURE:
+				case rage::VT_TEXTURE:
 				{
 					rage::grcTexture* newTexture = TexturePicker(inputID, var->GetTexture());
 					if (newTexture)
@@ -1333,9 +1333,9 @@ void rageam::integration::MaterialEditor::DrawMaterialVariables()
 				break;
 
 				// Unsupported types for now:
-				// - EFFECT_VALUE_MATRIX34
-				// - EFFECT_VALUE_MATRIX44
-				// - EFFECT_VALUE_STRING
+				// - VT_MATRIX34
+				// - VT_MATRIX44
+				// - VT_STRING
 				default:
 					ImGui::Dummy(ImVec2(0, 0));
 					break;
@@ -1438,8 +1438,8 @@ void rageam::integration::MaterialEditor::DrawMaterialOptions() const
 void rageam::integration::MaterialEditor::StoreMaterialValue(u16 materialIndex, u16 varIndex)
 {
 	rage::grmShader* material = GetShaderGroup()->GetShader(materialIndex);
-	rage::grcInstanceVar* var = material->GetVarByIndex(varIndex);
-	rage::grcEffectVar* varInfo = material->GetEffect()->GetVarByIndex(varIndex);
+	rage::grcInstanceVar* var = material->GetVar(varIndex);
+	rage::grcEffectVar* varInfo = material->GetEffect()->GetVar(varIndex);
 
 	VarBlob& blob = m_MaterialValues[materialIndex].InsertAt(varInfo->GetNameHash(), VarBlob());
 	if (var->IsTexture())
@@ -1461,8 +1461,8 @@ void rageam::integration::MaterialEditor::StoreMaterialValue(u16 materialIndex, 
 void rageam::integration::MaterialEditor::RestoreMaterialValue(u16 materialIndex, u16 varIndex)
 {
 	rage::grmShader* material = GetShaderGroup()->GetShader(materialIndex);
-	rage::grcInstanceVar* var = material->GetVarByIndex(varIndex);
-	rage::grcEffectVar* varInfo = material->GetEffect()->GetVarByIndex(varIndex);
+	rage::grcInstanceVar* var = material->GetVar(varIndex);
+	rage::grcEffectVar* varInfo = material->GetEffect()->GetVar(varIndex);
 
 	VarBlob* blob = m_MaterialValues[materialIndex].TryGetAt(varInfo->GetNameHash());
 	if (blob) // We have saved state for this value
@@ -1520,7 +1520,7 @@ void rageam::integration::MaterialEditor::CopyMaterialSettingsButton()
 			// TODO: We should move this out to helper function, code duplicate
 			// Material (shader in rage terms) holds variable values without any metadata,
 			// we have to query effect variable to get name and type
-			rage::grcEffectVar* varInfo = effect->GetVarByIndex(i);
+			rage::grcEffectVar* varInfo = effect->GetVar(i);
 			ShaderUIConfig::UIVar* uiVar = m_UIConfig.GetUIVarFor(varInfo);
 			ConstString name = uiVar ? uiVar->OverrideName.GetCStr() : varInfo->GetName();
 			bool isSelected = !m_IgnoredShaderVars[i]; // We have to invert 'ignored'
@@ -1595,27 +1595,27 @@ void rageam::integration::MaterialEditor::CopyMaterialSettingsButton()
 
 			rage::grmShader* dstMaterial = shaderGroup->GetShader(i);
 			if (!s_KeepShader)
-				dstMaterial->SetEffect(srcMaterial->GetEffect());
+				dstMaterial->SetEffect(srcMaterial->GetEffect(), true);
 
 			for(u16 k = 0; k < srcMaterial->GetVarCount(); k++)
 			{
 				if (m_IgnoredShaderVars[k])
 					continue;
 
-				rage::grcInstanceVar* srcVar = srcMaterial->GetVarByIndex(k);
+				rage::grcInstanceVar* srcVar = srcMaterial->GetVar(k);
 				rage::grcInstanceVar* dstVar;
 				// Layout is the same for identical effects, for different effects we'll have to do search...
 				if (srcMaterial->GetEffect() == dstMaterial->GetEffect())
 				{
-					dstVar = dstMaterial->GetVarByIndex(k);
+					dstVar = dstMaterial->GetVar(k);
 				}
 				else
 				{
-					rage::atHashValue varName = srcMaterial->GetEffect()->GetVarByIndex(k)->GetNameHash();
-					rage::fxHandle_t varHandle = dstMaterial->GetEffect()->LookupVarByHashKey(varName);
+					rage::atHashValue varName = srcMaterial->GetEffect()->GetVar(k)->GetNameHash();
+					rage::grcHandle   varHandle = dstMaterial->GetEffect()->LookupVar(varName);
 
 					// No such var in shader, skip
-					if (varHandle == rage::INVALID_FX_HANDLE)
+					if (varHandle.IsNull())
 						continue;
 
 					dstVar = dstMaterial->GetVar(varHandle);
