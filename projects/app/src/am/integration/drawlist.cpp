@@ -817,6 +817,8 @@ void rageam::integration::DrawListExecutor::Execute(DrawList& drawList)
 		m_ScreenWidth = width;
 		m_ScreenHeight = height;
 		m_SampleCount = sampleCount;
+		if (m_SampleCount == 0)
+			m_SampleCount = 1; // 0 is not valid for DX11
 
 		AM_DEBUGF("DrawListExecutor -> Creating backbuf for %ux%u and %u samples", 
 			m_ScreenWidth, m_ScreenHeight, m_SampleCount);
