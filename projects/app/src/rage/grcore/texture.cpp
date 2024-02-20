@@ -36,6 +36,7 @@ rage::grcTexture::grcTexture(const datResource& rsc)
 
 rage::grcTexture* rage::grcTexture::Place(const datResource& rsc, grcTexture* that)
 {
+	AM_ASSERT(that->GetResourceType() == TEXTURE_NORMAL, "grcTexture::Place() -> Only normal texture type is currently supported!");
 	return new (that) grcTextureDX11(rsc);
 }
 
