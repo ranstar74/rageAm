@@ -3,17 +3,19 @@
 #include "ImGuizmo.h"
 #include "imgui_internal.h"
 #include "am/graphics/shapetest.h"
+#include "am/ui/imglue.h"
 #include "game/viewport.h"
 #include "rage/grcore/device.h"
+#include "am/integration/script/core.h"
 
 #define GUIZMO_MTX(mtx) ((float*)&mtx)
 
-constexpr ImU32 bgColor = IM_COL32(0, 0, 0, 140);
+constexpr ImU32 bgColor = IM_COL32(0, 0, 0, 170);
 
 static inline bool s_CenterNext = false;
 static inline bool s_WorldGizmoMode = true;
 
-static auto GetDrawList()
+auto GetDrawList()
 {
 	return ImGui::GetBackgroundDrawList();
 }
@@ -35,6 +37,19 @@ bool Im3D::WorldToScreen(const ImVec3V& worldPos, ImVec2& screenPos)
 	vec *= rage::Vec4V(static_cast<float>(width), static_cast<float>(height), 1.0f, 1.0f);
 
 	screenPos = ImVec2(vec.X(), vec.Y());
+
+	// With viewports, we have to shift coordinates to position of main viewport (game window)
+	// https://github.com/ocornut/imgui/wiki/Multi-Viewports
+	// A: When enabling ImGuiConfigFlags_ViewportsEnable,
+	// the coordinate system used by Dear ImGui changes to match the coordinate system of your OS/desktop
+	// (e.g. (0,0) generally becomes the top-left corner of your primary monitor).
+	// This shouldn't affect most code, but if you have code using absolute coordinates you may want to change them
+	// to be relative to a window, relative to a monitor or relative to your main viewport (GetMainViewport()->Pos).
+	if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	{
+		screenPos += ImGui::GetMainViewport()->Pos;
+	}
+
 	return !isCulled;
 }
 
