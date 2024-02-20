@@ -96,7 +96,7 @@ rageam::integration::ShaderUIConfig::UIVar* rageam::integration::ShaderUIConfig:
 	// Try to retrieve from name / display name hashes
 	uiVar = Vars.TryGetAt(varInfo->GetNameHash());
 	if (uiVar) return uiVar;
-	uiVar = Vars.TryGetAt(varInfo->GetDisplayNameHash());
+	uiVar = Vars.TryGetAt(varInfo->GetSemanticHash());
 	return uiVar;
 }
 
