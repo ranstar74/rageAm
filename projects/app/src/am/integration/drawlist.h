@@ -1,7 +1,7 @@
 //
 // File: drawlist.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
@@ -9,54 +9,22 @@
 
 #ifdef AM_INTEGRATED
 
-#include "am/graphics/render.h"
-#include "am/types.h"
 #include "am/graphics/color.h"
-#include "rage/math/math.h"
-#include "game/drawable.h"
-#include "updatecomponent.h"
-#include "am/integration/gameentity.h"
+#include "am/types.h"
 
 #include <d3d11.h>
 
 namespace rageam::integration
 {
-	class GameEntity;
-	class DrawList;
-
-	// Fake drawable that we are using to render draw list easily in game.
-	class DrawListDummyDrawable : public gtaDrawable
-	{
-		SmallList<DrawList*> m_DrawLists;
-
-	public:
-		DrawListDummyDrawable();
-
-		void AddDrawList(DrawList* dl);
-		void Draw(const Mat34V& mtx, rage::grcRenderMask mask, rage::eDrawableLod lod) override;
-	};
-
-	// NOTE: There can be only one such entity spawned!
-	class DrawListDummyEntity : public IUpdateComponent
-	{
-		amPtr<DrawListDummyDrawable>	m_DummyDrawable;
-		//ComponentOwner<GameEntity>		m_GameEntity;
-
-		//void ReleaseAllRefs() override;
-		void OnEarlyUpdate() override;
-
-	public:
-		void Spawn();
-		void AddDrawList(DrawList* drawList) const { m_DummyDrawable->AddDrawList(drawList); }
-	};
-
+	/**
+	 * \brief Buffer with primitive vertex data to draw.
+	 */
 	class DrawList
 	{
 		friend class DrawListExecutor;
 
-		static constexpr u32 VTX_MAX = 0x100000;
-		static constexpr u32 IDX_MAX = 0x100000;
-
+		// Thread local for simplicity of API, for example we can push entity matrix just once,
+		// and it will be shared between all draw lists
 		static inline thread_local Mat44V tl_Transform = Mat44V::Identity();
 
 		using ColorU32 = graphics::ColorU32;
@@ -70,71 +38,57 @@ namespace rageam::integration
 		};
 #pragma pack(pop)
 
-		template<typename TVertex, size_t VertexCapacity>
 		struct VertexBuffer
 		{
-			amComPtr<ID3D11Buffer>	Resource;
-			TVertex					Vertices[VertexCapacity] = {};
-			u32						VertexCount = 0;
+			amComPtr<ID3D11Buffer> Resource;
+			amUPtr<Vertex[]>       Vertices;
+			u32                    Capacity;
+			u32                    Size;
+			u32                    GPUSize;
 
-			VertexBuffer() { Resource = amComPtr(CreateBuffer(sizeof TVertex, VertexCapacity, true)); }
-			void AddVertex(const TVertex& vertex) { Vertices[VertexCount++] = vertex; }
-			void Upload() const { UploadBuffer(Resource, Vertices, sizeof TVertex * VertexCount); }
-			void Bind() const
-			{
-				ID3D11Buffer* buffer = Resource.Get();
-				u32 stride = sizeof TVertex;
-				u32 offset = 0;
-				graphics::RenderGetContext()->IASetVertexBuffers(0, 1, &buffer, &stride, &offset);
-			}
+			void Init(u32 capacity);
+			void Upload();
+			void Bind() const;
 		};
 
-		template<size_t IndexCapacity>
 		struct IndexBuffer
 		{
-			using index_t = u16;
+			using Index_t = u16;
 
-			amComPtr<ID3D11Buffer>	Resource;
-			index_t					Indices[IndexCapacity] = {};
-			u32						IndexCount = 0;
+			amComPtr<ID3D11Buffer> Resource;
+			amUPtr<Index_t[]>      Indices;
+			u32                    Capacity;
+			u32                    Size;
+			u32                    GPUSize;
 
-			IndexBuffer() { Resource = amComPtr(CreateBuffer(sizeof index_t, IndexCapacity, false)); }
-			void AddIndex(const index_t& index) { Indices[IndexCount++] = index; }
-			void Upload() const { UploadBuffer(Resource, Indices, sizeof index_t * IndexCount); }
-			void Bind() const { graphics::RenderGetContext()->IASetIndexBuffer(Resource.Get(), DXGI_FORMAT_R16_UINT, 0); }
+			void Init(u32 capacity);
+			void Upload();
+			void Bind() const;
 		};
 
+		// Buffer for specific primitive topology
 		struct DrawData
 		{
-			IndexBuffer<IDX_MAX>			IDXBuffer;
-			VertexBuffer<Vertex, VTX_MAX>	VTXBuffer;
-			D3D11_PRIMITIVE_TOPOLOGY		TopologyType = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
-			bool							IsIndexed = false;
+			IndexBuffer              IDXBuffer;
+			VertexBuffer             VTXBuffer;
+			D3D11_PRIMITIVE_TOPOLOGY TopologyType = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
+			bool                     IsIndexed = false;
 		};
 
-		struct DrawDatas
-		{
-			DrawData						Line;
-			DrawData						Tris;
-		};
-
-		static auto CreateBuffer(size_t elementSize, size_t elementCount, bool vertexBuffer) -> ID3D11Buffer*;
+		static ID3D11Buffer* CreateBuffer(size_t elementSize, size_t elementCount, bool vertexBuffer);
 		static void UploadBuffer(const amComPtr<ID3D11Buffer>& buffer, pConstVoid data, u32 dataSize);
 
-		// 2 buffers allow us to compose one buffer while other is rendered, used only for deferred
-		int						m_CurrDataIdx = 0;
-		DrawDatas				m_DrawDatas[2];		// Present & Compose buffers
-		std::recursive_mutex	m_Mutex;
-
-		// Draw data that's we currently filling in game threads
-		DrawDatas& GetBackDrawData() { return m_DrawDatas[m_CurrDataIdx]; }
-		// Draw data that will be rendered
-		DrawDatas& GetFrontDrawData() { return m_DrawDatas[(m_CurrDataIdx + 1) % 2]; }
+		DrawData             m_Lines;
+		DrawData             m_Tris;
+		ConstString          m_Name;
+		std::recursive_mutex m_Mutex;
+		bool				 m_HasLinesToDraw = false;
+		bool				 m_HasTrisToDraw = false;
 
 		// Those are non-thread safe functions, exposed interface that calls them must use mutex
 
-		bool VerifyBufferFitLine(const DrawData& drawData) const;
-		bool VerifyBufferFitTri(const DrawData& drawData, u32 vertexCount, u32 indexCount) const;
+		bool VerifyBufferFitLine() const;
+		bool VerifyBufferFitTri(u32 vertexCount, u32 indexCount) const;
 
 		void DrawLine_Unsafe(const Vec3V& p1, const Vec3V& p2, const Mat44V& mtx, ColorU32 col1, ColorU32 col2);
 		void DrawLine_Unsafe(const Vec3V& p1, const Vec3V& p2, const Mat44V& mtx, ColorU32 col);
@@ -147,36 +101,23 @@ namespace rageam::integration
 		void DrawQuadFill_Unsafe(const Vec3V& p1, const Vec3V& p2, const Vec3V& p3, const Vec3V& p4, ColorU32 col, const Mat44V& mtx);
 
 	public:
-		DrawList();
+		DrawList(ConstString name, u32 maxTris, u32 maxLines);
 
 		bool NoDepth = false;
 		bool Unlit = false;
 		bool Wireframe = false;
 		bool BackfaceCull = true;
 
-		// Must be called on the beginning of rendering
-		void FlipBuffer()
-		{
-			std::unique_lock lock(m_Mutex);
-			m_CurrDataIdx = (m_CurrDataIdx + 1) % 2; /* Flip between 0 and 1 */
-		}
+		// Uses 3D polygons facing camera to simulate effect, thickness is measured in world units
+		// static inline float LineThickness = 0.003f;
+
+		void EndFrame();
 
 		// Allows to push transformation matrix for functions that don't have transform argument
-		void SetTransform(const Mat44V& mtx) const { tl_Transform = mtx; }
-		auto GetTransform() const -> const Mat44V& { return tl_Transform; }
+		static void SetTransform(const Mat44V& mtx) { tl_Transform = mtx; }
+		static auto GetTransform() -> const Mat44V& { return tl_Transform; }
 		// Sets transform to identity
-		void ResetTransform() const { SetTransform(Mat44V::Identity()); }
-
-		void Clear()
-		{
-			for(int i = 0; i < 2 ; i++)
-			{
-				m_DrawDatas[i].Tris.VTXBuffer.VertexCount = 0;
-				m_DrawDatas[i].Tris.IDXBuffer.IndexCount = 0;
-				m_DrawDatas[i].Line.VTXBuffer.VertexCount = 0;
-				m_DrawDatas[i].Line.IDXBuffer.IndexCount = 0;
-			}
-		}
+		static void ResetTransform() { SetTransform(Mat44V::Identity()); }
 
 		// --- Lines ---
 
@@ -238,45 +179,80 @@ namespace rageam::integration
 
 	class DrawListExecutor
 	{
-		static inline DrawListExecutor* s_Current = nullptr;
-
-		struct LocalsConstantBuffer
+		class Shader
 		{
-			Mat44V							ViewProj;
-			int								NoDepth;
-			int								Unlit;
+			amComPtr<ID3D11VertexShader> m_VS;
+			amComPtr<ID3D11PixelShader>  m_PS;
+			amComPtr<ID3D11InputLayout>  m_VSLayout;
+			ConstWString				 m_VsName;
+			ConstWString				 m_PsName;
+
+		public:
+			Shader(ConstWString vsName, ConstWString psName);
+			virtual ~Shader() = default;
+
+			virtual void Create();
+			virtual void Bind();
 		};
 
-		struct Effect
+		class DefaultShader : public Shader
 		{
-			amComPtr<ID3D11VertexShader>	VS;
-			amComPtr<ID3D11PixelShader>		PS;
-			amComPtr<ID3D11Buffer>			CB;
-			pVoid							CBData = nullptr;
-			size_t							CBSize = 0;
-			amComPtr<ID3D11InputLayout>		VSLayout;
+			struct Locals
+			{
+				int	Unlit;
+			};
+
+			amComPtr<ID3D11Buffer> m_LocalsCB;
+		public:
+			DefaultShader() : Shader(L"default_vs.hlsl", L"default_ps.hlsl") {}
+
+			void Create() override;
+			void Bind() override;
+
+			Locals Locals = {};
 		};
 
-		amComPtr<ID3D11RasterizerState>		m_RSTwoSided;
-		amComPtr<ID3D11RasterizerState>		m_RSWireframe;
-		amComPtr<ID3D11RasterizerState>		m_RS;
-		Effect								m_Effect;
+		class ImageBlitShader : public Shader
+		{
+			amComPtr<ID3D11Buffer> m_ScreenVerts;
 
-		static auto CreateCB(size_t size) -> ID3D11Buffer*;
+		public:
+			ImageBlitShader() : Shader(L"im_blit_vs.hlsl", L"im_blit_ps.hlsl") {}
+
+			void Create() override;
+
+			void Blit(ID3D11ShaderResourceView* view) const;
+		};
+
+		u32                                m_ScreenWidth = 0, m_ScreenHeight = 0, m_SampleCount = 0;
+		amComPtr<ID3D11Texture2D>          m_BackbufMs;
+		amComPtr<ID3D11RenderTargetView>   m_BackbufMsRt;
+		amComPtr<ID3D11Texture2D>          m_Backbuf;
+		amComPtr<ID3D11ShaderResourceView> m_BackbufView;
+		amComPtr<ID3D11BlendState>		   m_BlendState;
+		amComPtr<ID3D11DepthStencilState>  m_DSS;
+		amComPtr<ID3D11DepthStencilState>  m_DSSNoDepth;
+		amComPtr<ID3D11RasterizerState>    m_RSTwoSided;
+		amComPtr<ID3D11RasterizerState>    m_RSWireframe;
+		amComPtr<ID3D11RasterizerState>    m_RS;
+		DefaultShader                      m_DefaultShader;
+		ImageBlitShader                    m_ImBlitShader;
+
+		static ID3D11Buffer* CreateCB(size_t size);
 		static void CreateShaders(
-			ID3D11VertexShader** vs, ID3D11PixelShader** ps, ID3DBlob** vsBlob, ConstWString vsFileName, ConstWString psFileName);
+			ID3D11VertexShader** vs, 
+			ID3D11PixelShader** ps,
+			ID3DBlob** vsBlob, 
+			ConstWString vsFileName, 
+			ConstWString psFileName);
 
-		void BindEffect() const;
-		void RenderDrawData(DrawList::DrawData& drawData) const;
+		void RenderDrawData(const DrawList::DrawData& drawData) const;
+		void CreateBackbuf();
 
-		void Init();
 	public:
-		DrawListExecutor() { Init(); }
+		DrawListExecutor();
 
 		void Execute(DrawList& drawList);
-
-		static auto GetCurrent() -> DrawListExecutor* { return s_Current; }
-		static void SetCurrent(DrawListExecutor* dl) { s_Current = dl; }
 	};
 }
 

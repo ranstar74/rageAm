@@ -1,12 +1,12 @@
-#include "am/asset/ui/assetwindowfactory.h"
 #ifdef AM_INTEGRATED
 
 #include "modelscene.h"
 
 #include "widgets.h"
-#include "am/integration/integration.h"
 #include "am/ui/font_icons/icons_am.h"
 #include "am/ui/slwidgets.h"
+#include "am/asset/ui/assetwindowfactory.h"
+#include "am/integration/components/camera.h"
 
 rageam::integration::DrawableStats rageam::integration::DrawableStats::ComputeFrom(gtaDrawable* drawable)
 {
@@ -95,10 +95,9 @@ void rageam::integration::ModelScene::CreateArchetypeDefAndSpawnGameEntity()
 	m_ArchetypeDef->LodDist = lodDistance;
 	m_ArchetypeDef->Flags = FLAG_IS_TYPE_OBJECT | FLAG_IS_FIXED | FLAG_HAS_ANIM;
 
-	m_GameEntity.Create(m_Context.Drawable, m_ArchetypeDef.get(), GetScenePosition());
-	//m_GameEntity->Spawn(m_Context.Drawable, m_ArchetypeDef, GetScenePosition());
-	//m_DrawableRender.Create();
-	//m_DrawableRender->SetEntity(m_GameEntity);
+	m_GameEntity.Create(m_Context.Drawable, m_ArchetypeDef, GetScenePosition());
+	m_DrawableRender.Create();
+	m_DrawableRender->SetEntity(m_GameEntity.Get());
 }
 
 void rageam::integration::ModelScene::WarpEntityToScenePosition()
@@ -599,14 +598,15 @@ rageam::integration::ModelScene::ModelScene() : LightEditor(&m_Context), Materia
 }
 
 void rageam::integration::ModelScene::Unload(bool keepHotDrawable)
-{	
-	//m_DrawableRender.Release();
-
+{
 	m_CompilerMessages.Clear();
 	m_CompilerProgress = 0.0;
 
 	m_DrawableStats = {};
 	m_Context = {};
+	if (m_DrawableRender)
+		m_DrawableRender->SetEntity(nullptr);
+	m_DrawableRender.Release();
 	m_GameEntity = nullptr;
 
 	if (!keepHotDrawable)

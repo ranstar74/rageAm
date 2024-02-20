@@ -10,7 +10,8 @@
 #include "modelscene.h"
 #include "am/ui/imglue.h"
 #include "am/ui/slwidgets.h"
-#include "am/integration/script/core.h"
+#include "am/integration/gamedrawlists.h"
+#include "am/integration/script/extensions.h"
 
 void rageam::integration::StarBar::UpdateCamera()
 {
@@ -159,7 +160,10 @@ void rageam::integration::StarBar::OnRender()
 		ImGui::OpenPopup(OVERLAY_POPUP);
 	if (ImGui::BeginPopup(OVERLAY_POPUP))
 	{
-		SlGui::CategoryText("Lights");
+		GameDrawLists* drawLists = GameDrawLists::GetInstance();
+
+		// ImGui::SliderFloat("Line Thickness", &DrawList::LineThickness, 0.0f, 0.05f);
+
 		{
 			ImGui::Checkbox("Outlines", &m_ModelScene->LightEditor.ShowLightOutlines);
 			ImGui::Checkbox("Only Selected", &m_ModelScene->LightEditor.ShowOnlySelectedLightOutline);
@@ -167,14 +171,23 @@ void rageam::integration::StarBar::OnRender()
 		SlGui::CategoryText("Collision");
 		{
 			ImGui::Checkbox("Visible", &DrawableRender::Collision);
-			if (ImGui::Checkbox("Wireframe", &integration->DrawListCollision.Wireframe))
-			{
-				// Wireframe must be unlit
-				integration->DrawListCollision.Unlit = integration->DrawListCollision.Wireframe;
-			}
+			bool disabled = !DrawableRender::Collision;
+			if (disabled) ImGui::BeginDisabled();
+			// ImGui::Checkbox("Draw On Top###DRAW_COLLISION_ON_TOP", &drawLists->CollisionMesh.NoDepth);
+			ImGui::Checkbox("Wireframe", &drawLists->CollisionMesh.Wireframe);
+			if (disabled) ImGui::EndDisabled();
+
+			ImVec4 color = ImGui::ColorConvertU32ToFloat4(DrawableRender::CollisionBoundColor);
+			if (ImGui::ColorEdit4("Color", (float*)&color, ImGuiColorEditFlags_NoInputs))
+				DrawableRender::CollisionBoundColor = ImGui::ColorConvertFloat4ToU32(color);
 		}
 		SlGui::CategoryText("Drawable");
 		{
+			ImVec4 color = ImGui::ColorConvertU32ToFloat4(DrawableRender::BoundingOutlineColor);
+			if (ImGui::ColorEdit4("Outline Color", (float*)&color, ImGuiColorEditFlags_NoInputs))
+				DrawableRender::BoundingOutlineColor = ImGui::ColorConvertFloat4ToU32(color);
+
+			ImGui::Checkbox("Draw On Top###DRAW_BOUNDS_ON_TOP", &DrawableRender::DrawBoundsOnTop);
 			ImGui::Checkbox("Bounding Box", &DrawableRender::BoundingBox);
 			ImGui::Checkbox("Bounding Sphere", &DrawableRender::BoundingSphere);
 			ImGui::Checkbox("Skeleton", &DrawableRender::Skeleton);

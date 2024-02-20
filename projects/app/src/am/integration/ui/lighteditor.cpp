@@ -9,6 +9,7 @@
 #include "am/ui/font_icons/icons_am.h"
 #include "game/viewport.h"
 #include "rage/math/math.h"
+#include "am/integration/gamedrawlists.h"
 
 void rageam::integration::LightEditor::SetCullPlaneFromLight(const LightDrawContext& ctx)
 {
@@ -31,7 +32,7 @@ u32 rageam::integration::LightEditor::GetOutlinerColor(bool isSelected, bool isH
 
 rageam::integration::DrawList& rageam::integration::LightEditor::GetDrawList() const
 {
-	return GameIntegration::GetInstance()->DrawListForeground;
+	return GameDrawLists::GetInstance()->Overlay;
 }
 
 rageam::graphics::ShapeHit rageam::integration::LightEditor::ProbeLightSphere(const LightDrawContext& ctx) const

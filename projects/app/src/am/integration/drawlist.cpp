@@ -4,128 +4,80 @@
 
 #include "am/graphics/buffereditor.h"
 #include "am/system/datamgr.h"
+#include "rage/grcore/device.h"
 #include "game/viewport.h"
 #include "helpers/com.h"
-#include "rage/grcore/device.h"
-#include "rage/grcore/effect/effectmgr.h"
+#include "am/graphics/render.h"
 
 #include <d3dcompiler.h>
 
-rageam::integration::DrawListDummyDrawable::DrawListDummyDrawable()
+bool rageam::integration::DrawList::VerifyBufferFitLine() const
 {
-	rage::grcEffect* effect = rage::grcEffectMgr::FindEffect("default");
-	rage::grcVertexFormatInfo vertexFormatInfo;
-	vertexFormatInfo.FromEffect(effect, false);
-
-	rage::spdAABB bb = AABB(Vec3V(-3, -3, -3), Vec3V(3, 3, 3));
-
-	char* dummyVertexData = new char[(size_t)vertexFormatInfo.Decl->Stride] {};
-	u16* dummmyIndexData = new u16[]{ 0, 0, 0 };
-
-	// Add dummy geometry
-	rage::grmVertexData vertexData;
-	vertexData.VertexCount = 1;
-	vertexData.IndexCount = 3;
-	vertexData.Vertices = dummyVertexData;
-	vertexData.Indices = dummmyIndexData;
-	vertexData.Info = std::move(vertexFormatInfo);
-	rage::pgUPtr geometry = new rage::grmGeometryQB();
-	geometry->SetVertexData(vertexData);
-	rage::grmModel* model = new rage::grmModel();
-	model->AddGeometry(geometry, bb);
-	rage::grmModels& lodModels = m_LodGroup.GetLod(0)->GetModels();
-	lodModels.Emplace(model);
-
-	rage::grmShader* shader = new rage::grmShader(effect);
-	m_ShaderGroup->AddShader(shader);
-
-	GetLodGroup().CalculateExtents();
-	ComputeBucketMask(); // NOTE: We except mask to set to 0xFFFF!
-}
-
-void rageam::integration::DrawListDummyDrawable::AddDrawList(DrawList* dl)
-{
-	m_DrawLists.Add(dl);
-}
-
-void rageam::integration::DrawListDummyDrawable::Draw(const Mat34V& mtx, rage::grcRenderMask mask, rage::eDrawableLod lod)
-{
-	// Let game to render our dummy geometry to setup rendering for us
-	gtaDrawable::Draw(mtx, mask, lod);
-
-	DrawListExecutor* executor = DrawListExecutor::GetCurrent();
-
-	for (DrawList* dl : m_DrawLists)
-	{
-		if (mask & (1 << 0)) // Diffuse bucket
-		{
-			if (!dl->Unlit) executor->Execute(*dl);
-		}
-
-		if (mask & (1 << 1)) // Alpha bucket
-		{
-			if (dl->Unlit) executor->Execute(*dl);
-		}
-	}
-}
-//
-//void rageam::integration::DrawListDummyEntity::ReleaseAllRefs()
-//{
-//	//m_GameEntity.Release();
-//}
-
-void rageam::integration::DrawListDummyEntity::OnEarlyUpdate()
-{
-	// We keep entity always around camera because otherwise
-	// game will cull it out on bounding check
-	//m_GameEntity->SetPosition(CViewport::GetCameraPos());
-}
-
-void rageam::integration::DrawListDummyEntity::Spawn()
-{
-	static constexpr u32 DUMMY_NAME_HASH = rage::atStringHash("amDrawListDummy");
-
-	m_DummyDrawable = std::make_shared<DrawListDummyDrawable>();
-	auto archetypeDef = std::make_shared<CBaseArchetypeDef>();
-	const AABB& bb = m_DummyDrawable->GetBoundingBox();
-	const Sphere& bs = m_DummyDrawable->GetBoundingSphere();
-	archetypeDef->BoundingBox = bb;
-	archetypeDef->BsCentre = bs.GetCenter();
-	archetypeDef->BsRadius = bs.GetRadius().Get();
-	archetypeDef->Name = DUMMY_NAME_HASH;
-	archetypeDef->AssetName = DUMMY_NAME_HASH;
-	archetypeDef->Flags = FLAG_IS_FIXED;
-	archetypeDef->LodDist = archetypeDef->BsRadius;
-
-	//m_GameEntity.Create();
-	//m_GameEntity->Spawn(m_DummyDrawable, archetypeDef, rage::VEC_ORIGIN);
-}
-
-bool rageam::integration::DrawList::VerifyBufferFitLine(const DrawData& drawData) const
-{
-	bool can = drawData.VTXBuffer.VertexCount + 2 <= VTX_MAX;
-	if (!can) AM_WARNINGF("OverlayRender -> Line buffer size must be extended!");
+	bool can = m_Lines.VTXBuffer.Size + 2 <= m_Lines.VTXBuffer.Capacity;
+	if (!can) AM_WARNINGF("DrawList '%s' -> Line buffer size must be extended!", m_Name);
 	return can;
 }
 
-bool rageam::integration::DrawList::VerifyBufferFitTri(const DrawData& drawData, u32 vertexCount, u32 indexCount) const
+bool rageam::integration::DrawList::VerifyBufferFitTri(u32 vertexCount, u32 indexCount) const
 {
 	bool can =
-		drawData.VTXBuffer.VertexCount + vertexCount <= VTX_MAX &&
-		drawData.IDXBuffer.IndexCount + indexCount <= IDX_MAX;
-	if (!can) AM_WARNINGF("OverlayRender -> Tri buffer size must be extended!");
+		m_Tris.VTXBuffer.Size + vertexCount <= m_Tris.VTXBuffer.Capacity &&
+		m_Tris.IDXBuffer.Size + indexCount <= m_Tris.IDXBuffer.Capacity;
+	if (!can) AM_WARNINGF("DrawList '%s' -> Tri buffer size must be extended!", m_Name);
 	return can;
 }
 
-rageam::integration::DrawList::DrawList()
+rageam::integration::DrawList::DrawList(ConstString name, u32 maxTris, u32 maxLines)
 {
-	for (int i = 0; i < 2; i++) // Back & Front buffers
-	{
-		m_DrawDatas[i].Line.IsIndexed = false;
-		m_DrawDatas[i].Line.TopologyType = D3D11_PRIMITIVE_TOPOLOGY_LINELIST;
-		m_DrawDatas[i].Tris.IsIndexed = true;
-		m_DrawDatas[i].Tris.TopologyType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	}
+	m_Name = name;
+
+	m_Lines.IsIndexed = false;
+	m_Lines.TopologyType = D3D11_PRIMITIVE_TOPOLOGY_LINELIST;
+	m_Lines.VTXBuffer.Init(maxLines);
+
+	m_Tris.IsIndexed = true;
+	m_Tris.TopologyType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	m_Tris.VTXBuffer.Init(maxTris);
+	m_Tris.IDXBuffer.Init(maxTris * 3);
+}
+
+void rageam::integration::DrawList::VertexBuffer::Init(u32 capacity)
+{
+	Resource = amComPtr(CreateBuffer(sizeof Vertex, capacity, true));
+	Vertices = amUPtr<Vertex[]>(new Vertex[capacity]);
+	Capacity = capacity;
+}
+
+void rageam::integration::DrawList::VertexBuffer::Upload()
+{
+	GPUSize = Size;
+	UploadBuffer(Resource, Vertices.get(), sizeof Vertex * Size);
+}
+
+void rageam::integration::DrawList::VertexBuffer::Bind() const
+{
+	ID3D11Buffer* buffer = Resource.Get();
+	u32           stride = sizeof Vertex;
+	u32           offset = 0;
+	graphics::RenderGetContext()->IASetVertexBuffers(0, 1, &buffer, &stride, &offset);
+}
+
+void rageam::integration::DrawList::IndexBuffer::Init(u32 capacity)
+{
+	Resource = amComPtr(CreateBuffer(sizeof Index_t, capacity, false));
+	Indices = amUPtr<Index_t[]>(new Index_t[capacity]);
+	Capacity = capacity;
+}
+
+void rageam::integration::DrawList::IndexBuffer::Upload()
+{
+	GPUSize = Size;
+	UploadBuffer(Resource, Indices.get(), sizeof Index_t * Size);
+}
+
+void rageam::integration::DrawList::IndexBuffer::Bind() const
+{
+	graphics::RenderGetContext()->IASetIndexBuffer(Resource.Get(), DXGI_FORMAT_R16_UINT, 0);
 }
 
 ID3D11Buffer* rageam::integration::DrawList::CreateBuffer(size_t elementSize, size_t elementCount, bool vertexBuffer)
@@ -158,14 +110,16 @@ void rageam::integration::DrawList::DrawLine_Unsafe(
 	if (col1.A == 0 && col2.A == 0)
 		return;
 
-	DrawData& drawData = GetBackDrawData().Line;
-	if (!VerifyBufferFitLine(drawData))
+	if (!VerifyBufferFitLine())
 		return;
 
 	rage::Vec3V pt1 = p1.Transform(mtx);
 	rage::Vec3V pt2 = p2.Transform(mtx);
-	drawData.VTXBuffer.Vertices[drawData.VTXBuffer.VertexCount++] = Vertex(pt1, col1.ToVec4());
-	drawData.VTXBuffer.Vertices[drawData.VTXBuffer.VertexCount++] = Vertex(pt2, col2.ToVec4());
+	rage::Vector4 col1v = col1.ToVec4();
+	rage::Vector4 col2v = col1.ToVec4();
+
+	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(pt1, col1v);
+	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(pt2, col2v);
 }
 
 void rageam::integration::DrawList::DrawLine_Unsafe(
@@ -180,12 +134,11 @@ void rageam::integration::DrawList::DrawLine_Unsafe(
 	if (col1.A == 0 && col2.A == 0)
 		return;
 
-	DrawData& drawData = GetBackDrawData().Line;
-	if (!VerifyBufferFitLine(drawData))
+	if (!VerifyBufferFitLine())
 		return;
 
-	drawData.VTXBuffer.Vertices[drawData.VTXBuffer.VertexCount++] = Vertex(p1, col1.ToVec4());
-	drawData.VTXBuffer.Vertices[drawData.VTXBuffer.VertexCount++] = Vertex(p2, col2.ToVec4());
+	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(p1, col1.ToVec4());
+	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(p2, col2.ToVec4());
 }
 
 void rageam::integration::DrawList::DrawLine_Unsafe(const rage::Vec3V& p1, const rage::Vec3V& p2, ColorU32 col)
@@ -207,19 +160,18 @@ void rageam::integration::DrawList::DrawTriFill_Unsafe(
 	if (col1.A == 0 && col2.A == 0 && col3.A == 0)
 		return;
 
-	DrawData& drawData = GetBackDrawData().Tris;
-	if (!VerifyBufferFitTri(drawData, 3, 3))
+	if (!VerifyBufferFitTri(3, 3))
 		return;
 
 	Vec3V n = TriNormal(p1, p2, p3);
 
-	u32 startVertex = drawData.VTXBuffer.VertexCount;
-	drawData.VTXBuffer.Vertices[drawData.VTXBuffer.VertexCount++] = Vertex(p1, col1.ToVec4(), n);
-	drawData.VTXBuffer.Vertices[drawData.VTXBuffer.VertexCount++] = Vertex(p2, col2.ToVec4(), n);
-	drawData.VTXBuffer.Vertices[drawData.VTXBuffer.VertexCount++] = Vertex(p3, col3.ToVec4(), n);
-	drawData.IDXBuffer.Indices[drawData.IDXBuffer.IndexCount++] = startVertex + 0;
-	drawData.IDXBuffer.Indices[drawData.IDXBuffer.IndexCount++] = startVertex + 1;
-	drawData.IDXBuffer.Indices[drawData.IDXBuffer.IndexCount++] = startVertex + 2;
+	u32 startVertex = m_Tris.VTXBuffer.Size;
+	m_Tris.VTXBuffer.Vertices[m_Tris.VTXBuffer.Size++] = Vertex(p1, col1.ToVec4(), n);
+	m_Tris.VTXBuffer.Vertices[m_Tris.VTXBuffer.Size++] = Vertex(p2, col2.ToVec4(), n);
+	m_Tris.VTXBuffer.Vertices[m_Tris.VTXBuffer.Size++] = Vertex(p3, col3.ToVec4(), n);
+	m_Tris.IDXBuffer.Indices[m_Tris.IDXBuffer.Size++] = startVertex + 0;
+	m_Tris.IDXBuffer.Indices[m_Tris.IDXBuffer.Size++] = startVertex + 1;
+	m_Tris.IDXBuffer.Indices[m_Tris.IDXBuffer.Size++] = startVertex + 2;
 }
 
 void rageam::integration::DrawList::DrawTriFill_Unsafe(
@@ -236,8 +188,7 @@ void rageam::integration::DrawList::DrawQuadFill_Unsafe(
 	if (col.A == 0)
 		return;
 
-	DrawData& drawData = GetBackDrawData().Line;
-	if (!VerifyBufferFitTri(drawData, 4, 6))
+	if (!VerifyBufferFitTri(4, 6))
 		return;
 
 	Vec4S colVec = col.ToVec4();
@@ -245,17 +196,39 @@ void rageam::integration::DrawList::DrawQuadFill_Unsafe(
 	Vec3V n2 = TriNormal(p2, p3, p4);
 	Vec3V n = (n1 + n2) * rage::S_HALF; // Average
 
-	u32 startVertex = drawData.VTXBuffer.VertexCount;
-	drawData.VTXBuffer.Vertices[drawData.VTXBuffer.VertexCount++] = Vertex(p1, colVec, n);
-	drawData.VTXBuffer.Vertices[drawData.VTXBuffer.VertexCount++] = Vertex(p2, colVec, n);
-	drawData.VTXBuffer.Vertices[drawData.VTXBuffer.VertexCount++] = Vertex(p3, colVec, n);
-	drawData.VTXBuffer.Vertices[drawData.VTXBuffer.VertexCount++] = Vertex(p4, colVec, n);
-	drawData.IDXBuffer.Indices[drawData.IDXBuffer.IndexCount++] = startVertex + 0;
-	drawData.IDXBuffer.Indices[drawData.IDXBuffer.IndexCount++] = startVertex + 1;
-	drawData.IDXBuffer.Indices[drawData.IDXBuffer.IndexCount++] = startVertex + 2;
-	drawData.IDXBuffer.Indices[drawData.IDXBuffer.IndexCount++] = startVertex + 0;
-	drawData.IDXBuffer.Indices[drawData.IDXBuffer.IndexCount++] = startVertex + 3;
-	drawData.IDXBuffer.Indices[drawData.IDXBuffer.IndexCount++] = startVertex + 2;
+	u32 startVertex = m_Lines.VTXBuffer.Size;
+	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(p1, colVec, n);
+	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(p2, colVec, n);
+	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(p3, colVec, n);
+	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(p4, colVec, n);
+	m_Lines.IDXBuffer.Indices[m_Lines.IDXBuffer.Size++] = startVertex + 0;
+	m_Lines.IDXBuffer.Indices[m_Lines.IDXBuffer.Size++] = startVertex + 1;
+	m_Lines.IDXBuffer.Indices[m_Lines.IDXBuffer.Size++] = startVertex + 2;
+	m_Lines.IDXBuffer.Indices[m_Lines.IDXBuffer.Size++] = startVertex + 0;
+	m_Lines.IDXBuffer.Indices[m_Lines.IDXBuffer.Size++] = startVertex + 3;
+	m_Lines.IDXBuffer.Indices[m_Lines.IDXBuffer.Size++] = startVertex + 2;
+}
+
+void rageam::integration::DrawList::EndFrame()
+{
+	std::unique_lock lock(m_Mutex);
+
+	m_HasLinesToDraw = m_Lines.VTXBuffer.Size > 0;
+	m_HasTrisToDraw = m_Tris.VTXBuffer.Size > 0;
+
+	if (m_HasLinesToDraw)
+		m_Lines.VTXBuffer.Upload();
+
+	if (m_HasTrisToDraw)
+	{
+		m_Tris.VTXBuffer.Upload();
+		m_Tris.IDXBuffer.Upload();
+	}
+
+	// Resets stats for the next frame
+	m_Lines.VTXBuffer.Size = 0;
+	m_Tris.VTXBuffer.Size = 0;
+	m_Tris.IDXBuffer.Size = 0;
 }
 
 void rageam::integration::DrawList::DrawLine(const rage::Vec3V& p1, const rage::Vec3V& p2, const rage::Mat44V& mtx, ColorU32 col1, ColorU32 col2)
@@ -432,30 +405,141 @@ void rageam::integration::DrawList::DrawQuadFill(const Vec3V& p1, const Vec3V& p
 	DrawQuadFill(p1, p2, p3, p4, col, tl_Transform);
 }
 
+void rageam::integration::DrawListExecutor::Shader::Create()
+{
+	ID3D11Device* device = graphics::RenderGetDevice();
+
+	ID3DBlob* vsBlob;
+
+	ID3D11VertexShader* vs;
+	ID3D11PixelShader* ps;
+	CreateShaders(&vs, &ps, &vsBlob, m_VsName, m_PsName);
+	m_VS = amComPtr(vs);
+	m_PS = amComPtr(ps);
+
+	D3D11_INPUT_ELEMENT_DESC inputDesc[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	};
+	ID3D11InputLayout* vsLayout;
+	AM_ASSERT_STATUS(device->CreateInputLayout(
+		inputDesc, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &vsLayout));
+	SAFE_RELEASE(vsBlob);
+	m_VSLayout = amComPtr(vsLayout);
+}
+
+rageam::integration::DrawListExecutor::Shader::Shader(ConstWString vsName, ConstWString psName)
+{
+	m_VsName = vsName;
+	m_PsName = psName;
+}
+
+void rageam::integration::DrawListExecutor::Shader::Bind()
+{
+	ID3D11DeviceContext* context = graphics::RenderGetContext();
+	context->IASetInputLayout(m_VSLayout.Get());
+	context->VSSetShader(m_VS.Get(), NULL, 0);
+	context->PSSetShader(m_PS.Get(), NULL, 0);
+}
+
+void rageam::integration::DrawListExecutor::DefaultShader::Create()
+{
+	Shader::Create();
+
+	m_LocalsCB = amComPtr(CreateCB(sizeof Locals));
+}
+
+void rageam::integration::DrawListExecutor::DefaultShader::Bind()
+{
+	Shader::Bind();
+
+	ID3D11DeviceContext* context = graphics::RenderGetContext();
+
+	DrawList::UploadBuffer(m_LocalsCB, &Locals, sizeof Locals);
+	ID3D11Buffer* cb = m_LocalsCB.Get();
+	context->VSSetConstantBuffers(2, 1, &cb);
+}
+
+void rageam::integration::DrawListExecutor::ImageBlitShader::Create()
+{
+	Shader::Create();
+
+	Vec3S screenVerts[] =
+	{
+		Vec3S(-1, -1, 0), // Bottom Left
+		Vec3S( 1,  1, 0), // Top Right
+		Vec3S(-1,  1, 0), // Top Left
+		Vec3S( 1, -1, 0), // Bottom Right
+		Vec3S( 1,  1, 0), // Top Right
+		Vec3S(-1, -1, 0), // Bottom Left
+	};
+
+	D3D11_BUFFER_DESC bufferDesc;
+	bufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	bufferDesc.CPUAccessFlags = 0;
+	bufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	bufferDesc.ByteWidth = sizeof screenVerts;
+	bufferDesc.StructureByteStride = sizeof Vec3S;
+	bufferDesc.MiscFlags = 0;
+
+	D3D11_SUBRESOURCE_DATA bufferData;
+	bufferData.SysMemPitch = 0;
+	bufferData.SysMemSlicePitch = 0;
+	bufferData.pSysMem = screenVerts;
+
+	ID3D11Buffer* buffer;
+	AM_ASSERT_STATUS(graphics::RenderGetDevice()->CreateBuffer(&bufferDesc, &bufferData, &buffer));
+
+	m_ScreenVerts = amComPtr(buffer);
+}
+
+void rageam::integration::DrawListExecutor::ImageBlitShader::Blit(ID3D11ShaderResourceView* view) const
+{
+	ID3D11DeviceContext* context = graphics::RenderGetContext();
+
+	// Map texture
+	ID3D11ShaderResourceView* views = view;
+	context->PSSetShaderResources(0, 1, &views);
+
+	// Blit texture on screen
+	ID3D11Buffer* vb = m_ScreenVerts.Get();
+	u32           stride = sizeof Vec3S;
+	u32           offset = 0;
+	context->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+	context->Draw(6, 0);
+}
+
 // DX11 state backup
 struct OldState
 {
-	ID3D11BlendState* BlendState;
-	float BlendFactor[4];
-	UINT BlendMask;
+	ID3D11BlendState*        BlendState;
+	float                    BlendFactor[4];
+	UINT                     BlendMask;
 	ID3D11DepthStencilState* DepthStencilState;
-	UINT StencilRef;
-	UINT NumViewports, NumScissors;
-	D3D11_VIEWPORT Viewports[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
-	D3D11_RECT Scissors[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
-	ID3D11RasterizerState* RasteriszerState;
+	UINT                     StencilRef;
+	UINT                     NumViewports, NumScissors;
+	D3D11_VIEWPORT           Viewports[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
+	D3D11_RECT               Scissors[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
+	ID3D11RasterizerState*   RasteriszerState;
 	D3D11_PRIMITIVE_TOPOLOGY PrimitiveTopology;
-	ID3D11PixelShader* PS;
-	ID3D11VertexShader* VS;
-	UINT PSInstancesCount, VSInstancesCount;
-	ID3D11ClassInstance* PSInstances[256], * VSInstances[256];
-	ID3D11Buffer* IndexBuffer, * VertexBuffer, * VSConstantBuffer;
-	UINT IndexBufferOffset, VertexBufferStride, VertexBufferOffset;
-	DXGI_FORMAT IndexBufferFormat;
-	ID3D11InputLayout* InputLayout;
+	ID3D11PixelShader*       PS;
+	ID3D11VertexShader*      VS;
+	UINT                     PSInstancesCount, VSInstancesCount;
+	ID3D11ClassInstance*     PSInstances[256];
+	ID3D11ClassInstance*     VSInstances[256];
+	ID3D11Buffer*            IndexBuffer;
+	ID3D11Buffer*            VertexBuffer;
+	ID3D11Buffer*            VSConstantBuffer;
+	UINT                     IndexBufferOffset, VertexBufferStride, VertexBufferOffset;
+	DXGI_FORMAT              IndexBufferFormat;
+	ID3D11InputLayout*       InputLayout;
+	ID3D11RenderTargetView*  RenderTargets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
+	ID3D11DepthStencilView*  DepthStencil;
 };
 
-static void BackupOldState(OldState& oldState)
+void BackupOldState(OldState& oldState)
 {
 	memset(&oldState, 0, sizeof OldState);
 	ID3D11DeviceContext* context = rageam::graphics::RenderGetContext();
@@ -473,9 +557,10 @@ static void BackupOldState(OldState& oldState)
 	context->IAGetInputLayout(&oldState.InputLayout);
 	context->IAGetIndexBuffer(&oldState.IndexBuffer, &oldState.IndexBufferFormat, &oldState.IndexBufferOffset);
 	context->IAGetVertexBuffers(0, 1, &oldState.VertexBuffer, &oldState.VertexBufferStride, &oldState.VertexBufferOffset);
+	context->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, oldState.RenderTargets, &oldState.DepthStencil);
 }
 
-static void RestoreOldState(OldState& oldState)
+void RestoreOldState(OldState& oldState)
 {
 	ID3D11DeviceContext* context = rageam::graphics::RenderGetContext();
 	context->OMSetBlendState(oldState.BlendState, oldState.BlendFactor, oldState.BlendMask);
@@ -490,6 +575,7 @@ static void RestoreOldState(OldState& oldState)
 	context->IASetInputLayout(oldState.InputLayout);
 	context->IASetIndexBuffer(oldState.IndexBuffer, oldState.IndexBufferFormat, oldState.IndexBufferOffset);
 	context->IASetVertexBuffers(0, 1, &oldState.VertexBuffer, &oldState.VertexBufferStride, &oldState.VertexBufferOffset);
+	context->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, oldState.RenderTargets, oldState.DepthStencil);
 	SAFE_RELEASE(oldState.BlendState);
 	SAFE_RELEASE(oldState.DepthStencilState);
 	SAFE_RELEASE(oldState.RasteriszerState);
@@ -501,10 +587,14 @@ static void RestoreOldState(OldState& oldState)
 	SAFE_RELEASE(oldState.VertexBuffer);
 	SAFE_RELEASE(oldState.VSConstantBuffer);
 	SAFE_RELEASE(oldState.InputLayout);
+	for (ID3D11RenderTargetView*& rt : oldState.RenderTargets) SAFE_RELEASE(rt);
+	SAFE_RELEASE(oldState.DepthStencil);
 }
 
 ID3D11Buffer* rageam::integration::DrawListExecutor::CreateCB(size_t size)
 {
+	size = ALIGN_16(size);
+
 	D3D11_BUFFER_DESC desc;
 	desc.ByteWidth = size;
 	desc.Usage = D3D11_USAGE_DYNAMIC;
@@ -532,7 +622,7 @@ void rageam::integration::DrawListExecutor::CreateShaders(
 	{
 		ID3DBlob* blob;
 		ID3DBlob* errors;
-		AM_ASSERT_STATUS(D3DCompileFromFile(vsPath, NULL, NULL, "main", "vs_5_0", 0, 0, &blob, &errors));
+		AM_ASSERT_STATUS(D3DCompileFromFile(vsPath, NULL, NULL, "main", "vs_4_0", 0, 0, &blob, &errors));
 		AM_ASSERT_STATUS(device->CreateVertexShader(blob->GetBufferPointer(), blob->GetBufferSize(), NULL, vs));
 		SAFE_RELEASE(errors);
 		*vsBlob = blob;
@@ -542,74 +632,119 @@ void rageam::integration::DrawListExecutor::CreateShaders(
 	{
 		ID3DBlob* blob;
 		ID3DBlob* errors;
-		AM_ASSERT_STATUS(D3DCompileFromFile(psPath, NULL, NULL, "main", "ps_5_0", 0, 0, &blob, &errors));
+		AM_ASSERT_STATUS(D3DCompileFromFile(psPath, NULL, NULL, "main", "ps_4_0", 0, 0, &blob, &errors));
 		AM_ASSERT_STATUS(device->CreatePixelShader(blob->GetBufferPointer(), blob->GetBufferSize(), NULL, ps));
 		SAFE_RELEASE(errors);
 		SAFE_RELEASE(blob);
 	}
 }
 
-void rageam::integration::DrawListExecutor::BindEffect() const
-{
-	ID3D11DeviceContext* context = graphics::RenderGetContext();
-
-	// Viewport
-	u32 width, height;
-	rage::grcDevice::GetScreenSize(width, height);
-	D3D11_VIEWPORT viewport = {};
-	viewport.Width = static_cast<float>(width);
-	viewport.Height = static_cast<float>(height);
-	viewport.MaxDepth = 1.0;
-	context->RSSetViewports(1, &viewport);
-
-	// Scissors
-	D3D11_RECT scissors = {};
-	scissors.right = static_cast<LONG>(width);
-	scissors.bottom = static_cast<LONG>(height);
-	context->RSSetScissorRects(1, &scissors);
-	
-	// Shaders
-	context->IASetInputLayout(m_Effect.VSLayout.Get());
-	context->VSSetShader(m_Effect.VS.Get(), NULL, 0);
-	context->PSSetShader(m_Effect.PS.Get(), NULL, 0);
-
-	// Constant buffer
-	DrawList::UploadBuffer(m_Effect.CB, m_Effect.CBData, m_Effect.CBSize);
-	ID3D11Buffer* cb = m_Effect.CB.Get();
-	context->VSSetConstantBuffers(1, 1, &cb);
-}
-
-void rageam::integration::DrawListExecutor::RenderDrawData(DrawList::DrawData& drawData) const
+void rageam::integration::DrawListExecutor::RenderDrawData(const DrawList::DrawData& drawData) const
 {
 	ID3D11DeviceContext* context = graphics::RenderGetContext();
 
 	context->IASetPrimitiveTopology(drawData.TopologyType);
 	if (drawData.IsIndexed)
 	{
-		drawData.VTXBuffer.Upload();
-		drawData.IDXBuffer.Upload();
 		drawData.VTXBuffer.Bind();
 		drawData.IDXBuffer.Bind();
-
-		context->DrawIndexed(drawData.IDXBuffer.IndexCount, 0, 0);
+		context->DrawIndexed(drawData.IDXBuffer.GPUSize, 0, 0);
 	}
 	else
 	{
-		drawData.VTXBuffer.Upload();
 		drawData.VTXBuffer.Bind();
-
-		context->Draw(drawData.VTXBuffer.VertexCount, 0);
+		context->Draw(drawData.VTXBuffer.GPUSize, 0);
 	}
-
-	// Reset state for next frame
-	drawData.VTXBuffer.VertexCount = 0;
-	drawData.IDXBuffer.IndexCount = 0;
 }
 
-
-void rageam::integration::DrawListExecutor::Init()
+void rageam::integration::DrawListExecutor::CreateBackbuf()
 {
 	ID3D11Device* device = graphics::RenderGetDevice();
+	ID3D11Texture2D* backbufMs;
+	ID3D11RenderTargetView* rtMs;
+	ID3D11Texture2D* backbuf;
+	ID3D11ShaderResourceView* view;
+
+	D3D11_TEXTURE2D_DESC texDesc = {};
+	texDesc.Width = m_ScreenWidth;
+	texDesc.Height = m_ScreenHeight;
+	texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+	texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	texDesc.Usage = D3D11_USAGE_DEFAULT;
+	texDesc.MipLevels = 1;
+	texDesc.ArraySize = 1;
+	texDesc.SampleDesc.Quality = 0;
+	texDesc.SampleDesc.Count = m_SampleCount;
+	texDesc.CPUAccessFlags = 0;
+	texDesc.MiscFlags = 0;
+	AM_ASSERT_STATUS(device->CreateTexture2D(&texDesc, nullptr, &backbufMs));
+
+	if (m_SampleCount > 1)
+	{
+		D3D11_RENDER_TARGET_VIEW_DESC rtDesc;
+		rtDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		rtDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMS;
+		rtDesc.Texture2DMS.UnusedField_NothingToDefine = 0;
+		AM_ASSERT_STATUS(device->CreateRenderTargetView(backbufMs, &rtDesc, &rtMs));
+	}
+	else
+	{
+		D3D11_RENDER_TARGET_VIEW_DESC rtDesc;
+		rtDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		rtDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+		rtDesc.Texture2D.MipSlice = 0;
+		AM_ASSERT_STATUS(device->CreateRenderTargetView(backbufMs, &rtDesc, &rtMs));
+	}
+
+	m_BackbufMs = amComPtr(backbufMs);
+	m_BackbufMsRt = amComPtr(rtMs);
+
+	// Non multi sampled for resolving 
+	texDesc.SampleDesc.Count = 1;
+	AM_ASSERT_STATUS(device->CreateTexture2D(&texDesc, nullptr, &backbuf));
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC viewDesc;
+	viewDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	viewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	viewDesc.Texture2D.MipLevels = 1;
+	viewDesc.Texture2D.MostDetailedMip = 0;
+	AM_ASSERT_STATUS(device->CreateShaderResourceView(backbuf, &viewDesc, &view));
+
+	m_Backbuf = amComPtr(backbuf);
+	m_BackbufView = amComPtr(view);
+}
+
+rageam::integration::DrawListExecutor::DrawListExecutor()
+{
+	m_DefaultShader.Create();
+	m_ImBlitShader.Create();
+
+	ID3D11Device* device = graphics::RenderGetDevice();
+
+	// Depth Stencil State
+	{
+		ID3D11DepthStencilState* depthStencilState;
+		D3D11_DEPTH_STENCIL_DESC dsDesc;
+		dsDesc.DepthEnable = true;
+		dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+		dsDesc.DepthFunc = D3D11_COMPARISON_GREATER;
+		dsDesc.StencilEnable = true;
+		dsDesc.StencilReadMask = 0xFF;
+		dsDesc.StencilWriteMask = 0xFF;
+		dsDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+		dsDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
+		dsDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+		dsDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+		dsDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+		dsDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
+		dsDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+		dsDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+		AM_ASSERT_STATUS(device->CreateDepthStencilState(&dsDesc, &depthStencilState));
+		m_DSS = amComPtr(depthStencilState);
+		dsDesc.DepthEnable = false;
+		AM_ASSERT_STATUS(device->CreateDepthStencilState(&dsDesc, &depthStencilState));
+		m_DSSNoDepth = amComPtr(depthStencilState);
+	}
 
 	// Resterizer State
 	{
@@ -630,7 +765,7 @@ void rageam::integration::DrawListExecutor::Init()
 			AM_ASSERT_STATUS(device->CreateRasterizerState(&rsDesc, &rasterizerState));
 			m_RS = amComPtr(rasterizerState);
 		}
-		// Two sided
+		// Two-sided
 		{
 			rsDesc.CullMode = D3D11_CULL_NONE;
 			AM_ASSERT_STATUS(device->CreateRasterizerState(&rsDesc, &rasterizerState));
@@ -645,64 +780,90 @@ void rageam::integration::DrawListExecutor::Init()
 		}
 	}
 
-	// Effect
+	// Blend state
 	{
-		ID3DBlob* vsBlob;
+		D3D11_BLEND_DESC blendDesc = {};
+		blendDesc.AlphaToCoverageEnable = false;
+		blendDesc.RenderTarget[0].BlendEnable = true;
+		blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+		blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+		blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+		blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+		blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+		blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+		blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+		ID3D11BlendState* blendState;
+		AM_ASSERT_STATUS(device->CreateBlendState(&blendDesc, &blendState));
 
-		ID3D11Buffer* cb = CreateCB(sizeof LocalsConstantBuffer);
-
-		ID3D11VertexShader* vs;
-		ID3D11PixelShader* ps;
-		CreateShaders(&vs, &ps, &vsBlob, L"deferred_vs.hlsl", L"deferred_ps.hlsl");
-		m_Effect.CB = amComPtr(cb);
-		m_Effect.VS = amComPtr(vs);
-		m_Effect.PS = amComPtr(ps);
-
-		D3D11_INPUT_ELEMENT_DESC inputDesc[] =
-		{
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		};
-		ID3D11InputLayout* vsLayout;
-		AM_ASSERT_STATUS(device->CreateInputLayout(inputDesc, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &vsLayout));
-		SAFE_RELEASE(vsBlob);
-		m_Effect.VSLayout = amComPtr(vsLayout);
+		m_BlendState = amComPtr(blendState);
 	}
 }
 
 void rageam::integration::DrawListExecutor::Execute(DrawList& drawList)
 {
-	DrawList::DrawDatas& drawDatas = drawList.GetFrontDrawData();
+	std::unique_lock lock(drawList.m_Mutex);
+
 	// Check if there's anything to render
-	if (drawDatas.Line.VTXBuffer.VertexCount == 0 &&
-		drawDatas.Tris.VTXBuffer.VertexCount == 0)
+	if (!drawList.m_HasTrisToDraw && !drawList.m_HasLinesToDraw)
 		return;
 
-	// NOTE: We can't use projection matrix from CViewport, game uses
-	// inverse depth projection for actual rendering,
-	// usually near clip is set to 7333 and far is 0.1
-	static char** currViewport = gmAddress::Scan("48 8B 05 ?? ?? ?? ?? 0F 28 69 30").GetRef(3).To<char**>();
+	u32 width, height, sampleCount;
+	rage::grcDevice::GetScreenSize(width, height);
+	sampleCount = rage::grcDevice::GetMSAA().Mode;
 
-	// We can't use worldViewProj because world is set at camera position, recompute WorldViewProject without World
-	const Mat44V& worldView = (*(rage::Mat44V*)(*currViewport + 0x40));
-	const Mat44V& worldViewProj = *(rage::Mat44V*)(*currViewport + 0x80);
-	Mat44V proj = worldView.Inverse() * worldViewProj;
-	Mat44V viewProj = CViewport::GetViewMatrix() * proj;
+	// Recreate MSAA back buffer and render target
+	if (m_ScreenWidth != width || m_ScreenHeight != height || m_SampleCount != sampleCount)
+	{
+		m_ScreenWidth = width;
+		m_ScreenHeight = height;
+		m_SampleCount = sampleCount;
 
-	// Setup effect
-	LocalsConstantBuffer cb;
-	cb.ViewProj = viewProj;
-	cb.Unlit = drawList.Unlit;
-	cb.NoDepth = drawList.NoDepth;
-	m_Effect.CBSize = sizeof LocalsConstantBuffer;
-	m_Effect.CBData = &cb;
+		AM_DEBUGF("DrawListExecutor -> Creating backbuf for %ux%u and %u samples", 
+			m_ScreenWidth, m_ScreenHeight, m_SampleCount);
+
+		CreateBackbuf();
+	}
+
+	// Game will update matrices constant buffer for us
+	static auto grcWorldIdentity = gmAddress::Scan("E8 ?? ?? ?? ?? 48 8D 45 30", "rage::grcWorldIdentity")
+		.GetCall().ToFunc<void()>();
+	grcWorldIdentity();
 
 	// Prepare state & Draw
 	OldState oldState;
 	BackupOldState(oldState);
 	{
 		ID3D11DeviceContext* context = graphics::RenderGetContext();
+
+		context->OMSetBlendState(m_BlendState.Get(), nullptr, 0xFFFFFFFF);
+
+		// Viewport
+		D3D11_VIEWPORT viewport = {};
+		viewport.Width = static_cast<float>(width);
+		viewport.Height = static_cast<float>(height);
+		viewport.MaxDepth = 1.0;
+		context->RSSetViewports(1, &viewport);
+
+		// Scissors
+		D3D11_RECT scissors = {};
+		scissors.right = static_cast<LONG>(width);
+		scissors.bottom = static_cast<LONG>(height);
+		context->RSSetScissorRects(1, &scissors);
+
+		// Obtain scene depth stencil
+		static auto getTargetView = gmAddress::Scan("0F B7 40 7C 8B 4C 24 40", "rage::grcRenderTargetDX11::GetTargetView+0x17")
+			.GetAt(-0x17).ToFunc<ID3D11ShaderResourceView*(pVoid rt, u32 mip, u32 layer)>();
+		static auto getDepthBuffer = gmAddress::Scan("88 4C 24 08 48 8B 05", "CRenderTargets::GetDepthBuffer")
+			.ToFunc<pVoid(bool unused)>();
+		ID3D11DepthStencilView* depthBuffer = (ID3D11DepthStencilView*) getTargetView(getDepthBuffer(false), 0, 0);
+
+		// We render to our MSAA back-buffer because buffer that's set in
+		// CVisualEffects::RenderMarkers is not g buffer and don't have multisampling
+		float clearColor[] = { 0, 0, 0, 0 };
+		ID3D11RenderTargetView* backbufRt = m_BackbufMsRt.Get();
+		context->OMSetRenderTargets(1, &backbufRt, depthBuffer);
+		context->ClearRenderTargetView(backbufRt, clearColor);
+
 		if (drawList.Wireframe)
 			context->RSSetState(m_RSWireframe.Get());
 		else if (!drawList.BackfaceCull)
@@ -710,9 +871,29 @@ void rageam::integration::DrawListExecutor::Execute(DrawList& drawList)
 		else
 			context->RSSetState(m_RS.Get());
 
-		BindEffect();
-		RenderDrawData(drawDatas.Line);
-		RenderDrawData(drawDatas.Tris);
+		if (drawList.NoDepth)
+			context->OMSetDepthStencilState(m_DSSNoDepth.Get(), 1);
+		else
+			context->OMSetDepthStencilState(m_DSS.Get(), 1);
+
+		// Shading in wireframe mode doesn't look good...
+		m_DefaultShader.Locals.Unlit = drawList.Wireframe ? true : drawList.Unlit;
+		m_DefaultShader.Bind();
+		RenderDrawData(drawList.m_Lines);
+		RenderDrawData(drawList.m_Tris);
+
+		// Resolve multi sampled back buffer
+		context->ResolveSubresource(
+			m_Backbuf.Get(), D3D11CalcSubresource(0, 0, 1),
+			m_BackbufMs.Get(), D3D11CalcSubresource(0, 0, 1),
+			DXGI_FORMAT_R8G8B8A8_UNORM);
+
+		// Set game's render target back and blit our back buffer to it
+		context->RSSetState(m_RS.Get()); // Make sure we don't have wireframe rasterizer set...
+		context->OMSetDepthStencilState(m_DSSNoDepth.Get(), 1); // We don't need depth
+		context->OMSetRenderTargets(1, oldState.RenderTargets, nullptr);
+		m_ImBlitShader.Bind();
+		m_ImBlitShader.Blit(m_BackbufView.Get());
 	}
 	RestoreOldState(oldState);
 }

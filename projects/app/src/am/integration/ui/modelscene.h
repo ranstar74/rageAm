@@ -63,7 +63,7 @@ namespace rageam::integration
 		};
 
 		asset::HotDrawablePtr			m_HotDrawable;
-		//ComponentOwner<DrawableRender>	m_DrawableRender;
+		ComponentOwner<DrawableRender>	m_DrawableRender;
 		ComponentOwner<GameEntity>		m_GameEntity;
 
 		amPtr<CBaseArchetypeDef>		m_ArchetypeDef;
