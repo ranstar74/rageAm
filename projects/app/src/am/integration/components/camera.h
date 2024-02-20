@@ -57,7 +57,7 @@ namespace rageam::integration
 		~CameraComponentBase() override;
 
 		void OnStart() override;
-		void OnEarlyUpdate() override;
+		void OnUpdate() override;
 
 		void          SetActive(bool active) override;
 		const Vec3V&  GetFront() const override { return m_Front; }
@@ -83,7 +83,7 @@ namespace rageam::integration
 		ScalarV m_MoveSpeed = DEFAULT_MOVE_SPEED;
 
 	public:
-		void OnEarlyUpdate() override;
+		void OnUpdate() override;
 
 		void SetPosition(const rage::Vec3V& position) override;
 	};
@@ -97,7 +97,7 @@ namespace rageam::integration
 
 		void ComputeRadius();
 	public:
-		void OnEarlyUpdate() override;
+		void OnUpdate() override;
 
 		void LookAt(const rage::Vec3V& point) override;
 		void SetPosition(const rage::Vec3V& position) override;

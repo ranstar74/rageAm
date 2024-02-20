@@ -6,8 +6,9 @@
 #include "am/integration/memory/hook.h"
 #include "am/integration/im3d.h"
 #include "am/integration/script/core.h"
-#include "am/integration/integration.h"
+#include "am/integration/script/extensions.h"
 #include "rage/framework/pool.h"
+#include "imgui_internal.h"
 
 void rageam::integration::ICameraComponent::SetActive(bool active)
 {
@@ -49,7 +50,7 @@ void rageam::integration::CameraComponentBase::OnStart()
 		SetActive(true);
 }
 
-void rageam::integration::CameraComponentBase::OnEarlyUpdate()
+void rageam::integration::CameraComponentBase::OnUpdate()
 {
 	// Update only if position has changed
 	if (m_OldPos != m_Pos)
@@ -156,12 +157,12 @@ bool rageam::integration::CameraComponentBase::ControlsDisabled()
 	return m_DisableControls || !Im3D::IsViewportHovered();
 }
 
-void rageam::integration::FreeCamera::OnEarlyUpdate()
+void rageam::integration::FreeCamera::OnUpdate()
 {
 	if (!IsActive())
 		return;
 
-	CameraComponentBase::OnEarlyUpdate();
+	CameraComponentBase::OnUpdate();
 
 	if (ControlsDisabled())
 		return;
@@ -215,8 +216,7 @@ void rageam::integration::FreeCamera::OnEarlyUpdate()
 	ImVec2 mouseDelta = mousePos - prevMousePos;
 	if (ImGui::IsKeyDown(ImGuiKey_MouseMiddle))
 	{
-		GameIntegration::GetInstance()->DisableAllControlsThisFrame();
-
+		scrDisableAllControlsThisFrame();
 
 		float deltaX = mouseDelta.x;
 		float deltaY = mouseDelta.y;
@@ -243,12 +243,12 @@ void rageam::integration::OrbitCamera::ComputeRadius()
 	m_Radius = (m_Pos - m_Center).LengthEstimate();
 }
 
-void rageam::integration::OrbitCamera::OnEarlyUpdate()
+void rageam::integration::OrbitCamera::OnUpdate()
 {
 	if (!IsActive())
 		return;
 
-	CameraComponentBase::OnEarlyUpdate();
+	CameraComponentBase::OnUpdate();
 
 	if (ControlsDisabled())
 		return;
@@ -289,7 +289,7 @@ void rageam::integration::OrbitCamera::OnEarlyUpdate()
 	// Rotation
 	else if (ImGui::IsKeyDown(ImGuiKey_MouseMiddle))
 	{
-		GameIntegration::GetInstance()->DisableAllControlsThisFrame();
+		scrDisableAllControlsThisFrame();
 
 		Rotate(deltaX, deltaY);
 	}
