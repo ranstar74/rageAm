@@ -15,6 +15,14 @@
 
 namespace rageam::integration
 {
+	enum UpdateStage
+	{
+		UpdateStage_Undefined,
+		UpdateStage_Early,
+		UpdateStage_SafeArea,
+		UpdateStage_Late,
+	};
+
 	/**
 	 * \brief Similar to unity component system, provides interface with two update functions.
 	 * \n Use ComponentManager::GetInstance()->Create<T>() templated factory
@@ -24,8 +32,8 @@ namespace rageam::integration
 		friend class ComponentManager;
 
 		bool m_Started = false;
-		bool m_Aborted = false;
 		int  m_RefCount = 0;
+		int  m_AbortAttempts = 0;
 
 	protected:
 		// Make constructor private, ComponentOwner::Create must be used instead
@@ -34,29 +42,40 @@ namespace rageam::integration
 	public:
 		virtual ~IUpdateComponent() = default;
 
+		// For components that require multiple frames to unload all the resources (for example if draw list holds a reference)
+		virtual bool OnAbort() { return true; }
+
+		// Called only one time before OnEarlyUpdate
 		virtual void OnStart() {}
+		// Called in the beginning of the frame, parallel render thread is still might be active
 		virtual void OnEarlyUpdate() {}
+		// Called after rendering is done and before new draw lists are being built, render thread is paused
+		virtual void OnUpdate() {}
+		// Called at the end of the frame, parallel render thread might be active
 		virtual void OnLateUpdate() {}
 
 		void AddRef() { ++m_RefCount; }
-		int  Release() { return --m_RefCount; }
+		int  Release() { AM_ASSERT(m_RefCount > 0, "IUpdateComponent::Release() -> Called too much times!"); return --m_RefCount; }
 	};
 
 	class ComponentManager : public Singleton<ComponentManager>
 	{
 		SmallList<IUpdateComponent*> m_UpdateComponents;
 		SmallList<IUpdateComponent*> m_UpdateComponentsToAdd;
+		UpdateStage					 m_UpdateStage = UpdateStage_Undefined;
 
 	public:
+		void RemoveAbortedComponents();
 		void EarlyUpdateAll();
-		void LateUpdateAll() const;
+		void UpdateAll();
+		void LateUpdateAll();
 
 		bool HasAnythingToUpdate() const { return m_UpdateComponents.Any() || m_UpdateComponentsToAdd.Any(); }
 
 		// Pointer must be allocated via operator new
 		void Add(IUpdateComponent* comp) { m_UpdateComponentsToAdd.Add(comp); }
-		// Pointer will be freed up automatically
-		void AbortAndDelete(IUpdateComponent* comp) const { comp->m_Aborted = true; }
+
+		static UpdateStage GetUpdateStage() { return GetInstance()->m_UpdateStage; }
 	};
 
 	/**
@@ -86,7 +105,7 @@ namespace rageam::integration
 		{
 			if (m_Component && m_Component->Release() == 0)
 			{
-				ComponentManager::GetInstance()->AbortAndDelete(m_Component);
+				// Pointer will be freed up in ComponentManager::RemoveAbortedComponents
 				m_Component = nullptr;
 			}
 		}
@@ -103,6 +122,8 @@ namespace rageam::integration
 			m_Component->AddRef();
 			ComponentManager::GetInstance()->Add(m_Component);
 		}
+
+		TBase* Get() const { return m_Component; }
 
 		const TBase* operator->() const { AM_ASSERTS(m_Component); return m_Component; }
 		TBase* operator->() { AM_ASSERTS(m_Component); return m_Component; }

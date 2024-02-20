@@ -14,6 +14,9 @@
 
 namespace rageam::graphics
 {
+	// For integration mode device is hooked up here, however render thread present hook
+	// is located in GameIntegration (integration.h), in the same place with other update hooks
+
 	class Render : public Singleton<Render>
 	{
 #ifdef AM_STANDALONE
@@ -29,27 +32,12 @@ namespace rageam::graphics
 
 	public:
 		Render();
-		~Render() override;
 
 #ifdef AM_STANDALONE
 		void SetRenderSize(int width, int height);
-#endif
 
-		// Must be called on loop after handling window events, this function
-		// renders draw list and calls present (only in standalone) mode
-		void DoRender() AM_INTEGRATED_ONLY(const);
-		// Called from main (update) thread, builds UI draw list
-		void BuildDrawList() const;
-		// In case of integration mode hooks render thread and immediately returns
 		void EnterRenderLoop() AM_INTEGRATED_ONLY(const);
-
-		void ReleaseAllRefs() const;
-
-		// Pauses caller thread until frame render is finished and pauses render
-		// thread until Unlock() is called
-		// If was called during frame execution, frame is first finished and only then paused
-		void Lock() const;
-		void Unlock() const;
+#endif
 
 		amComPtr<ID3D11Device>        Device;
 		amComPtr<ID3D11DeviceContext> Context;

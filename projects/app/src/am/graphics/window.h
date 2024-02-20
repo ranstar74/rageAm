@@ -49,10 +49,10 @@ namespace rageam::graphics
 		void GetMousePosition(int& outX, int& outY) const;
 		void GetPosition(int& outX, int& outY) const;
 
+#ifdef AM_INTEGRATED
 		// In integration mode we hook WndProc, we can't do this in constructor because UI is not initialized yet
 		// Must be called once before update loop
-#ifdef AM_INTEGRATED
-		void UpdateInit() const;
+		void SetHooks() const;
 		void Update() const;
 #else
 		bool Update() const;

@@ -252,7 +252,7 @@ void rageam::graphics::Window::GetPosition(int& outX, int& outY) const
 }
 
 #ifdef AM_INTEGRATED
-void rageam::graphics::Window::UpdateInit() const
+void rageam::graphics::Window::SetHooks() const
 {
 	s_Addr_WndProc = 
 #if APP_BUILD_2699_16_RELEASE_NO_OPT

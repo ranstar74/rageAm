@@ -1,7 +1,6 @@
 #include "render.h"
 
 #include "am/asset/types/hotdrawable.h"
-#include "am/system/asserts.h"
 #include "am/graphics/window.h"
 #include "am/integration/integration.h"
 #include "am/system/system.h"
@@ -10,82 +9,6 @@
 #ifdef AM_INTEGRATED
 #include "am/integration/memory/address.h"
 #include "am/integration/memory/hook.h"
-#endif
-
-namespace
-{
-#ifdef AM_INTEGRATED
-	gmAddress        s_Addr_PresentImage = 0;
-	gmAddress        s_Addr_DeviceManage = 0;
-	gmAddress        s_Addr_RemoveAllRefs = 0;
-	std::atomic_bool s_BgThreadNeedToStop;
-	std::atomic_bool s_BgThreadStopped = true;
-	std::atomic_bool s_UpdatedPlatforms = true;
-	DWORD            s_RenderThreadID = DWORD(-1);
-#endif
-	// We are not locking thread for long duration, there is
-	// no point to use condition variables here
-	std::atomic_bool s_Locked;
-	std::atomic_bool s_Rendering;
-}
-
-#ifdef AM_INTEGRATED
-void(*gImpl_RemoveAllRefs)(pVoid drawList, int flags);
-void aImpl_RemoveAllRefs(pVoid drawList, int flags)
-{
-	gImpl_RemoveAllRefs(drawList, flags);
-	rageam::graphics::Render::GetInstance()->ReleaseAllRefs();
-}
-void(*gImpl_DeviceManage)();
-void aImpl_DeviceManage()
-{
-	gImpl_DeviceManage();
-
-	// This function is called from both game and render threads,
-	// we need render thread only (thread where grcWindow is updated)
-	if (GetCurrentThreadId() == s_RenderThreadID)
-	{
-		// Update from window thread...
-		if (!s_UpdatedPlatforms)
-		{
-			rageam::ui::GetUI()->PlatformUpdate();
-			s_UpdatedPlatforms = true;
-		}
-
-		rageam::graphics::Window::GetInstance()->Update();
-
-		// Not exact place, but very close
-		// Platform code is executed one of the first in the rendering pipeline
-		if (s_Locked) {} // Wait until render is unlocked...
-		s_Rendering = true;
-	}
-}
-void(*gImpl_PresentImage)();
-void aImpl_PresentImage()
-{
-	static bool s_Initialized = false;
-	if (!s_Initialized)
-	{
-		(void)SetThreadDescription(GetCurrentThread(), L"[RAGE] Render Thread");
-		s_RenderThreadID = GetCurrentThreadId();
-		s_Initialized = true;
-	}
-
-	// ...
-	{
-		// Dispatch our calls right before game present
-		rageam::graphics::Render::GetInstance()->DoRender();
-
-		gImpl_PresentImage();
-	}
-	s_Rendering = false;
-
-	if (s_BgThreadNeedToStop)
-	{
-		s_BgThreadStopped = true;
-		Hook::Remove(s_Addr_PresentImage);
-	}
-}
 #endif
 
 void rageam::graphics::Render::CreateDevice()
@@ -167,6 +90,7 @@ void rageam::graphics::Render::CreateDevice()
 	Context->AddRef();
 	Device->AddRef();
 	Swapchain->AddRef();
+
 #endif
 }
 
@@ -190,18 +114,6 @@ rageam::graphics::Render::Render()
 #endif
 }
 
-rageam::graphics::Render::~Render()
-{
-#ifdef AM_INTEGRATED
-	s_BgThreadNeedToStop = true;
-	while (!s_BgThreadStopped) {}
-
-	// Present image hook is removed in aImpl_PresentImage
-	Hook::Remove(s_Addr_DeviceManage);
-	Hook::Remove(s_Addr_RemoveAllRefs);
-#endif
-}
-
 #ifdef AM_STANDALONE
 void rageam::graphics::Render::SetRenderSize(int width, int height)
 {
@@ -215,63 +127,16 @@ void rageam::graphics::Render::SetRenderSize(int width, int height)
 	m_RenderWidth = width;
 	m_RenderHeight = height;
 }
-#endif
-
-void rageam::graphics::Render::DoRender() AM_INTEGRATED_ONLY(const)
-{
-	AM_ASSERT(Swapchain != nullptr, "Render::DoRender() -> Window was not created, can't render frame.");
-
-	// We still want to see the game, right? RT is already bound in game too
-#ifdef AM_STANDALONE
-	static constexpr float CLEAR_COLOR[] = { 0.0f, 0.0f, 32.0f / 255.0f, 1.0f };
-	ID3D11RenderTargetView* rt = m_RenderTarget.Get();
-	Context->OMSetRenderTargets(1, &rt, nullptr);
-	Context->ClearRenderTargetView(rt, CLEAR_COLOR);
-#endif
-
-	ui::GetUI()->Render();
-
-	// In integrated mode present is called by native render system
-#ifdef AM_STANDALONE
-	(void)Swapchain->Present(1, 0);
-
-	ReleaseAllRefs();
-#endif
-}
-
-void rageam::graphics::Render::BuildDrawList() const
-{
-#ifdef AM_INTEGRATED
-	// Wait until window is updated...
-	if (!s_UpdatedPlatforms)
-		return;
-#endif
-
-	ui::GetUI()->BuildDrawList();
-
-	// TODO: This really shouldn't be called from render thread
-	System::GetInstance()->Update();
-
-#ifdef AM_INTEGRATED
-	s_UpdatedPlatforms = false;
-#endif
-}
 
 void rageam::graphics::Render::EnterRenderLoop() AM_INTEGRATED_ONLY(const)
 {
 	Window* window = Window::GetInstance();
 	AM_INTEGRATED_ONLY(window->UpdateInit());
 
-	auto ui = ui::GetUI();
-
 #ifdef AM_STANDALONE
-	ui->SetEnabled(true);
+	auto ui = ui::GetUI();
 	while (true)
 	{
-		while (s_Locked) {}
-
-		s_Rendering = true;
-
 		if (!window->Update())
 			break;
 
@@ -282,52 +147,20 @@ void rageam::graphics::Render::EnterRenderLoop() AM_INTEGRATED_ONLY(const)
 			SetRenderSize(newWidth, newHeight);
 		}
 
-		// In standalone there's only single thread
-		BuildDrawList();
-		DoRender();
-		ui->PlatformUpdate();
+		static constexpr float CLEAR_COLOR[] = { 0.0f, 0.0f, 32.0f / 255.0f, 1.0f };
+		ID3D11RenderTargetView* rt = m_RenderTarget.Get();
+		Context->OMSetRenderTargets(1, &rt, nullptr);
+		Context->ClearRenderTargetView(rt, CLEAR_COLOR);
 
-		s_Rendering = false;
+		ui->BeginFrame();
+		ui->UpdateApps();
+		ui->EndFrame();
+
+		(void) Swapchain->Present(1, 0);
 	}
-	s_Rendering = false;
 
 #else
-	s_BgThreadStopped = false;
-	s_Addr_PresentImage = gmAddress::Scan(
-#if APP_BUILD_2699_16_RELEASE_NO_OPT
-		"48 89 4C 24 08 48 81 EC F8 00 00 00 E8 ?? ?? ?? ?? 8B 05",
-#elif APP_BUILD_2699_16_RELEASE
-		"40 55 53 56 57 41 54 41 56 41 57 48 8B EC 48 83 EC 70 48",
-#else
-		"40 55 53 56 57 41 54 41 56 41 57 48 8B EC 48 83 EC 40 48 8B 0D",
-#endif
-		"rage::grcDevice::EndFrame");
-	s_Addr_DeviceManage = gmAddress::Scan("7E 0F 48 8B 0D", "rage::grcDevice::Manage+0x1B0").GetAt(-0x1B0);
-	s_Addr_RemoveAllRefs = gmAddress::Scan("89 01 E9 65 FF FF FF", "rage::dlDrawListMgr::RemoveAllRefs+0xD2").GetAt(-0xD2);
 
-	Hook::Create(s_Addr_DeviceManage, aImpl_DeviceManage, &gImpl_DeviceManage);
-	Hook::Create(s_Addr_PresentImage, aImpl_PresentImage, &gImpl_PresentImage);
-	Hook::Create(s_Addr_RemoveAllRefs, aImpl_RemoveAllRefs, &gImpl_RemoveAllRefs);
-
-	// Render is now initialized, we can enable UI
-	ui->SetEnabled(true);
 #endif
 }
-
-void rageam::graphics::Render::ReleaseAllRefs() const
-{
-	asset::HotDrawable::RemoveTexturesFromRenderThread(false);
-}
-
-void rageam::graphics::Render::Lock() const
-{
-	AM_ASSERT(!s_Locked, "Render::Lock() -> Rendering is already locked!");
-	s_Locked = true;
-	while (s_Rendering) {}
-}
-
-void rageam::graphics::Render::Unlock() const
-{
-	AM_ASSERT(s_Locked, "Render::Unlock() -> Rendering is not locked!");
-	s_Locked = false;
-}
+#endif

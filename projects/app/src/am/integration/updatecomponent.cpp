@@ -4,10 +4,8 @@
 
 #include "script/core.h"
 
-void rageam::integration::ComponentManager::EarlyUpdateAll()
+void rageam::integration::ComponentManager::RemoveAbortedComponents()
 {
-	scrBegin();
-
 	m_UpdateComponents.AddRange(m_UpdateComponentsToAdd);
 	m_UpdateComponentsToAdd.Destroy();
 
@@ -15,15 +13,37 @@ void rageam::integration::ComponentManager::EarlyUpdateAll()
 	for (u16 i = 0; i < m_UpdateComponents.GetSize(); i++)
 	{
 		IUpdateComponent* component = m_UpdateComponents[i];
+		if (component->m_RefCount != 0)
+			continue;
 
-		if (component->m_Aborted)
+		if(!component->OnAbort())
 		{
-			// In order to delete multiple indices we have to delete them from the end
-			// otherwise elements will shift and indices won't be valid anymore
-			componentsToRemove.Insert(0, i);
-			continue; // Component is aborted, no need to update anymore
+			component->m_AbortAttempts++;
+			AM_ASSERT(component->m_AbortAttempts < 100, 
+				"ComponentManager::RemoveAbortedAttempts() -> Possible stall.");
+			continue;
 		}
 
+		// In order to delete multiple indices we have to delete them from the end
+		// otherwise elements will shift and indices won't be valid anymore
+		componentsToRemove.Insert(0, i);
+	}
+
+	for (u16 i : componentsToRemove)
+	{
+		delete m_UpdateComponents[i];
+		m_UpdateComponents.RemoveAt(i);
+	}
+}
+
+void rageam::integration::ComponentManager::EarlyUpdateAll()
+{
+	m_UpdateStage = UpdateStage_Early;
+
+	scrBegin();
+	RemoveAbortedComponents();
+	for (IUpdateComponent* component : m_UpdateComponents)
+	{
 		// Init on first call
 		if (!component->m_Started)
 		{
@@ -33,18 +53,24 @@ void rageam::integration::ComponentManager::EarlyUpdateAll()
 
 		component->OnEarlyUpdate();
 	}
-
-	for (u16 i : componentsToRemove)
-	{
-		delete m_UpdateComponents[i];
-		m_UpdateComponents.RemoveAt(i);
-	}
-
 	scrEnd();
 }
 
-void rageam::integration::ComponentManager::LateUpdateAll() const
+void rageam::integration::ComponentManager::UpdateAll()
 {
+	m_UpdateStage = UpdateStage_SafeArea;
+
+	scrBegin();
+	RemoveAbortedComponents();
+	for (IUpdateComponent* component : m_UpdateComponents)
+		component->OnUpdate();
+	scrEnd();
+}
+
+void rageam::integration::ComponentManager::LateUpdateAll()
+{
+	m_UpdateStage = UpdateStage_Late;
+
 	scrBegin();
 	for (IUpdateComponent* component : m_UpdateComponents)
 		component->OnLateUpdate();

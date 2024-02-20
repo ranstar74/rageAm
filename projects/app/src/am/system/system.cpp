@@ -78,6 +78,11 @@ void rageam::System::Destroy()
 	if (!m_Initialized)
 		return;
 
+	m_ImGlue->KillAllApps();
+	// Integration manages game update thread, so imglue/integration depend on each other
+	// We first kill all apps that hold UpdateComponent's, and then safely shutdown integration
+	AM_INTEGRATED_ONLY(m_Integration = nullptr);
+
 	// Order is opposite to initialization
 	rage::grcVertexDeclaration::CleanUpCache();
 
@@ -105,10 +110,6 @@ void rageam::System::Destroy()
 		debug->Release();
 	}
 #endif
-
-	// Integration is called by ImGlue, must be destroyed after
-	// Ideally we can destroy them in the right order if we add rendering function
-	AM_INTEGRATED_ONLY(m_Integration = nullptr);
 
 	asset::HotDrawable::ShutdownClass();
 	asset::TxdAsset::ShutdownClass();
@@ -158,7 +159,14 @@ void rageam::System::Init(bool withUI)
 		m_PlatformWindow = std::make_unique<graphics::Window>();
 	m_Render = std::make_unique<graphics::Render>();
 	if (withUI)
+	{
 		m_ImGlue = std::make_unique<ui::ImGlue>();
+
+#ifdef AM_INTEGRATED
+		// Must be called only once UI was created
+		m_PlatformWindow->SetHooks();
+#endif
+	}
 
 	// Integration must be initialized after rendering/ui, it depends on it
 	AM_INTEGRATED_ONLY(m_Integration = std::make_unique<integration::GameIntegration>());
@@ -168,14 +176,16 @@ void rageam::System::Init(bool withUI)
 	timer.Stop();
 	AM_TRACEF("[RAGEAM] Startup time: %llu ms", timer.GetElapsedMilliseconds());
 
+#ifdef AM_STANDALONE // Render loop in integration mode was moved to GameIntegration itself
 	// Now both window and render are created/initialized, we can enter update loop
 	if (withUI)
 	{
 		m_Render->EnterRenderLoop();
 	}
+#endif
 }
 
 void rageam::System::Update() const
 {
-	m_ImageCache->DeleteOldEntries();
+	if (m_ImageCache) m_ImageCache->DeleteOldEntries();
 }

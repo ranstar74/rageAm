@@ -1,7 +1,7 @@
-//
+﻿//
 // File: integration.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
@@ -9,56 +9,48 @@
 
 #ifdef AM_INTEGRATED
 
-#include "updatecomponent.h"
-#include "components/camera.h"
-#include "drawlist.h"
 #include "am/system/singleton.h"
+#include "am/system/ptr.h"
 
 namespace rageam::integration
 {
-	class GameEntity;
+	class GameDrawLists;
+	class ComponentManager;
+
+	//                                Render ends (GPU present)
+	//                                │   GPU is waiting for update 'Safe Area' 
+	//                                │   │   Render begins
+	//                                │   │   │
+	//                                ▼   ▼   ▼
+	// Rendering         ##############   #   #################
+	// Early Update      #
+	// Update                             #
+	// Late Update                                            #
+	//                   ┌────────────────────────────────────┐
+	//                   │            Single Frame            │
+	// 
+	// Render starts after idle section once draw lists are built,
+	// and may going up until next GPU idle section
+	// Main game thread performs update during that time in parallel
 
 	class GameIntegration : public Singleton<GameIntegration>
 	{
-		void HookGameThreadAndInitComponentManager();
-		void ShutdownComponentManager();
-		void RegisterApps() const;
+		void HookGameThread() const;
+		void HookRenderThread() const;
 
-		// Fake game entity that we use to render draw list
-		//ComponentOwner<DrawListDummyEntity>	m_DrawListEntity;
-		DrawListExecutor					m_DrawListExecutor;
-
-		void InitializeDrawLists();
+		amUPtr<ComponentManager> m_ComponentMgr;
+		amUPtr<GameDrawLists>    m_GameDrawLists;
 
 	public:
 		GameIntegration();
 		~GameIntegration() override;
 
-		void FlipDrawListBuffers()
-		{
-			DrawListGame.FlipBuffer();
-			DrawListGameUnlit.FlipBuffer();
-			DrawListForeground.FlipBuffer();
-			DrawListCollision.FlipBuffer();
-		}
+		// -- All callbacks in one place, see diagram above --
 
-		void ClearDrawLists()
-		{
-			DrawListGame.Clear();
-			DrawListGameUnlit.Clear();
-			DrawListForeground.Clear();
-			DrawListCollision.Clear();
-		}
-
-		// TODO: Move those to native extensions...
-		bool IsPauseMenuActive() const;
-		void DisableAllControlsThisFrame() const;
-
-		amUniquePtr<ComponentManager>	ComponentMgr;
-		DrawList						DrawListGame;		// Reflections, no alpha
-		DrawList						DrawListGameUnlit;	// No reflections, alpha
-		DrawList						DrawListForeground;	// Always on top, no reflections, alpha
-		DrawList						DrawListCollision;	// In a different list to let user toggle options
+		void GPUEndFrame() const;
+		void EarlyUpdate() const;
+		void Update() const;
+		void LateUpdate() const;
 	};
 }
 
