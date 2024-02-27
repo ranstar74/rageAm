@@ -82,3 +82,29 @@ void rage::datResourceInfo::GenerateMap(datResourceMap& map) const
 	u8 vChunkCount = GenerateChunks(VirtualData, PG_MIN_CHUNK_SIZE, map, 0, PG_VIRTUAL_MASK);
 	u8 pChunkCount = GenerateChunks(PhysicalData, PG_MIN_CHUNK_SIZE, map, vChunkCount, PG_PHYSICAL_MASK);
 }
+
+u32 rage::datResourceInfo::ComputeSize(u32 data) const
+{
+	u32 chunkCounts[PG_MAX_BUCKETS]
+	{
+		data >> 4 & 0x1,
+		data >> 5 & 0x3,
+		data >> 7 & 0xF,
+		data >> 11 & 0x3F,
+		data >> 17 & 0x7F,
+		data >> 24 & 0x1,
+		data >> 25 & 0x1,
+		data >> 26 & 0x1,
+		data >> 27 & 0x1,
+	};
+
+	u32 totalSize = 0;
+	u64 chunkSize = PG_MIN_CHUNK_SIZE << GetSizeShift(data);
+	for (u32 count : chunkCounts)
+	{
+		for (u32 i = 0; i < count; i++)
+			totalSize += chunkSize;
+		chunkSize >>= 1; // Chunks are ordered descending by size
+	}
+	return totalSize;
+}

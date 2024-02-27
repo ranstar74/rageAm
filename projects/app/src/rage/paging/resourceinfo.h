@@ -111,5 +111,9 @@ namespace rage
 		 * \brief Decodes virtual and physical chunks into given resource map.
 		 */
 		void GenerateMap(datResourceMap& map) const;
+
+		u32 ComputeSize(u32 data) const;
+		u32 ComputeVirtualSize() const { return ComputeSize(VirtualData); }
+		u32 ComputePhysicalSize() const { return ComputeSize(PhysicalData); }
 	};
 }
