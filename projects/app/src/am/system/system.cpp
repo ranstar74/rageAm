@@ -90,6 +90,9 @@ void rageam::System::Destroy()
 	auto dxDevice = amComPtr(graphics::RenderGetDevice());
 	auto dxContext = amComPtr(graphics::RenderGetContext());
 
+	// We must unhook WndProc safely before ImGui is destroyed
+	AM_INTEGRATED_ONLY(m_PlatformWindow->UnsetHooks());
+
 	// Even though render is created before UI (in order to allocate GPU objects),
 	// we must destroy it now because it is currently drawing UI
 	m_Render = nullptr;
@@ -162,10 +165,8 @@ void rageam::System::Init(bool withUI)
 	{
 		m_ImGlue = std::make_unique<ui::ImGlue>();
 
-#ifdef AM_INTEGRATED
 		// Must be called only once UI was created
-		m_PlatformWindow->SetHooks();
-#endif
+		AM_INTEGRATED_ONLY(m_PlatformWindow->SetHooks());
 	}
 
 	// Integration must be initialized after rendering/ui, it depends on it

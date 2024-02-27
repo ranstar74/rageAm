@@ -17,17 +17,16 @@
 
 namespace
 {
-	int				s_NewWidth = 0;
-	int				s_NewHeight = 0;
-	bool			s_UpdatedPosition;
-	RECT			s_LastWindowRect;
-	WINDOWPLACEMENT s_LastWindowPlacement;
-	bool			s_CursorVisible = false;
-
+	int					 s_NewWidth = 0;
+	int					 s_NewHeight = 0;
+	bool				 s_UpdatedPosition;
+	RECT				 s_LastWindowRect;
+	WINDOWPLACEMENT		 s_LastWindowPlacement;
+	bool				 s_CursorVisible = false;
 #ifdef AM_INTEGRATED
-	std::mutex		s_Mutex;
-	gmAddress		s_Addr_WndProc;
-	bool			s_HooksInitialized = false;
+	std::recursive_mutex s_WndProc_Mutex;
+	gmAddress			 s_WndProc_Addr;
+	bool				 s_HooksInitialized = false;
 #endif
 }
 
@@ -59,7 +58,12 @@ void ClipCursorToWindowRect(HWND handle, bool clip)
 
 LRESULT rageam::graphics::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+	std::unique_lock lock(s_WndProc_Mutex);
+	// UI is running in game thread, we must lock context to process system events
+	ui::ImGlue* ui = ui::ImGlue::GetInstance();
+	ui->Lock();
 	ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam);
+	ui->Unlock();
 
 #ifdef AM_INTEGRATED
 	gImpl_WndProc(hWnd, msg, wParam, lParam);
@@ -151,11 +155,6 @@ void rageam::graphics::Window::Destroy()
 	UnregisterClassW(CLASS_NAME, m_Module);
 #else
 	SetWindowTextW(m_Handle, L"Grand Theft Auto V");
-	if (s_HooksInitialized)
-	{
-		Hook::Remove(s_Addr_WndProc);
-		Hook::Remove(ClipCursor);
-	}
 #endif
 
 	m_Handle = NULL;
@@ -254,7 +253,7 @@ void rageam::graphics::Window::GetPosition(int& outX, int& outY) const
 #ifdef AM_INTEGRATED
 void rageam::graphics::Window::SetHooks() const
 {
-	s_Addr_WndProc = 
+	s_WndProc_Addr = 
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
 		gmAddress::Scan("E9 2F 15 00 00", "rage::grcWindowProc+0x176").GetAt(-0x176);
 #elif APP_BUILD_2699_16_RELEASE
@@ -262,10 +261,21 @@ void rageam::graphics::Window::SetHooks() const
 #else
 		gmAddress::Scan("48 8D 05 ?? ?? ?? ?? 33 C9 89 75 20", "rage::grcWindowProc").GetRef(3);
 #endif
-	Hook::Create(s_Addr_WndProc, WndProc, &gImpl_WndProc);
+	Hook::Create(s_WndProc_Addr, WndProc, &gImpl_WndProc);
 	Hook::Create(ClipCursor, aImpl_ClipCursor, &gImpl_ClipCursor);
 	Hook::Create(ShowCursor, aImpl_ShowCursor, &gImpl_ShowCursor);
 	s_HooksInitialized = true;
+}
+
+void rageam::graphics::Window::UnsetHooks() const
+{
+	if (!s_HooksInitialized)
+		return;
+
+	std::unique_lock lock(s_WndProc_Mutex); // Synchronize to make sure that WndProc is safe to unhook
+	Hook::Remove(s_WndProc_Addr);
+	Hook::Remove(ClipCursor);
+	Hook::Remove(ShowCursor);
 }
 #endif
 
