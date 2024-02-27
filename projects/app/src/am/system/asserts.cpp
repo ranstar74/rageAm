@@ -21,6 +21,7 @@ void rageam::AssertHandler(bool expression, ConstString assert, ConstString file
 	wchar_t errorBuffer[ASSERT_MAX];
 	swprintf_s(errorBuffer, ASSERT_MAX, L"File: %hs at line: %i\n%ls", file, line, formatBuffer);
 
+	Debugger::BreakIfAttached();
 	ErrorDisplay::Assert(formatBuffer, assert, 1 /* This */);
 	Debugger::BreakIfAttached();
 
@@ -93,6 +94,7 @@ void rageam::Unreachable(ConstString file, int line, ConstWString fmt, ...)
 	wchar_t errorBuffer[ASSERT_MAX];
 	swprintf_s(errorBuffer, ASSERT_MAX, L"File: %hs at line: %i\n%ls", file, line, formatBuffer);
 
+	Debugger::BreakIfAttached();
 	ErrorDisplay::Assert(errorBuffer, "", 1 /* This */);
 	Debugger::BreakIfAttached();
 
