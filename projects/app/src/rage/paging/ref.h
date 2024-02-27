@@ -161,6 +161,8 @@ namespace rage
 			m_RefCount = nullptr;
 		}
 
+		s16 GetRefCount() const { return m_RefCount ? *m_RefCount : 0; }
+
 		pgCountedPtr& operator=(const pgCountedPtr& other)
 		{
 			Reset();
