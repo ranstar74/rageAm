@@ -32,9 +32,10 @@ namespace rage
 		pgPtr<crSkeletonData>	m_SkeletonData;
 		rmcLodGroup				m_LodGroup;
 		pgPtr<crJointData>		m_JointData;
-		u64						m_Unknown98;
-		u64						m_UnknownA0;
-		u64						m_UnknownA8;
+		u16						m_HandleIndex;
+		u16						m_ContainerSizeQW; // Unused
+		pVoid					m_Container;	   // Unused
+		atConstString			m_DebugName;
 
 		void CopyShaderGroupToContainer(const grmShaderGroup* from);
 		void DeleteShaderGroupContainer();
@@ -62,6 +63,9 @@ namespace rage
 		void ComputeBucketMask();
 		// Sorts all lod model geometries for tessellation (non-tessellated models before tessellated)
 		void SortForTessellation() const;
+
+		void		SetName(ConstString name) { m_DebugName = name; }
+		ConstString GetName() { return m_DebugName; }
 
 		virtual void Delete();
 

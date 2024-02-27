@@ -37,7 +37,6 @@ void rage::rmcDrawable::CopyShaderGroupToContainer(const grmShaderGroup* from)
 	if (pgRscCompiler::GetCurrent())
 	{
 		m_ShaderGroup.AddCompilerRef();
-		//m_ShaderGroup->Snapshot();
 	}
 }
 
@@ -61,12 +60,13 @@ rage::rmcDrawable::rmcDrawable()
 {
 	m_ShaderGroup = new grmShaderGroup();
 
-	// By default shader group container contains only itself...
+	// By default, shader group container contains only itself...
 	m_ShaderGroup->SetContainerBlockSize(sizeof grmShaderGroup);
 
-	m_Unknown98 = 0;
-	m_UnknownA0 = 0;
-	m_UnknownA8 = 0;
+	m_HandleIndex = 0;
+	m_ContainerSizeQW = 0;
+	m_Container = nullptr;
+	m_DebugName = nullptr;
 }
 
 // ReSharper disable once CppPossiblyUninitializedMember
@@ -80,10 +80,11 @@ rage::rmcDrawable::rmcDrawable(const rmcDrawable& other) : pgBase(other), m_LodG
 {
 	m_SkeletonData = other.m_SkeletonData;
 	m_JointData = other.m_JointData;
+	m_DebugName = other.m_DebugName;
 
-	m_Unknown98 = other.m_Unknown98;
-	m_UnknownA0 = other.m_UnknownA0;
-	m_UnknownA8 = other.m_UnknownA8;
+	m_HandleIndex = 0;
+	m_ContainerSizeQW = 0;
+	m_Container = nullptr;
 
 	CopyShaderGroupToContainer(other.m_ShaderGroup.Get());
 }

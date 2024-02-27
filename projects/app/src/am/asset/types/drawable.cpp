@@ -1583,6 +1583,12 @@ bool rageam::asset::DrawableAsset::TryCompileToGame()
 		m_Drawable->ComputeTessellationForShader(i);
 	}
 
+	file::Path debugName;
+	debugName = file::PathConverter::WideToUtf8(GetAssetName());
+	// R* keeps .#dr, let's keep .idr then...
+	// debugName = debugName.GetFileNameWithoutExtension();
+	m_Drawable->SetName(debugName);
+
 	return true;
 }
 
