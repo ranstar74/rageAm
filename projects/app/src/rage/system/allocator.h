@@ -40,8 +40,15 @@ namespace rage
 	static constexpr u8 SYS_MEM_MAX_MEMORY_BUCKETS = 16;
 	static constexpr u8 SYS_MEM_INVALID_BUCKET = -1;
 
+#ifdef AM_INTEGRATED
+	// Option to redirect all allocations in the current thread to the game heap
+	void sysMemUseGameAllocators(bool toggle);
+	bool sysMemIsUsingGameAllocators();
 	// Sets the allocator in Master/Current/Container slots of current thread
 	void sysMemInitCurrentThread();
+	// Gets the primary game multi allocator, also known as 'TheAllocator'
+	sysMemAllocator* sysMemGetMaster();
+#endif
 
 	inline rageam::Logger* GetMemoryLogger()
 	{

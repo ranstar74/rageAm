@@ -3,16 +3,29 @@
 #ifdef AM_INTEGRATED
 #include "am/integration/memory/address.h"
 #include "tls.h"
-#endif
 
-void rage::sysMemInitCurrentThread()
+namespace
 {
-#ifdef AM_INTEGRATED
+	std::mutex                                s_Mutex;
+	bool                                      s_Initialized = false;
+	rage::sysMemAllocator*					  s_TheAllocator;
+	thread_local bool						  tl_UseGameAllocators = false;
+	rage::ThreadLocal<rage::sysMemAllocator*> tl_Current;
+	rage::ThreadLocal<rage::sysMemAllocator*> tl_Master;
+	rage::ThreadLocal<rage::sysMemAllocator*> tl_Container;
+}
+
+void ScanTlsOffsetsAndTheAllocator()
+{
+	std::unique_lock lock(s_Mutex);
+	if (s_Initialized)
+		return;
+
 	// sysMemAllocator_sm_Current;
 	// sysMemAllocator_sm_Master;
 	// sysMemAllocator_sm_Container;
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
-	static gmAddress addr = gmAddress::Scan("48 8B C8 E8 ?? ?? ?? ?? BA FB 07 00 00").GetAt(-207);
+	gmAddress addr = gmAddress::Scan("48 8B C8 E8 ?? ?? ?? ?? BA FB 07 00 00").GetAt(-207);
 	int current = *addr.GetAt(1).To<int*>();
 	int master = *addr.GetAt(37 + 1).To<int*>();
 	// SetContainer call was not inlined
@@ -30,14 +43,47 @@ void rage::sysMemInitCurrentThread()
 	int master = *addr.GetAt(11).GetAt(1).To<int*>();
 	int container = *addr.GetAt(20).GetAt(1).To<int*>();
 #endif
-	sysMemAllocator* theAllocator = *addr.GetRef(3).To<sysMemAllocator**>();
+	s_TheAllocator = addr.GetRef(3).To<rage::sysMemAllocator*>();
 
-	ThreadLocal<sysMemAllocator*> tl_Current(current);
-	ThreadLocal<sysMemAllocator*> tl_Master(master);
-	ThreadLocal<sysMemAllocator*> tl_Container(container);
+	tl_Current.SetOffset(current);
+	tl_Master.SetOffset(master);
+	tl_Container.SetOffset(container);
 
-	tl_Current.Set(theAllocator);
-	tl_Master.Set(theAllocator);
-	tl_Container.Set(theAllocator);
-#endif
+	s_Initialized = true;
 }
+
+void rage::sysMemUseGameAllocators(bool toggle)
+{
+	if (toggle)
+		sysMemInitCurrentThread();
+
+	tl_UseGameAllocators = toggle;
+}
+
+bool rage::sysMemIsUsingGameAllocators()
+{
+	return tl_UseGameAllocators;
+}
+
+void rage::sysMemInitCurrentThread()
+{
+	ScanTlsOffsetsAndTheAllocator();
+
+	// Prevent overwriting existing values
+	thread_local bool isSet = false;
+	if(!isSet)
+	{
+		// Set master allocator everywhere as default
+		tl_Current.Set(s_TheAllocator);
+		tl_Master.Set(s_TheAllocator);
+		tl_Container.Set(s_TheAllocator);
+		isSet = true;
+	}
+}
+
+rage::sysMemAllocator* rage::sysMemGetMaster()
+{
+	ScanTlsOffsetsAndTheAllocator();
+	return s_TheAllocator;
+}
+#endif

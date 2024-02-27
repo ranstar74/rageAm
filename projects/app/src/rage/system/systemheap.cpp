@@ -70,8 +70,13 @@ static void EnsureHeapInitialized()
 	}
 }
 
-rage::sysMemAllocator* GetMultiAllocator()
+rage::sysMemAllocator* GetMultiAllocator() // TheAllocator
 {
+#ifdef AM_INTEGRATED
+	if (rage::sysMemIsUsingGameAllocators())
+		return rage::sysMemGetMaster();
+#endif
+
 	EnsureHeapInitialized();
 
 	rage::sysMemMultiAllocator* multi = rage::SystemHeap::GetAllocator();
