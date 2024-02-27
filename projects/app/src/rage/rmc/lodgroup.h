@@ -77,6 +77,7 @@ namespace rage
 			m_BoundingSphere = bs;
 		}
 
+		float GetLodThreshold(int lod) const { return m_LodThreshold[lod]; }
 		// Merges lod model bucket masks into single lod mask
 		void ComputeBucketMask(const grmShaderGroup* shaderGroup);
 		// Sorts all lod model geometries for tessellation (non-tessellated models before tessellated)
