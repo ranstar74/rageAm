@@ -9,7 +9,7 @@
 
 #include "common/types.h"
 
-#include "rage/system/ipc/criticalsection.h"
+#include "rage/system/ipc.h"
 #include "rage/file/device.h"
 #include "helpers/resharper.h"
 

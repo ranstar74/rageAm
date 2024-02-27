@@ -2,7 +2,7 @@
 
 #include "allocator.h"
 
-#include "ipc/criticalsection.h"
+#include "ipc.h"
 
 namespace rage
 {

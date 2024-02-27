@@ -12,7 +12,7 @@
 #include "handler.h"
 #include "common/types.h"
 #include "helpers/compiler.h"
-#include "rage/system/ipc/criticalsection.h"
+#include "rage/system/ipc.h"
 
 /*
  *	=== STACK TRACER ===

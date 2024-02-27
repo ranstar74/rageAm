@@ -7,10 +7,11 @@
 //
 #pragma once
 
-#include "rage/system/ipc/criticalsection.h"
+#include "rage/system/ipc.h"
 #include "am/string/stringwrapper.h"
 #include "am/string/string.h"
 #include "am/string/char.h"
+#include "rage/atl/array.h"
 #include "helpers/resharper.h"
 #include "helpers/ranges.h"
 #include "rage/atl/array.h"

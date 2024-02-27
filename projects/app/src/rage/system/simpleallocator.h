@@ -4,7 +4,7 @@
 #include "smallocator.h"
 #include "helpers/ranges.h"
 
-#include "ipc/criticalsection.h"
+#include "ipc.h"
 
 namespace rage
 {
