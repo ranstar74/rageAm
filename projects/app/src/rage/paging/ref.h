@@ -345,7 +345,7 @@ namespace rage
 
 			for (TSize i = 0; i < elementCount; ++i)
 			{
-				new (this->m_Pointer) T(other.m_Pointer[i]);
+				new (&this->m_Pointer[i]) T(other.m_Pointer[i]);
 			}
 		}
 
