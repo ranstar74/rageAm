@@ -77,8 +77,8 @@ u64 rage::datResource::GetFixup(u64 resourceOffset) const
 		return GetChunk(chunk)->GetFixup();
 
 	// ERR_SYS_INVALIDRESOURCE_5
-	AM_ERRF("rage::datResource::GetFixup() -> "
-		"Invalid fixup, address %llu is neither virtual nor physical.", resourceOffset);
+	AM_UNREACHABLE("rage::datResource::GetFixup() -> "
+		"Invalid fixup, address %llx is neither virtual nor physical.", resourceOffset);
 
 	return 0;
 }
