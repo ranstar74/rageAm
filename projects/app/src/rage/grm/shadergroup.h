@@ -75,11 +75,7 @@ namespace rage
 	public:
 		grmShaderGroup() = default;
 		grmShaderGroup(const datResource& rsc);
-		grmShaderGroup(const grmShaderGroup& other) { Copy(other); }
-
-		void Snapshot();
-
-		void Copy(const grmShaderGroup& other);
+		grmShaderGroup(const grmShaderGroup& other);
 
 		grmShader* GetShader(u16 index) const { return m_Shaders[index].Get(); }
 		u16 GetShaderCount() const { return m_Shaders.GetSize(); }

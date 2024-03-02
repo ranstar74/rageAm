@@ -1,5 +1,4 @@
 #include "shadergroup.h"
-#include "shadergroup.h"
 
 void rage::grmShaderGroup::ScanForInstancedShaders()
 {
@@ -27,29 +26,7 @@ rage::grmShaderGroup::grmShaderGroup(const datResource& rsc)
 	ScanForInstancedShaders();
 }
 
-void rage::grmShaderGroup::Snapshot()
-{
-	AM_ASSERT(pgRscCompiler::GetCurrent(), "grmShaderGroup::Snapshot() -> Not compiling!");
-
-	//// See rmcDrawable copy constructor, all grmShader's are already
-	//// packed on one memory block with grmShaderGroup so we don't have
-	//// to do anything with them, only add ref's to atArray element pointers
-	//// (For same reason we don't copy fields twice)
-
-	//m_EmbedTextures.Snapshot(m_EmbedTextures);
-
-	//for (auto& shader : m_Shaders)
-	//{
-	//	shader.AddCompilerRef();
-
-	//	// Invoke copy constructor on itself, as said above we don't have to
-	//	// re-allocate it, but grmShader (or well, grcInstanceData) must take care
-	//	// of re-allocating var data block
-	//	new(shader.Get()) grmShader(*shader.Get());
-	//}
-}
-
-void rage::grmShaderGroup::Copy(const grmShaderGroup& other)
+rage::grmShaderGroup::grmShaderGroup(const grmShaderGroup& other)
 {
 	m_Unknown20 = other.m_Unknown20;
 	m_Unknown28 = other.m_Unknown28;
@@ -102,7 +79,7 @@ void rage::grmShaderGroup::PreAllocateContainer(grmShaderGroup* containerInst) c
 	// We have to manually allocate items array (grmShader*) because otherwise
 	// during allocation pgArray will allocate it on snapshot allocator but we need to force container
 	// This operation is equal to atArray::Reserve(shaderCount)
-	grmShader** elementList = new grmShader * [shaderCount];
+	grmShader** elementList = new grmShader*[shaderCount];
 	containerInst->m_Shaders.SetItems((pgUPtr<grmShader>*)elementList, 0, shaderCount);
 
 	// Allocate shaders but nothing else! Otherwise shader variables will go in container too
@@ -126,13 +103,24 @@ void rage::grmShaderGroup::CopyToContainer(grmShaderGroup* containerInst) const
 		containerInst->m_Shaders[i].AddCompilerRef();
 	}
 
-	// TODO: Confused with snapshot?
-	//containerInst->m_EmbedTextures.Copy(m_EmbedTextures);
 	containerInst->m_EmbedTextures.Snapshot(m_EmbedTextures);
 	containerInst->m_HasInstancedShader = m_HasInstancedShader;
 
 	for (u16 i = 0; i < shaderCount; i++)
 	{
 		containerInst->m_Shaders[i]->CloneFrom(m_Shaders[i].GetRef());
+
+		// On regular copying we don't care but when compiling we have to update all textures.
+		// Textures that are not in embed dictionary must be replaced on references, that
+		//	later game resolves by navigating TXD dependency linked list
+		for (grcInstanceVar& var : containerInst->m_Shaders[i]->GetTextureIterator())
+		{
+			grcTexture* newTexture = containerInst->m_EmbedTextures->Find(var.GetTexture()->GetName());
+			AM_ASSERT(newTexture, "grmShaderGroup::CopyToContainer() -> Reference textures are not supported.");
+			var.SetTexture(newTexture);
+
+			// Fix-up texture pointer
+			pgRscCompiler::GetVirtualAllocator()->AddRef(var.Value);
+		}
 	}
 }
