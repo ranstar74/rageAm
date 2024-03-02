@@ -115,7 +115,7 @@ namespace rage
 		{
 			// Same as below, allocate manually without invoking constructors
 			size_t allocSize = static_cast<size_t>(size) * sizeof(Node*); // NOLINT(bugprone-sizeof-expression)
-			Node** buckets = static_cast<Node**>(rage_malloc(allocSize));
+			Node** buckets = static_cast<Node**>(pgAlloc(allocSize));
 			memset(buckets, 0, allocSize);
 			return buckets;
 		}
@@ -123,7 +123,7 @@ namespace rage
 		Node* AllocateNode()
 		{
 			// Allocate without invoking default TValue constructor
-			Node* node = static_cast<Node*>(rage_malloc(sizeof Node));
+			Node* node = static_cast<Node*>(pgAlloc(sizeof Node));
 			memset(node, 0, sizeof Node);
 			return node;
 		}
@@ -346,15 +346,13 @@ namespace rage
 			{
 				compilerAllocator->AddRef(m_Buckets);
 
-				for (u16 bucket = 0; bucket < other.m_BucketCount; bucket++)
+				for (u16 bucket = 0; bucket < m_BucketCount; bucket++)
 				{
-					Node* node = other.m_Buckets[bucket];
-
+					Node* node = m_Buckets[bucket];
 					if (!node)
 						continue;
 
-					compilerAllocator->AddRef(other.m_Buckets[bucket]);
-
+					compilerAllocator->AddRef(m_Buckets[bucket]);
 					while (node)
 					{
 						if (node->Next)
