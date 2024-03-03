@@ -316,7 +316,9 @@ namespace rage
 		{
 			Destroy();
 
-			InitAndAllocate(other.m_BucketCount, other.m_AllowGrowing);
+			// We can't grow in resource compiler mode (pgRscAllocator doesn't support free)
+			bool allowGrowing = IsResourceCompiling() ? false : other.m_AllowGrowing;
+			InitAndAllocate(other.m_BucketCount, allowGrowing);
 
 			m_UsedSlotCount = other.m_UsedSlotCount;
 
