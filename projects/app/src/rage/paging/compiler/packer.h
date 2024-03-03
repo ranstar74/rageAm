@@ -85,6 +85,8 @@ namespace rage
 		// we have to take into account number of chunks packed by previous packer (well it's always the virtual one)
 		u32	m_ReservedChunks;
 
+		const pgSnapshotAllocator* m_Allocator;
+
 		u32						m_LargestBlock;
 		atArray<SortedBlock>	m_SortedBlocks;
 		atArray<atArray<u16>>	m_Buckets[PG_MAX_BUCKETS] = // 1, 3, 15, 63, 127, 1, 1, 1, 1

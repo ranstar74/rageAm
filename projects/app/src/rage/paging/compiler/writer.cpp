@@ -82,16 +82,6 @@ void rage::pgRscWriter::WriteData(const datPackedChunks& packedPage, const pgSna
 
 				m_RawSize += blockSize;
 
-				//if (bufferOffset + blockSize > bufferSize)
-				//{
-				//	AM_DEBUGF("pgRscWriter::WriteData() -> Compressing %u bytes", bufferOffset);
-				//	CompressAndWrite(buffer, /*bufferOffset*/ chunkSize);
-				//	bufferOffset = 0;
-
-				//	// Erase buffer from previous chunks, trash will make compression worse
-				//	memset(buffer, 0, bufferSize);
-				//}
-
 				memcpy(buffer + bufferOffset + chunkOffset, block, blockSize);
 				chunkOffset += blockSize;
 			}
@@ -103,12 +93,6 @@ void rage::pgRscWriter::WriteData(const datPackedChunks& packedPage, const pgSna
 	}
 
 	CompressAndWrite(buffer, bufferSize);
-	//// Erase buffer from previous data, trash will make compression worse
-	//memset(buffer, 0, bufferSize);
-
-	// Finalize remaining bytes, if there's anything (in best scenario we must compress once here)
-	//if (bufferOffset > 0)
-	//	CompressAndWrite(buffer, /*bufferOffset*/ chunkSize);
 
 	delete[] buffer;
 }

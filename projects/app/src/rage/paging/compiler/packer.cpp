@@ -172,8 +172,9 @@ u8 rage::pgRscPacker::TryPack(u8 startBucket, u8 sizeShift)
 		const SortedBlock& block = m_SortedBlocks[i];
 
 		// Not enough free space in chunk, we have to move to either next chunk or next bucket
-		if (packedSize + block.Size > chunkSize &&
-			bucket + 1 < PG_MAX_BUCKETS)
+		if (packedSize + block.Size > chunkSize)
+		{
+			if (bucket + 1 < PG_MAX_BUCKETS)
 		{
 			packedSize = 0;
 			chunkIndex++;
@@ -184,6 +185,12 @@ u8 rage::pgRscPacker::TryPack(u8 startBucket, u8 sizeShift)
 				bucket++;
 				chunkIndex = 0;
 				chunkSize /= 2;
+			}
+		}
+			else
+			{
+				AM_DEBUG("pgRscPacker::TryPack() -> Can't go to lower bucket! retrying with next size shift");
+				return TryPack(startBucket, sizeShift + 1);
 			}
 		}
 
@@ -259,6 +266,7 @@ u8 rage::pgRscPacker::TryPack(u8 startBucket, u8 sizeShift)
 
 rage::pgRscPacker::pgRscPacker(const pgSnapshotAllocator& allocator, u32 reservedChunks) : m_SortedBlocks(0)
 {
+	m_Allocator = &allocator;
 	m_ReservedChunks = reservedChunks;
 
 	CopyAndSortBlocks(allocator);
