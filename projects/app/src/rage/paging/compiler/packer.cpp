@@ -74,43 +74,57 @@ void rage::pgRscPacker::PrintPackedInfo(const datPackedChunks& chunks) const
 {
 #ifdef _DEBUG
 	AM_DEBUG("pgRscPacker::PrintPackedInfo() -> Buckets:");
-	AM_DEBUG("(Index, Block Count, Packed Chunk Count, Total Chunk Count, Used / Total, Chunk Size)");
+
+	// NOTE: -10 is left-justify flag, for table alignment
+	// (Index, Block Count, Packed Chunk Count, Max Chunk Count, Used / Total, Used Size, Bucket Size, Chunk Size)
+	AM_DEBUGF("%-6s %-12s %-19s %-16s %-7s %-10s %-12s %-11s",
+		"Index", "Block Count", "Packed Chunk Count", "Max Chunk Count", "Used %", "Used Size", "Bucket Size", "Chunk Size");
+
+	u32 resourceUsedSize = 0;
+	u32 resourceAllocatedSize = 0;
 
 	u32 chunkSize = PG_MIN_CHUNK_SIZE << chunks.SizeShift;
 	for (u8 i = 0; i < PG_MAX_BUCKETS; i++)
 	{
-		u16 usedChunks = 0; // Number of chunks with at least one packed block
+		u16 chunkCount = chunks.BucketCounts[i];
+		u32 bucketSize = chunkSize * chunkCount;
 		u16 bucketBlockCount = 0; // Total number of blocks in this bucket
 		u32 bucketBlocksSize = 0; // Total size of blocks in this bucket
-		for (auto& bucketChunks : m_Buckets[i])
+		for (atArray<u16>& chunkBlockIndices : m_Buckets[i])
 		{
-			u16 blockCount = bucketChunks.GetSize();
+			u16 blockCount = chunkBlockIndices.GetSize();
 			bucketBlockCount += blockCount;
-			for (u16 index : bucketChunks)
-				bucketBlocksSize += m_SortedBlocks[index].Size;
-
-			// For average we need to account only chunks where at least one block present
-			if (blockCount != 0)
-				usedChunks++;
+			for (u16 index : chunkBlockIndices)
+			{
+				bucketBlocksSize += m_Allocator->GetBlockSize(index);
+			}
 		}
 
 		// This shows us how much memory in chunk is actually used, and how much is wasted (internal fragmentation)
 		// This value is average per all chunks in bucket
-		double totalChunks = (double)chunkSize * (double)usedChunks;
 		double useRatio = 0;
-		if (totalChunks > 0) useRatio = (double)bucketBlocksSize / totalChunks * 100;
+		if (bucketSize > 0) useRatio = (double)bucketBlocksSize / (double)bucketSize * 100;
 
-		u8 totalChunkCount = datResourceInfo::GetMaxChunkCountInBucket(i);
-		AM_DEBUGF("%i, %u, %u, %u,  \t%.0f%%,  \t%#x",
+		resourceUsedSize += bucketBlocksSize;
+		resourceAllocatedSize += bucketSize;
+
+		u8 maxChunkCount = datResourceInfo::GetMaxChunkCountInBucket(i);
+		AM_DEBUGF("%-6i %-12u %-19u %-16u %-7.0f %#-10x %#-12x %#-11x",
 			i,						// Bucket Index
 			bucketBlockCount,		// Block Count 
-			chunks.BucketCounts[i], // Packed Chunk Count
-			totalChunkCount,		// Total Chunk Count
-			useRatio,				// Used / Total
+			chunkCount,				// Packed Chunk Count
+			maxChunkCount,			// Max Chunk Count
+			useRatio,				// Used %
+			bucketBlocksSize,		// Used Size
+			bucketSize,				// Bucket Size
 			chunkSize);				// Chunk Size
 
 		chunkSize /= 2;
 	}
+
+	// To see total unused memory in the resource
+	AM_DEBUGF("Used Size: %u Alloc Size: %u Fragmented: %u", 
+		resourceUsedSize, resourceAllocatedSize, resourceAllocatedSize - resourceUsedSize);
 #endif
 }
 
@@ -175,18 +189,18 @@ u8 rage::pgRscPacker::TryPack(u8 startBucket, u8 sizeShift)
 		if (packedSize + block.Size > chunkSize)
 		{
 			if (bucket + 1 < PG_MAX_BUCKETS)
-		{
-			packedSize = 0;
-			chunkIndex++;
-
-			// No more free chunks in this bucket, move to next (smaller) one
-			if (chunkIndex == datResourceInfo::GetMaxChunkCountInBucket(bucket))
 			{
-				bucket++;
-				chunkIndex = 0;
-				chunkSize /= 2;
+				packedSize = 0;
+				chunkIndex++;
+
+				// No more free chunks in this bucket, move to next (smaller) one
+				if (chunkIndex == datResourceInfo::GetMaxChunkCountInBucket(bucket))
+				{
+					bucket++;
+					chunkIndex = 0;
+					chunkSize /= 2;
+				}
 			}
-		}
 			else
 			{
 				AM_DEBUG("pgRscPacker::TryPack() -> Can't go to lower bucket! retrying with next size shift");
