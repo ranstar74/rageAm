@@ -61,13 +61,17 @@ rage::crSkeletonData::crSkeletonData()
 // ReSharper disable CppObjectMemberMightNotBeInitialized
 rage::crSkeletonData::crSkeletonData(const datResource& rsc) : m_TagToIndex(rsc), m_Properties(rsc)
 {
+	// TODO: Since we've got crBoneData[], we can just use count from pointer itself
 	m_Bones.PlaceItems(rsc, m_NumBones);
 }
 
 rage::crSkeletonData::crSkeletonData(const crSkeletonData& other) : pgBase(other)
 {
 	m_TagToIndex = other.m_TagToIndex;
-	m_Properties = other.m_Properties;
+
+	// Exporting properties crashes CW
+	if (!IsResourceCompiling())
+		m_Properties = other.m_Properties;
 
 	m_Signature = other.m_Signature;
 	m_NumBones = other.m_NumBones;

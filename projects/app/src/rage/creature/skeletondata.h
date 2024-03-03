@@ -33,17 +33,17 @@ namespace rage
 
 	class crSkeletonData : public pgBase
 	{
-		atMap<s32>				m_TagToIndex;
-		pgCArray<crBoneData>	m_Bones;
-		pgCArray<Mat44V>		m_DefaultTransformsInverted;
-		pgCArray<Mat44V>		m_DefaultTransforms;
-		pgCArray<s16>			m_ParentIndices;
-		pgCArray<s16>			m_ChildIndices; // Pairs of (BoneIndex, BoneParentIndex)
-		crProperties			m_Properties;
-		u32						m_Signature;
-		s16						m_RefCount;
-		u16						m_NumBones;
-		u16						m_NumChildIndices;
+		atMap<s32>             m_TagToIndex;
+		pgCArray<crBoneData[]> m_Bones;
+		pgCArray<Mat44V>       m_DefaultTransformsInverted;
+		pgCArray<Mat44V>       m_DefaultTransforms;
+		pgCArray<s16>          m_ParentIndices;
+		pgCArray<s16>          m_ChildIndices; // Pairs of (BoneIndex, BoneParentIndex)
+		crProperties           m_Properties;
+		u32                    m_Signature;
+		s16                    m_RefCount;
+		u16                    m_NumBones;
+		u16                    m_NumChildIndices;
 
 		void ComputeChildIndices(); // TODO: This need's to be tested on more complex skeletons
 		void ComputeParentIndices();

@@ -303,14 +303,75 @@ namespace rage
 	 * \brief Wrapper for C array of pgPtr's, not to be used with raw pointers!
 	 */
 	template<typename T>
-	class pgCArray : public pgPtrBase<T>
+	class pgCArray : public pgPtrBase<std::remove_all_extents_t<T>>
 	{
+		using T_ = std::remove_all_extents_t<T>; // Remove [], repeated in template code above
+
+		void Free()
+		{
+			if (!this->m_Pointer)
+				return;
+
+			// We can't use 'delete' operator because it would
+			// call destructor on the first element, and we already did it
+
+			// 'Allocated' via new[]
+			if constexpr (std::is_array_v<T>)
+			{
+				// In array case actual allocation is placed 16 bytes behind pointer
+				void* block = (char*) this->m_Pointer - 16;
+				rage_free(block);
+			}
+			else
+			{
+				rage_free(this->m_Pointer);
+			}
+
+			this->m_Pointer = nullptr;
+		}
+
+		template<typename TSize>
+		void Alloc(TSize elementCount)
+		{
+			AM_ASSERTS(!this->m_Pointer);
+
+			size_t allocSize = sizeof T_ * elementCount;
+			if constexpr (std::is_array_v<T>)
+			{
+				allocSize += 16; // Extra space for count (CppArray)
+			}
+
+			pgSnapshotAllocator* virtualAllocator = pgRscCompiler::GetVirtualAllocator();
+			if (virtualAllocator)
+			{
+				this->m_Pointer = static_cast<T_*>(virtualAllocator->Allocate(allocSize));
+			}
+			else
+			{
+				this->m_Pointer = static_cast<T_*>(rage_malloc(allocSize));
+			}
+
+			// Put item count 16 bytes before the pointer
+			if constexpr (std::is_array_v<T>)
+			{
+				int* arrayCount = (int*) this->m_Pointer;
+				*arrayCount = elementCount;
+				this->m_Pointer = (T_*) ((char*) arrayCount + 16);
+			}
+
+			// Add after pointer was adjusted for new[] array (see statement above)
+			if (virtualAllocator)
+			{
+				virtualAllocator->AddRef(this->m_Pointer);
+			}
+		}
+
 	public:
-		pgCArray(T* elements)
+		pgCArray(T_* elements)
 		{
 			this->m_Pointer = elements;
 		}
-		pgCArray() : pgPtrBase<T>(this->m_Pointer) // Prevent pgPtrBase from placing
+		pgCArray() : pgPtrBase<T_>(this->m_Pointer) // Prevent pgPtrBase from placing
 		{
 			// We don't use automatic place operator here (>>) because it would
 			// place the first item of array and ignore the rest, PlaceItems must be used instead
@@ -324,28 +385,16 @@ namespace rage
 		{
 			// Default destructor for simple struct array that doesn't require special handling,
 			// for anything else DestroyItems must be used
-			rage_free(this->m_Pointer);
-			this->m_Pointer = nullptr;
+			Free();
 		}
 
 		template<typename TSize>
 		void Copy(const pgCArray& other, TSize elementCount)
 		{
-			size_t allocSize = sizeof T * elementCount;
-
-			pgRscCompiler* compiler = pgRscCompiler::GetCurrent();
-			if (compiler)
-			{
-				compiler->GetVirtualAllocator()->AllocateRef(this->m_Pointer, allocSize);
-			}
-			else
-			{
-				this->m_Pointer = reinterpret_cast<T*>(new char[allocSize]);
-			}
-
+			Alloc(elementCount);
 			for (TSize i = 0; i < elementCount; ++i)
 			{
-				new (&this->m_Pointer[i]) T(other.m_Pointer[i]);
+				new (&this->m_Pointer[i]) T_(other.m_Pointer[i]);
 			}
 		}
 
@@ -359,11 +408,9 @@ namespace rage
 		{
 			AM_ASSERT(this->m_Pointer == nullptr, "pgCArray::AllocItems() -> Old items must be destructed first!");
 
-			T* elements = (T*)rage_malloc(sizeof T * elementCount);
+			Alloc(elementCount);
 			for (size_t i = 0; i < elementCount; i++)
-				new (elements + i) T(); // Placement new
-
-			this->m_Pointer = elements;
+				new (this->m_Pointer + i) T_(); // Placement new
 		}
 
 		template<typename TSize>
@@ -385,10 +432,7 @@ namespace rage
 				this->m_Pointer[i].~T();
 			}
 
-			// We can't use 'delete' operator because it would
-			// call destructor on the first element and we already did it
-			rage_free(this->m_Pointer);
-			this->m_Pointer = nullptr;
+			Free();
 		}
 
 		pgCArray& operator=(pgCArray& other) = delete;
@@ -399,9 +443,9 @@ namespace rage
 		}
 
 		template<typename TSize>
-		T& operator[](TSize index) { return this->m_Pointer[index]; }
+		T_& operator[](TSize index) { return this->m_Pointer[index]; }
 
 		template<typename TSize>
-		const T& operator[](TSize index) const { return this->m_Pointer[index]; }
+		const T_& operator[](TSize index) const { return this->m_Pointer[index]; }
 	};
 }
