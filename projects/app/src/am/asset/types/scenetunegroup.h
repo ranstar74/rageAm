@@ -13,21 +13,13 @@
 
 namespace rageam::asset
 {
-	// Scene tune groups were introduced as solution for problem of synchronizing
-	// scene changes with config, for example what do we do if user removes material? or light?
-	// SceneTuneGroup::Refresh() keeps track of scene changes and handles them accordingly
-
 	/**
-	 * \brief Additional properties that user can attach to scene element.
+	 * \brief SceneTune holds extra properties for scene component, for example
+	 * user settings for such things as scene meshes, lights, geometries.
 	 */
 	struct SceneTune : IXml
 	{
-		string	Name;
-		// Scene element this tune was attached to was removed, and now this tune is unused
-		// we mark it instead of removing to prevent indexing issues in SceneTuneGroup::Items array
-		// Removed tunes are simply not written to the config file on saving, additionally
-		// this gives us more flexibility for undo system
-		bool	IsRemoved = false;
+		string Name;
 
 		void Serialize(XmlHandle& node) const override { XML_SET_ATTR(node, Name); }
 		void Deserialize(const XmlHandle& node) override { XML_GET_ATTR(node, Name); }
@@ -41,11 +33,10 @@ namespace rageam::asset
 	 */
 	struct SceneTuneGroupBase : IXml
 	{
-		SmallList<SceneTunePtr> Items;
-		HashSet<u16>			NameToItem; // TODO: Do we need it if all items are sorted?
+		List<SceneTunePtr> Items;
 
 		SceneTuneGroupBase() = default;
-		SceneTuneGroupBase(const SceneTuneGroupBase& other) : NameToItem(other.NameToItem)
+		SceneTuneGroupBase(const SceneTuneGroupBase& other)
 		{
 			Items.Reserve(other.Items.GetSize());
 			for (const SceneTunePtr& item : other.Items)
@@ -54,22 +45,24 @@ namespace rageam::asset
 			}
 		}
 
+		// NOTE: This also creates node container for the list! Using GetName() function
 		void Serialize(XmlHandle& node) const override;
 		void Deserialize(const XmlHandle& node) override;
 
-		virtual bool ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const = 0;
-		virtual int  IndexOf(const graphics::Scene* scene, ConstString itemName) const = 0;
+		virtual int IndexOf(const graphics::Scene* scene, ConstString itemName) const = 0;
+
 		virtual SceneTunePtr CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const = 0;
 		virtual SceneTunePtr CreateTune() const = 0;
-		virtual ConstString  GetItemName(graphics::Scene* scene, u16 itemIndex) const = 0;
-		virtual u16			 GetSceneItemCount(graphics::Scene* scene)const = 0;
-		// Name as it will appear in the config
-		virtual ConstString GetName() const = 0;
-		// Deletes all unused tunes (that are not in the scene anymore) and adds tunes for new ones
-		void Refresh(graphics::Scene* scene);
-		bool ContainsTune(ConstString name) const;
 
-		void RebuildNameMap();
+		virtual ConstString  GetItemName(graphics::Scene* scene, u16 itemIndex) const = 0;
+		virtual u16			 GetItemCount(graphics::Scene* scene) const = 0;
+
+		// Group name as it will appear in the config (for e.g. 'Materials')
+		virtual ConstString GetName() const = 0;
+
+		// Deletes all unused tunes (that are not in the scene anymore) and adds tunes for new ones
+		// Makes sure that all the elements are mapped in the same order as in scene
+		void Refresh(graphics::Scene* scene);
 	};
 
 	template<typename TSceneTune>

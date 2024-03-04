@@ -774,9 +774,13 @@ const rageam::List<rageam::asset::HotDictionary>& rageam::asset::HotDrawable::Ge
 					continue;
 
 				u32 textureNameHash = rage::atStringHash(textureName);
+				TextureInfo* textureInfo = m_TextureInfos.TryGetAt(textureNameHash);
+				// Might be NULL if texture was removed (however tune for it still exists)
+				if (!textureInfo)
+					continue;
 
 				// Even though this asset still holds a tune for this texture, it's an orphan now and doesn't really belong to it
-				if (m_TextureInfos.GetAt(textureNameHash).IsOprhan())
+				if (textureInfo ->IsOprhan())
 					continue;
 
 				s32 index = m_MegaDictionary->IndexOf(textureNameHash);

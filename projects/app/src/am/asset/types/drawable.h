@@ -116,10 +116,6 @@ namespace rageam::asset
 		string		Effect;
 		u8			DrawBucket = 0;
 		List<Param>	Params;
-		// Flag for UI to mark orphan material as deleted and ignore it on writing config,
-		// we do this instead of deleting it because number of materials in tune
-		// must match shader group for direct mapping
-		bool		NoLongerNeeded = false;
 
 		MaterialTune() = default;
 		MaterialTune(ConstString name, ConstString shaderName = DEFAULT_SHADER)
@@ -146,16 +142,18 @@ namespace rageam::asset
 
 		SceneTunePtr Clone() const override { return std::make_shared<MaterialTune>(*this); }
 	};
-	
+
 	struct MaterialTuneGroup : SceneTuneGroup<MaterialTune>
 	{
-		bool         ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const override;
-		int          IndexOf(const graphics::Scene* scene, ConstString itemName) const override;
+		int IndexOf(const graphics::Scene* scene, ConstString itemName) const override;
+
 		SceneTunePtr CreateTune() const override;
 		SceneTunePtr CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const override;
+
 		ConstString  GetItemName(graphics::Scene* scene, u16 itemIndex) const override;
-		u16          GetSceneItemCount(graphics::Scene* scene) const override;
-		ConstString  GetName() const override { return "Materials"; }
+		u16          GetItemCount(graphics::Scene* scene) const override;
+
+		ConstString GetName() const override { return "Materials"; }
 
 		MaterialTuneGroup() = default;
 		MaterialTuneGroup(const MaterialTuneGroup& other) = default;
@@ -176,13 +174,15 @@ namespace rageam::asset
 
 	struct ModelTuneGroup : SceneTuneGroup<ModelTune>
 	{
-		bool         ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const override;
-		int          IndexOf(const graphics::Scene* scene, ConstString itemName) const override;
+		int IndexOf(const graphics::Scene* scene, ConstString itemName) const override;
+
 		SceneTunePtr CreateTune() const override;
 		SceneTunePtr CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const override;
+
 		ConstString  GetItemName(graphics::Scene* scene, u16 itemIndex) const override;
-		u16          GetSceneItemCount(graphics::Scene* scene) const override;
-		ConstString  GetName() const override { return "Models"; }
+		u16          GetItemCount(graphics::Scene* scene) const override;
+
+		ConstString GetName() const override { return "Models"; }
 	};
 
 	struct LightTune : SceneTune
@@ -238,13 +238,15 @@ namespace rageam::asset
 
 	struct LightTuneGroup : SceneTuneGroup<LightTune>
 	{
-		bool         ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const override;
-		int			 IndexOf(const graphics::Scene* scene, ConstString itemName) const override;
+		int	IndexOf(const graphics::Scene* scene, ConstString itemName) const override;
+
 		SceneTunePtr CreateTune() const override;
 		SceneTunePtr CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const override;
+
 		ConstString  GetItemName(graphics::Scene* scene, u16 itemIndex) const override;
-		u16          GetSceneItemCount(graphics::Scene* scene) const override;
-		ConstString  GetName() const override { return "Lights"; }
+		u16          GetItemCount(graphics::Scene* scene) const override;
+
+		ConstString GetName() const override { return "Lights"; }
 
 		LightTuneGroup() = default;
 		LightTuneGroup(const LightTuneGroup& other) = default;
@@ -431,8 +433,6 @@ namespace rageam::asset
 		bool TryToFindFirstSceneFile(file::WPath& outPath) const;
 		// Verifies that currently specified model file in scene exists or scans for first one in asset directory
 		bool RefreshSceneFile();
-		// Rebuilds tune for current scene model
-		void RefreshTuneFromScene();
 
 	public:
 		DrawableAsset(const file::WPath& path);

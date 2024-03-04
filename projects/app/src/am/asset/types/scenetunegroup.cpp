@@ -25,68 +25,38 @@ void rageam::asset::SceneTuneGroupBase::Deserialize(const XmlHandle& node)
 
 void rageam::asset::SceneTuneGroupBase::Refresh(graphics::Scene* scene)
 {
-	SmallList<u16> removedTunesIndices;
-	SmallList<SceneTunePtr> removedTunes;
-	// Mark tunes that are not in the scene anymore as removed
-	for (u16 i = 0; i < Items.GetSize(); i++)
+	u32 newTuneCount = GetItemCount(scene);
+	List<SceneTunePtr> newTunes;
+	newTunes.Resize(newTuneCount);
+
+	// Set existing tunes
+	for (SceneTunePtr& tune : Items)
 	{
-		SceneTunePtr& tune = Items[i];
-		if (!ExistsInScene(scene, tune))
+		int indexInScene = IndexOf(scene, tune->Name);
+		if (indexInScene == -1)
 		{
-			tune->IsRemoved = true;
-			removedTunesIndices.Insert(0, i);
+			AM_DEBUGF("SceneTuneGroup (%s) :: Refresh -> Removing tune for '%s'", 
+				GetName(), tune->Name.GetCStr());
+			continue;
 		}
-	}
-	// Move all removed tunes to separate array, we can't really sort them at
-	// last stage because they don't have scene index, we just add them in the end
-	removedTunes.Reserve(removedTunesIndices.GetSize());
-	for(u16 index : removedTunesIndices)
-	{
-		removedTunes.Emplace(std::move(Items[index]));
-		Items.RemoveAt(index);
+
+		// Map to the scene index
+		newTunes[indexInScene] = std::move(tune);
 	}
 
-	// We need this for ContainsTune, refresh is done after deserializing
-	// so map is not built yet
-	RebuildNameMap();
-
-	// Add tune for new items
-	for (u16 i = 0; i < GetSceneItemCount(scene); i++)
+	// Add new ones
+	for (u32 i = 0; i < newTuneCount; i++)
 	{
-		ConstString itemName = GetItemName(scene, i);
-		if (!ContainsTune(itemName))
+		if (!newTunes[i]) // Resize initializes it to NULL
 		{
 			SceneTunePtr tune = CreateDefaultTune(scene, i);
-			tune->Name = itemName;
-			Items.Emplace(std::move(tune));
+			tune->Name = GetItemName(scene, i);
+			AM_DEBUGF("SceneTuneGroup (%s) :: Refresh -> Created default tune for '%s'", 
+				GetName(), tune->Name.GetCStr());
+
+			newTunes[i] = std::move(tune);
 		}
 	}
 
-	// Now we have to sort all items to match scene indices
-	SmallList<SceneTunePtr> sortedItems;
-	sortedItems.Resize(Items.GetSize());
-	for (u16 i = 0; i < Items.GetSize(); i++)
-	{
-		int sceneIndex = IndexOf(scene, Items[i]->Name);
-		sortedItems[sceneIndex] = std::move(Items[i]);
-	}
-	sortedItems.AddRange(removedTunes);
-
-	Items = std::move(sortedItems);
-
-	RebuildNameMap();
-}
-
-bool rageam::asset::SceneTuneGroupBase::ContainsTune(ConstString name) const
-{
-	return NameToItem.ContainsAt(Hash(name));
-}
-
-void rageam::asset::SceneTuneGroupBase::RebuildNameMap()
-{
-	NameToItem.InitAndAllocate(Items.GetSize());
-	for (u16 i = 0; i < Items.GetSize(); i++)
-	{
-		NameToItem.InsertAt(Hash(Items[i]->Name), i);
-	}
+	Items = std::move(newTunes);
 }
