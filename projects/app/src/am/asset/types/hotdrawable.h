@@ -173,7 +173,7 @@ namespace rageam::asset
 		// Maps path hash to loaded TXD asset
 		const auto&	GetTxdAssets() { return m_TxdAssetStore; }
 		// Looks up cached txd asset by path
-		const auto& GetTxdAsset(ConstWString path) { return GetTxdAssetFromPath(path); }
+		TxdAssetPtr GetTxdAsset(ConstWString path) { return GetTxdAssetFromPath(path); }
 		// Maps TXD to textures in HotDrawableInfo::MegaDictionary
 		const List<HotDictionary>& GetHotDictionaries();
 
