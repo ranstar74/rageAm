@@ -632,7 +632,7 @@ void rageam::integration::ModelScene::LoadFromPatch(ConstWString path)
 		};
 
 	m_ResetUIAfterCompiling = true;
-	m_HotDrawable->LoadAndCompileAsync();
+	m_HotDrawable->LoadAndCompileAsync(false);
 }
 
 void rageam::integration::ModelScene::SetIsolatedSceneOn(bool on)
