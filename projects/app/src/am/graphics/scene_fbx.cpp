@@ -246,11 +246,11 @@ rageam::graphics::SceneGeometryFbx::SceneGeometryFbx(
 	m_UMesh = uMesh;
 	m_UMeshMat = uMeshMat;
 
-	// We told ufbx to allow null material to make splitting geometries easier so we have to assign right index here
-	if (m_UMeshMat->material != nullptr)
+	// We told ufbx to allow null material to make splitting geometries easier
+	if (m_UMeshMat->material)
 		m_MaterialIndex = materialIndex;
 	else
-		m_MaterialIndex = DEFAULT_MATERIAL;
+		m_MaterialIndex = parent->GetScene()->GetMaterialDefault()->GetIndex();
 
 	TriangulateAndBuildAttributes();
 }
@@ -427,14 +427,32 @@ rageam::graphics::SceneNodeFbx* rageam::graphics::SceneFbx::AddNodesRecurse(ufbx
 
 bool rageam::graphics::SceneFbx::ConstructScene()
 {
-	m_FirstNode = AddNodesRecurse(m_UScene->root_node, nullptr);
-
 	for (size_t i = 0; i < m_UScene->materials.count; i++)
 	{
 		ufbx_material* uMaterial = m_UScene->materials[i];
 		SceneMaterialFbx* material = new SceneMaterialFbx(this, static_cast<u16>(i), uMaterial);
 		m_Materials.Construct(material);
 	}
+
+	// Add default material if needed...
+	for (size_t i = 0; i < m_UScene->meshes.count; i++)
+	{
+		ufbx_mesh* mesh = m_UScene->meshes[i];
+		for (size_t j = 0; j < mesh->materials.count; j++)
+		{
+			if (!mesh->materials[j].material)
+			{
+				SceneMaterial* material = new SceneMaterialDefault(this, m_Materials.GetSize());
+				m_Materials.Construct(material);
+				m_MaterialDefault = material;
+
+				goto outsideLoop; // Quick exit...
+			}
+		}
+	}
+outsideLoop:
+
+	m_FirstNode = AddNodesRecurse(m_UScene->root_node, nullptr);
 
 	return true;
 }

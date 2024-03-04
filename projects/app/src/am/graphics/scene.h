@@ -10,7 +10,6 @@
 #include "vertexdeclaration.h"
 #include "am/system/ptr.h"
 #include "rage/atl/string.h"
-#include "rage/grcore/fvf.h"
 #include "rage/math/mtxv.h"
 #include "rage/math/quatv.h"
 #include "rage/spd/aabb.h"
@@ -26,10 +25,10 @@ namespace rageam::graphics
 	class Scene;
 
 	// Used as placeholder for unsupported semantics in loader types
-	static constexpr auto INVALID_SEMANTIC = VertexSemantic(-1);
+	static constexpr auto SCENE_INVALID_SEMANTIC = VertexSemantic(-1);
 
-	// For geometries that don't have material
-	static constexpr u16 DEFAULT_MATERIAL = u16(-1);
+	// This really should not be used by model files! Reserved identifier.
+	static constexpr ConstString SCENE_DEFAULT_MATERIAL_NAME = "AM_DEFAULT_MATERIAL";
 
 	// Case-sensitive atStringHash
 	inline HashValue SceneHashFn(ConstString str) { return rage::atStringHash(str, false); }
@@ -82,13 +81,31 @@ namespace rageam::graphics
 		}
 
 		virtual ConstString GetName() const = 0;
-		virtual u32 GetNameHash() const = 0;
+		virtual u32         GetNameHash() const = 0;
 
 		virtual ConstString GetTextureName(eMaterialTexture texture) const = 0;
+
+		virtual bool IsDefault() const { return false; }
 	};
 	struct SceneMaterialHashFn
 	{
 		u32 operator()(const SceneMaterial* mat) const { return SceneHashFn(mat->GetName()); }
+	};
+
+	/**
+	 * \brief Dummy default material.
+	 */
+	class SceneMaterialDefault : public SceneMaterial
+	{
+	public:
+		SceneMaterialDefault(Scene* parent, u16 index) : SceneMaterial(parent, index) { }
+
+		ConstString GetName() const override { return "Default"; }
+		u32         GetNameHash() const override { return Hash("Default"); }
+
+		ConstString GetTextureName(eMaterialTexture texture) const override { return ""; }
+
+		bool IsDefault() const override { return true; }
 	};
 
 	/**
@@ -104,6 +121,8 @@ namespace rageam::graphics
 			m_Mesh = parent;
 		}
 
+		// This always gives an VALID index!
+		// For cases when there's no material specified in the model file, default material is created.
 		virtual u16 GetMaterialIndex() const = 0;
 
 		virtual u32 GetVertexCount() const = 0;
@@ -143,6 +162,7 @@ namespace rageam::graphics
 
 		bool HasSkin() const;
 		SceneNode* GetParentNode() const { return m_Parent; }
+		Scene* GetScene() const { return m_Scene; }
 	};
 
 	enum eSceneLightType
@@ -270,19 +290,20 @@ namespace rageam::graphics
 	 */
 	class Scene
 	{
+	protected:
 		rage::atString			m_Name;
 		bool					m_HasTransform;
 		bool					m_NeedDefaultMaterial;
 		bool					m_HasMultipleRootNodes;
 		bool					m_HasSkinning;
 		SmallList<SceneNode*>	m_LightNodes;
+		SceneMaterial*			m_MaterialDefault = nullptr;
 
 		HashSet<SceneNode*, SceneNodeHashFn>			m_NameToNode;
 		HashSet<SceneMaterial*, SceneMaterialHashFn>	m_NameToMaterial;
 
 		void FindSkinnedNodes();
 		void FindTransformedModels();
-		void FindNeedDefaultMaterial();
 		void ScanForMultipleRootBones();
 		void ComputeNodeMatrices() const;
 
@@ -292,9 +313,9 @@ namespace rageam::graphics
 
 		// Must be called after loading
 		virtual void Init();
-
 		// Loads model from file at given path
 		virtual bool Load(ConstWString path, SceneLoadOptions& loadOptions) = 0;
+		virtual bool ValidateScene() const;
 
 		virtual u16 GetNodeCount() const = 0;
 		virtual SceneNode* GetNode(u16 index) const = 0;
@@ -308,12 +329,12 @@ namespace rageam::graphics
 		{
 			return GetMaterial(geometry->GetMaterialIndex());
 		}
+		// Might be NULL if default material is not used in the scene
+		SceneMaterial* GetMaterialDefault() const { return m_MaterialDefault; }
 
 		ConstString GetName() const { return m_Name; }
 		void SetName(ConstString name) { m_Name = name; }
 
-		// Checks whether any model geometry use default (unassigned) material
-		bool NeedDefaultMaterial() const { return m_NeedDefaultMaterial; }
 		// Whether there is at least one model with non-zero transform
 		bool HasTransform() const { return m_HasTransform; }
 		// Whether there is multiple nodes on root level

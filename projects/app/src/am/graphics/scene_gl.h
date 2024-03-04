@@ -24,7 +24,7 @@ namespace rageam::graphics
 	// cgltf_attribute_type -> VertexSemantic
 	static inline VertexSemantic GlSemanticToAm[] =
 	{
-		INVALID_SEMANTIC,	// cgltf_attribute_type_invalid
+		SCENE_INVALID_SEMANTIC,	// cgltf_attribute_type_invalid
 		POSITION,
 		NORMAL,
 		TANGENT,
@@ -32,7 +32,7 @@ namespace rageam::graphics
 		COLOR,
 		BLENDINDICES,
 		BLENDWEIGHT,
-		INVALID_SEMANTIC,	// cgltf_attribute_type_custom
+		SCENE_INVALID_SEMANTIC,	// cgltf_attribute_type_custom
 	};
 
 	inline rage::Vec3V GlVecToVec3V(const cgltf_float* vec)
@@ -168,7 +168,7 @@ namespace rageam::graphics
 
 		rage::atArray<u16> m_NodeGlToSceneNode; // Maps cgltf_node* index to SceneNode index
 		rage::atArray<amUniquePtr<SceneNode>> m_Nodes;
-		rage::atArray<amUniquePtr<SceneMaterialGl>> m_Materials;
+		rage::atArray<amUniquePtr<SceneMaterial>> m_Materials;
 
 		SceneNode* m_FirstNode = nullptr;
 

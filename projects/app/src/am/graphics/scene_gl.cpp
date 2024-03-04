@@ -177,11 +177,10 @@ rageam::graphics::SceneGeometryGl::SceneGeometryGl(SceneMeshGl* parent, u16 inde
 	: SceneGeometry(parent, index)
 {
 	m_Primitive = primitive;
-
 	if (primitive->material)
 		m_MaterialIndex = std::distance(data->materials, primitive->material);
 	else
-		m_MaterialIndex = DEFAULT_MATERIAL;
+		m_MaterialIndex = parent->GetScene()->GetMaterialDefault()->GetIndex(); // Fallback to default material
 
 	ComputeBB();
 }
@@ -505,9 +504,6 @@ bool rageam::graphics::SceneGl::ConstructScene()
 	m_Nodes.Reserve(m_Data->nodes_count);
 	m_NodeGlToSceneNode.Resize(m_Data->nodes_count);
 
-	// Convert node hierarchy
-	m_FirstNode = AddNodesRecursive(scene->nodes, scene->nodes_count);
-
 	// Convert materials
 	m_Materials.Reserve(static_cast<u16>(m_Data->materials_count));
 	for (cgltf_size i = 0; i < m_Data->materials_count; i++)
@@ -516,6 +512,31 @@ bool rageam::graphics::SceneGl::ConstructScene()
 		SceneMaterialGl* mat = new SceneMaterialGl(this, static_cast<u16>(i), cmat);
 		m_Materials.Construct(mat);
 	}
+
+	// Add default material if required
+	for (cgltf_size i = 0; i < m_Data->nodes_count; i++)
+	{
+		cgltf_mesh* mesh = m_Data->nodes[i].mesh;
+		if (!mesh)
+			continue;
+
+		for(cgltf_size j = 0; j < mesh->primitives_count; j++)
+		{
+			// Primitive has no material, we have to add default one
+			if (!mesh->primitives[j].material)
+			{
+				m_Materials.Construct(new SceneMaterialDefault(this, m_Materials.GetSize()));
+				m_MaterialDefault = m_Materials.Last().get();
+
+				goto outsideLoop; // Quick exit...
+			}
+		}
+	}
+outsideLoop:
+
+	// Convert node hierarchy
+	m_FirstNode = AddNodesRecursive(scene->nodes, scene->nodes_count);
+
 	return true;
 }
 

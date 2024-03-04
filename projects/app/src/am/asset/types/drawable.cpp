@@ -98,7 +98,7 @@ void rageam::asset::MaterialTune::Deserialize(const XmlHandle& node)
 	SceneTune::Deserialize(node);
 	XML_GET_ATTR(node, Effect);
 	XML_GET_ATTR(node, DrawBucket);
-	XML_GET_ATTR(node, IsDefault);
+
 	for (const XmlHandle& xParam : XmlIterator(node, "Param"))
 	{
 		Param param;
@@ -112,7 +112,7 @@ void rageam::asset::MaterialTune::Serialize(XmlHandle& node) const
 	SceneTune::Serialize(node);
 	XML_SET_ATTR(node, Effect);
 	XML_SET_ATTR(node, DrawBucket);
-	XML_SET_ATTR(node, IsDefault);
+
 	for (const Param& param : Params)
 	{
 		XmlHandle xParam = node.AddChild("Param");
@@ -213,16 +213,6 @@ void rageam::asset::MaterialTune::SetTextureNamesFromSceneMaterial(const graphic
 				varInfo->GetName());
 		}
 	}
-}
-
-bool rageam::asset::MaterialTuneGroup::ExistsInScene(graphics::Scene* scene, const SceneTunePtr& tune) const
-{
-	if (String::Equals(tune->Name, DEFAULT_MATERIAL_NAME))
-	{
-		return scene->NeedDefaultMaterial();
-	}
-
-	return scene->GetMaterialByName(tune->Name);
 }
 
 int rageam::asset::MaterialTuneGroup::IndexOf(const graphics::Scene* scene, ConstString itemName) const
@@ -1180,12 +1170,7 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 
 		u16 shaderIndex = shaderGroup->GetShaderCount();
 		// Map graphics::SceneMaterial -> rage::grmShader
-		if (materialTune->IsDefault || materialTune->IsRemoved) // Default implicit & orphan materials have no scene material linkage
-		{
-			CompiledDrawableMap->ShaderToSceneMaterial.Add(u16(-1));
-		}
-		else
-		{
+		u16 shaderIndex = shaderGroup->GetShaderCount();
 			u16 materialIndex = m_Scene->GetMaterialByName(materialTune->Name)->GetIndex();
 			CompiledDrawableMap->SceneMaterialToShader[materialIndex] = shaderIndex;
 			CompiledDrawableMap->ShaderToSceneMaterial.Add(materialIndex);
@@ -1511,16 +1496,6 @@ void rageam::asset::DrawableAsset::CreateLights()
 
 bool rageam::asset::DrawableAsset::ValidateScene() const
 {
-	// Validate that there's no material in the scene that has reversed default identifier
-	for (u16 i = 0; i < m_Scene->GetMaterialCount(); i++)
-	{
-		if(m_Scene->GetMaterial(i)->GetNameHash() == Hash(DEFAULT_MATERIAL_NAME))
-		{
-			AM_ERRF("DrawableAsset::TryCompileToGame() -> Material at index '%u' uses reserved name identifier for default material '%s'!", 
-			        i, DEFAULT_MATERIAL_NAME);
-			return false;
-		}
-	}
 	return true;
 }
 

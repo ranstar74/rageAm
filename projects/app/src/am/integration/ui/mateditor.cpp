@@ -1160,7 +1160,8 @@ void rageam::integration::MaterialEditor::DrawMaterialList()
 				return;
 
 			ConstString materialName = materialTune.Name;
-			if (String::Equals(materialName, asset::DEFAULT_MATERIAL_NAME))
+
+			if (String::Equals(materialName, graphics::SCENE_DEFAULT_MATERIAL_NAME))
 				materialName = "Default";
 
 			ConstString nodeName = ImGui::FormatTemp("%s###%s_%i", materialName, materialName, i);

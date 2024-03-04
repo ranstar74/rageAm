@@ -32,7 +32,6 @@ namespace rageam::asset
 	static constexpr u16          MAX_BONES = 128;
 	static constexpr int          MAX_LOD = 4;
 	static constexpr ConstString  DEFAULT_SHADER = "default"; // default.fxc
-	static constexpr ConstString  DEFAULT_MATERIAL_NAME = "$am_default_material";
 	static constexpr ConstWString PALETTE_TEXTURE_NAME = L"autogen_palette";
 	static constexpr ConstWString EMBED_DICT_NAME = L"textures";
 	static constexpr ConstString  COL_MODEL_EXT = ".COL"; // Postfix of collision models in scene
@@ -121,14 +120,12 @@ namespace rageam::asset
 		// we do this instead of deleting it because number of materials in tune
 		// must match shader group for direct mapping
 		bool		NoLongerNeeded = false;
-		bool		IsDefault;
 
 		MaterialTune() = default;
-		MaterialTune(ConstString name, bool isDefault, ConstString shaderName = DEFAULT_SHADER)
+		MaterialTune(ConstString name, ConstString shaderName = DEFAULT_SHADER)
 		{
 			Name = name;
 			Effect = shaderName;
-			IsDefault = isDefault;
 		}
 		MaterialTune(const MaterialTune& other) = default;
 
@@ -363,11 +360,6 @@ namespace rageam::asset
 		// - Splits vertices to satisfy 16 bit index limit
 		// - Creates grmGeometry from processed vertex data
 		List<SplittedGeometry> ConvertSceneGeometry(const graphics::SceneGeometry* sceneGeometry, bool skinned) const;
-
-		// Accounts default material index, returned index can be used for grmShaderGroup / MaterialTuneGroup
-		// but not valid for Scene! Use original index for scene.
-		u16 GetSceneGeometryMaterialIndex(const graphics::SceneGeometry* sceneGeometry) const;
-		const MaterialTune& GetGeometryMaterialTune(const graphics::SceneGeometry* sceneGeometry) const;
 
 		// - Converts single SceneModel to grmModel
 		// - Links geometries to shader group

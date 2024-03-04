@@ -80,28 +80,6 @@ void rageam::graphics::Scene::FindTransformedModels()
 	}
 }
 
-void rageam::graphics::Scene::FindNeedDefaultMaterial()
-{
-	m_NeedDefaultMaterial = false;
-	for (u16 i = 0; i < GetNodeCount(); i++)
-	{
-		SceneNode* node = GetNode(i);
-		SceneMesh* mesh = node->GetMesh();
-		if (!mesh)
-			continue;
-
-		for (u16 k = 0; k < mesh->GetGeometriesCount(); k++)
-		{
-			SceneGeometry* geometry = mesh->GetGeometry(k);
-			if (geometry->GetMaterialIndex() == DEFAULT_MATERIAL)
-			{
-				m_NeedDefaultMaterial = true;
-				return;
-			}
-		}
-	}
-}
-
 void rageam::graphics::Scene::ScanForMultipleRootBones()
 {
 	SceneNode* root = GetFirstNode();
@@ -120,7 +98,7 @@ void rageam::graphics::Scene::ComputeNodeMatrices() const
 void rageam::graphics::Scene::Init()
 {
 	FindTransformedModels();
-	FindNeedDefaultMaterial();
+	//FindNeedDefaultMaterial();
 	ScanForMultipleRootBones();
 	ComputeNodeMatrices();
 
@@ -147,6 +125,24 @@ void rageam::graphics::Scene::Init()
 	{
 		m_NameToNode.Insert(GetNode(i));
 	}
+}
+
+bool rageam::graphics::Scene::ValidateScene() const
+{
+	// Ensure that default reserved material identifier is not used
+	for (u16 i = 0; i < GetMaterialCount(); i++)
+	{
+		SceneMaterial* material = GetMaterial(i);
+		if (!material->IsDefault() &&
+			material->GetNameHash() == Hash(SCENE_DEFAULT_MATERIAL_NAME))
+		{
+			AM_ERRF("Scene::ValidateScene() -> Material at index '%i' uses reserved material name '%s'!",
+			        i, SCENE_DEFAULT_MATERIAL_NAME);
+			return false;
+		}
+	}
+
+	return true;
 }
 
 rageam::graphics::SceneNode* rageam::graphics::Scene::GetNodeByName(ConstString name) const
@@ -266,6 +262,8 @@ amPtr<rageam::graphics::Scene> rageam::graphics::SceneFactory::LoadFrom(ConstWSt
 
 	scene->Init();
 	scene->SetName(sceneName);
+	if (!scene->ValidateScene())
+		return nullptr;
 
 	return amPtr<Scene>(scene);
 }

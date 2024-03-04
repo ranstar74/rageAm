@@ -175,7 +175,7 @@ namespace rageam::graphics
 	{
 		ufbx_scene* m_UScene = nullptr;
 
-		List<amUniquePtr<SceneMaterialFbx>> m_Materials;
+		List<amUniquePtr<SceneMaterial>> m_Materials;
 		List<amUniquePtr<SceneNodeFbx>> m_Nodes;
 		SceneNodeFbx* m_FirstNode = nullptr;
 
