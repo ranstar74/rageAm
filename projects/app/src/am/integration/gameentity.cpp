@@ -108,7 +108,18 @@ bool rageam::integration::GameEntity::OnAbort()
 	dwStore->Set(m_DrawableSlot, nullptr);
 	dwStore->RemoveSlot(m_DrawableSlot);
 	m_DrawableSlot = rage::INVALID_STR_INDEX;
-	m_Drawable = nullptr;
+	if (m_IsEntityWasAllocatedByGame)
+	{
+		rage::sysMemUseGameAllocators(true);
+		AM_ASSERT(m_Drawable.GetRefCount() == 1, 
+			"GameEntity::OnAbort() -> Can't destroy drawable with %u refs.", m_Drawable.GetRefCount());
+		m_Drawable = nullptr;
+		rage::sysMemUseGameAllocators(false);
+	}
+	else
+	{
+		m_Drawable = nullptr;
+	}
 
 	return true;
 }

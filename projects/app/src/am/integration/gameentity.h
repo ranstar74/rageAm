@@ -33,6 +33,8 @@ namespace rageam::integration
 		scrObjectIndex              m_EntityHandle;
 		Mat44V                      m_EntityWorld;
 
+		bool					    m_IsEntityWasAllocatedByGame = false;
+
 		void Spawn();
 		void OnEarlyUpdate() override;
 		void OnLateUpdate() override;
@@ -46,6 +48,14 @@ namespace rageam::integration
 		scrObjectIndex GetEntityHandle()	const { return m_EntityHandle; }
 		pVoid          GetEntityPointer()	const { return m_Entity; }
 		gtaDrawable*   GetDrawable()		const { return m_Drawable.Get(); }
+
+		// Used for ModelInspector, we use game memory there (because game builds the drawable),
+		// we have to use game allocators to destroy m_Drawable
+		void SetEntityWasAllocatedByGame(bool v) { m_IsEntityWasAllocatedByGame = v; }
+
+		// Entity may take few frames to spawn if there's already the same entity spawned, and it currently unloads
+		// At the moment we don't allow multiple entities with the same archetype
+		bool IsSpawned() const { return m_Entity != nullptr; }
 	};
 }
 

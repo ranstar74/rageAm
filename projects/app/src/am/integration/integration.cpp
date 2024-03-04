@@ -13,7 +13,13 @@
 #include "gamedrawlists.h"
 #include "memory/address.h"
 #include "memory/hook.h"
+#include "am/ui/imglue.h"
+#include "am/ui/imgui_impl_dx11.h"
+#include "am/system/system.h"
 
+#include "ui/modelinspector.h"
+#include "ui/modelscene.h"
+#include "ui/starbar.h"
 namespace
 {
 	std::atomic_bool s_InitializedFromGameThread;
@@ -173,6 +179,7 @@ rageam::integration::GameIntegration::GameIntegration()
 	ui::ImGlue* ui = ui::GetUI();
 	ui->AddApp(new StarBar());
 	ui->AddApp(new ModelScene());
+	ui->AddApp(new ModelInspector());
 
 	m_ComponentMgr = std::make_unique<ComponentManager>();
 	m_GameDrawLists = std::make_unique<GameDrawLists>();
