@@ -5,10 +5,7 @@
 #ifdef AM_INTEGRATED
 
 #include "integration.h"
-#include "am/ui/imglue.h"
 #include "script/core.h"
-#include "ui/starbar.h"
-#include "ui/modelscene.h"
 #include "updatecomponent.h"
 #include "gamedrawlists.h"
 #include "memory/address.h"
@@ -20,6 +17,9 @@
 #include "ui/modelinspector.h"
 #include "ui/modelscene.h"
 #include "ui/starbar.h"
+
+#include <backends/imgui_impl_win32.h>
+
 namespace
 {
 	std::atomic_bool s_InitializedFromGameThread;
@@ -231,8 +231,8 @@ void rageam::integration::GameIntegration::Update() const
 	{
 		m_ComponentMgr->UpdateAll();
 		ui->UpdateApps();
-		// ui->EndFrame will be called by render thread
 		m_GameDrawLists->EndFrame();
+		// ui->EndFrame will be called by render thread
 	}
 	ui->Unlock();
 }
