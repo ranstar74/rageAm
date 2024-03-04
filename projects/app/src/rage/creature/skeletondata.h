@@ -38,14 +38,17 @@ namespace rage
 		pgCArray<Mat44V>       m_DefaultTransformsInverted;
 		pgCArray<Mat44V>       m_DefaultTransforms;
 		pgCArray<s16>          m_ParentIndices;
-		pgCArray<s16>          m_ChildIndices; // Pairs of (BoneIndex, BoneParentIndex)
-		crProperties           m_Properties;
+		pgCArray<u16>          m_ChildParentIndices; // Pairs of (BoneIndex, BoneParentIndex)
+		pgUPtr<crProperties>   m_Properties;
 		u32                    m_Signature;
+		u32                    m_SignatureNonChiral;
+		u32                    m_SignatureComprehensive;
 		s16                    m_RefCount;
 		u16                    m_NumBones;
-		u16                    m_NumChildIndices;
+		u16                    m_NumChildParents;
+		u16                    m_Padding;
 
-		void ComputeChildIndices(); // TODO: This need's to be tested on more complex skeletons
+		void ComputeChildParentIndices();
 		void ComputeParentIndices();
 		void BuildBoneMap();
 		// Computes transformation matrices & inverses from bones
@@ -82,25 +85,7 @@ namespace rage
 		// Functions like GetBoneIndexFromTag won't work properly otherwise
 		void Finalize();
 
-		void DebugPrint() const
-		{
-			AM_TRACEF("-- crSkeletonData --");
-			AM_TRACEF("- Bone Count: %u", m_NumBones);
-			AM_TRACEF("- Signature: %u", m_Signature);
-			AM_TRACEF("- Child Indices: %u", m_NumChildIndices);
-			for (u16 i = 0; i < m_NumChildIndices; i++)
-				AM_TRACEF("[%u] - %i", i, m_ChildIndices[i]);
-			AM_TRACEF("- Parent Indices:");
-			for (u16 i = 0; i < m_NumBones; i++)
-				AM_TRACEF("[%u] - %i", i, m_ParentIndices[i]);
-			AM_TRACEF("- Bones:");
-			for (u16 i = 0; i < m_NumBones; i++)
-			{
-				const crBoneData& bone = m_Bones[i];
-				AM_TRACEF("[%u] - Name: %s, Tag: %u, Parent: %i, Next: %i",
-					i, bone.GetName(), bone.GetBoneTag(), bone.GetParentIndex(), bone.GetNextIndex());
-			}
-		}
+		void DebugPrint() const;
 
 		IMPLEMENT_REF_COUNTER16(crSkeletonData);
 	};

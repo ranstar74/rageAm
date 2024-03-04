@@ -43,8 +43,8 @@ namespace rage
 		QuatV			m_DefaultRotation;
 		Vec3V			m_DefaultTranslation;
 		Vec3V			m_DefaultScale;
-		s32				m_Next;					// Index of next bone within parent child group
-		s32				m_Parent;				// Index of parent bone
+		s16				m_Next;					// Index of next bone within parent child group
+		s16				m_Parent;				// Index of parent bone
 		atConstString	m_Name;
 		eBoneDof		m_Dofs;
 		u16				m_Index;

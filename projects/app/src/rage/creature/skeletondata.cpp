@@ -1,9 +1,10 @@
 #include "skeletondata.h"
 
-void rage::crSkeletonData::ComputeChildIndices()
+void rage::crSkeletonData::ComputeChildParentIndices()
 {
-	atArray<s16> childIndices;
-	childIndices.Reserve(m_NumChildIndices);
+	// TODO: Is this correct way? We need to make sure that this algorithm gives the same output
+	atArray<u16> childIndices;
+	childIndices.Reserve(m_NumChildParents);
 
 	for (u16 i = 0; i < m_NumBones; i++)
 	{
@@ -15,9 +16,8 @@ void rage::crSkeletonData::ComputeChildIndices()
 		childIndices.Add(u16(parentIndex));
 	}
 
-	childIndices.Shrink();
-	m_NumChildIndices = childIndices.GetSize();
-	m_ChildIndices = childIndices.MoveBuffer();
+	m_NumChildParents = childIndices.GetSize();
+	m_ChildParentIndices = childIndices.MoveBuffer();
 }
 
 void rage::crSkeletonData::ComputeParentIndices()
@@ -53,8 +53,11 @@ rage::crSkeletonData::crSkeletonData()
 {
 	m_RefCount = 1;
 	m_Signature = 0;
+	m_SignatureNonChiral = 0;
+	m_SignatureComprehensive = 0;
 	m_NumBones = 0;
-	m_NumChildIndices = 0;
+	m_NumChildParents = 0;
+	m_Padding = 0;
 }
 
 // ReSharper disable once CppPossiblyUninitializedMember
@@ -68,25 +71,25 @@ rage::crSkeletonData::crSkeletonData(const datResource& rsc) : m_TagToIndex(rsc)
 rage::crSkeletonData::crSkeletonData(const crSkeletonData& other) : pgBase(other)
 {
 	m_TagToIndex = other.m_TagToIndex;
-
-	// Exporting properties crashes CW
-	if (!IsResourceCompiling())
-		m_Properties = other.m_Properties;
-
 	m_Signature = other.m_Signature;
+	m_SignatureNonChiral = other.m_SignatureNonChiral;
+	m_SignatureComprehensive = other.m_SignatureComprehensive;
 	m_NumBones = other.m_NumBones;
-	m_NumChildIndices = other.m_NumChildIndices;
+	m_NumChildParents = other.m_NumChildParents;
 
 	if (pgRscCompiler::GetCurrent())
 		m_RefCount = other.m_RefCount;
 	else
 		m_RefCount = 1;
 
+	m_Properties.Copy(other.m_Properties);
 	m_Bones.Copy(other.m_Bones, other.m_NumBones);
 	m_DefaultTransformsInverted.Copy(other.m_DefaultTransformsInverted, other.m_NumBones);
 	m_DefaultTransforms.Copy(other.m_DefaultTransforms, other.m_NumBones);
 	m_ParentIndices.Copy(other.m_ParentIndices, other.m_NumBones);
-	m_ChildIndices.Copy(other.m_ChildIndices, other.m_NumBones);
+	m_ChildParentIndices.Copy(other.m_ChildParentIndices, other.m_NumChildParents);
+
+	m_Padding = 0;
 }
 // ReSharper restore CppObjectMemberMightNotBeInitialized
 
@@ -142,10 +145,10 @@ u16 rage::crSkeletonData::GetFirstChildBoneIndex(u16 index)
 	if (index >= m_NumBones) // To handle -1 properly
 		return u16(-1);
 
-	for (u16 i = 0; i < m_NumChildIndices; i += 2)
+	for (u16 i = 0; i < m_NumChildParents; i += 2)
 	{
-		u16 boneIndex = m_ChildIndices[i];
-		u16 parentBoneIndex = m_ChildIndices[i + 1];
+		u16 boneIndex = m_ChildParentIndices[i];
+		u16 parentBoneIndex = m_ChildParentIndices[i + 1];
 
 		if (parentBoneIndex == index)
 			return boneIndex;
@@ -193,10 +196,10 @@ void rage::crSkeletonData::Init(u16 numBones)
 	m_DefaultTransformsInverted.AllocItems(numBones);
 	m_DefaultTransforms.AllocItems(numBones);
 	m_ParentIndices.AllocItems(numBones);
-	m_ChildIndices = nullptr;
+	m_ChildParentIndices = nullptr;
 
 	m_NumBones = numBones;
-	m_NumChildIndices = 0;
+	m_NumChildParents = 0;
 
 	m_TagToIndex.InitAndAllocate(m_NumBones, false);
 
@@ -210,8 +213,28 @@ void rage::crSkeletonData::Init(u16 numBones)
 
 void rage::crSkeletonData::Finalize()
 {
-	ComputeChildIndices();
 	ComputeParentIndices();
+	ComputeChildParentIndices();
 	BuildBoneMap();
 	ComputeTransforms();
+}
+
+void rage::crSkeletonData::DebugPrint() const
+{
+	AM_TRACEF("-- crSkeletonData --");
+	AM_TRACEF("- Bone Count: %u", m_NumBones);
+	AM_TRACEF("- Signature: %u", m_Signature);
+	AM_TRACEF("- Child Indices: %u", m_NumChildParents);
+	for (u16 i = 0; i < m_NumChildParents; i++)
+		AM_TRACEF("[%u] - %i", i, m_ChildParentIndices[i]);
+	AM_TRACEF("- Parent Indices:");
+	for (u16 i = 0; i < m_NumBones; i++)
+		AM_TRACEF("[%u] - %i", i, m_ParentIndices[i]);
+	AM_TRACEF("- Bones:");
+	for (u16 i = 0; i < m_NumBones; i++)
+	{
+		const crBoneData& bone = m_Bones[i];
+		AM_TRACEF("[%u] - Name: %s, Tag: %u, Parent: %i, Next: %i",
+		          i, bone.GetName(), bone.GetBoneTag(), bone.GetParentIndex(), bone.GetNextIndex());
+	}
 }
