@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <defs>
+    <style>.canvas{fill: none; opacity: 0;}.light-defaultgrey-10{fill: #212121; opacity: 0.1;}.light-defaultgrey{fill: #212121; opacity: 1;}.cls-1{opacity:0.75;}</style>
+  </defs>
+  <title>IconLightAbstractCube</title>
+  <g id="Canvas">
+    <path class="canvas" d="M16,16H0V0H16Z" />
+  </g>
+  <g id="level-1">
+    <path class="light-defaultgrey-10" d="M14.5,1.5v9l-3,3v-9h-9l3-3Z" />
+    <g class="cls-1">
+      <path class="light-defaultgrey-10" d="M11,10.5v3H2.5V5h3v5.5Z" />
+      <path class="light-defaultgrey" d="M11.854,13.854,11.5,14h-9L2,13.5v-9l.146-.354L2.5,5H3v7.293l2-2V5.008H6V10h5v1H5.707l-2,2H11v.5Z" />
+    </g>
+    <path class="light-defaultgrey" d="M14.5,1h-9l-.354.146-3,3L2.5,5H11v8.5l.854.354,3-3L15,10.5v-9ZM3.707,4l2-2h7.586l-2,2ZM14,10.293l-2,2V4.707l2-2Z" />
+  </g>
+</svg>
