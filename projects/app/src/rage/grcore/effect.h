@@ -91,32 +91,38 @@ namespace rage
 
 	enum grcShaderType
 	{
-		SHADER_VS,
-		SHADER_PS,
-		SHADER_CS,
-		SHADER_DS,
-		SHADER_GS,
-		SHADER_HS,
-		SHADER_COUNT,
+		grcShaderVS,
+		grcShaderPS,
+		grcShaderCS,
+		grcShaderDS,
+		grcShaderGS,
+		grcShaderHS,
+		grcShaderCount,
 	};
 
-	enum grcUsage
+	enum grcVarUsage
 	{
-		USAGE_VERTEXPROGRAM   = 1 << 0,
-		USAGE_FRAGMENTPROGRAM = 1 << 1,
-		USAGE_GEOMETRYPROGRAM = 1 << 2,
-		USAGE_HULLPROGRAM     = 1 << 3,
-		USAGE_DOMAINPROGRAM   = 1 << 4,
-		USAGE_COMPUTEPROGRAM  = 1 << 5,
-		USAGE_ANYPROGRAM      = (1 << 6) - 1,
-		USAGE_MATERIAL        = 1 << 6,			// Parameter is per-material, not per-instance
-		USAGE_COMPARISON	  = 1 << 7,			// Parameter is sampler with comparison filter
+		grcVarUsageVertexProgram   = 1 << 0,
+		grcVarUsageFragmentProgram = 1 << 1,
+		grcVarUsageGeometryProgram = 1 << 2,
+		grcVarUsageHullProgram     = 1 << 3,
+		varVarUsageDomainProgram   = 1 << 4,
+		grcVarUsageComputeProgram  = 1 << 5,
+		grcVarUsageAnyProgram      = (1 << 6) - 1,
+		grcVarUsageMaterial        = 1 << 6,		// Parameter is per-material, not per-instance
+		grcVarUsageComparison	   = 1 << 7,		// Parameter is sampler with comparison filter
 	};
 
 	inline grcInstanceData* LookupShaderPreset(u32 nameHash)
 	{
-		gmAddress addr = gmAddress::Scan("48 89 5C 24 08 4C 8B 05");
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		static auto fn = gmAddress::Scan("48 83 EC 38 48 C7 44 24 20 00 00 00 00 48 83 3D", "rage::grcEffect::LookupMaterial+0x4")
+			.GetAt(-0x4).ToFunc<grcInstanceData* (u32)>();
+		return fn(nameHash);
+#else
+		static gmAddress addr = gmAddress::Scan("48 89 5C 24 08 4C 8B 05");
 		return addr.To<decltype(&LookupShaderPreset)>()(nameHash);
+#endif
 	}
 
 	inline grcEffect* FindEffectByHashKey(u32 nameHash)
@@ -147,13 +153,20 @@ namespace rage
 	 */
 	struct grcInstanceVar
 	{
-		u8    ValueCount;
-		u8    Register;
-		u8    SamplerIndex;
-		u8    SavedSamplerIndex;
-		char* Value;
+		u8 ValueCount;
+		u8 Register;
+		u8 SamplerIndex;
+		u8 SavedSamplerIndex;
 
-		grcInstanceVar() = default;
+		union // NOTE: We can't put Vector types here because max item size must be 8 bytes
+		{
+			char*		Value;
+			int			Int;
+			float		Float;
+			grcTexture* Texture;
+		};
+
+		grcInstanceVar();
 
 		void CopyFrom(grcInstanceVar* other);
 
@@ -200,7 +213,7 @@ namespace rage
 		};
 
 		u32                    m_Size;
-		u16                    m_ShaderSlots[SHADER_COUNT];
+		u16                    m_ShaderSlots[grcShaderCount];
 		u32                    m_NameHash;
 		atConstString          m_Name;
 		amComPtr<ID3D11Buffer> m_BufferObject;

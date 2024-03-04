@@ -72,7 +72,7 @@ rage::grcIndexBuffer* rage::grmGeometryQB::GetIndexBuffer(int quad) const
 	return m_IndexBuffers[quad].Get();
 }
 
-u32 rage::grmGeometryQB::GetTotalVertexCount() const
+u32 rage::grmGeometryQB::GetVertexCount() const
 {
 	u32 vtxCount = 0;
 	for (int i = 0; i < GRID_SIZE; i++)

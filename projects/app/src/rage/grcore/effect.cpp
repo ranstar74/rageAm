@@ -8,6 +8,7 @@
 #include <d3dcompiler.h>
 
 #include "device.h"
+#include "effectmgr.h"
 #include "am/graphics/render.h"
 #include "rage/atl/hashstring.h"
 #include "rage/file/stream.h"
@@ -28,6 +29,15 @@ u32 ReadHashedString(const rage::fiStreamPtr& stream)
 	char buffer[256];
 	stream->Read(buffer, len);
 	return rage::atStringHash(buffer);
+}
+
+rage::grcInstanceVar::grcInstanceVar()
+{
+	ValueCount = 0;
+	Register = 0;
+	SamplerIndex = 0;
+	SavedSamplerIndex = 0;
+	Value = nullptr;
 }
 
 void rage::grcInstanceVar::CopyFrom(grcInstanceVar* other)
@@ -121,12 +131,12 @@ u32 rage::grcCBuffer::ComputeHashKey() const
 	sprintf_s(name, "%s.%d.%d.%d.%d.%d.%d.%d",
 		m_Name.GetCStr(),
 		m_Size,
-		m_ShaderSlots[SHADER_VS],
-		m_ShaderSlots[SHADER_PS],
-		m_ShaderSlots[SHADER_CS],
-		m_ShaderSlots[SHADER_DS],
-		m_ShaderSlots[SHADER_GS],
-		m_ShaderSlots[SHADER_HS]);
+		m_ShaderSlots[grcShaderVS],
+		m_ShaderSlots[grcShaderPS],
+		m_ShaderSlots[grcShaderCS],
+		m_ShaderSlots[grcShaderDS],
+		m_ShaderSlots[grcShaderGS],
+		m_ShaderSlots[grcShaderHS]);
 	return atStringHash(name);
 }
 
@@ -212,7 +222,7 @@ void rage::grcEffectVar::Load(int type, u32 textureNameHash, const fiStreamPtr& 
 			isPerMaterial = m_Annotations[i].Int;
 	}
 	if (isPerMaterial)
-		m_Usage |= USAGE_MATERIAL;
+		m_Usage |= grcVarUsageMaterial;
 
 	m_DataSize = stream->ReadU8();
 	delete[] m_Data;
@@ -287,8 +297,7 @@ void rage::grcInstanceData::CloneFrom(const grcInstanceData& other)
 	// Copy vars
 	if (compiler)
 	{
-		m_Vars = (grcInstanceVar*)virtualAllocator->Allocate(m_TotalSize);
-		virtualAllocator->AddRef(m_Vars);
+		virtualAllocator->AllocateRef(m_Vars, m_TotalSize);
 	}
 	else
 	{
@@ -303,10 +312,6 @@ void rage::grcInstanceData::CloneFrom(const grcInstanceData& other)
 		grcInstanceVar& newVar = m_Vars[i];
 		grcInstanceVar& oldVar = other.m_Vars[i];
 
-		// Textures are stored outside of var data block
-		if (newVar.IsTexture())
-			continue;
-
 		// This is not the cleanest way to do it but the fastest
 		// We first calculate offset of variable in old data block and then add it to base pointer of new data block
 		u64 offset = reinterpret_cast<u64>(oldVar.Value) - reinterpret_cast<u64>(other.m_Vars);
@@ -317,18 +322,9 @@ void rage::grcInstanceData::CloneFrom(const grcInstanceData& other)
 	// Add compiler refs to var data pointers
 	if (compiler)
 	{
-		for (u8 i = 0; i < m_VarCount; i++)
+		for (u8 i = m_TextureCount; i < m_VarCount; i++)
 		{
 			grcInstanceVar& var = m_Vars[i];
-
-			// We only store texture name hash
-			// TODO: Not true for embed textures!
-			if (var.IsTexture())
-			{
-				var.Value = nullptr;
-				continue;
-			}
-
 			virtualAllocator->AddRef(var.Value);
 		}
 	}
@@ -369,7 +365,7 @@ rage::grcInstanceData::grcInstanceData(const datResource& rsc)
 
 	// Resolve effect by name hash
 	u32 effectNameHash = m_Effect.NameHash;
-	grcEffect* effect = FindEffectByHashKey(effectNameHash);
+	grcEffect* effect = grcEffectMgr::FindEffectByHashKey(effectNameHash);
 	m_Effect.Ptr = effect;
 
 	AM_ASSERT(effect != nullptr, "grcInstanceData -> Effect %u is not preloaded or doesn't exists.", effectNameHash);
@@ -389,8 +385,9 @@ rage::grcInstanceData::grcInstanceData(const datResource& rsc)
 		rsc.Fixup(var.Value);
 		if (var.IsTexture())
 		{
-			grcTexture* texture = var.GetValuePtr<grcTexture>();
-			grcTexture::Place(rsc, texture);
+			// TODO: Should only be done for texture reference... textures are already placed in embed dictionary
+			// grcTexture* texture = var.GetValuePtr<grcTexture>();
+			// grcTexture::Place(rsc, texture);
 		}
 	}
 
@@ -410,6 +407,8 @@ rage::grcInstanceData::grcInstanceData(const datResource& rsc)
 	m_Flags = origFlags;
 
 	UpdateTessellationBucket();
+
+	// TODO: Register / Sampler State
 }
 // ReSharper restore CppPossiblyUninitializedMember
 // ReSharper restore CppObjectMemberMightNotBeInitialized
@@ -676,8 +675,15 @@ void rage::grcVertexProgram::ReflectVertexFormat(grcVertexDeclaration** ppDecl, 
 	}
 
 	grcVertexDeclaration* decl = grcDevice::CreateVertexDeclaration(elementDescs, elementCount);
-	if (pFvf) decl->EncodeFvf(*pFvf);
 
+	// We must provide elements in the same order as they're declared in 'bit' order,
+	// easiest way to do this is to recreate declaration
+	grcFvf fvf;
+	decl->EncodeFvf(fvf);
+	delete decl;
+	decl = grcVertexDeclaration::CreateFromFvf(fvf);
+
+	if (pFvf) *pFvf = fvf;
 	*ppDecl = decl;
 }
 

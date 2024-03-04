@@ -24,7 +24,7 @@ namespace rage
 	struct grmVertexData
 	{
 		pVoid				Vertices;
-		grcIndices_t		Indices;
+		grcIndex_t*			Indices;
 		u32					VertexCount;
 		u32					IndexCount;
 		grcVertexFormatInfo	Info;
@@ -47,7 +47,7 @@ namespace rage
 	 * \remarks
 	 * Geometry material is defined by grmModel::m_GeometryToMaterial (one material per geometry).
 	 */
-	class grmGeometryQB
+	class grmGeometryQB : public datBase
 	{
 		// Vertex & Index buffers are split on 4 areas (QB is apparently Quad ###)
 		// This system is totally un-researched and barely used even in native models
@@ -120,8 +120,8 @@ namespace rage
 		virtual grcPrimitiveType GetPrimitiveType() const { return m_PrimitiveType; }
 		virtual u32 GetPrimitiveCount() const { return m_PrimitiveCount; }
 		virtual void Function13() {}
-		virtual u32 GetVertexCount() const { return m_VertexCount; }
-		virtual u32 GetTotalVertexCount() const;
+		virtual u32 GetCurrentVertsCount() const { return m_VertexCount; }
+		virtual u32 GetVertexCount() const;
 		virtual u32 GetIndexCount() const { return m_IndexCount; }
 		virtual void Function14() {}
 		virtual void Function15() {}

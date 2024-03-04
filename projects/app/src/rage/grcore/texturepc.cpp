@@ -75,7 +75,7 @@ u32 rage::grcTexturePC::GetImageFormat() const
 	AM_UNREACHABLE("grcTexturePC::GetImageFormat() -> Not implemented.");
 }
 
-bool rage::grcTexturePC::LockRect(int layer, int mipLevel, grcTextureLock& lock, grcLockType lockFlags)
+bool rage::grcTexturePC::LockRect(int layer, int mipLevel, grcTextureLock& lock, grcLockFlags lockFlags)
 {
 	AM_UNREACHABLE("grcTexturePC::LockRect() -> Not implemented.");
 }
@@ -308,8 +308,11 @@ u32 rage::grcTextureDX11::TranslateDX11ToDX9Format(DXGI_FORMAT fmt) const
 }
 
 void rage::grcTextureDX11::CreateInternal(
-	CreateInternalInfo& createInfo, grcTextureCreateType createType,
-	grcsTextureSyncType syncType, grcBindFlag extraBindFlags, bool isFromBackingStore)
+	CreateInternalInfo& createInfo,
+	grcTextureCreateType createType,
+	grcsTextureSyncType syncType, 
+	grcBindFlags extraBindFlags,
+	bool isFromBackingStore)
 {
 	ID3D11Device* device = rageam::graphics::RenderGetDevice();
 
@@ -613,7 +616,7 @@ void rage::grcTextureDX11::CreateFromBackingStore(bool recreate)
 	m_StereoRTMode = grcDevice::Stereo_t::AUTO;
 
 	char* pixelData = static_cast<char*>(m_BackingStore);
-	grcBindFlag bindFlags = grcBindNone;
+	grcBindFlags bindFlags = grcBindNone;
 	grcTextureCreateType createType = grcsTextureCreate_NeitherReadNorWrite;
 
 	// NOTE: Native function selects first mip map based on graphical settings, we don't do this

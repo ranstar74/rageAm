@@ -34,23 +34,6 @@ namespace rage
 		int   Layer;
 	};
 
-	struct grcPoint { int x, y; };
-	struct grcRect  { int x1, y1, x2, y2; };
-
-	enum grcLockType_
-	{
-		grcsRead          = 1 << 0,
-		grcsWrite         = 1 << 1,
-		grcsDoNotWait     = 1 << 2,
-		grcsDiscard       = 1 << 3,
-		grcsNoOverwrite   = 1 << 4,
-		grcsNoDirty       = 1 << 5,
-		grcsAllowVRAMLock = 1 << 6,
-
-		grcsReadWrite = grcsRead | grcsWrite,
-	};
-	typedef int grcLockType;
-
 	enum grcTextureCreateType
 	{
 		grcsTextureCreate_NeitherReadNorWrite,
@@ -68,20 +51,6 @@ namespace rage
 		grcsTextureSync_CopyData,
 		grcsTextureSync_None,
 	};
-
-	enum grcBindFlag_
-	{
-		grcBindNone            = 0,
-		grcBindVertexBuffer    = 1 << 0,
-		grcBindIndexBuffer     = 1 << 1,
-		grcBindConstantBuffer  = 1 << 2,
-		grcBindShaderResource  = 1 << 3,
-		grcBindStreamOutput    = 1 << 4,
-		grcBindRenderTarget    = 1 << 5,
-		grcBindDepthStencil    = 1 << 6,
-		grcBindUnorderedAccess = 1 << 7,
-	};
-	typedef int grcBindFlag;
 
 	enum eTextureSwizzle
 	{
@@ -277,7 +246,7 @@ namespace rage
 
 		virtual u32 GetImageFormat() const = 0;
 
-		virtual bool LockRect(int layer, int mipLevel, grcTextureLock& lock, grcLockType lockFlags) = 0;
+		virtual bool LockRect(int layer, int mipLevel, grcTextureLock& lock, grcLockFlags lockFlags) = 0;
 		virtual void UnlockRect(grcTextureLock& lock) = 0;
 
 		virtual void SwizzleTexture2D(grcTextureLock& lock) {}

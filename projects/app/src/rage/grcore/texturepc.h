@@ -81,7 +81,7 @@ namespace rage
 
 		u32 GetImageFormat() const override;
 
-		bool LockRect(int layer, int mipLevel, grcTextureLock& lock, grcLockType lockFlags) override;
+		bool LockRect(int layer, int mipLevel, grcTextureLock& lock, grcLockFlags lockFlags) override;
 		void UnlockRect(grcTextureLock& lock) override;
 
 		atFixedBitSet<8, u8> FindUsedChannels() const override;
@@ -120,8 +120,11 @@ namespace rage
 		u32 TranslateDX11ToDX9Format(DXGI_FORMAT fmt) const;
 
 		void CreateInternal(
-			CreateInternalInfo& createInfo, grcTextureCreateType createType, 
-			grcsTextureSyncType syncType, grcBindFlag extraBindFlags, bool isFromBackingStore);
+			CreateInternalInfo& createInfo, 
+			grcTextureCreateType createType, 
+			grcsTextureSyncType syncType, 
+			grcBindFlags extraBindFlags, 
+			bool isFromBackingStore);
 		void DeleteResources();
 
 	public:

@@ -1,17 +1,13 @@
 //
 // File: device.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
 #pragma once
 
 #include "fvf.h"
-
-#include <d3d11.h>
-#include <xmmintrin.h>
-
 #include "rage/math/mtxv.h"
 
 namespace rage
@@ -23,13 +19,60 @@ namespace rage
 
 	enum grcDrawMode
 	{
-		GRC_DRAW_POINTLIST,
-		GRC_DRAW_LINELIST,
-		GRC_DRAW_LINESTRIP,
-		GRC_DRAW_TRIANGLELIST,
-		GRC_DRAW_TRIANGLESTRIP,
-		GRC_DRAW_INDEXED,
+		grcDrawPointList,
+		grcDrawLineList,
+		grcDrawLineStrip,
+		grcDrawTriangleList,
+		grcDrawTriangleStrip,
+		grcDrawCount,
 	};
+
+	enum grcUsage
+	{
+		grcUsageDefault,
+		grcUsageImmutable,
+		grcUsageDynamic,
+		grcUsageStage,
+		grcUsageCount
+	};
+
+	enum grcCPUAccess
+	{
+		grcCPUNoAccess = 0x0,
+		grcCPUWrite    = 0x10000L,
+		grcCPURead     = 0x20000L,
+	};
+
+	enum grcBindFlags_
+	{
+		grcBindNone            = 0x0,
+		grcBindVertexBuffer    = 0x1,
+		grcBindIndexBuffer     = 0x2,
+		grcBindConstantBuffer  = 0x4,
+		grcBindShaderResource  = 0x8,
+		grcBindStreamOutput    = 0x10,
+		grcBindRenderTarget    = 0x20,
+		grcBindDepthStencil    = 0x40,
+		grcBindUnorderedAccess = 0x80,
+	};
+	using grcBindFlags = int;
+
+	struct grcPoint { int x, y; };
+	struct grcRect { int x1, y1, x2, y2; };
+
+	enum grcLockFlags_
+	{
+		grcsRead          = 1 << 0,
+		grcsWrite         = 1 << 1,
+		grcsDoNotWait     = 1 << 2, // Will return a failed lock if unsuccessful
+		grcsDiscard       = 1 << 3, // Discard contents of locked region entire buffer
+		grcsNoOverwrite   = 1 << 4, // Indicates that the region locked should not be in use by the GPU
+		grcsNoDirty       = 1 << 5, // Prevents driver from marking the region as dirty
+		grcsAllowVRAMLock = 1 << 6,
+
+		grcsReadWrite = grcsRead | grcsWrite,
+	};
+	using grcLockFlags = int;
 
 	class grcDevice
 	{
@@ -73,6 +116,8 @@ namespace rage
 
 		// TODO: ...
 		static bool IsRenderThread() { return true; }
+		static void LockContext() { }
+		static void UnlockContext() { }
 	};
 
 	// Extra draw functions
