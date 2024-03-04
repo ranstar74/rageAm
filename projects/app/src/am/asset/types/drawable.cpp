@@ -1139,7 +1139,7 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 					AM_WARNINGF("Texture is not specified for '%s' in material '%s'",
 						param.Name.GetCStr(), materialTune->Name.GetCStr());
 
-					var->SetTexture(TxdAsset::CreateNoneTexture());
+					var->SetTexture(TxdAsset::GetNoneTexture());
 				}
 				else if (!ResolveAndSetTexture(var, textureName))
 				{
@@ -1175,7 +1175,7 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 			u16 materialIndex = m_Scene->GetMaterialByName(materialTune->Name)->GetIndex();
 			CompiledDrawableMap->SceneMaterialToShader[materialIndex] = shaderIndex;
 			CompiledDrawableMap->ShaderToSceneMaterial.Add(materialIndex);
-		}
+
 		shaderGroup->AddShader(shader);
 	}
 }
@@ -1184,6 +1184,12 @@ bool rageam::asset::DrawableAsset::ResolveAndSetTexture(rage::grcInstanceVar* va
 {
 	if (tl_SkipTextures)
 	{
+		if (String::Equals(textureName, TxdAsset::MISSING_TEXTURE_NAME))
+		{
+			var->SetTexture(TxdAsset::GetNoneTexture());
+			return true;
+		}
+
 		rage::grcTexture* missingTexture = m_EmbedDict->Find(textureName);
 		if (!missingTexture)
 		{

@@ -131,7 +131,7 @@ namespace rageam::asset
 		static bool IsTextureInTxdAssetDirectory(const file::WPath& texturePath);
 
 		// (None)###NONE
-		static rage::grcTexture* CreateNoneTexture();
+		static rage::grcTexture* GetNoneTexture();
 		static bool              IsNoneTexture(const rage::grcTexture* texture);
 		// Missing texture name is composed in format:
 		// TEX_NAME (Missing)###$MT_TEXNAME
@@ -147,6 +147,8 @@ namespace rageam::asset
 
 		// When texture fails to compress, instead of failing, uses missing texture instead
 		static inline thread_local bool UseMissingTexturesInsteadOfFailing = false;
+
+		static constexpr ConstString MISSING_TEXTURE_NAME = "(None)##NONE";
 	};
 	using TxdAssetPtr = amPtr<TxdAsset>;
 

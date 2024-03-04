@@ -406,12 +406,12 @@ bool rageam::asset::TxdAsset::IsTextureInTxdAssetDirectory(const file::WPath& te
 	return GetTxdAssetPathFromTexture(texturePath, txdPath);
 }
 
-rage::grcTexture* rageam::asset::TxdAsset::CreateNoneTexture()
+rage::grcTexture* rageam::asset::TxdAsset::GetNoneTexture()
 {
 	if(!sm_NoneTexture)
 	{
 		sm_NoneTexture = new rage::grcTextureDX11((rage::grcTextureDX11&)*CreateMissingTexture(""));
-		sm_NoneTexture->SetName("(None)##NONE");
+		sm_NoneTexture->SetName(MISSING_TEXTURE_NAME);
 	}
 	return sm_NoneTexture;
 }
@@ -419,7 +419,7 @@ rage::grcTexture* rageam::asset::TxdAsset::CreateNoneTexture()
 bool rageam::asset::TxdAsset::IsNoneTexture(const rage::grcTexture* texture)
 {
 	AM_ASSERTS(texture);
-	return String::Equals(texture->GetName(), "(None)##NONE");
+	return String::Equals(texture->GetName(), MISSING_TEXTURE_NAME);
 }
 
 rage::grcTexture* rageam::asset::TxdAsset::CreateMissingTexture(ConstString textureName)
@@ -459,6 +459,15 @@ ConstString rageam::asset::TxdAsset::UndecorateMissingTextureName(const rage::gr
 
 void rageam::asset::TxdAsset::SetMissingTextureName(rage::grcTexture* texture, ConstString textureName)
 {
+	// Not sure how we should handle this, but none texture should not be marked as missing!
+	// TODO: Check when this even happens
+	if (IsNoneTexture(texture))
+		return;
+
+	// Texture is already missing, don't stack up names
+	if (IsMissingTexture(texture))
+		return;
+
 	char nameBuffer[256];
 	sprintf_s(nameBuffer, sizeof nameBuffer, "%s (Missing)##$MT_%s", textureName, textureName);
 	texture->SetName(nameBuffer);
