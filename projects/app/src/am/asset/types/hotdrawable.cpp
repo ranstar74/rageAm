@@ -677,10 +677,10 @@ void rageam::asset::HotDrawable::NotifyTextureWasUnselected(const rage::grcTextu
 	if (!texture)
 		return;
 
-	if (!TxdAsset::IsMissingTexture(texture))
+	if (!TxdAsset::IsMissingTexture(texture) || TxdAsset::IsNoneTexture(texture))
 		return;
 
-	ConstString       textureName = TxdAsset::UndecorateMissingTextureName(texture);
+	ConstString		  textureName = TxdAsset::UndecorateMissingTextureName(texture);
 	rage::atHashValue textureHashKey = rage::atStringHash(textureName);
 	TextureInfo&      textureInfo = m_TextureInfos.GetAt(textureHashKey);
 
@@ -691,9 +691,7 @@ void rageam::asset::HotDrawable::NotifyTextureWasUnselected(const rage::grcTextu
 	if (IsTextureUsedInDrawable(textureName))
 		return;
 
-	// Missing orphan texture is not referenced in drawable anymore, we can remove it for good
-	AddTextureToDeleteList(m_MegaDictionary->Move(textureHashKey));
-	m_TextureInfos.RemoveAt(textureHashKey);
+	m_UnselectedTexturesToRemove.Add(textureHashKey);
 }
 
 rageam::asset::HotDrawableInfo rageam::asset::HotDrawable::UpdateAndApplyChanges()
@@ -702,6 +700,19 @@ rageam::asset::HotDrawableInfo rageam::asset::HotDrawable::UpdateAndApplyChanges
 
 	UpdateBackgroundJobs();
 	UpdateDrawableCompiling();
+
+	if (m_UnselectedTexturesToRemove.Any())
+	{
+		for (rage::atHashValue textureHashKey : m_UnselectedTexturesToRemove)
+		{
+			// Missing orphan texture is not referenced in drawable anymore, we can remove it for good
+			AddTextureToDeleteList(m_MegaDictionary->Move(textureHashKey));
+			m_TextureInfos.RemoveAt(textureHashKey);
+		}
+
+		m_HotFlags |= AssetHotFlags_TxdModified;
+		m_UnselectedTexturesToRemove.Clear();
+	}
 
 	// We have to set flag via m_JustRequestedLoad because Load function can be called from anywhere
 	if (m_JustRequestedLoad)

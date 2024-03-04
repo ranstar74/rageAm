@@ -108,6 +108,8 @@ namespace rageam::asset
 		AssetHotFlags					m_HotFlags = AssetHotFlags_None;
 		List<file::DirectoryChange>		m_PendingChanges;
 		bool							m_JustRequestedLoad = false;
+		// We store all unselected textures to remove here to properly synchronize m_HotFlags in main update function
+		List<rage::atHashValue>			m_UnselectedTexturesToRemove;
 
 		// We store all the textures in the single dictionary. This simplifies access and editing interface.
 		// All the extra metadata for the specific texture is stored in separate hashmap m_TextureInfos.
