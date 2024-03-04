@@ -869,12 +869,9 @@ amUniquePtr<rage::Vector4[]> rageam::asset::DrawableAsset::RemapBlendIndices(con
 bool rageam::asset::DrawableAsset::GenerateSkeleton()
 {
 	u16 sceneNodeCount = m_Scene->GetNodeCount();
-	bool needRootBone = NeedAdditionalRootBone();
 
 	// Compute bone count, we can't resize skeleton so it must be precomputed
 	u16 boneCount = 0;
-	if (needRootBone)
-		boneCount += 1; // 'Insert' root bone
 
 	for (u16 i = 0; i < m_Scene->GetNodeCount(); i++)
 	{
@@ -885,6 +882,10 @@ bool rageam::asset::DrawableAsset::GenerateSkeleton()
 	// Empty skeleton, skip
 	if (boneCount == 0)
 		return true;
+
+	bool needRootBone = NeedAdditionalRootBone();
+	if (needRootBone)
+		boneCount += 1; // 'Insert' root bone
 
 	// TODO: Find out why shader allows up to 255 but after 128 skeleton explodes
 	if (boneCount > 128)
