@@ -116,6 +116,7 @@ namespace rageam::integration
 		{
 			OutlineMode_All,
 			OutlineMode_OnlySelected,
+			OutlineMode_None,
 		} OutlineMode = OutlineMode_All;
 	};
 }

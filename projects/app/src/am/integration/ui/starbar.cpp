@@ -168,6 +168,8 @@ void rageam::integration::StarBar::OnRender()
 				outlinesMode = LightEditor::OutlineMode_All;
 			if (ImGui::RadioButton("Only Selected", outlinesMode == LightEditor::OutlineMode_OnlySelected))
 				outlinesMode = LightEditor::OutlineMode_OnlySelected;
+			if (ImGui::RadioButton("None", outlinesMode == LightEditor::OutlineMode_None))
+				outlinesMode = LightEditor::OutlineMode_None;
 		}
 		SlGui::CategoryText("Collision");
 		{
