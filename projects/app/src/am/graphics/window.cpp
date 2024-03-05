@@ -58,12 +58,24 @@ void ClipCursorToWindowRect(HWND handle, bool clip)
 
 LRESULT rageam::graphics::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+#ifdef AM_INTEGRATED
 	std::unique_lock lock(s_WndProc_Mutex);
+#endif
+
 	// UI is running in game thread, we must lock context to process system events
 	ui::ImGlue* ui = ui::ImGlue::GetInstance();
+#ifdef AM_STANDALONE // In standalone CreateWindow calls WndProc before UI is created
+	if (ui)
+	{
+		ui->Lock();
+		ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam);
+		ui->Unlock();
+	}
+#else // In integrated, however, we hook WndProc after UI is created and un-hook before UI is destroyed
 	ui->Lock();
 	ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam);
 	ui->Unlock();
+#endif
 
 #ifdef AM_INTEGRATED
 	gImpl_WndProc(hWnd, msg, wParam, lParam);
