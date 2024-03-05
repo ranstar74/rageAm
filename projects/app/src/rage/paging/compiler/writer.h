@@ -52,9 +52,9 @@ namespace rage
 		const wchar_t* m_Path;
 
 		u32 ComputeUsedSize(const datPackedChunks& packedPage) const;
-		void WriteHeader() const;
-		void WriteData(const datPackedChunks& packedPage, const pgSnapshotAllocator* pAllocator);
-		void CompressAndWrite(pVoid data, u32 dataSize);
+		bool WriteHeader() const;
+		bool WriteData(const datPackedChunks& packedPage, const pgSnapshotAllocator* pAllocator);
+		bool CompressAndWrite(pVoid data, u32 dataSize);
 
 		bool OpenResource();
 		void CloseResource() const;

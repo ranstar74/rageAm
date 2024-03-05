@@ -37,7 +37,7 @@ u32 rage::pgRscWriter::ComputeUsedSize(const datPackedChunks& packedPage) const
 	return bufferSize;
 }
 
-void rage::pgRscWriter::WriteHeader() const
+bool rage::pgRscWriter::WriteHeader() const
 {
 	datResourceHeader header = m_WriteData->GetHeader();
 
@@ -46,12 +46,13 @@ void rage::pgRscWriter::WriteHeader() const
 
 	DWORD dwBytesWritten;
 	WriteFile(m_File, &header, sizeof datResourceHeader, &dwBytesWritten, NULL);
+	return AM_VERIFY(dwBytesWritten == sizeof datResourceHeader, "pgRscWriter::WriteHeader() -> Failed to write file!");
 }
 
-void rage::pgRscWriter::WriteData(const datPackedChunks& packedPage, const pgSnapshotAllocator* pAllocator)
+bool rage::pgRscWriter::WriteData(const datPackedChunks& packedPage, const pgSnapshotAllocator* pAllocator)
 {
 	if (packedPage.IsEmpty)
-		return;
+		return true;
 
 	u32 chunkSize = PG_MIN_CHUNK_SIZE << packedPage.SizeShift;
 
@@ -92,12 +93,12 @@ void rage::pgRscWriter::WriteData(const datPackedChunks& packedPage, const pgSna
 		chunkSize /= 2;
 	}
 
-	CompressAndWrite(buffer, bufferSize);
-
+	bool success = CompressAndWrite(buffer, bufferSize);
 	delete[] buffer;
+	return success;
 }
 
-void rage::pgRscWriter::CompressAndWrite(pVoid data, u32 dataSize)
+bool rage::pgRscWriter::CompressAndWrite(pVoid data, u32 dataSize)
 {
 	DWORD dwBytesWritten;
 
@@ -108,12 +109,18 @@ void rage::pgRscWriter::CompressAndWrite(pVoid data, u32 dataSize)
 		u32	compressedSize;
 
 		done = m_Compressor.Compress(data, dataSize, compressedBuffer, compressedSize);
+		m_FileSize += compressedSize;
+		AM_DEBUGF("pgRscWriter::CompressAndWrite() -> Compressed %u to %u", dataSize, compressedSize);
 
 		WriteFile(m_File, compressedBuffer, compressedSize, &dwBytesWritten, NULL);
-		m_FileSize += compressedSize;
-
-		AM_DEBUGF("pgRscWriter::CompressAndWrite() -> Compressed %u to %u", dataSize, compressedSize);
+		if (!AM_VERIFY(dwBytesWritten == compressedSize, 
+			"pgRscWriter::CompressAndWrite() -> Tried to write %u bytes, but only %u been written!",
+			compressedSize, dwBytesWritten))
+		{
+			return false;
+		}
 	}
+	return true;
 }
 
 bool rage::pgRscWriter::OpenResource()
@@ -154,9 +161,11 @@ bool rage::pgRscWriter::Write(const wchar_t* path, const datCompileData& writeDa
 	if (!OpenResource())
 		return false;
 
-	WriteHeader();
-	WriteData(writeData.VirtualChunks, pgRscCompiler::GetVirtualAllocator());
-	WriteData(writeData.PhysicalChunks, pgRscCompiler::GetPhysicalAllocator());
+	// Don't early exit, we still have to close file handle
+	bool writed = true;
+	if (writed && !WriteHeader()) writed = false;
+	if (writed && !WriteData(writeData.VirtualChunks, pgRscCompiler::GetVirtualAllocator()))   writed = false;
+	if (writed && !WriteData(writeData.PhysicalChunks, pgRscCompiler::GetPhysicalAllocator())) writed = false;
 
 	PrintWriteStats();
 	CloseResource();
@@ -164,5 +173,5 @@ bool rage::pgRscWriter::Write(const wchar_t* path, const datCompileData& writeDa
 	m_WriteData = nullptr;
 	m_Path = nullptr;
 
-	return true;
+	return writed;
 }
