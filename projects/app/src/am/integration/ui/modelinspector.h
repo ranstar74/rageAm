@@ -7,6 +7,8 @@
 //
 #pragma once
 
+#ifdef AM_INTEGRATED
+
 #include "am/ui/app.h"
 #include "am/integration/gameentity.h"
 #include "game/modelinfo/basemodelinfo.h"
@@ -51,3 +53,5 @@ namespace rageam::integration
 		void LoadFromPath(ConstWString path);
 	};
 }
+
+#endif

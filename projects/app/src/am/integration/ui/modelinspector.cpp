@@ -1,5 +1,7 @@
 #include "modelinspector.h"
 
+#ifdef AM_INTEGRATED
+
 #include "widgets.h"
 #include "am/file/fileutils.h"
 #include "am/graphics/color.h"
@@ -400,3 +402,5 @@ void rageam::integration::ModelInspector::LoadFromPath(ConstWString path)
 	m_GameEntity.Create(m_Drawable, m_ArchetypeDef, Vec3V(-4, 75, 9));
 	m_GameEntity->SetEntityWasAllocatedByGame(true); // Ensure that drawable will be destroyed with game allocator in TLS
 }
+
+#endif
