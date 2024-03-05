@@ -1,4 +1,5 @@
 #include "shadergroup.h"
+#include "rage/grcore/texturereference.h"
 
 void rage::grmShaderGroup::ScanForInstancedShaders()
 {
@@ -115,12 +116,25 @@ void rage::grmShaderGroup::CopyToContainer(grmShaderGroup* containerInst) const
 		//	later game resolves by navigating TXD dependency linked list
 		for (grcInstanceVar& var : containerInst->m_Shaders[i]->GetTextureIterator())
 		{
-			grcTexture* newTexture = containerInst->m_EmbedTextures->Find(var.GetTexture()->GetName());
-			AM_ASSERT(newTexture, "grmShaderGroup::CopyToContainer() -> Reference textures are not supported.");
+			ConstString textureName = var.GetTexture()->GetName();
+			grcTexture* newTexture = containerInst->m_EmbedTextures->Find(textureName);
+			// Texture is not embed dictionary, referenced externally, we must use grcTextureReference
+			if (!newTexture)
+			{
+				// New-place texture reference on heap in virtual allocator
+				void* textureReferenceBlock = virtualAllocator->Allocate(sizeof grcTextureReference);
+				newTexture = new (textureReferenceBlock) grcTextureReference(textureName, nullptr);
+
+				AM_DEBUGF("grmShaderGroup::CopyToContainer() -> External tex '%s'", textureName);
+			}
+			else
+			{
+				AM_DEBUGF("grmShaderGroup::CopyToContainer() -> Embed tex '%s'", textureName);
+			}
 			var.SetTexture(newTexture);
 
 			// Fix-up texture pointer
-			pgRscCompiler::GetVirtualAllocator()->AddRef(var.Value);
+			virtualAllocator->AddRef(var.Value);
 		}
 	}
 }

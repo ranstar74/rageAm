@@ -9,6 +9,7 @@
 
 #include "rage/atl/conststring.h"
 #include "rage/paging/base.h"
+#include "rage/paging/place.h"
 #include "rage/atl/bitset.h"
 #include "device.h"
 
@@ -125,6 +126,8 @@ namespace rage
 
 	class grcTexture : public pgBase
 	{
+		friend class grcTextureReference;
+
 		static constexpr u8  TYPE_MASK = 0x3;
 		static constexpr u8  CONVERSION_FLAGS_MASK = 0xF8;
 		static constexpr u32 PHYSICAL_SIZE_MASK = 0x7FFFF80;
@@ -158,9 +161,11 @@ namespace rage
 		u32							m_HandleIndex;
 
 	public:
-		grcTexture(eTextureType type);
+		grcTexture(eTextureType type, ConstString name = TEXTURE_DEFAULT_NAME);
 		grcTexture(const grcTexture& other);
 		grcTexture(const datResource& rsc);
+
+		IMPLEMENT_REF_COUNTER(grcTexture);
 
 		static grcTexture* Place(const datResource& rsc, grcTexture* that);
 		static grcTexture* Snapshot(pgSnapshotAllocator* allocator, grcTexture* from);

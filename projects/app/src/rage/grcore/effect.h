@@ -125,18 +125,6 @@ namespace rage
 #endif
 	}
 
-	inline grcEffect* FindEffectByHashKey(u32 nameHash)
-	{
-		gmAddress addr = gmAddress::Scan("48 89 5C 24 08 4C 63 1D ?? ?? ?? ?? 48");
-		return addr.To<decltype(&FindEffectByHashKey)>()(nameHash);
-	}
-
-	inline void ResolveTexture(grcTexture** texture, datResource* rsc)
-	{
-		gmAddress addr = gmAddress::Scan("48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B FA 48 8B 11 48");
-		addr.To<decltype(&ResolveTexture)>()(texture, rsc);
-	}
-
 	template<typename T>
 	void DeserializeProgramArray(const fiStreamPtr& stream, ConstString fileName, atArray<T>& programs)
 	{

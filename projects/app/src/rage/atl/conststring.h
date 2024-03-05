@@ -42,7 +42,7 @@ namespace rage
 			pgSnapshotAllocator* pAllocator = pgRscCompiler::GetVirtualAllocator();
 			if (pAllocator) // Copy string during resource compilation
 			{
-				delete[] m_String;
+				AM_ASSERTS(m_String == nullptr); // We can't delete while compiling resource! This must be NULL.
 				pAllocator->AllocateRef(m_String, stringSize);
 			}
 			else // Otherwise try to fit into existing buffer or allocate larger one

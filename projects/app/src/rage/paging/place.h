@@ -2,6 +2,7 @@
 
 #include "helpers/macro.h"
 #include "resource.h"
+#include "rage/system/interlocked.h"
 
 /**
  * \brief Implements functions for tracking object reference count.
@@ -9,21 +10,22 @@
  */
 #define IMPLEMENT_REF_COUNTER(name_) \
 	void AddRef() { \
-		_InterlockedIncrement(&m_RefCount); \
+		sysInterlockedIncrement(&m_RefCount); \
 		/*AM_DEBUGF("AddRef(%s, %#llx)", typeid(this).name(), (u64)this);*/ \
 	} \
 	auto Release() { \
 		/*AM_DEBUGF("Release(%s, %#llx) -> RefCount: %u", typeid(this).name(), (u64)(this), m_RefCount - 1);*/ \
-		auto refs = _InterlockedDecrement(&m_RefCount); \
+		auto refs = sysInterlockedDecrement(&m_RefCount); \
 		if(refs == 0) delete this;/* this->~name_(); */ \
 		return refs; \
 	} \
 	auto GetNumRefs() const { return m_RefCount; } \
 	MACRO_END
 
- /**
-  * \brief 16 bit (short) ref counter, used in crSkeleton and crJointData, maybe somewhere else...
-  */
+// DEPRECATED: Use IMPLEMENT_REF_COUNTER
+/**
+* \brief 16 bit (short) ref counter, used in crSkeleton and crJointData, maybe somewhere else...
+*/
 #define IMPLEMENT_REF_COUNTER16(name_) \
 	void AddRef() { \
 		_InterlockedIncrement16(&m_RefCount); \

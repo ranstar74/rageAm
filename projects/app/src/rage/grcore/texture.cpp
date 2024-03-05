@@ -2,14 +2,14 @@
 
 #include "texturepc.h"
 
-rage::grcTexture::grcTexture(eTextureType type)
+rage::grcTexture::grcTexture(eTextureType type, ConstString name)
 {
 	m_Texture = {};
-	m_Name = TEXTURE_DEFAULT_NAME;
+	m_Name = name;
 	m_RefCount = 1;
-	m_ResourceTypeAndConversionFlags = TEXTURE_NORMAL;
+	m_ResourceTypeAndConversionFlags = type;
+	m_PhysicalSizeAndTemplateType = 0;
 	m_LayerCount = 0;
-	m_PhysicalSizeAndTemplateType = type;
 	m_HandleIndex = 0;
 }
 
@@ -42,6 +42,8 @@ rage::grcTexture* rage::grcTexture::Place(const datResource& rsc, grcTexture* th
 
 rage::grcTexture* rage::grcTexture::Snapshot(pgSnapshotAllocator* allocator, grcTexture* from)
 {
+	AM_ASSERTS(from);
+	AM_ASSERTS(from->GetResourceType() == TEXTURE_NORMAL);
 	pVoid block = allocator->Allocate(sizeof grcTextureDX11);
 	return new (block) grcTextureDX11(*reinterpret_cast<grcTextureDX11*>(from));
 }

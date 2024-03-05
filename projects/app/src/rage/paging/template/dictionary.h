@@ -38,7 +38,7 @@ namespace rage
 		pgPtr<pgDictionary> m_Parent;
 		u32					m_RefCount;
 		pgArray<u32>		m_Keys;
-		pgUPtrArray<T>		m_Items;
+		pgPtrArray<T>		m_Items;
 
 		// Instead of sorting dictionary after adding new item we
 		// simply insert it at right position
@@ -118,23 +118,24 @@ namespace rage
 		pgKeyPair<T> GetAt(u16 index) { return { m_Keys[index], m_Items[index].Get() }; }
 		// Gets just value at index, use with GetSize
 		T* GetValueAt(u16 index) { return m_Items[index].Get(); }
+		const pgPtr<T>& GetValueRefAt(u16 index) { return m_Items[index]; }
 		// Gets index from element hash key
 		s32 IndexOf(u32 key) const { return m_Keys.Find(key); }
 		s32 IndexOf(ConstString key) const { return IndexOf(atStringHash(key)); }
-		// NOTE: Added element pointer ownership goes to dictionary!
 		// If value is already set for given key, it will be replaced
+		// NOTE: Added element pointer ownership goes to dictionary!
 		T* Insert(u32 key, T* item)
 		{
 			int existingIndex = IndexOf(key);
 			if (existingIndex != -1)
 			{
-				m_Items[existingIndex] = pgUPtr<T>(item);
+				m_Items[existingIndex] = pgPtr<T>(item);
 				return m_Items[existingIndex].Get();
 			}
 
 			u16 index = FindInsertIndex(key);
 			m_Keys.Insert(index, key);
-			m_Items.EmplaceAt(index, pgUPtr<T>(item));
+			m_Items.EmplaceAt(index, pgPtr<T>(item));
 			return m_Items[index].Get();
 		}
 		T* Insert(ConstString key, T* item) { return Insert(atStringHash(key), item); }
