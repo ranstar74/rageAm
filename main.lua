@@ -177,6 +177,7 @@ project "rageAm"
 		"ufbx",
 		"hwbreakpoint",
 		"stb_image",
+		"stb_sprintf",
 		"bc7enc_rdo",
 		"libwebp",
 		"icbc",
