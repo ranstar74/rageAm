@@ -182,6 +182,27 @@ void rageam::integration::GameIntegration::HookRenderThread() const
 	Hook::Create(s_EndFrame_Addr, aImpl_grcDevice_EndFrame, &gImpl_grcDevice_EndFrame);
 }
 
+void rageam::integration::GameIntegration::AntiDebugFixes() const
+{
+	// 1: Keyboard hook causes huge input delay when debugging game in visual studio
+#ifndef APP_BUILD_2699_16_RELEASE_NO_OPT // In source build we simply disable this via param
+	gmAddress mainPrologue = gmAddress::Scan("48 85 C0 74 0B 33 D2", "Main_Prologue+0xA").GetAt(-0xA);
+	gmAddress addKeyboardHook = mainPrologue.GetAt(0x1A).GetCall(); // AddKeyboardHook()
+
+	// Make sure that this hook won't be enabled ever again
+	Hook::Nullsub(addKeyboardHook);
+	
+	// Unset existing hook if it was set
+	HHOOK& hook = *addKeyboardHook.GetAt(0x2A).GetRef(3).To<HHOOK*>();
+	if (hook != NULL)
+	{
+		AM_DEBUGF("GameIntegration::AntiDebugFixes() -> Removing keyboard hook.");
+		UnhookWindowsHookEx(hook);
+		hook = NULL;
+	}
+#endif
+}
+
 rageam::integration::GameIntegration::GameIntegration()
 {
 	// Register integration apps
@@ -195,6 +216,7 @@ rageam::integration::GameIntegration::GameIntegration()
 
 	HookGameThread();
 	HookRenderThread();
+	AntiDebugFixes();
 }
 
 rageam::integration::GameIntegration::~GameIntegration()

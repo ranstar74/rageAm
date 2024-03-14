@@ -37,6 +37,7 @@ namespace rageam::integration
 	{
 		void HookGameThread() const;
 		void HookRenderThread() const;
+		void AntiDebugFixes() const;
 
 		amUPtr<ComponentManager> m_ComponentMgr;
 		amUPtr<GameDrawLists>    m_GameDrawLists;
