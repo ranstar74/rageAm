@@ -23,10 +23,13 @@ namespace
 	bool*								sm_UpdatingThreads;
 	thread_local pVoid					tl_OldThread;
 	thread_local int					tl_BeginEndStackSize;
+#ifdef AM_SCR_ENABLE_DISPATCH
 	std::mutex							s_DelegateQueueMutex;
 	rageam::List<std::function<void()>> s_DelegateQueue;
+#endif
 }
 
+#ifdef AM_SCR_ENABLE_DISPATCH
 void (*gImpl_scrThread_UpdateAll)(int insnCount);
 void aImpl_scrThread_UpdateAll(int insnCount)
 {
@@ -38,6 +41,7 @@ void aImpl_scrThread_UpdateAll(int insnCount)
 		fn();
 	s_DelegateQueue.Clear();
 }
+#endif
 
 void rageam::integration::scrInit()
 {
@@ -163,9 +167,11 @@ void rageam::integration::scrInit()
 		.GetAt(1)
 #endif
 		.To<bool*>();
-	
-	s_scrThread_UpdateAll = gmAddress::Scan("89 4C 24 08 48 81 EC 98 00 00 00 C6 44 24 46");
+
+#ifdef AM_SCR_ENABLE_DISPATCH
+	s_scrThread_UpdateAll = gmAddress::Scan("89 4C 24 08 48 81 EC 98 00 00 00 C6 44 24 46", "rage::scrThread::UpdateAll");
 	Hook::Create(s_scrThread_UpdateAll, aImpl_scrThread_UpdateAll, &gImpl_scrThread_UpdateAll);
+#endif
 
 	s_Initialized = true;
 }
@@ -179,11 +185,13 @@ void rageam::integration::scrShutdown()
 	s_ThreadId.Set(0);
 	s_Thread = nullptr;
 
+#ifdef AM_SCR_ENABLE_DISPATCH
 	{
 		std::unique_lock lock(s_DelegateQueueMutex);
 		Hook::Remove(s_scrThread_UpdateAll);
 		s_DelegateQueue.Destroy();
 	}
+#endif
 
 	s_Initialized = false;
 }
@@ -214,11 +222,13 @@ rageam::integration::scrSignature rageam::integration::scrLookupHandler(u64 hash
 	return ppHandler;
 }
 
+#ifdef AM_SCR_ENABLE_DISPATCH
 void scrDispatch(const std::function<void()>& fn)
 {
 	std::unique_lock lock(s_DelegateQueueMutex);
 	s_DelegateQueue.Add(fn);
 }
+#endif
 
 void scrBegin()
 {

@@ -9,6 +9,13 @@
 
 #ifdef AM_INTEGRATED
 
+// We don't really need native dispatcher anymore because
+// all natives are already invoked from the update thread,
+// also it doesn't work correctly in pause menu
+// (because script threads are paused... see CTheScripts::ShouldBeProcessed)
+// so I disabled it for now.
+// #define AM_SCR_ENABLE_DISPATCH
+
 #include "am/types.h"
 
 namespace rageam::integration
@@ -18,13 +25,13 @@ namespace rageam::integration
 	union scrValue { int Int; float Float; unsigned Uns; scrValue* Reference; const char* String; };
 	struct scrInfo
 	{
-		scrValue*		ResultPtr;
-		int				ParamCount;
-		scrValue*		Params;
+		scrValue*	 ResultPtr;
+		int			 ParamCount;
+		scrValue*	 Params;
 		// Temp storage for vector parameters
-		int				BufferCount = 0;
-		rage::Vector3*	Orig[4] = {};
-		rage::Vector3	Buffer[4] = {};
+		int			 BufferCount = 0;
+		rage::Vec3V* Orig[4] = {}; // scrValue* in reality but seems to be used only for vectors...
+		rage::Vec3V	 Buffer[4] = {};
 	};
 
 	void scrInit();
@@ -37,8 +44,10 @@ namespace rageam::integration
 	scrSignature scrLookupHandler(u64 hashcode);
 }
 
+#ifdef AM_SCR_ENABLE_DISPATCH
 // Schedules given function pointer to scripts update in main thread
 void scrDispatch(const std::function<void()>& fn);
+#endif
 
 // NOTE:
 // This is not 'really' thread-safe. Although, it still may be used if you really want to
