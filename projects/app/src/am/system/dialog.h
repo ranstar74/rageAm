@@ -59,11 +59,9 @@ namespace rageam
 			icon = MAKEINTRESOURCEW(-6); break; // TD_SHIELD_WARNING_ICON
 		}
 
-		HWND windowHandle = graphics::WindowGetHWND();
-
 		TASKDIALOGCONFIG config{};
 		config.cbSize = sizeof(TASKDIALOGCONFIG);
-		config.hwndParent = windowHandle;
+		config.hwndParent = NULL;
 		config.pszWindowTitle = title;
 		config.pszContent = content;
 		config.pszCollapsedControlText = L"Show details";
