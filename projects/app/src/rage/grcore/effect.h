@@ -120,7 +120,7 @@ namespace rage
 			.GetAt(-0x4).ToFunc<grcInstanceData* (u32)>();
 		return fn(nameHash);
 #else
-		static gmAddress addr = gmAddress::Scan("48 89 5C 24 08 4C 8B 05");
+		static gmAddress addr = gmAddress::Scan("48 89 5C 24 08 4C 8B 05", "rage::grcEffect::LookupMaterial");
 		return addr.To<decltype(&LookupShaderPreset)>()(nameHash);
 #endif
 	}
@@ -638,6 +638,7 @@ namespace rage
 		// ReSharper disable once CppHidingFunction
 		void Deserialize(const fiStreamPtr& stream, ConstString fileName);
 	};
+
 	class grcEffect
 	{
 		struct VariableInfo

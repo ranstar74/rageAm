@@ -66,33 +66,31 @@ void rageam::integration::scrInit()
 	// Add streaming request to load script
 	auto requestObject = gmAddress::Scan(
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
-		"44 89 44 24 18 89 54 24 10 48 89 4C 24 08 48 81 EC 68 08",
-		"rage::strStreamingInfoManager::RequestObject")
+		"E9 6E 12 00 00", "rage::strStreamingInfoManager::RequestObject+0x50")
+		.GetAt(-0x50)
 #else
-		"E8 ?? ?? ?? ?? 84 C0 0F 85 89 00 00 00 8B 95 28 02 00 00",
-		"rage::strStreamingInfoManager::RequestObject")
+		"40 53 48 83 EC 20 8B 41 14 48 8B D9 48", "rage::strStreamingInfoManager::RequestObject")
+		.GetAt(0x33)
 		.GetCall()
 #endif
 		.ToFunc<bool(pVoid, strIndex, u16)>();
 
 	auto strInfo = gmAddress::Scan(
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
-		"48 8D 05 ?? ?? ?? ?? 48 05 20 02 00 00 48 8B 94 24 80 00 00 00"
+		"48 8D 05 ?? ?? ?? ?? 48 05 20 02 00 00 48 8B 94 24 80 00 00 00")
 #else
-		"48 8D 0D ?? ?? ?? ?? 41 B8 01 00 00 00 03 D3 E8 ?? ?? ?? ?? 33 C9"
+		"48 8D 0D ?? ?? ?? ?? 41 B8 01 00 00 00 03 D3 E8 ?? ?? ?? ?? 33 C9")
 #endif
-	).GetRef(3);
+		.GetRef(3);
 
 	requestObject(strInfo, globalSlot, 1); // STRFLAG_DONTDELETE = 1 << 0
 
 	// Force load our request
 	auto loadAllRequestedObjects = gmAddress::Scan(
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
-		"88 4C 24 08 48 83 EC 38 E8 ?? ?? ?? ?? 48 89 44 24 28 48 83",
-		"CStreaming::LoadAllRequestedObjects")
+		"88 4C 24 08 48 83 EC 38 E8 ?? ?? ?? ?? 48 89 44 24 28 48 83", "CStreaming::LoadAllRequestedObjects")
 #else
-		"E8 ?? ?? ?? ?? EB DD B0 01",
-		"CStreaming::LoadAllRequestedObjects")
+		"E8 ?? ?? ?? ?? EB DD B0 01", "CStreaming::LoadAllRequestedObjects")
 		.GetCall()
 #endif
 		.ToFunc<void(bool)>();
@@ -114,7 +112,13 @@ void rageam::integration::scrInit()
 	AM_ASSERT(s_Thread != nullptr, "scrInit() -> Failed to create thread.");
 
 	// Set state to halted, it won't let game to call abort
-	*((char*)s_Thread + 32) = 3;
+#if APP_BUILD_2699_16_RELEASE_NO_OPT | APP_BUILD_2699_16_RELEASE | APP_BUILD_2699_16
+	int stateOffset = 32;
+#else
+	// Was changed in 2802, most likely field shuffling
+	int stateOffset = 16;
+#endif
+	*((char*)s_Thread + stateOffset) = 3; // scrThread::State::HALTED
 
 	// Script is now referenced by created thread, let streaming manager to handle it
 	auto clearRequredFlag = gmAddress::Scan(
@@ -142,13 +146,23 @@ void rageam::integration::scrInit()
 	tl_CurrentThread.SetOffset(*tlValues.GetAt(2).To<int*>());
 	tl_ThisThreadIsRunningAScript.SetOffset(*tlValues.GetAt(6 + 4 + 2).To<int*>());
 #else
-	gmAddress tlValues = gmAddress::Scan("41 BF 48 08 00 00");
+	gmAddress tlValues = gmAddress::Scan("41 BF 48 08 00 00", "rage::scrThread::Run+0x52");
 	// mov r15d, 848h
 	// mov r14d, 850h
 	tl_CurrentThread.SetOffset(*tlValues.GetAt(2).To<int*>());
 	tl_ThisThreadIsRunningAScript.SetOffset(*tlValues.GetAt(6 + 2).To<int*>());
 #endif
-	sm_UpdatingThreads = gmAddress::Scan("0F B6 05 ?? ?? ?? ?? 85 C0 74 19 E8 ?? ?? ?? ?? 48 89 44 24 20").GetRef(3).To<bool*>();
+	sm_UpdatingThreads = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		"0F B6 05 ?? ?? ?? ?? 85 C0 74 19 E8 ?? ?? ?? ?? 48 89 44 24 20", "CTheScripts::GetCurrentScriptName+0x19")
+		.GetRef(3)
+#else
+		"40 53 48 83 EC 30 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8D 0D", "CTheScripts::InternalProcess")
+		.GetAt(0xC0)
+		.GetRef(2)
+		.GetAt(1)
+#endif
+		.To<bool*>();
 	
 	s_scrThread_UpdateAll = gmAddress::Scan("89 4C 24 08 48 81 EC 98 00 00 00 C6 44 24 46");
 	Hook::Create(s_scrThread_UpdateAll, aImpl_scrThread_UpdateAll, &gImpl_scrThread_UpdateAll);

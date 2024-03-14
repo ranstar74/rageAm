@@ -35,7 +35,7 @@ void rageam::integration::CameraComponentBase::OnStart()
 		"48 89 54 24 10 89 4C 24 08 48 83 EC 48 83 7C 24 50 00 7C 21")
 	                                    .GetAt(0x14)
 	                                    .GetRef(3)
-#else
+#else // APP_BUILD_2699_16 | APP_BUILD_3095_0
 		"48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B C8 EB 02 33 C9 48 85 C9 74 26")
 	                                    .GetRef(3)
 #endif

@@ -31,8 +31,14 @@ void aImpl_CVisualEffects_RenderMarkers(u32 mask)
 	}
 
 	// rage::DLC_AddInternal<void(*)>(void(*), const char* name)>
-	static auto dlc_AddInternal = gmAddress::Scan("75 AF 48 83 C4 38", "rage::DLC_AddInternal<void(*)(void)>+0x5D")
+	static auto dlc_AddInternal = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		"75 AF 48 83 C4 38", "rage::DLC_AddInternal<void(*)(void)>+0x5D")
 		.GetAt(-0x5D)
+#else
+		"81 20 04 20 F3 FF", "rage::DLC_AddInternal<void(*)(void)>+0x2D")
+		.GetAt(-0x2D)
+#endif
 		.ToFunc<void(void(*)(), const char*)>();
 	dlc_AddInternal(DrawListExecuteCommand, "DrawListExecuteCommand");
 }
@@ -48,7 +54,12 @@ rageam::integration::GameDrawLists::GameDrawLists() :
 	Overlay.Unlit = true;
 	CollisionMesh.Wireframe = true;
 
-	s_RenderMarkersAddr = gmAddress::Scan("83 E0 08 85 C0 74 1F E8", "CVisualEffects::RenderMarkers+0x5E").GetAt(-0x5E);
+	s_RenderMarkersAddr = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		"83 E0 08 85 C0 74 1F E8", "CVisualEffects::RenderMarkers+0x5E").GetAt(-0x5E);
+#else
+		"F6 C3 04 74 05", "CVisualEffects::RenderMarkers+0x2F").GetAt(-0x2F);
+#endif
 	Hook::Create(s_RenderMarkersAddr, aImpl_CVisualEffects_RenderMarkers, &gImpl_CVisualEffects_RenderMarkers);
 }
 

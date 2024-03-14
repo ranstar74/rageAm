@@ -47,7 +47,7 @@ void aImpl_PerformSafeModeOperations(pVoid instance)
 	}
 }
 
-bool(*CApp_GameUpdate_gImpl)();
+bool (*CApp_GameUpdate_gImpl)();
 bool CApp_GameUpdate_aImpl()
 {
 	static bool s_NameSet = false;
@@ -87,7 +87,7 @@ bool CApp_GameUpdate_aImpl()
 	return result;
 }
 
-void(*gImpl_grcDevice_EndFrame)();
+void (*gImpl_grcDevice_EndFrame)();
 void aImpl_grcDevice_EndFrame()
 {
 	static bool s_NameSet = false;
@@ -151,6 +151,15 @@ void rageam::integration::GameIntegration::HookGameThread() const
 	s_GameUpdateAddr =
 		gmAddress::Scan("48 83 EC 28 E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? B9");
 #endif
+
+	s_SafeModeOperationsAddr =
+		gmAddress::Scan("B9 2D 92 F5 3C", "CGtaRenderThreadGameInterface::PerformSafeModeOperations")
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		.GetAt(-0x65);
+#else
+		.GetAt(-0x31);
+#endif
+
 	Hook::Create(s_GameUpdateAddr, CApp_GameUpdate_aImpl, &CApp_GameUpdate_gImpl);
 	Hook::Create(s_SafeModeOperationsAddr, aImpl_PerformSafeModeOperations, &gImpl_PerformSafeModeOperations);
 

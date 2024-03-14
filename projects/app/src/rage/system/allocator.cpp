@@ -32,18 +32,20 @@ void ScanTlsOffsetsAndTheAllocator()
 	int container = *addr.GetAt(81).GetCall().GetAt(43 + 1).To<int*>();
 	// Shift to theAllocator
 	addr = addr.GetAt(26);
+	s_TheAllocator = addr.GetRef(3).To<rage::sysMemAllocator*>();
 #elif APP_BUILD_2699_16_RELEASE
 	static gmAddress addr = gmAddress::Scan("48 8D 2D ?? ?? ?? ?? A8 10");
 	int current = *addr.GetAt(605).GetAt(1).To<int*>();
 	int master = *addr.GetAt(605 + 9).GetAt(1).To<int*>();
 	int container = *addr.GetAt(605 + 9 + 9).GetAt(1).To<int*>();
+	s_TheAllocator = addr.GetRef(3).To<rage::sysMemAllocator*>();
 #else
 	static gmAddress addr = gmAddress::Scan("48 89 1D ?? ?? ?? ?? 48 89 1C 10");
 	int current = *addr.GetAt(-5).GetAt(1).To<int*>();
 	int master = *addr.GetAt(11).GetAt(1).To<int*>();
 	int container = *addr.GetAt(20).GetAt(1).To<int*>();
+	s_TheAllocator = *addr.GetRef(3).To<rage::sysMemAllocator**>();
 #endif
-	s_TheAllocator = addr.GetRef(3).To<rage::sysMemAllocator*>();
 
 	tl_Current.SetOffset(current);
 	tl_Master.SetOffset(master);
@@ -70,14 +72,14 @@ void rage::sysMemInitCurrentThread()
 	ScanTlsOffsetsAndTheAllocator();
 
 	// Prevent overwriting existing values
-	thread_local bool isSet = false;
+	// Game thread will already have allocators set
+	bool isSet = tl_Current.Get() != nullptr;
 	if(!isSet)
 	{
 		// Set master allocator everywhere as default
 		tl_Current.Set(s_TheAllocator);
 		tl_Master.Set(s_TheAllocator);
 		tl_Container.Set(s_TheAllocator);
-		isSet = true;
 	}
 }
 

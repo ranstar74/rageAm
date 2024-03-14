@@ -12,14 +12,14 @@
 
 #include "font_icons/icons_awesome.h"
 
+#ifdef AM_INTEGRATED
+#include "am/integration/script/core.h"
+#endif
+
 #include <backends/imgui_impl_win32.h>
 #include <implot.h>
 #include <imgui_internal.h>
 #include <misc/freetype/imgui_freetype.h>
-
-#ifdef AM_INTEGRATED
-#include <am/integration/script/core.h>
-#endif
 
 void ImGui::PushFont(ImFonts font)
 {
@@ -418,7 +418,7 @@ void rageam::ui::ImGlue::CreateFonts() const
 	CreateDefaultFonts(fontRanges.GetItems());
 	CreateBankFont();
 	EmbedFontIcons(ImFont_Regular);
-
+	
 	ImGui_ImplDX11_InvalidateDeviceObjects();
 	ImGui_ImplDX11_CreateDeviceObjects();
 }

@@ -364,19 +364,36 @@ void rageam::integration::ModelInspector::LoadFromPath(ConstWString path)
 	m_Drawable = gtaDrawablePtr((gtaDrawable*) root);
 
 	// Place drawable using native game function
-	static auto placeFn = gmAddress::Scan("48 8B 44 24 40 48 05 B0 00 00 00 41 B0 01").GetAt(-0x2C)
-			.ToFunc<void(gtaDrawable*, rage::datResource*)>();
+	static auto placeFn = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		"48 8B 44 24 40 48 05 B0 00 00 00 41 B0 01", "gtaDrawable::gtaDrawable(const datResource& rsc)+0x2C").GetAt(-0x2C)
+#else
+		"66 3B BB B8 00 00 00", "gtaDrawable::gtaDrawable(const datResource& rsc)+0x47").GetAt(-0x47)
+#endif
+		.ToFunc<void(gtaDrawable*, rage::datResource*)>();
 
 	// Minimize resource building scope, we use game loader functions for now,
 	// although we may want to add switch to verify that our loading code is working properly
 	{
 		rage::datResource rsc(map, pathA);
 
-		static auto datResourceCtor = gmAddress::Scan("49 8B 44 00 18", "rage::datResource::datResource+0x196")
+		static auto datResourceCtor = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+			"49 8B 44 00 18", "rage::datResource::datResource+0x196")
 			.GetAt(-0x196)
+#else
+			"48 89 5C 24 08 57 48 83 EC 20 65 48 8B 04", "rage::datResource::datResource")
+#endif
 			.ToFunc<void(rage::datResource*, rage::datResourceMap*, const char*, bool)>();
-		static auto datResourceDctor = gmAddress::Scan("48 8B 52 08 48 89 14 08", "rage::datResource::~datResource+0x24")
+
+		static auto datResourceDctor = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+			"48 8B 52 08 48 89 14 08", "rage::datResource::~datResource+0x24")
 			.GetAt(-0x24)
+#else
+			"42 FF 0C 00 C3", "rage::datResource::~datResource+0x25")
+			.GetAt(-0x25)
+#endif
 			.ToFunc<void(rage::datResource*)>();
 
 		datResourceCtor(&rsc, &map, pathA, false);

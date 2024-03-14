@@ -43,17 +43,17 @@ void CBaseModelInfo::InitArchetypeFromDefinition(rage::strLocalIndex slot, rage:
 
 void CBaseModelInfo::SetPhysics(const rage::phArchetypePtr& physics)
 {
-#ifdef AM_INTEGRATED
 	// This function is quite big and contains a lot of network code to reimplement
+	static auto fn = gmAddress::Scan(
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
-	static auto fn = gmAddress::Scan("89 44 24 7C 48 8B 84 24 38 02 00 00", "CBaseModelInfo::SetPhysics + 0xA1D")
-	                 .GetAt(-0xA1D)
-	                 .ToFunc<void(CBaseModelInfo*, const rage::phArchetypePtr&)>();
-	fn(this, physics);
+		"89 44 24 7C 48 8B 84 24 38 02 00 00", "CBaseModelInfo::SetPhysics+0xA1D")
+		.GetAt(-0xA1D)
 #else
-#error CBaseModelInfo::SetPhysics() -> Not implemented
+		"41 84 C6 74 7E", "CBaseModelInfo::SetPhysics+0x38")
+		.GetAt(-0x38)
 #endif
-#endif
+		.ToFunc<void(CBaseModelInfo*, const rage::phArchetypePtr&)>();
+	fn(this, physics);
 }
 
 bool CBaseModelInfo::WillGenerateBuilding()
@@ -70,8 +70,14 @@ bool CBaseModelInfo::WillGenerateBuilding()
 
 void CBaseModelInfo::Shutdown()
 {
-	static auto fn = gmAddress::Scan("48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B D9 E8 ?? ?? ?? ?? 48 8B 03")
-			.ToFunc<void(fwArchetype*)>();
+	static auto fn = gmAddress::Scan(
+#ifdef APP_BUILD_2699_16_RELEASE_NO_OPT
+		"48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B D9 E8 ?? ?? ?? ?? 48 8B 03", "CBaseModelInfo::Shutdown")
+#else
+		"74 1D 66 39 77 0A", "CBaseModelInfo::Shutdown+0x3B")
+		.GetAt(-0x3B)
+#endif
+		.ToFunc<void(fwArchetype*)>();
 	fn(this);
 }
 
@@ -157,15 +163,15 @@ void CBaseModelInfo::DeleteMasterDrawableData()
 
 void CBaseModelInfo::InitWaterSamples()
 {
-#ifdef AM_INTEGRATED
+	static auto fn = gmAddress::Scan(
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
-	static auto fn = gmAddress::Scan("48 89 4C 24 08 55 48 81 EC 20 08", "CBaseModelInfo::InitWaterSamples")
+		"48 89 4C 24 08 55 48 81 EC 20 08", "CBaseModelInfo::InitWaterSamples")
+#else
+		"45 85 F6 78 72", "CBaseModelInfo::InitWaterSamples+0xB8")
+		.GetAt(-0xB8)
+#endif
 		.ToFunc<void(CBaseModelInfo*)>();
 	fn(this);
-#else
-#error CBaseModelInfo::InitWaterSamples() -> Not implemented
-#endif
-#endif
 }
 
 rage::atArray<CLightAttr>* CBaseModelInfo::GetLightArray() const

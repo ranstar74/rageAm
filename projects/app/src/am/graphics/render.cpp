@@ -79,12 +79,18 @@ void rageam::graphics::Render::CreateDevice()
 	Context = amComPtr(*addr.GetRef(3).To<ID3D11DeviceContext**>());
 	Device = amComPtr(*addr.GetRef(32 + 3).To<ID3D11Device**>());
 	Swapchain = amComPtr(*addr.GetRef(47 + 3).To<IDXGISwapChain**>());
-#else
+#elif APP_BUILD_2699_16
 	gmAddress addr = gmAddress::Scan(
 		"48 8D 05 ?? ?? ?? ?? 45 33 C9 48 89 44 24 58 48 8D 85 D0 08 00 00", "rage::grcDevice::InitClass");
 	Context = amComPtr(*addr.GetRef(3).To<ID3D11DeviceContext**>());
-	Device = amComPtr(*addr.GetRef(33).To<ID3D11Device**>());
-	Swapchain = amComPtr(*addr.GetRef(47).To<IDXGISwapChain**>());
+	Device = amComPtr(*addr.GetRef(30 + 3).To<ID3D11Device**>());
+	Swapchain = amComPtr(*addr.GetRef(44 + 3).To<IDXGISwapChain**>());
+#else // APP_BUILD_3095_0
+	gmAddress addr = gmAddress::Scan( // 4th byte from the end is different comparing to APP_BUILD_2699_16
+		"48 8D 05 ?? ?? ?? ?? 45 33 C9 48 89 44 24 58 48 8D 85 E0 08 00 00", "rage::grcDevice::InitClass");
+	Context = amComPtr(*addr.GetRef(3).To<ID3D11DeviceContext**>());
+	Device = amComPtr(*addr.GetRef(30 + 3).To<ID3D11Device**>());
+	Swapchain = amComPtr(*addr.GetRef(44 + 3).To<IDXGISwapChain**>());
 #endif
 
 	Context->AddRef();

@@ -827,7 +827,13 @@ void rageam::integration::DrawListExecutor::Execute(DrawList& drawList)
 	}
 
 	// Game will update matrices constant buffer for us
-	static auto grcWorldIdentity = gmAddress::Scan("E8 ?? ?? ?? ?? 48 8D 45 30", "rage::grcWorldIdentity")
+	static auto grcWorldIdentity = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		"E8 ?? ?? ?? ?? 48 8D 45 30",
+#else
+		"E8 ?? ?? ?? ?? 4C 63 2D",
+#endif
+		"rage::grcWorldIdentity")
 		.GetCall().ToFunc<void()>();
 	grcWorldIdentity();
 
@@ -851,11 +857,18 @@ void rageam::integration::DrawListExecutor::Execute(DrawList& drawList)
 		scissors.right = static_cast<LONG>(width);
 		scissors.bottom = static_cast<LONG>(height);
 		context->RSSetScissorRects(1, &scissors);
-
+		
 		// Obtain scene depth stencil
-		static auto getTargetView = gmAddress::Scan("0F B7 40 7C 8B 4C 24 40", "rage::grcRenderTargetDX11::GetTargetView+0x17")
-			.GetAt(-0x17).ToFunc<ID3D11ShaderResourceView*(pVoid rt, u32 mip, u32 layer)>();
-		static auto getDepthBuffer = gmAddress::Scan("88 4C 24 08 48 8B 05", "CRenderTargets::GetDepthBuffer")
+		static auto getTargetView = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+			"0F B7 40 7C 8B 4C 24 40", "rage::grcRenderTargetDX11::GetTargetView+0x17")
+			.GetAt(-0x17)
+#else
+			"0F B7 41 7C 41", "rage::grcRenderTargetDX11::GetTargetView")
+#endif
+			.ToFunc<ID3D11ShaderResourceView*(pVoid rt, u32 mip, u32 layer)>();
+		static auto getDepthBuffer = gmAddress::Scan("E8 ?? ?? ?? ?? EB 20 83 3D", "CRenderTargets::GetDepthBuffer")
+			.GetCall()
 			.ToFunc<pVoid(bool unused)>();
 		ID3D11DepthStencilView* depthBuffer = (ID3D11DepthStencilView*) getTargetView(getDepthBuffer(false), 0, 0);
 

@@ -109,9 +109,14 @@ void rage::grcDevice::GetScreenSize(u32& width, u32& height)
 rage::grcDevice::MSAAMode rage::grcDevice::GetMSAA()
 {
 	static MSAAMode* pMode = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
 		"8B 44 24 20 89 04 24 8B 04 24 89 05", "rage::grcDevice::SetSamplesAndFragments+0x8")
 		.GetAt(-0x8)
 		.GetAt(0x12)
+#else
+		"E8 ?? ?? ?? ?? 8B 47 4C 89 05", "rage::grcDevice::SetSamplesAndFragments")
+		.GetCall()
+#endif
 		.GetRef(0x2)
 		.To<MSAAMode*>();
 	return *pMode;
