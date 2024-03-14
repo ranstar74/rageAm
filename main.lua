@@ -110,6 +110,12 @@ function setup_game_build_version()
 		defines { "APP_BUILD_2699_16_RELEASE=1" }
 		defines { "APP_BUILD_2699_16_RELEASE_NO_OPT=1" } -- Includes APP_BUILD_2699_16_RELEASE, but higher priority
 	
+	
+	-- 3095.0
+	filter { "options:gamebuild=3095_0" }
+		defines { "APP_BUILD_3095_0=1" }
+		defines { "USE_RAGE_RTTI" } -- 2802+
+	
 	filter {}
 end
 

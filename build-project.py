@@ -9,7 +9,8 @@ class GameBuild:
         self.exe = exe
 
 gameBuilds = [ # Keep names the same size for table alignment
-    GameBuild("2699.16 Master          ", "2699_16",                "gta5.exe",               "-"),
+    GameBuild("3095.0  Master          ", "3095_0",                 "GTA5.exe",               "-"),
+    GameBuild("2699.16 Master          ", "2699_16",                "GTA5.exe",               "-"),
     GameBuild("2699.16 Release (No Opt)", "2699_16_RELEASE_NO_OPT", "game_win64_release.exe", "Built from the source with Release configuration and optimizations disabled, developer use only"),
 ]
 
