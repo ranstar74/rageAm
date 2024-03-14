@@ -9,6 +9,7 @@
 
 #include "fvf.h"
 #include "rage/math/mtxv.h"
+#include "am/system/threadinfo.h"
 
 namespace rage
 {
@@ -114,8 +115,7 @@ namespace rage
 			AUTO = 0x2,
 		};
 
-		// TODO: ...
-		static bool IsRenderThread() { return true; }
+		static bool IsRenderThread() { return rageam::ThreadInfo::GetInstance()->IsRenderThread(); }
 		static void LockContext() { }
 		static void UnlockContext() { }
 	};

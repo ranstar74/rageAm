@@ -140,6 +140,12 @@ void rageam::System::Init(bool withUI)
 {
 	Timer timer = Timer::StartNew();
 
+	// In standalone there is only single main thread and it calls this function
+#ifdef AM_STANDALONE
+	m_ThreadInfo.SetIsMainThread();
+	m_ThreadInfo.SetIsRenderThread();
+#endif
+	
 	EASY_PROFILER_ENABLE;
 	AM_STANDALONE_ONLY(EASY_THREAD("Main Thread"));
 

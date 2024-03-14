@@ -50,11 +50,12 @@ void aImpl_PerformSafeModeOperations(pVoid instance)
 bool (*CApp_GameUpdate_gImpl)();
 bool CApp_GameUpdate_aImpl()
 {
-	static bool s_NameSet = false;
-	if (!s_NameSet)
+	static bool s_Initialized = false;
+	if (!s_Initialized)
 	{
-		(void)SetThreadDescription(GetCurrentThread(), L"[RAGE] Game Thread");
-		s_NameSet = true;
+		(void) SetThreadDescription(GetCurrentThread(), L"[RAGE] Game Thread");
+		rageam::ThreadInfo::GetInstance()->SetIsMainThread();
+		s_Initialized = true;
 	}
 
 	if (!s_InitializedFromGameThread)
@@ -90,11 +91,12 @@ bool CApp_GameUpdate_aImpl()
 void (*gImpl_grcDevice_EndFrame)();
 void aImpl_grcDevice_EndFrame()
 {
-	static bool s_NameSet = false;
-	if (!s_NameSet)
+	static bool s_Initialized = false;
+	if (!s_Initialized)
 	{
 		(void) SetThreadDescription(GetCurrentThread(), L"[RAGE] Render Thread");
-		s_NameSet = true;
+		rageam::ThreadInfo::GetInstance()->SetIsRenderThread();
+		s_Initialized = true;
 	}
 
 	auto integration = rageam::integration::GameIntegration::GetInstance();
@@ -142,8 +144,6 @@ void rageam::integration::GameIntegration::HookGameThread() const
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
 	s_GameUpdateAddr =
 		gmAddress::Scan("48 89 4C 24 08 48 81 EC 38 02 00 00 48 8D 05 ?? ?? ?? ?? 48");
-	s_SafeModeOperationsAddr =
-		gmAddress::Scan("B9 2D 92 F5 3C", "CGtaRenderThreadGameInterface::PerformSafeModeOperations+0x65").GetAt(-0x65);
 #elif APP_BUILD_2699_16_RELEASE
 	s_GameUpdateAddr =
 		gmAddress::Scan("48 89 5C 24 08 57 48 81 EC 80 01 00 00 33");

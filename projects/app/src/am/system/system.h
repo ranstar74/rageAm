@@ -12,6 +12,7 @@
 #include "am/graphics/render.h"
 #include "am/graphics/window.h"
 #include "am/ui/imglue.h"
+#include "threadinfo.h"
 
 #ifdef AM_INTEGRATED
 #include "am/integration/integration.h"
@@ -54,14 +55,15 @@ namespace rageam
 		amUPtr<gmAddressCache>				 m_AddressCache;
 #endif
 
-		amUPtr<BackgroundWorker>			m_MainWorker;
-		amUPtr<asset::TexturePresetStore>	m_TexturePresetManager;
-		amUPtr<graphics::Window>			m_PlatformWindow;
-		amUPtr<graphics::Render>			m_Render;
-		amUPtr<graphics::ImageCache>		m_ImageCache;
-		amUPtr<ui::ImGlue>					m_ImGlue;
-		bool								m_UseWindowRender = false;
-		bool								m_Initialized = false;
+		ThreadInfo                        m_ThreadInfo;
+		amUPtr<BackgroundWorker>          m_MainWorker;
+		amUPtr<asset::TexturePresetStore> m_TexturePresetManager;
+		amUPtr<graphics::Window>          m_PlatformWindow;
+		amUPtr<graphics::Render>          m_Render;
+		amUPtr<graphics::ImageCache>      m_ImageCache;
+		amUPtr<ui::ImGlue>                m_ImGlue;
+		bool                              m_UseWindowRender = false;
+		bool                              m_Initialized = false;
 
 		void LoadDataFromXML();
 		void SaveDataToXML() const;
