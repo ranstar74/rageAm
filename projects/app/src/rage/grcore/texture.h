@@ -149,16 +149,16 @@ namespace rage
 			u8	Padding;
 			u32 Pitch;
 			u32 Offset;
-		}							m_Texture;
-		atConstString				m_Name;
-		u16							m_RefCount;
-		u8							m_ResourceTypeAndConversionFlags;
-		u8							m_LayerCount;
+		}						 m_Texture;
+		atConstString			 m_Name;
+		u16						 m_RefCount;
+		u8						 m_ResourceTypeAndConversionFlags;
+		u8						 m_LayerCount;
 		// Native type is void* but since in PC version there is only DX11
 		// we use smart pointer, for simplicity
-		amComPtr<ID3D11Resource>	m_CachedTexture;
-		u32							m_PhysicalSizeAndTemplateType;
-		u32							m_HandleIndex;
+		amComPtr<ID3D11Resource> m_CachedTexture;
+		u32						 m_PhysicalSizeAndTemplateType;
+		u32						 m_HandleIndex;
 
 	public:
 		grcTexture(eTextureType type, ConstString name = TEXTURE_DEFAULT_NAME);

@@ -1,6 +1,6 @@
 // File: texturepc.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
@@ -15,10 +15,10 @@ namespace rage
 
 	struct grcTextureDX11_ExtraData
 	{
-		u32							SyncType : 2;
-		u32							LockFlags : 2;
-		amComPtr<ID3D11Resource>	StagingTexture;
-		HANDLE						Mutex;
+		u32                      SyncType  : 2;
+		u32                      LockFlags : 2;
+		amComPtr<ID3D11Resource> StagingTexture;
+		HANDLE                   Mutex;
 	};
 
 	enum ImageType : u8
@@ -35,33 +35,33 @@ namespace rage
 
 		struct grcDX11InfoBits
 		{
-			u8 IsSRGB : 1;
-			u8 ReadWriteAccess : 3;
+			u8 IsSRGB           : 1;
+			u8 ReadWriteAccess  : 3;
 			u8 OwnsBackingStore : 1; // TRUE: Virtual; FALSE: Physical
-			u8 HasBeenDeleted : 1;
-			u8 Dynamic : 1;
-			u8 Dirty : 1;
+			u8 HasBeenDeleted   : 1;
+			u8 Dynamic          : 1;
+			u8 Dirty            : 1;
 		};
 		
-		u32									m_ExtraFlags;
-		u32									m_ExtraFlagsPadding;
-		u16									m_Width;
-		u16									m_Height;
-		u16									m_Depth;
-		u16									m_Stride;
+		u32								   m_ExtraFlags;
+		u32								   m_ExtraFlagsPadding;
+		u16								   m_Width;
+		u16								   m_Height;
+		u16								   m_Depth;
+		u16								   m_Stride;
 		// In compiled resources stored as DX9, converted to DXGI on deserializing
-		u32									m_Format;
-		ImageType							m_ImageType;
-		u8									m_MipCount;
-		u8									m_CutMipLevels;
-		grcDX11InfoBits						m_InfoBits;
-		grcTexturePC*						m_Next;
-		grcTexturePC*						m_Previous;
+		u32								   m_Format;
+		ImageType						   m_ImageType;
+		u8								   m_MipCount;
+		u8								   m_CutMipLevels;
+		grcDX11InfoBits					   m_InfoBits;
+		grcTexturePC*					   m_Next;
+		grcTexturePC*					   m_Previous;
 		// Texture pixels, each mip map is stored next to each other without padding
-		pVoid								m_BackingStore;
+		pVoid							   m_BackingStore;
 		// Same as for m_CachedTexture, use DX11 type for simplicity
-		amComPtr<ID3D11ShaderResourceView>	m_ShaderResourceView;
-		grcTextureDX11_ExtraData*			m_ExtraData;
+		amComPtr<ID3D11ShaderResourceView> m_ShaderResourceView;
+		grcTextureDX11_ExtraData*		   m_ExtraData;
 
 	public:
 		grcTexturePC(u16 width, u16 height, u8 mipCount, u16 stride, DXGI_FORMAT fmt);
