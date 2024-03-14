@@ -28,7 +28,7 @@ namespace rageam::graphics
 #ifdef AM_STANDALONE
 		static constexpr ConstWString WINDOW_NAME = L"rageAm";
 #else
-		static constexpr ConstWString WINDOW_NAME = L"Grand Theft Auto V | rageAm - RAGE Research Project";
+		static constexpr ConstWString WINDOW_NAME = L"Grand Theft Auto V | rageAm - RAGE Research Project | Game Build: " APP_BUILD_STRING;
 #endif
 		static constexpr int DEFAULT_WINDOW_WIDTH = 1200;
 		static constexpr int DEFAULT_WINDOW_HEIGHT = 768;

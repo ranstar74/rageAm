@@ -105,16 +105,19 @@ function setup_game_build_version()
 	-- 2699.16 Master
 	filter { "options:gamebuild=2699_16" }
 		defines { "APP_BUILD_2699_16=1" }
+		defines { "APP_BUILD_STRING=\"2699.16 Master\"" }
+	
 	-- 2699.16 Release (Built from source code)
 	filter { "options:gamebuild=2699_16_RELEASE_NO_OPT" }
 		defines { "APP_BUILD_2699_16_RELEASE=1" }
 		defines { "APP_BUILD_2699_16_RELEASE_NO_OPT=1" } -- Includes APP_BUILD_2699_16_RELEASE, but higher priority
-	
+		defines { "APP_BUILD_STRING=\"2699.16 Dev\"" }
 	
 	-- 3095.0
 	filter { "options:gamebuild=3095_0" }
 		defines { "APP_BUILD_3095_0=1" }
 		defines { "USE_RAGE_RTTI" } -- 2802+
+		defines { "APP_BUILD_STRING=\"3095.0 Master\"" }
 	
 	filter {}
 end
