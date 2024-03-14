@@ -18,7 +18,7 @@ namespace rageam
 	// TODO: This and errordisplay.h have some insane amount of code duplicate
 
 	// Max length of assert/verify message buffer
-#define ASSERT_MAX 256
+#define ASSERT_MAX 1024
 
 	WPRINTF_ATTR(5, 6) AM_NOINLINE	void AssertHandler(bool expression, ConstString assert, ConstString file, int line, ConstWString fmt, ...);
 	PRINTF_ATTR(5, 6) AM_NOINLINE	void AssertHandler(bool expression, ConstString assert, ConstString file, int line, ConstString fmt, ...);
