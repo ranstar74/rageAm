@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rtti.h"
 #include "common/logger.h"
 #include "common/types.h"
 
@@ -94,6 +95,8 @@ namespace rage
 		 * \return Previous toggle state.
 		 */
 		virtual bool SetQuitOnFail(bool toggle) { return false; }
+
+		DECLARE_RTTI(sysMemAllocator);
 
 		virtual pVoid Allocate(u64 size, u64 align = 16, u32 type = ALLOC_TYPE_GENERAL) = 0;
 		virtual pVoid TryAllocate(u64 size, u64 align = 16, u32 type = ALLOC_TYPE_GENERAL) = 0;

@@ -10,6 +10,7 @@
 #include "streamingdefs.h"
 #include "rage/atl/string.h"
 #include "rage/atl/hashstring.h"
+#include "rage/dat/base.h"
 #include "rage/framework/streaming/assettypes.h"
 
 namespace rage
@@ -24,7 +25,7 @@ namespace rage
 		HMT_FLUSH,
 	};
 
-	class strStreamingModule
+	class strStreamingModule : public datBase
 	{
 	protected:
 		s32			m_StreamInfoIndex = -1;		// Start index (offset) in rage::strStreamingEngine::ms_info
@@ -39,7 +40,7 @@ namespace rage
 
 	public:
 		strStreamingModule(ConstString name, u32 assetVersion, strAssetID assetTypeID, u32 defaultSize, bool needTempMemory = false);
-		virtual ~strStreamingModule() = default;
+		~strStreamingModule() override = default;
 
 #if APP_BUILD_2699_16_RELEASE
 		virtual ConstString GetName(strLocalIndex index) { return nullptr; }

@@ -13,6 +13,7 @@
 #include "rage/paging/ref.h"
 #include "rage/physics/archetype.h"
 #include "rage/streaming/streamingdefs.h"
+#include "rage/system/rtti.h"
 
 namespace rage
 {
@@ -64,7 +65,7 @@ namespace rage
 	/**
 	 * \brief Archetype holds various game object information, similar concept to prefabs.
 	 */
-	class fwArchetype
+	class fwArchetype : public datBase
 	{
 	protected:
 		enum DrawableType : u8
@@ -100,7 +101,7 @@ namespace rage
 
 	public:
 		fwArchetype() = default;
-		virtual ~fwArchetype();
+		~fwArchetype() override;
 
 		virtual void Init();
 		// Slot from map type store, specify INVALID_STR_INDEX if archetype is not streamed

@@ -8,6 +8,7 @@
 #pragma once
 
 #include "common/types.h"
+#include "rage/system/rtti.h"
 
 namespace rage
 {
@@ -19,6 +20,8 @@ namespace rage
 	 */
 	class fwCustomShaderEffect
 	{
+		DECLARE_RTTI(fwCustomShaderEffect);
+
 		u32         m_Size : 16;
 		u32         m_Type : 4;
 		mutable u32 m_SharedDataInfo[2]; // TODO: dlSharedDataInfo
@@ -44,6 +47,8 @@ namespace rage
 
 	class fwCustomShaderEffectBaseType
 	{
+		DECLARE_RTTI(fwCustomShaderEffectBaseType);
+
 	protected:
 		u8 m_Type = 0;
 

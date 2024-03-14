@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/types.h"
+#include "rage/system/rtti.h"
 
 namespace rage
 {
@@ -12,6 +13,8 @@ namespace rage
 	 */
 	class pgBase
 	{
+		DECLARE_RTTI(pgBase);
+
 		/**
 		 * \brief Mini copy of datResourceMap.
 		 * \n Purpose: We have to store allocated chunks to de-allocate them when object is destroyed.

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "rage/system/rtti.h"
+
 namespace rage
 {
 	/**
@@ -8,6 +10,8 @@ namespace rage
 	 */
 	class datBase
 	{
+		DECLARE_RTTI(datBase);
+
 	public:
 		datBase() = default;
 		virtual ~datBase() = default;
