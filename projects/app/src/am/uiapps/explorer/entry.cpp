@@ -25,7 +25,7 @@ bool rageam::ui::ExplorerEntryBeginDragSource(const ExplorerEntryPtr& entry, Exp
 
 	if (dragging)
 	{
-		entry->GetLargeIcon().Render(96, 96);
+		entry->GetIcon().Render(96, 96);
 
 		// Display number of items under icon for multi-drag
 		if (s_pDragData->Entries.GetSize() > 1)
@@ -303,20 +303,11 @@ void rageam::ui::ExplorerEntryFi::UpdateIcon()
 {
 	auto SetIcon = [this](ConstString name)
 		{
-			//Icons& icons = GetUI()->Icons;/*Gui->Icons;*/
-
-			// We store two icon sizes mainly because .ico files contain different image for 16x16 comparing to 256x256
-			// Those small icons made for better readability and contain less details
-			//m_StaticIcon = icons.GetIcon(name/*, ExplorerEntrySmallIcon*/);
-			//m_StaticLargeIcon = icons.GetIcon(name/*, ExplorerEntryLargeIcon*/);
 			m_StaticIcon = GetUI()->GetIcon(name);
-			m_StaticLargeIcon = m_StaticIcon; // TODO: Large icon is outdated
-
 			return m_StaticIcon != nullptr;
 		};
 
 	ConstString type = GetType();
-	//Icons& icons = GetUI()->Icons;/*Gui->Icons;*/
 
 	if (m_IconOverride)
 	{
@@ -335,16 +326,14 @@ void rageam::ui::ExplorerEntryFi::UpdateIcon()
 	// TODO: Better interface to register custom icons for specific folders
 	if (String::Equals("Grand Theft Auto V", m_Name))
 	{
-		// Use 256 for both because 16 looks very bad
-		// TODO: How...
-		m_StaticIcon = GetUI()->GetIcon("GTAV");// , IconSize_256);
-		m_StaticLargeIcon = m_StaticIcon;
-		//m_StaticLargeIcon = icons.GetIcon("GTAV", IconSize_256);
+		// TODO: We need to force 256 icon size here because 16 looks ugly
+		m_StaticIcon = GetUI()->GetIcon("GTAV");
 		return;
 	}
 
 	// Try to retrieve extension icon
-	if (!SetIcon(type))
+	// Type might be empty string if we're working with folder
+	if (String::IsNullOrEmpty(type) || !SetIcon(type))
 	{
 		// There's no static icon for specified type, retrieve default one
 		SetIcon(IsDirectory() ? "folder" : "file");

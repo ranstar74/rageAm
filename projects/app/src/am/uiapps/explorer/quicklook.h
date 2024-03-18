@@ -26,7 +26,7 @@ namespace rageam::ui
 
 	class QuickLookImage : public QuickLookType
 	{
-		ImImage image;
+		ImImage m_Image;
 	public:
 		QuickLookImage(const ExplorerEntryPtr& entry);
 

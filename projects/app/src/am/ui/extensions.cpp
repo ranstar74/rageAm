@@ -352,7 +352,7 @@ void ImGui::StatusBar()
 
 	SetCursorScreenPos(ImVec2(barMin.x + style.FramePadding.x, barMin.y));
 
-	RenderFrame(barMin, barMax, GetColorU32(ImGuiCol_MenuBarBg));
+	RenderFrame(barMin, barMax, 0/*GetColorU32(ImGuiCol_MenuBarBg)*/, false);
 }
 
 void ImGui::PreStatusBar()
@@ -693,7 +693,7 @@ void ImGui::BeginToolBar(ConstString name)
 	window->DC.CursorPos.y += (barHeight - frameHeight) / 2.0f;
 
 	//ImGui::RenderFrame(ImRect(min, max), ImGui::GetColorGradient(ImGuiCol_ToolbarBg), 1, 0, ImGuiAxis_X);
-	RenderFrame(min, max, GetColorU32(ImGuiCol_ChildBg));
+	RenderFrame(min, max, GetColorU32(ImGuiCol_ChildBg), false);
 }
 
 void ImGui::EndToolBar()
@@ -755,9 +755,9 @@ bool ImGui::NavButton(ConstString idStr, ImGuiDir dir, bool enabled)
 		pressed = ButtonBehavior(bb, id, &hovered, 0, buttonFlags);
 	}
 
-	int col = ImGuiCol_Button;
-	if (pressed)		col = ImGuiCol_ButtonActive;
-	else if (hovered)	col = ImGuiCol_ButtonHovered;
+	int col = ImGuiCol_Text;
+	if (pressed)		col = ImGuiCol_NavHighlight;
+	else if (hovered)	col = ImGuiCol_NavHighlight;
 
 	window->DrawList->AddText(textPos, GetColorU32(col), text);
 	RenderNavHighlight(bb, id, ImGuiNavHighlightFlags_TypeThin);

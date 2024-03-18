@@ -41,7 +41,7 @@ bool SlGui::ToggleButton(ConstString text, bool& isActive)
 	if (pressed) isActive = !isActive;
 	ImGui::PopStyleVar();
 	ImGui::PopStyleColor();
-		
+
 	// Render underline for active button
 	if (isActive)
 	{
@@ -221,7 +221,7 @@ bool SlGui::TreeNode(ConstString text, bool& selected, bool& toggled, ImTextureI
 	{
 		// Shrink it a little to create spacing between items
 		// We do that after collision pass so you can't click in-between
-		bb.Expand(ImVec2(-1, -1));
+		// bb.Expand(ImVec2(-1, -1));
 
 		//const SlGuiCol backgroundCol = selected || held && hovered ? SlGuiCol_NodePressed : hovered ? SlGuiCol_NodeHovered : SlGuiCol_Node;
 		//const SlGuiCol borderCol = selected ? SlGuiCol_NodeBorderHighlight : SlGuiCol_None;
@@ -240,8 +240,18 @@ bool SlGui::TreeNode(ConstString text, bool& selected, bool& toggled, ImTextureI
 		//RenderBorder(bb, border);
 		//if (selected || hovered) RenderGloss(bb, SlGuiCol_GlossBg);
 		//ImGui::PopStyleVar();
-		__debugbreak();
 
+		// Shrink it a little to create spacing between items
+		// We do that after collision pass so you can't click in-between
+		bb.Max.y -= 1;
+
+		ImU32 backgroundCol =
+			selected ? ImGui::GetColorU32(ImGuiCol_FrameBgActive) :
+			hovered ? ImGui::GetColorU32(ImGuiCol_FrameBgHovered) : ImGui::GetColorU32(ImGuiCol_FrameBg);
+		ImU32 borderCol = selected ? ImGui::GetColorU32(ImGuiCol_Border) : 0;
+
+		window->DrawList->AddRectFilled(bb.Min, bb.Max, backgroundCol);
+		window->DrawList->AddRect(bb.Min, bb.Max, borderCol);
 	}
 	ImGui::RenderNavHighlight(bb, id, ImGuiNavHighlightFlags_TypeThin);
 
@@ -266,9 +276,9 @@ bool SlGui::TreeNode(ConstString text, bool& selected, bool& toggled, ImTextureI
 
 	window->DrawList->AddImage(icon, iconMin, iconMax);
 
-	ImGui::PushFont(ImFont_Medium);
+	// ImGui::PushFont(ImFont_Medium);
 	ImGui::RenderText(textPos, text);
-	ImGui::PopFont();
+	// ImGui::PopFont();
 
 	if (isOpen)
 		ImGui::TreePushOverrideID(id);
@@ -906,8 +916,6 @@ void SlGui::TableHeader(const char* label)
 		//if (selected || hovered) RenderGloss(bb, SlGuiCol_GlossBg);
 
 		//ImGui::PopStyleVar();
-
-		__debugbreak();
 	}
 
 	ImGui::RenderNavHighlight(bb, id, ImGuiNavHighlightFlags_TypeThin | ImGuiNavHighlightFlags_NoRounding);

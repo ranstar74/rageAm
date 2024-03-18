@@ -7,7 +7,7 @@
 rageam::ui::QuickLookImage::QuickLookImage(const ExplorerEntryPtr& entry) : QuickLookType(entry)
 {
 	file::WPath path = file::PathConverter::Utf8ToWide(m_Entry->GetPath());
-	image.Load(path);
+	m_Image.Load(path);
 }
 
 void rageam::ui::QuickLookImage::Render()
@@ -20,11 +20,11 @@ void rageam::ui::QuickLookImage::Render()
 	ImGui::SameLine();
 	ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
 	ImGui::SameLine();
-	if (image.IsLoading())
+	if (m_Image.IsLoading())
 	{
 		ImGui::Text(" ... ");
 	}
-	else if (image.FailedToLoad())
+	else if (m_Image.FailedToLoad())
 	{
 		ImGui::Text(" Failed to open image");
 	}
@@ -32,12 +32,12 @@ void rageam::ui::QuickLookImage::Render()
 	{
 		char sizeBuffer[16];
 		FormatSize(sizeBuffer, 16, m_Entry->GetSize());
-		ImGui::Text(" %ux%u, %s", image.GetWidth(), image.GetHeight(), sizeBuffer);
+		ImGui::Text(" %ux%u, %s", m_Image.GetWidth(), m_Image.GetHeight(), sizeBuffer);
 	}
 
 	ImGui::PopFont();
 
-	image.Render(512);
+	m_Image.Render(512);
 }
 
 void rageam::ui::QuickLook::Open(const ExplorerEntryPtr& entry)

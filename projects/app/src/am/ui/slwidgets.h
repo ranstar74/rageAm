@@ -57,8 +57,8 @@ struct SlRenamingSelectableState
 
 	float IconScale = 1.0f;
 	float IconWidth = -1, IconHeight = -1;
-	ImTextureID Icon;
-	ImTextureID IconBg;
+	ImTextureID Icon = nullptr;
+	ImTextureID IconBg = nullptr;
 	bool IconBorder = false;
 	ConstString TextDisplay; // Text that will be shown usually
 	ConstString TextEditable; // Text that will be shown in edit mode

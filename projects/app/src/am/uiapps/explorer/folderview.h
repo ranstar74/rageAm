@@ -98,7 +98,7 @@ namespace rageam::ui
 		void Refresh();
 
 		// Gets directory entry that was opened this frame.
-		ExplorerEntryPtr& GetOpenedEntry() { return m_EntryToOpen; }
+		ExplorerEntryPtr& GetOpenedEntry() { return m_DoubleClickedEntry; }
 
 		bool ShowDetails = true;
 	};

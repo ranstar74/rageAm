@@ -143,13 +143,11 @@ void rageam::ui::Explorer::OnRender()
 		bool canNavLeft = m_TreeView.CanGoLeft();
 		bool canNavRight = m_TreeView.CanGoRight();
 
-		ImGui::BeginToolBar("ASSETS_TOOLBAR");
-
+		ImGui::BeginToolBar("NAV_TOOLBAR");
 		navLeft = ImGui::NavButton("ASSET_NAV_LEFT", ImGuiDir_Left, canNavLeft);
 		ImGui::ToolTip("Back (Alt + Left Arrow)");
 		navRight = ImGui::NavButton("ASSET_NAV_RIGHT", ImGuiDir_Right, canNavRight);
 		ImGui::ToolTip("Forward (Alt + Right Arrow)");
-
 		ImGui::EndToolBar();
 
 		if (canNavLeft)

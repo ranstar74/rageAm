@@ -116,8 +116,7 @@ namespace rageam::ui
 		virtual void Sort(ImGuiTableSortSpecs* specs) = 0;
 
 		virtual void SetIconOverride(ConstString name) = 0;
-		virtual ImImage& GetIcon() = 0;			// 16x16
-		virtual ImImage& GetLargeIcon() = 0;		// At least 256x256
+		virtual ImImage& GetIcon() = 0;
 
 		virtual bool IsAsset() const = 0;
 		virtual asset::AssetPtr GetAsset() = 0;
@@ -231,8 +230,7 @@ namespace rageam::ui
 
 		ConstString m_IconOverride = nullptr;
 		ImImage m_DynamicIcon;								// Dynamic file icon for images
-		ImImage* m_StaticIcon = nullptr;						// Static icon from 'data/icons'
-		ImImage* m_StaticLargeIcon = nullptr;
+		ImImage* m_StaticIcon = nullptr;					// Static icon from 'data/icons'
 
 		void ScanSubFolders();
 		void SetPath(const file::U8Path& path, rage::fiDevice* parentDevice = nullptr);
@@ -272,7 +270,6 @@ namespace rageam::ui
 
 		void SetIconOverride(ConstString name) override;
 		ImImage& GetIcon() override { return m_StaticIcon != nullptr ? *m_StaticIcon : m_DynamicIcon; }
-		ImImage& GetLargeIcon() override { return m_StaticLargeIcon != nullptr ? *m_StaticLargeIcon : m_DynamicIcon; }
 
 		bool IsAsset() const override { return m_IsAsset; }
 		asset::AssetPtr GetAsset() override;
@@ -292,7 +289,6 @@ namespace rageam::ui
 		bool	m_HasSubDirs = false;
 
 		ImImage* m_Icon;
-		ImImage* m_LargeIcon;
 
 		void ScanSubDirs();
 	public:
@@ -335,7 +331,6 @@ namespace rageam::ui
 
 		void SetIconOverride(ConstString name) override { SetIcon(name); }
 		ImImage& GetIcon() override { return *m_Icon; }
-		ImImage& GetLargeIcon() override { return *m_LargeIcon; }
 
 		ExplorerEntryType GetEntryType() override { return ExplorerEntryType_User; }
 
@@ -345,14 +340,7 @@ namespace rageam::ui
 		ExplorerEntryPtr& AddChildren(const ExplorerEntryPtr& entry);
 		void RemoveChildren(const ExplorerEntryPtr& entry);
 		void RemoveChildrenAtIndex(u16 index);
-		void SetIcon(ConstString name)
-		{
-			/*m_Icon = Gui->Icons.GetIcon(name, ExplorerEntrySmallIcon);
-			m_LargeIcon = Gui->Icons.GetIcon(name, ExplorerEntryLargeIcon);*/
-			// TODO: ... large icon is outdated
-			m_Icon = GetUI()->GetIcon(name);
-			m_LargeIcon = GetUI()->GetIcon(name);
-		}
+		void SetIcon(ConstString name) { m_Icon = GetUI()->GetIcon(name); }
 	};
 	using ExplorerEntryUserPtr = amPtr<ExplorerEntryUser>;
 }

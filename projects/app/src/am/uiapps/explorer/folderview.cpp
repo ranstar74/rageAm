@@ -164,6 +164,7 @@ void rageam::ui::FolderView::CreateEditableState(const ExplorerEntryPtr& entry, 
 	state.Renaming = m_RenamingEntry == entry;
 	state.TextDisplay = entry->GetFullName();
 	state.TextEditable = m_AllowRenaming ? entry->GetName() : entry->GetFullName();
+	state.SpanAllColumns = true;
 }
 
 void rageam::ui::FolderView::RenderEntryTableRow(const ExplorerEntryPtr& entry)
@@ -187,10 +188,12 @@ void rageam::ui::FolderView::RenderEntryTableRow(const ExplorerEntryPtr& entry)
 	bool disabled = !state.Renaming && m_RenamingEntry != nullptr;
 
 	if (disabled) ImGui::BeginDisabled();
+	ImGui::PushStyleColor(ImGuiCol_FrameBg, 0); // Empty default entry background
 	if (SlGui::RenamingSelectable(state, selectableFlags))
 	{
 		UpdateEntrySelection(entry);
 	}
+	ImGui::PopStyleColor();
 	if (disabled) ImGui::EndDisabled();
 
 	if (state.DoubleClicked)
@@ -274,17 +277,14 @@ void rageam::ui::FolderView::UpdateEntryOpening()
 		Scene::OpenWindowForSceneAndLoad(entryPath);
 		m_DoubleClickedEntry = nullptr;
 		return;
-			}
+	}
 
 	if (m_DoubleClickedEntry && m_DoubleClickedEntry->IsDirectory())
-			{
+	{
 		SetRootEntry(m_DoubleClickedEntry);
-			}
+	}
 
 	m_DoubleClickedEntry = nullptr;
-		}
-		m_EntryToOpen = nullptr; // To prevent it from actually opening
-	}
 }
 
 void rageam::ui::FolderView::BeginDragSelection(ImRect& dragSelectRect)
@@ -331,7 +331,7 @@ void rageam::ui::FolderView::RenderEntries()
 
 	ImGui::PreStatusBar();
 
-	m_EntryToOpen = nullptr;
+	m_DoubleClickedEntry = nullptr;
 
 	// Setup drag selection
 	ImRect dragSelectRect;
@@ -380,8 +380,12 @@ void rageam::ui::FolderView::RenderEntries()
 			m_RootEntry->Sort(sort);
 		}
 
-		SlGui::TableHeadersRow();
+		// TODO: SlGui header is disabled for now, this one looks awful
+		ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, 0); // Remove default table header gray background
+		ImGui::TableHeadersRow();
+		ImGui::PopStyleColor();
 
+		ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0, 0)); // Remove 3km padding between entries
 		for (u16 i = 0; i < m_RootEntry->GetChildCount(); i++)
 		{
 			ImGui::TableNextRow();
@@ -463,6 +467,8 @@ void rageam::ui::FolderView::RenderEntries()
 
 			ImGui::PopStyleVar(); // Alpha
 		}
+		ImGui::PopStyleVar();
+
 		ImGui::EndTable(); // FolderTable
 
 		if (m_RootEntry->GetChildCount() == 0)
@@ -476,7 +482,6 @@ void rageam::ui::FolderView::RenderEntries()
 	UpdateStatusBar();
 	UpdateSelectAll();
 	UpdateQuickView();
-	UpdateEntryOpening();
 }
 
 void rageam::ui::FolderView::UpdateSearchOnType()
@@ -565,16 +570,9 @@ void rageam::ui::FolderView::Render()
 	}
 	ImGui::PopStyleVar(2); // WindowPadding, ItemSpacing
 
-	// We schedule entry opening to beginning of
-	// next (this) frame so 'entry changed' event can be handled properly
-	if (m_EntryToOpen)
-	{
-		SetRootEntry(m_EntryToOpen);
-		m_EntryToOpen = nullptr;
-	}
-
 	// Render folder view
 	RenderEntries();
+	UpdateEntryOpening();
 
 	// Open context menu
 	if (ImGui::IsMouseReleased(ImGuiMouseButton_Right) && ImGui::IsWindowHovered())
