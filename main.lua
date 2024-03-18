@@ -76,6 +76,10 @@ newoption {
 	trigger = "gamebuild",
 	description = "Target build version of the game",
 }
+newoption { 
+	trigger = "testbed",
+	description = "Enables testbed UI, only for development.",
+}
 
 workspace "rageAm"
 	configurations { "Debug", "Release" }
@@ -144,6 +148,9 @@ project "rageAm"
 	filter { "not options:nostacksymbols" }
 		defines { "AM_STACKTRACE_SYMBOLS" }
 
+	filter { "options:testbed" }
+		defines { "AM_TESTBED" }
+	
 	filter {}
 	
 	location "projects/app"

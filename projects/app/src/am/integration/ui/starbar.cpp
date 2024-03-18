@@ -70,11 +70,13 @@ void rageam::integration::StarBar::OnRender()
 			UpdateCamera();
 		}
 
+#ifdef AM_TESTEBED
 		// Debug teleport to scene position
 		if (ImGui::IsKeyPressed(ImGuiKey_Backslash, false))
 		{
-			scrWarpPlayer(SCENE_POS);
+			scrWarpPlayer(SCENE_DEFAULT_POS);
 		}
+#endif
 	}
 
 	if (!SlGui::BeginToolWindow(ICON_AM_STAR" StarBar"))

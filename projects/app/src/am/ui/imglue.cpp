@@ -8,7 +8,11 @@
 #include "imgui_impl_dx11.h"
 
 #include "am/uiapps/skeleton.h"
+#ifdef AM_TESTBED
 #include "am/uiapps/testbed.h"
+#else
+#include "am/uiapps/explorer/explorer.h"
+#endif
 
 #include "font_icons/icons_awesome.h"
 
@@ -429,7 +433,12 @@ void rageam::ui::ImGlue::RegisterSystemApps()
 	AddApp(Windows);
 
 	AddApp(new Skeleton());
+
+#ifdef AM_TESTBED
 	AddApp(new TestbedApp());
+#else
+	Windows->Add(new Explorer());
+#endif
 }
 
 void rageam::ui::ImGlue::LoadIcons()

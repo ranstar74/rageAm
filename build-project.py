@@ -38,6 +38,7 @@ if not isValidIndex(gameBuilds, selectedBuild):
 # Default configuration values
 useAvx2 = True
 useProfiler = False
+testbed = False
 projectType = 0 # VS22
 
 # Advanced configuration
@@ -45,6 +46,7 @@ if inputYes("Enter advanced configuration? y/n "):
     # What CPU doesn't support AVX2 in 2022?
     useAvx2 = inputYes("Use AVX2? ")
     useProfiler = inputYes("Use profiler? ")
+    testbed = inputYes("Enable Testbed? ")
 
 # Project type
 print("Select project type:")
