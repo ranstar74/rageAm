@@ -10,7 +10,7 @@
 #include "am/ui/imglue.h"
 #include "am/ui/imgui_impl_dx11.h"
 #include "am/system/system.h"
-
+#include "am/asset/types/hotdrawable.h"
 #include "ui/starbar.h"
 
 #include <backends/imgui_impl_win32.h>
@@ -204,8 +204,6 @@ rageam::integration::GameIntegration::GameIntegration()
 	// Register integration apps
 	ui::ImGlue* ui = ui::GetUI();
 	ui->AddApp(new StarBar());
-	ui->AddApp(new ModelScene());
-	ui->AddApp(new ModelInspector());
 
 	m_ComponentMgr = std::make_unique<ComponentManager>();
 	m_GameDrawLists = std::make_unique<GameDrawLists>();
