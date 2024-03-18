@@ -24,6 +24,7 @@ namespace rageam::integration
 		static inline bool BoundingBox = true;
 		static inline bool BoundingSphere = false;
 		static inline bool Skeleton = true;
+		static inline bool BoneTags = true;
 		static inline bool Collision = true;
 
 		// Bounding box / sphere

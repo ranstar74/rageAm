@@ -23,9 +23,12 @@ void rageam::integration::DrawableRender::RenderBoneRecurse(rage::crSkeletonData
 
 	// TODO: We need push transform for Im3D
 	// Bone label
-	rage::Mat44V textWorld = rootWorld * m_Entity->GetWorldTransform();
-	Im3D::CenterNext();
-	Im3D::TextBg(textWorld.Pos, "Bone<%s, Tag: %u>", rootBone->GetName(), rootBone->GetBoneTag());
+	if (BoneTags)
+	{
+		rage::Vec3V textWorld = Vec3V(rootWorld.Pos).Transform(m_Entity->GetWorldTransform());
+		Im3D::CenterNext();
+		Im3D::TextBg(textWorld, "Bone<%s, Tag: %u>", rootBone->GetName(), rootBone->GetBoneTag());
+	}
 
 	// Child bones
 	rage::crBoneData* childBone = skel->GetFirstChildBone(rootBone->GetIndex());
