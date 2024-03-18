@@ -867,8 +867,13 @@ void rageam::integration::DrawListExecutor::Execute(DrawList& drawList)
 			"0F B7 41 7C 41", "rage::grcRenderTargetDX11::GetTargetView")
 #endif
 			.ToFunc<ID3D11ShaderResourceView*(pVoid rt, u32 mip, u32 layer)>();
-		static auto getDepthBuffer = gmAddress::Scan("E8 ?? ?? ?? ?? EB 20 83 3D", "CRenderTargets::GetDepthBuffer")
+		static auto getDepthBuffer = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+			"88 4C 24 08 48 8B", "CRenderTargets::GetDepthBuffer")
+#else
+			"E8 ?? ?? ?? ?? EB 20 83 3D", "CRenderTargets::GetDepthBuffer")
 			.GetCall()
+#endif
 			.ToFunc<pVoid(bool unused)>();
 		ID3D11DepthStencilView* depthBuffer = (ID3D11DepthStencilView*) getTargetView(getDepthBuffer(false), 0, 0);
 
