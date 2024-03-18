@@ -1,6 +1,3 @@
-#include "am/system/system.h"
-#include "am/ui/imgui_impl_dx11.h"
-#include "backends/imgui_impl_win32.h"
 
 #ifdef AM_INTEGRATED
 
@@ -14,11 +11,10 @@
 #include "am/ui/imgui_impl_dx11.h"
 #include "am/system/system.h"
 
-#include "ui/modelinspector.h"
-#include "ui/modelscene.h"
 #include "ui/starbar.h"
 
 #include <backends/imgui_impl_win32.h>
+#include <imgui_internal.h>
 
 namespace
 {
