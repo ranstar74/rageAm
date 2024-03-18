@@ -46,13 +46,11 @@ void rageam::integration::StarBar::UpdateCamera()
 	m_Camera->SetActive(true);
 }
 
-void rageam::integration::StarBar::OnStart()
-{
-	m_ModelScene = ui::GetUI()->FindAppByType<ModelScene>();
-}
-
 void rageam::integration::StarBar::OnRender()
 {
+	ui::Scene* scene = ui::Scene::GetCurrent();
+	ModelScene* sceneEditor = dynamic_cast<ModelScene*>(scene);
+
 	if (Im3D::IsViewportFocused())
 	{
 		// Switch camera with ']'
@@ -101,10 +99,11 @@ void rageam::integration::StarBar::OnRender()
 		}
 		ImGui::ToolTip("Orbit camera rotates around the object");
 
-		bool isolatedSceneOn = m_ModelScene->IsIsolatedSceneOn();
-		if (SlGui::ToggleButton(ICON_AM_OBJECT"", isolatedSceneOn))
+		if (SlGui::ToggleButton(ICON_AM_OBJECT"", m_UseIsolatedScene))
 		{
-			m_ModelScene->SetIsolatedSceneOn(isolatedSceneOn);
+			m_UseIsolatedScene = !m_UseIsolatedScene;
+			scene->SetPosition(m_UseIsolatedScene ? SCENE_ISOLATED_POS : SCENE_DEFAULT_POS);
+			scene->FocusCamera();
 		}
 		ImGui::ToolTip("Isolates scene model from game world");
 
@@ -113,11 +112,21 @@ void rageam::integration::StarBar::OnRender()
 		ImGui::Separator();
 		if (!m_CameraEnabled) ImGui::BeginDisabled();
 
+		if (!scene) ImGui::BeginDisabled();
 		if (SlGui::MenuButton(ICON_AM_HOME""))
 		{
-			m_ModelScene->ResetCameraPosition();
+			scene->FocusCamera();
 		}
-		ImGui::ToolTip("Reset camera position");
+		if (!scene) ImGui::EndDisabled();
+		ImGui::ToolTip("Reset camera position to scene");
+
+		if (SlGui::MenuButton(ICON_AM_HOME""))
+		{
+			m_Camera = nullptr;
+			m_CameraEnabled = true;
+			UpdateCamera();
+		}
+		ImGui::ToolTip("Reset camera position to player");
 
 		if (SlGui::MenuButton(ICON_AM_PED_ARROW""))
 		{
@@ -140,7 +149,11 @@ void rageam::integration::StarBar::OnRender()
 	if (ImGui::IsKeyPressed(ImGuiKey_Period, false)) // Hotkey switch
 		Im3D::SetGizmoUseWorld(!useWorld);
 
-	SlGui::ToggleButton(ICON_AM_BALL" Material Editor", m_ModelScene->MaterialEditor.IsOpen);
+	bool isMaterialEditorOpened = sceneEditor && sceneEditor->MaterialEditor.IsOpen;
+	if (!sceneEditor) ImGui::BeginDisabled();
+	if (SlGui::ToggleButton(ICON_AM_BALL" Material Editor", isMaterialEditorOpened))
+		sceneEditor->MaterialEditor.IsOpen = isMaterialEditorOpened;
+	if (!sceneEditor) ImGui::EndDisabled();
 
 	// Game time
 	float time = scrGetTimeFloat();
@@ -154,24 +167,34 @@ void rageam::integration::StarBar::OnRender()
 		scrSetTimeFloat(time);
 	}
 
-	static constexpr ConstString OVERLAY_POPUP = "OVERLAY_POPUP";
-	if (SlGui::MenuButton(ICON_AM_VISIBILITY" Overlay"))
-		ImGui::OpenPopup(OVERLAY_POPUP);
-	if (ImGui::BeginPopup(OVERLAY_POPUP))
+	static constexpr ConstString OPTIONS_POPUP = "OPTIONS_POPUP";
+	if (SlGui::MenuButton(ICON_AM_FLAGS" Options"))
+		ImGui::OpenPopup(OPTIONS_POPUP);
+	if (ImGui::BeginPopup(OPTIONS_POPUP))
 	{
 		GameDrawLists* drawLists = GameDrawLists::GetInstance();
 
 		// ImGui::SliderFloat("Line Thickness", &DrawList::LineThickness, 0.0f, 0.05f);
 
+		ImGui::Checkbox("Focus camera on scene", &FocusCameraOnScene);
+		ImGui::ToolTip("After 3D scene was loaded, moves and points camera to object position");
+
 		SlGui::CategoryText("Light Outlines");
 		{
-			LightEditor::OutlineModes& outlinesMode = m_ModelScene->LightEditor.OutlineMode;
+			if (!sceneEditor) ImGui::BeginDisabled();
+
+			LightEditor::OutlineModes outlinesMode = sceneEditor ? sceneEditor->LightEditor.OutlineMode : LightEditor::OutlineMode_None;
 			if (ImGui::RadioButton("All", outlinesMode == LightEditor::OutlineMode_All))
 				outlinesMode = LightEditor::OutlineMode_All;
 			if (ImGui::RadioButton("Only Selected", outlinesMode == LightEditor::OutlineMode_OnlySelected))
 				outlinesMode = LightEditor::OutlineMode_OnlySelected;
 			if (ImGui::RadioButton("None", outlinesMode == LightEditor::OutlineMode_None))
 				outlinesMode = LightEditor::OutlineMode_None;
+
+			if (sceneEditor)
+				sceneEditor->LightEditor.OutlineMode = outlinesMode;
+
+			if (!sceneEditor) ImGui::EndDisabled();
 		}
 		SlGui::CategoryText("Collision");
 		{
@@ -196,6 +219,9 @@ void rageam::integration::StarBar::OnRender()
 			ImGui::Checkbox("Bounding Box", &DrawableRender::BoundingBox);
 			ImGui::Checkbox("Bounding Sphere", &DrawableRender::BoundingSphere);
 			ImGui::Checkbox("Skeleton", &DrawableRender::Skeleton);
+			if (!DrawableRender::Skeleton) ImGui::BeginDisabled();
+			ImGui::Checkbox("Bone Tags", &DrawableRender::BoneTags);
+			if (!DrawableRender::Skeleton) ImGui::EndDisabled();
 		}
 
 		ImGui::EndPopup();

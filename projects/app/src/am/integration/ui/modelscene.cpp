@@ -74,11 +74,11 @@ CLightAttr* rageam::integration::ModelScene::GetLightAttr(u16 nodeIndex) const
 {
 	return GetDrawableMap().GetLightFromScene(GetDrawable(), nodeIndex);
 }
-
-rageam::Vec3V rageam::integration::ModelScene::GetScenePosition() const
-{
-	return m_IsolatedSceneOn ? SCENE_ISOLATED_POS : m_ScenePosition;
-}
+//
+//rageam::Vec3V rageam::integration::ModelScene::GetScenePosition() const
+//{
+//	return m_IsolatedSceneOn ? SCENE_ISOLATED_POS : m_ScenePosition;
+//}
 
 void rageam::integration::ModelScene::CreateArchetypeDefAndSpawnGameEntity()
 {
@@ -95,16 +95,18 @@ void rageam::integration::ModelScene::CreateArchetypeDefAndSpawnGameEntity()
 	m_ArchetypeDef->LodDist = lodDistance;
 	m_ArchetypeDef->Flags = FLAG_IS_TYPE_OBJECT | FLAG_IS_FIXED | FLAG_HAS_ANIM;
 
-	m_GameEntity.Create(m_Context.Drawable, m_ArchetypeDef, GetScenePosition());
-	m_DrawableRender.Create();
-	m_DrawableRender->SetEntity(m_GameEntity.Get());
+	//m_GameEntity.Create(m_Context.Drawable, m_ArchetypeDef, GetScenePosition());
+	//m_DrawableRender.Create();
+	//m_DrawableRender->SetEntity(m_GameEntity.Get());
+	CreateEntity(m_Context.Drawable, m_ArchetypeDef);
 }
 
-void rageam::integration::ModelScene::WarpEntityToScenePosition()
-{
-	if (m_GameEntity)
-		m_GameEntity->SetPosition(GetScenePosition());
-}
+//void rageam::integration::ModelScene::WarpEntityToScenePosition()
+//{
+//	/*if (m_GameEntity)
+//		m_GameEntity->SetPosition(GetScenePosition());*/
+//	
+//}
 
 void rageam::integration::ModelScene::OnDrawableCompiled()
 {
@@ -142,11 +144,12 @@ void rageam::integration::ModelScene::UpdateHotDrawableAndContext()
 	m_Context.HotDrawable = m_HotDrawable.get();
 
 	// Entity will be NULL if drawable just compiled
-	if (m_GameEntity)
+	GameEntity* gameEntity = GetEntity();
+	if (gameEntity)
 	{
-		m_Context.EntityHandle = m_GameEntity->GetEntityHandle();
-		m_Context.EntityWorld = m_GameEntity->GetWorldTransform();
-		m_Context.EntityPtr = m_GameEntity->GetEntityPointer();
+		m_Context.EntityHandle = gameEntity->GetEntityHandle();
+		m_Context.EntityWorld = gameEntity->GetWorldTransform();
+		m_Context.EntityPtr = gameEntity->GetEntityPointer();
 	}
 }
 
@@ -495,8 +498,8 @@ void rageam::integration::ModelScene::OnRender()
 	bool isSpawned = m_Context.EntityHandle != 0;
 	bool needUnload = false;
 
-	if (ImGui::Begin("Scene", 0, ImGuiWindowFlags_MenuBar))
-	{
+	// if (ImGui::Begin("Scene", 0, ImGuiWindowFlags_MenuBar))
+	// {
 		// Menu Bar
 		if (!isSpawned) ImGui::BeginDisabled();
 		if (ImGui::BeginMenuBar())
@@ -558,8 +561,8 @@ void rageam::integration::ModelScene::OnRender()
 		{
 			DrawDrawableUI();
 		}
-	}
-	ImGui::End(); // Scene
+	// }
+	// ImGui::End(); // Scene
 
 	if (needUnload)
 	{
@@ -604,18 +607,22 @@ void rageam::integration::ModelScene::Unload(bool keepHotDrawable)
 
 	m_DrawableStats = {};
 	m_Context = {};
-	if (m_DrawableRender)
-		m_DrawableRender->SetEntity(nullptr);
-	m_DrawableRender.Release();
-	m_GameEntity = nullptr;
+
+	DestroyEntity();
 
 	if (!keepHotDrawable)
 		m_HotDrawable = nullptr;
+
+	m_LoadedName = "";
 }
 
-void rageam::integration::ModelScene::LoadFromPatch(ConstWString path)
+void rageam::integration::ModelScene::LoadFromPath(ConstWString path)
 {
+	AM_ASSERTS(asset::AssetFactory::GetAssetType(path) == asset::AssetType_Drawable);
+
 	Unload(true);
+
+	m_LoadedName = file::PathConverter::WideToUtf8(file::GetFileName(path));
 
 	if (!m_HotDrawable || m_HotDrawable->GetPath() != path)
 	{
@@ -633,47 +640,6 @@ void rageam::integration::ModelScene::LoadFromPatch(ConstWString path)
 
 	m_ResetUIAfterCompiling = true;
 	m_HotDrawable->LoadAndCompileAsync(false);
-}
-
-void rageam::integration::ModelScene::SetIsolatedSceneOn(bool on)
-{
-	m_IsolatedSceneOn = on;
-	ResetCameraPosition();
-	WarpEntityToScenePosition();
-}
-
-void rageam::integration::ModelScene::ResetCameraPosition() const
-{
-	ICameraComponent* camera = ICameraComponent::GetActiveCamera();
-	if (!camera)
-		return;
-
-	rage::Vec3V camPos;
-	rage::Vec3V targetPos;
-	rage::Vec3V scenePos = m_IsolatedSceneOn ? SCENE_ISOLATED_POS : m_ScenePosition;
-
-	// Set view on drawable center if was spawned, otherwise just target scene position
-	if (m_Context.Drawable)
-	{
-		rage::rmcLodGroup& lodGroup = m_Context.Drawable->GetLodGroup();
-		auto& bb = lodGroup.GetBoundingBox();
-		auto& bs = lodGroup.GetBoundingSphere();
-
-		camPos = scenePos;
-		// Shift camera away to fully see bounding sphere + add light padding
-		camPos += rage::VEC_BACK * bs.GetRadius() * 1.5f;
-		camPos += rage::VEC_UP * bs.GetRadius() * 0.45f;
-		// Entities are spawned with bottom of bounding box aligned to specified coord
-		targetPos = scenePos + rage::VEC_UP * bb.Height() * rage::S_HALF;
-	}
-	else
-	{
-		camPos = scenePos + rage::VEC_FORWARD + rage::VEC_UP;
-		targetPos = scenePos;
-	}
-
-	camera->SetPosition(camPos);
-	camera->LookAt(targetPos);
 }
 
 #endif

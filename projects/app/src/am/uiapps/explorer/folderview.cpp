@@ -9,6 +9,7 @@
 
 #ifdef AM_INTEGRATED
 #include "am/integration/ui/modelscene.h"
+#include "am/integration/ui/modelinspector.h"
 #endif
 
 const rageam::ui::EntrySelection& rageam::ui::FolderView::GetSelectedEntries() const
@@ -192,9 +193,9 @@ void rageam::ui::FolderView::RenderEntryTableRow(const ExplorerEntryPtr& entry)
 	}
 	if (disabled) ImGui::EndDisabled();
 
-	if (state.DoubleClicked && entry->IsDirectory())
+	if (state.DoubleClicked)
 	{
-		m_EntryToOpen = entry;
+		m_DoubleClickedEntry = entry;
 	}
 	UpdateEntryRenaming(entry, state);
 }
@@ -261,24 +262,26 @@ void rageam::ui::FolderView::UpdateQuickView()
 
 void rageam::ui::FolderView::UpdateEntryOpening()
 {
-	if (!m_EntryToOpen)
+	if (!m_DoubleClickedEntry)
 		return;
 
-	if (m_EntryToOpen->IsAsset())
+	file::WPath entryPath = file::PathConverter::Utf8ToWide(m_DoubleClickedEntry->GetPath());
+
+	// Try to open IDR / YDR viewers
+	SceneType sceneType = Scene::GetSceneType(entryPath);
+	if (sceneType != Scene_Invalid)
 	{
-		asset::AssetPtr asset = m_EntryToOpen->GetAsset();
-		if (asset) // If asset was loaded successfully... TODO: We need to handle loading exceptions from UI
-		{
-			if(asset->GetType() == asset::AssetType_Drawable)
-			{
-#ifdef AM_INTEGRATED
-				GetUI()->FindAppByType<integration::ModelScene>()->LoadFromPatch(asset->GetDirectoryPath());
-#endif
+		Scene::OpenWindowForSceneAndLoad(entryPath);
+		m_DoubleClickedEntry = nullptr;
+		return;
 			}
-			else
+
+	if (m_DoubleClickedEntry && m_DoubleClickedEntry->IsDirectory())
 			{
-				ui::AssetWindowFactory::OpenNewOrFocusExisting(asset);
+		SetRootEntry(m_DoubleClickedEntry);
 			}
+
+	m_DoubleClickedEntry = nullptr;
 		}
 		m_EntryToOpen = nullptr; // To prevent it from actually opening
 	}

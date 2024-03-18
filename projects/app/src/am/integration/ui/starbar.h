@@ -17,8 +17,8 @@
 
 namespace rageam::integration
 {
-	class ICameraComponent;
-	class ModelScene;
+	static const Vec3V SCENE_ISOLATED_POS = { -1700, -6000, 310 };
+	static const Vec3V SCENE_DEFAULT_POS = { 0, 0, 200 };
 
 	class StarBar : public ui::App
 	{
@@ -26,11 +26,9 @@ namespace rageam::integration
 		CameraComponent  m_Camera;
 		bool             m_CameraEnabled = false;
 		bool             m_UseOrbitCamera = true;
-		ModelScene*      m_ModelScene = nullptr;
+		bool             m_UseIsolatedScene = false;
 
-		// Recreates camera component based on set options
 		void UpdateCamera();
-		void OnStart() override;
 		void OnRender() override;
 
 	public:
@@ -39,6 +37,12 @@ namespace rageam::integration
 			m_CameraEnabled = b;
 			UpdateCamera();
 		}
+
+		// == Toggleable options ==
+
+		// Focuses camera component on loaded 3D scene, and
+		// creates a new camera if scene is not loaded
+		static inline bool FocusCameraOnScene = true;
 	};
 }
 

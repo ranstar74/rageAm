@@ -278,15 +278,15 @@ void rageam::integration::ModelInspector::DrawMaterialGroup()
 
 void rageam::integration::ModelInspector::OnRender()
 {
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(1, 1));
-	bool drawInspector = ImGui::Begin("Model Inspector") && m_Drawable;
-	ImGui::PopStyleVar();
-	if (!drawInspector)
-	{
-		// Early exit, window is not visible or drawable is not loaded
-		ImGui::End();
-		return;
-	}
+	//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(1, 1));
+	//bool drawInspector = ImGui::Begin("Model Inspector") && m_Drawable;
+	//ImGui::PopStyleVar();
+	//if (!drawInspector)
+	//{
+	//	// Early exit, window is not visible or drawable is not loaded
+	//	ImGui::End();
+	//	return;
+	//}
 
 	ImGuiTableFlags tableFlags =
 		ImGuiTableFlags_Borders |
@@ -334,16 +334,13 @@ void rageam::integration::ModelInspector::OnRender()
 
 		ImGui::EndTable();
 	}
-	ImGui::End();
-}
-
-rageam::integration::ModelInspector::ModelInspector()
-{
-
+	// ImGui::End();
 }
 
 void rageam::integration::ModelInspector::LoadFromPath(ConstWString path)
 {
+	AM_ASSERTS(file::MatchExtension(path, L"ydr"));
+
 	static constexpr u32 ASSET_NAME_HASH = rage::atStringHash("amInspectorArchetype");
 
 	if (!file::IsFileExists(path))
@@ -368,7 +365,7 @@ void rageam::integration::ModelInspector::LoadFromPath(ConstWString path)
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
 		"48 8B 44 24 40 48 05 B0 00 00 00 41 B0 01", "gtaDrawable::gtaDrawable(const datResource& rsc)+0x2C").GetAt(-0x2C)
 #else
-		"66 3B BB B8 00 00 00", "gtaDrawable::gtaDrawable(const datResource& rsc)+0x47").GetAt(-0x47)
+		"E8 ?? ?? ?? ?? 48 01 83 B0 00 00 00 66 3B BB B8 00 00 00", "gtaDrawable::gtaDrawable(const datResource& rsc)+0x47").GetAt(-0x35)
 #endif
 		.ToFunc<void(gtaDrawable*, rage::datResource*)>();
 
@@ -416,8 +413,8 @@ void rageam::integration::ModelInspector::LoadFromPath(ConstWString path)
 	m_ArchetypeDef->LodDist = 100.0f;
 	m_ArchetypeDef->Flags = FLAG_IS_TYPE_OBJECT | FLAG_IS_FIXED | FLAG_HAS_ANIM;
 
-	m_GameEntity.Create(m_Drawable, m_ArchetypeDef, Vec3V(-4, 75, 9));
-	m_GameEntity->SetEntityWasAllocatedByGame(true); // Ensure that drawable will be destroyed with game allocator in TLS
+	CreateEntity(m_Drawable, m_ArchetypeDef);
+	GetEntity()->SetEntityWasAllocatedByGame(true); // Ensure that drawable will be destroyed with game allocator in TLS
 }
 
 #endif

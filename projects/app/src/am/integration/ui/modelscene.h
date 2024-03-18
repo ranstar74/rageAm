@@ -1,4 +1,5 @@
 #pragma once
+#include "sceneingame.h"
 
 #ifdef AM_INTEGRATED
 
@@ -41,12 +42,13 @@ namespace rageam::integration
 		static DrawableStats ComputeFrom(gtaDrawable* drawable);
 	};
 
-	static const Vec3V SCENE_ISOLATED_POS = { -1700, -6000, 310 };
-	//static const Vec3V SCENE_POS = { -676, 167, 73.55f };
+	// static const Vec3V SCENE_ISOLATED_POS = { -1700, -6000, 310 };
+	// static const Vec3V SCENE_POS = { -676, 167, 73.55f };
 	// static const Vec3V SCENE_POS = { 285, -1580, 30 };
-	static const Vec3V SCENE_POS = { 0, 0, 5 };
+	// static const Vec3V SCENE_POS = { 0, 0, 5 };
 
-	class ModelScene : public ui::App
+	// TODO: Rename to SceneEditor
+	class ModelScene : public SceneInGame
 	{
 		enum eSceneNodeAttr
 		{
@@ -62,24 +64,20 @@ namespace rageam::integration
 			"None", "Mesh", "Bone", "Collision", "Light"
 		};
 
-		asset::HotDrawablePtr			m_HotDrawable;
-		ComponentOwner<DrawableRender>	m_DrawableRender;
-		ComponentOwner<GameEntity>		m_GameEntity;
-
-		amPtr<CBaseArchetypeDef>		m_ArchetypeDef;
-		ModelSceneContext				m_Context;
-		bool							m_IsolatedSceneOn = false;
-		Vec3V							m_ScenePosition = SCENE_POS; // NOTE: Can be overriden by user
+		asset::HotDrawablePtr	 m_HotDrawable;
+		amPtr<CBaseArchetypeDef> m_ArchetypeDef;
+		ModelSceneContext		 m_Context;
 		// Graph View
-		s32								m_SelectedNodeIndex = -1;
-		eSceneNodeAttr					m_SelectedNodeAttr = SceneNodeAttr_None;
-		eSceneNodeAttr					m_JustSelectedNodeAttr = SceneNodeAttr_None; // In current frame
-		DrawableStats					m_DrawableStats;
-		SmallList<string>				m_CompilerMessages;
-		double							m_CompilerProgress = 0.0;
-		std::mutex						m_CompilerMutex;
-		bool							m_AssetTuneChanged = false;		 // Set by UI to post reload request on the end of frame
-		bool							m_ResetUIAfterCompiling = false; // We don't want to reset UI when just recompiling drawable
+		s32						 m_SelectedNodeIndex = -1;
+		eSceneNodeAttr			 m_SelectedNodeAttr = SceneNodeAttr_None;
+		eSceneNodeAttr			 m_JustSelectedNodeAttr = SceneNodeAttr_None; // In current frame
+		DrawableStats			 m_DrawableStats;
+		SmallList<string>		 m_CompilerMessages;
+		double					 m_CompilerProgress = 0.0;
+		std::mutex				 m_CompilerMutex;
+		bool					 m_AssetTuneChanged = false;		 // Set by UI to post reload request on the end of frame
+		bool					 m_ResetUIAfterCompiling = false; // We don't want to reset UI when just recompiling drawable
+		file::Path				 m_LoadedName;
 
 		auto GetDrawable()					const { return m_Context.Drawable.Get(); }
 		auto GetDrawableMap()				const -> const asset::DrawableAssetMap&;
@@ -88,11 +86,7 @@ namespace rageam::integration
 		auto GetBoundAttr(u16 nodeIndex)	const -> rage::phBound*;
 		auto GetLightAttr(u16 nodeIndex)	const -> CLightAttr*;
 
-		// Gets isolated/user scene position
-		Vec3V GetScenePosition() const;
-
 		void CreateArchetypeDefAndSpawnGameEntity();
-		void WarpEntityToScenePosition();
 		// Spawns entity and resets scene state
 		void OnDrawableCompiled();
 		void UpdateHotDrawableAndContext();
@@ -108,17 +102,13 @@ namespace rageam::integration
 	public:
 		ModelScene();
 
+		ConstString GetName() const override { return "Editor"; }
+		ConstString GetModelName() const override { return m_LoadedName; }
+		bool HasMenu() const override { return true; }
+
 		// Unloads currently loaded scene and destroys spawned drawable
 		void Unload(bool keepHotDrawable = false);
-		void LoadFromPatch(ConstWString path);
-		// Sets scene + camera position way outside of the map, isolating scene from game map
-		// NOTE: This calls ResetCameraPosition after toggling!
-		void SetIsolatedSceneOn(bool on);
-		bool IsIsolatedSceneOn() const { return m_IsolatedSceneOn; }
-		// Sets active debug camera (if there's any) position to target spawned prop
-		void ResetCameraPosition() const;
-
-		bool IsLoaded() const { return m_Context.Drawable != nullptr; }
+		void LoadFromPath(ConstWString path) override;
 
 		LightEditor		LightEditor;
 		MaterialEditor	MaterialEditor;

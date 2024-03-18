@@ -87,4 +87,11 @@ namespace rageam::file
 
 		destination[index] = '\0'; // Terminate string where current directory starts
 	}
+
+	// Extension not include '.', for e.g. 'exe'
+	template<typename TChar>
+	bool MatchExtension(const TChar* path, const TChar* extension)
+	{
+		return String::Equals(GetExtension(path), extension, true);
+	}
 }

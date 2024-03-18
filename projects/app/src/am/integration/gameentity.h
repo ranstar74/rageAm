@@ -27,6 +27,7 @@ namespace rageam::integration
 		amPtr<CBaseModelInfo>       m_Archetype;
 		amPtr<rage::fwArchetypeDef> m_ArchetypeDef;
 		Vec3V                       m_DefaultPos;
+		Vec3V						m_CachedPosition;
 
 		rage::strLocalIndex         m_DrawableSlot;
 		pVoid                       m_Entity = nullptr; // rage::fwEntity
@@ -43,7 +44,8 @@ namespace rageam::integration
 	public:
 		GameEntity(const gtaDrawablePtr& drawable, const amPtr<rage::fwArchetypeDef>& archetypeDef, const Vec3V& pos);
 
-		void           SetPosition(const Vec3V& pos) const;
+		void           SetPosition(const Vec3V& pos);
+		const Vec3V&   GetPosition()		const { return m_CachedPosition; }
 		const Mat44V&  GetWorldTransform()	const { return m_EntityWorld; }
 		scrObjectIndex GetEntityHandle()	const { return m_EntityHandle; }
 		pVoid          GetEntityPointer()	const { return m_Entity; }

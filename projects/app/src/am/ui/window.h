@@ -33,6 +33,8 @@ namespace rageam::ui
 		virtual bool IsDisabled() const { return false; }
 		virtual bool ShowUnsavedChangesInTitle() const { return false; }
 		virtual ConstString GetTitle() const = 0;
+		// Override if ID must be the same for all derived window types
+		virtual ConstString GetID() const { return GetTitle(); }
 		virtual ImVec2 GetDefaultSize() { return { 0, 0 }; }
 
 		UndoStack Undo;
@@ -48,8 +50,10 @@ namespace rageam::ui
 	{
 		// We allow window to open child windows and in order to prevent them opening during
 		// update cycle we add them in temporary array that will be processed next frame
-		List<WindowPtr>						m_WindowsToAdd;
-		HashSet<WindowPtr, WindowPtrHashFn> m_Windows;
+		List<WindowPtr> m_WindowsToAdd;
+		List<WindowPtr> m_WindowsToRemove;
+		List<WindowPtr> m_Windows;
+		// HashSet<WindowPtr, WindowPtrHashFn> m_Windows;
 
 		void OnRender() override;
 
@@ -65,7 +69,7 @@ namespace rageam::ui
 			for (WindowPtr& window : m_Windows)
 			{
 				if (amPtr<T> candidate = std::dynamic_pointer_cast<T>(window))
-					return candidate;
+					return window;
 			}
 			return nullptr;
 		}

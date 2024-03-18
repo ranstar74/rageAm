@@ -13,7 +13,6 @@ void rageam::ui::WindowManager::OnRender()
 	m_WindowsToAdd.Clear();
 
 	// Update existing windows
-	rage::atArray<WindowPtr> windowsToRemove;
 	for (const WindowPtr& window : m_Windows)
 	{
 		bool hasMenu = window->HasMenu();
@@ -34,7 +33,7 @@ void rageam::ui::WindowManager::OnRender()
 		// Format window title with optional '*' for unsaved documents
 		bool unsaved = window->ShowUnsavedChangesInTitle() && window->Undo.HasChanges();
 		ConstString title = ImGui::FormatTemp("%s%s###%s",
-			window->GetTitle(), unsaved ? "*" : "", window->GetTitle());
+			window->GetTitle(), unsaved ? "*" : "", window->GetID());
 
 		if (SlGui::Begin(title, &isOpen, windowFlags))
 		{
@@ -57,12 +56,13 @@ void rageam::ui::WindowManager::OnRender()
 		if (isDisabled) ImGui::EndDisabled();
 
 		if (!isOpen)
-			windowsToRemove.Add(window);
+			m_WindowsToRemove.Add(window);
 	}
 
 	// Remove windows that been closed
-	for (WindowPtr& window : windowsToRemove)
+	for (WindowPtr& window : m_WindowsToRemove)
 		m_Windows.Remove(window);
+	m_WindowsToRemove.Destroy();
 }
 
 rageam::ui::WindowPtr rageam::ui::WindowManager::Add(Window* window)
@@ -75,7 +75,8 @@ void rageam::ui::WindowManager::Close(const WindowPtr& ptr)
 	if (!ptr)
 		return;
 
-	m_Windows.Remove(ptr);
+	//m_Windows.Remove(ptr);
+	m_WindowsToRemove.Add(ptr);
 }
 
 void rageam::ui::WindowManager::Focus(const WindowPtr& window) const
@@ -86,8 +87,15 @@ void rageam::ui::WindowManager::Focus(const WindowPtr& window) const
 
 rageam::ui::WindowPtr rageam::ui::WindowManager::FindByTitle(ConstString title) const
 {
-	WindowPtr* ppWindow = m_Windows.TryGetAt(rage::atStringHash(title));
+	for (WindowPtr& window : m_Windows)
+	{
+		if (String::Equals(window->GetTitle(), title))
+			return window;
+	}
+	return nullptr;
+
+	/*WindowPtr* ppWindow = m_Windows.TryGetAt(rage::atStringHash(title));
 	if (ppWindow)
 		return *ppWindow;
-	return nullptr;
+	return nullptr;*/
 }

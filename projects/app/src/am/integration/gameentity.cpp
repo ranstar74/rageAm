@@ -51,7 +51,10 @@ void rageam::integration::GameEntity::OnEarlyUpdate()
 {
 	// Already spawned
 	if (m_Entity)
+	{
+		m_CachedPosition = GetWorldTransform().Pos;
 		return;
+	}
 
 	// We can't register archetype&drawable spawn entity if there's other instance that has the same name
 	u32 nameHashKey = m_ArchetypeDef->Name;
@@ -131,8 +134,9 @@ rageam::integration::GameEntity::GameEntity(const gtaDrawablePtr& drawable, cons
 	m_DefaultPos = pos;
 }
 
-void rageam::integration::GameEntity::SetPosition(const rage::Vec3V& pos) const
+void rageam::integration::GameEntity::SetPosition(const rage::Vec3V& pos)
 {
+	m_CachedPosition = pos;
 	if (!m_EntityHandle.IsValid())
 		return;
 

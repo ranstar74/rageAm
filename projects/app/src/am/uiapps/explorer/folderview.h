@@ -47,7 +47,7 @@ namespace rageam::ui
 		char						m_RenameBuffer[FI_MAX_PATH]{};
 		bool						m_AllowRenaming = true;
 
-		ExplorerEntryPtr			m_EntryToOpen;				// Set to entry that was double clicked this frame
+		ExplorerEntryPtr			m_DoubleClickedEntry;				// Set to entry that was double clicked this frame
 
 		QuickLook					m_QuickLook;
 

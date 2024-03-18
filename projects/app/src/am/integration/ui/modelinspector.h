@@ -9,10 +9,10 @@
 
 #ifdef AM_INTEGRATED
 
-#include "am/ui/app.h"
 #include "am/integration/gameentity.h"
 #include "game/modelinfo/basemodelinfo.h"
 #include "am/ui/font_icons/icons_am.h"
+#include "sceneingame.h"
 
 #include <ImGui.h>
 
@@ -20,17 +20,16 @@
 
 namespace rageam::integration
 {
-	class ModelInspector : public ui::App
+	class ModelInspector : public SceneInGame
 	{
-		ComponentOwner<GameEntity> m_GameEntity;
-		amPtr<CBaseArchetypeDef>   m_ArchetypeDef;
-		gtaDrawablePtr			   m_Drawable;
-		u32						   m_FileSize = 0;
-		u32						   m_VirtualSize = 0;
-		u32						   m_PhysicalSize = 0;
-		u32						   m_ResourceSize = 0;
-		ImGuiID					   m_SelectedRowID = 0;
-		int						   m_MaterialIndexToSelect = -1;
+		amPtr<CBaseArchetypeDef> m_ArchetypeDef;
+		gtaDrawablePtr           m_Drawable;
+		u32                      m_FileSize = 0;
+		u32                      m_VirtualSize = 0;
+		u32                      m_PhysicalSize = 0;
+		u32                      m_ResourceSize = 0;
+		ImGuiID                  m_SelectedRowID = 0;
+		int                      m_MaterialIndexToSelect = -1;
 
 		ConstString FormatVec(const Vec3V& vec) const;
 
@@ -46,11 +45,13 @@ namespace rageam::integration
 		void DrawShaderParams(const rage::grmShader* shader, rage::grcEffect* effect);
 		void DrawMaterialGroup();
 		void OnRender() override;
-
+		
 	public:
-		ModelInspector();
+		ModelInspector() = default;
 
-		void LoadFromPath(ConstWString path);
+		ConstString GetName() const override { return "Inspector"; }
+		ConstString GetModelName() const override { return m_Drawable ? m_Drawable->GetName() : nullptr; }
+		void LoadFromPath(ConstWString path) override;
 	};
 }
 
