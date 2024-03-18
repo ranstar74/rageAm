@@ -2013,7 +2013,8 @@ bool rageam::graphics::Image::CreateDX11Resource(
 		}
 	}
 
-	if (options.MaxResolution != 0 &&
+	if (!ImageIsCompressedFormat(m_PixelFormat) && 
+		options.MaxResolution != 0 &&
 		(m_Width > options.MaxResolution || m_Height > options.MaxResolution))
 	{
 		int newWidth, newHeight;
