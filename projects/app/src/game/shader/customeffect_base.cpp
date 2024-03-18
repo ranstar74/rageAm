@@ -1,4 +1,5 @@
 #include "customeffect_base.h"
+#include "am/integration/memory/address.h"
 
 CCustomShaderEffectBaseType* CCustomShaderEffectBaseType::SetupMasterForModelInfo(CBaseModelInfo* modelInfo)
 {
