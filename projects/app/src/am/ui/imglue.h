@@ -132,8 +132,7 @@ namespace rageam::ui
 
 		void KillAllApps();
 
-		ImImage* GetIcon(ConstString name) { return GetIconByHash(Hash(name)); }
-		ImImage* GetIconByHash(HashValue hash);
+		ImImage* GetIcon(ConstString name) const;
 
 		int					FontSize = 16;
 		// bool				FullNames = false;

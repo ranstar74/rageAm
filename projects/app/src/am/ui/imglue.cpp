@@ -482,8 +482,9 @@ rageam::ui::ImGlue::ImGlue()
 
 	CreateContext();
 	CreateFonts();
-	RegisterSystemApps();
 	LoadIcons();
+
+	RegisterSystemApps();
 }
 
 rageam::ui::ImGlue::~ImGlue()
@@ -633,10 +634,11 @@ void rageam::ui::ImGlue::KillAllApps()
 	m_Apps.Destroy();
 }
 
-rageam::ui::ImImage* rageam::ui::ImGlue::GetIconByHash(HashValue hash)
+rageam::ui::ImImage* rageam::ui::ImGlue::GetIcon(ConstString name) const
 {
-	ImImage* image = m_Icons.TryGetAt(hash);
+	ImImage* image = m_Icons.TryGetAt(Hash(name));
 	if (image)
 		return image;
-	return &m_NotFoundImage;
+
+	return nullptr;
 }
