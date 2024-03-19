@@ -555,6 +555,9 @@ bool rageam::ui::ImGlue::UpdateApps()
 
 	Timer timer = Timer::StartNew();
 
+	ImGuiStyle& style = ImGui::GetStyle();
+	style.IndentSpacing = GImGui->FontSize * 0.9f;
+
 	// Execute all apps
 	bool onlyUpdate = !IsVisible;
 	bool isDisabled = IsDisabled;
