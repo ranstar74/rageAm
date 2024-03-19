@@ -105,7 +105,7 @@ namespace SlGui
 	void EndToolWindow();
 	bool ToggleButton(ConstString text, bool& isActive);
 	bool MenuButton(ConstString text);
-	bool IconButton(ConstString text, ImU32 color = IM_COL32_WHITE);
+	bool IconButton(ConstString text, ImU32 color = IM_COL32_WHITE, const ImU32* bgColor = nullptr);
 	bool Begin(ConstString name, bool* open = 0, ImGuiWindowFlags flags = 0);
 	void End();
 	bool TreeNode(ConstString text, bool& selected, bool& toggled, ImTextureID icon, ImGuiTreeNodeFlags flags = 0);

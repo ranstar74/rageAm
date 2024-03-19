@@ -91,3 +91,13 @@ rageam::graphics::ColorU32 rageam::graphics::ColorTransformLuminosity(ColorU32 c
 	ColorConvertHSLtoRGB(cH, cS, cL, color.R, color.G, color.B);
 	return color;
 }
+
+float rageam::graphics::ColorGetLuminosity(ColorU32 color)
+{
+	float rf = static_cast<float>(color.R) / 255.0f;
+	float gf = static_cast<float>(color.G) / 255.0f;
+	float bf = static_cast<float>(color.B) / 255.0f;
+	float max = rf > gf && rf > bf ? rf : gf > bf ? gf : bf;
+	float min = rf < gf && rf < bf ? rf : gf < bf ? gf : bf;
+	return (max + min) / 2.0f;
+}

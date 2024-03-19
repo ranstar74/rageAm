@@ -162,6 +162,10 @@ void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::Scen
 
 	ImGui::TableNextRow();
 
+	// For adjusting icon colors
+	// TODO: Can we make it dynamic (FrameBgActive, FrameBgHovered)
+	ImU32 bgColor = ImGui::GetColorU32(ImGuiCol_FrameBg);
+
 	// Column: Node
 	bool treeOpened;
 	{
@@ -179,12 +183,12 @@ void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::Scen
 			m_SelectedNodeIndex = nodeIndex;
 
 		// Attribute buttons
-		auto attrButton = [&](pVoid attrData, eSceneNodeAttr attr, ConstString icon, ImU32 col = IM_COL32_WHITE)
+		auto attrButton = [&](pVoid attrData, eSceneNodeAttr attr, ConstString icon, ImU32 col)
 			{
 				if (!attrData)
 					return false;
 				ImGui::SameLine();
-				bool pressed = SlGui::IconButton(icon, col);
+				bool pressed = SlGui::IconButton(icon, col, &bgColor);
 				if (pressed)
 				{
 					m_SelectedNodeIndex = nodeIndex;
@@ -204,19 +208,19 @@ void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::Scen
 		}
 		// Bone
 		rage::crBoneData* crBoneData = GetBoneAttr(nodeIndex);
-		if (attrButton(crBoneData, SceneNodeAttr_Bone, ICON_AM_BONE))
+		if (attrButton(crBoneData, SceneNodeAttr_Bone, ICON_AM_BONE, IM_COL32(73, 50, 0, 255)))
 		{
 
 		}
 		// Collision
 		rage::phBound* phBound = GetBoundAttr(nodeIndex);
-		if (attrButton(phBound, SceneNodeAttr_Collision, ICON_AM_COLLIDER))
+		if (attrButton(phBound, SceneNodeAttr_Collision, ICON_AM_COLLIDER, IM_COL32(178, 255, 89, 255)))
 		{
 
 		}
 		// Light
 		CLightAttr* lightAttr = GetLightAttr(nodeIndex);
-		if (attrButton(lightAttr, SceneNodeAttr_Light, ICON_AM_LIGHT))
+		if (attrButton(lightAttr, SceneNodeAttr_Light, ICON_AM_LIGHT, IM_COL32(255, 193, 7, 255)))
 		{
 			LightEditor.SelectLight(GetDrawableMap().SceneNodeToLightAttr[nodeIndex]);
 		}
@@ -225,7 +229,14 @@ void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::Scen
 
 	// Column: Visibility Eye
 	ImGui::TableNextColumn();
-	SlGui::IconButton(ICON_AM_EYE_ON);
+	rage::grmModel* model = GetMeshAttr(nodeIndex);
+	bool isModelVisible = model->IsSubDrawBucketFlagSet(rage::RB_MODEL_DEFAULT);
+	// Make hidden icon a little bit dimmer
+	ImU32 visibilityColor = isModelVisible ? IM_COL32_WHITE : IM_COL32(125, 125, 125, 255);
+	if (SlGui::IconButton(ICON_AM_EYE_ON, visibilityColor))
+	{
+		model->SetSubDrawBucketFlags(1 << rage::RB_MODEL_DEFAULT, !isModelVisible);
+	}
 
 	// Draw children
 	if (treeOpened)

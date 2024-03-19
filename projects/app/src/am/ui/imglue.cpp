@@ -119,8 +119,7 @@ void rageam::ui::ImGlue::EmbedFontIcons(ImFonts font) const
 	io.Fonts->GetTexDataAsRGBA32(&atlasPixels, &atlastWidth, &atlasHeight);
 
 	graphics::ColorU32 baseColor = GetThemeAccentColor();
-	float bgH, bgS, bgL;
-	graphics::ColorConvertRGBtoHSL(baseColor.R, baseColor.G, baseColor.B, bgH, bgS, bgL);
+	float bgL = ColorGetLuminosity(baseColor);
 
 	u16 iconId = 0;
 	for (file::WPath& path : imageFiles)

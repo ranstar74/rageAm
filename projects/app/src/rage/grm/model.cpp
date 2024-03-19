@@ -182,6 +182,15 @@ void rage::grmModel::UpdateTessellationDrawBucket()
 	SetSubDrawBucketMask(mask);
 }
 
+void rage::grmModel::SetSubDrawBucketFlags(u32 flags, bool on)
+{
+	AM_ASSERT((flags & RB_BASE_BUCKETS_MASK) == 0, "grmModel::SetSubDrawBucketFlags() -> Only model buckets are allowed!");
+	u32 mask = GetSubDrawBucketMask();
+	mask &= ~flags;
+	if (on) mask |= flags;
+	SetSubDrawBucketMask(mask);
+}
+
 void rage::grmModel::ComputeAABB() const
 {
 	m_AABBs->ComputeCombinedBB(m_GeometryCount);

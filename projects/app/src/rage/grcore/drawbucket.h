@@ -25,9 +25,9 @@ namespace rage
 		RB_WATER                       = 6,
 		RB_DISPLACEMENT_ALPHA          = 7,
 		RB_NUM_BASE_BUCKETS            = 8,
+		RB_BASE_BUCKETS_MASK		   = 1 << RB_NUM_BASE_BUCKETS - 1,
 
-		RB_MODEL_DEFAULT               = 8,
-
+		RB_MODEL_DEFAULT               = 8, // Visibility
 		RB_MODEL_SHADOW                = 9,
 		RB_MODEL_REFLECTION_PARABOLOID = 10,
 		RB_MODEL_REFLECTION_MIRROR     = 11,

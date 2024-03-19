@@ -113,6 +113,9 @@ namespace rage
 
 		u32  GetSubDrawBucketMask() const { return m_ModelMask << RB_NUM_BASE_BUCKETS; }
 		void SetSubDrawBucketMask(u32 mask) { m_ModelMask = u8((mask >> RB_NUM_BASE_BUCKETS) & 0xFF); }
+		// RB_MODEL_
+		void SetSubDrawBucketFlags(u32 flags, bool on);
+		bool IsSubDrawBucketFlagSet(grcRenderBucketTypes flag) const { return GetSubDrawBucketMask() & (1 << flag); }
 
 		u16 GetGeometryCount() const { return m_GeometryCount; }
 

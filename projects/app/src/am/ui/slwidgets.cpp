@@ -62,8 +62,14 @@ bool SlGui::MenuButton(ConstString text)
 	return pressed;
 }
 
-bool SlGui::IconButton(ConstString text, ImU32 color)
+bool SlGui::IconButton(ConstString text, ImU32 color, const ImU32* bgColor)
 {
+	if (bgColor)
+	{
+		float bgLuminosity = rageam::graphics::ColorGetLuminosity(*bgColor);
+		color = rageam::graphics::ColorTransformLuminosity(color, bgLuminosity);
+	}
+
 	ImGuiWindow* window = ImGui::GetCurrentWindow();
 	ImGuiStyle& style = ImGui::GetStyle();
 
@@ -79,15 +85,14 @@ bool SlGui::IconButton(ConstString text, ImU32 color)
 		return false;
 
 	bool hovered;
-	bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, NULL);
+	ImGui::ButtonBehavior(bb, id, &hovered, NULL);
 
 	// ImGui handles overlapping extremely retarded way
-	if (hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left))
-		pressed = true;
+	bool pressed = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
 
 	rageam::graphics::ColorU32 finalColor = color;
 	if (!hovered)
-		finalColor.A = ImMax<u8>(finalColor.A - 40, 0);
+		finalColor.A = ImMax<u8>(finalColor.A - 80, 0);
 
 	ImVec2 textPos = pos + style.FramePadding;
 	window->DrawList->AddText(textPos, finalColor, text);

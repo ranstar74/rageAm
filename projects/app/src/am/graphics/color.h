@@ -14,6 +14,8 @@ namespace rageam::graphics
 	// Technique used in visual studio to adjust icons for white/dark theme
 	ColorU32 ColorTransformLuminosity(ColorU32 color, float themeBackgroundLuminosity);
 
+	float ColorGetLuminosity(ColorU32 color);
+
 	constexpr float ColorRGBToLuminosity(u8 r, u8 g, u8 b)
 	{
 		float rf = static_cast<float>(r) / 255.0f;
