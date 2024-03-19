@@ -4,36 +4,27 @@
 #include "am/asset/ui/assetwindowfactory.h"
 #include "am/graphics/image/imagecache.h"
 #include "am/ui/app.h"
+#include "am/ui/imglue.h"
 #include "am/ui/slwidgets.h"
 #include "helpers/format.h"
-#include "rage/paging/builder/builder.h"
 
 #ifdef AM_INTEGRATED
 #include "am/integration/ui/modelscene.h"
 #include "am/integration/ui/starbar.h"
 #include "am/integration/ui/modelinspector.h"
+#include "rage/paging/builder/builder.h"
 #endif
 
 namespace rageam::ui
 {
 	class TestbedApp : public App
 	{
-#define QUICK_ITD_PATH	 L"X:/am.ws/am.itd"
+#define QUICK_ITD_PATH L"X:/am.ws/am.itd"
 #ifdef AM_INTEGRATED
 #define QUICK_SCENE_PATH L"X:/am.ws/airpump.idr"
 #define QUICK_YDR_PATH L"X:/am.ws/airpump.ydr"
 #define QUICK_YDR_PATH_HS "X:/am.ws/airpump.ydr"
 
-		integration::ModelScene*	 m_ModelScene = nullptr;
-		integration::ModelInspector* m_ModelInspector = nullptr;
-		bool                         m_CameraSet = true;
-
-		void OnStart() override
-		{
-			ImGlue* ui = GetUI();
-			m_ModelScene = ui->FindAppByType<integration::ModelScene>();
-			m_ModelInspector = ui->FindAppByType<integration::ModelInspector>();
-		}
 #endif
 
 		void OnRender() override
@@ -63,7 +54,7 @@ namespace rageam::ui
 
 			if (ImGui::Button("Inspect YDR"))
 			{
-				m_ModelInspector->LoadFromPath(QUICK_YDR_PATH);
+				Scene::OpenWindowForSceneAndLoad(QUICK_YDR_PATH);
 			}
 
 			SlGui::CategoryText("Model Scene");
@@ -71,30 +62,20 @@ namespace rageam::ui
 			bool loadedScene = false;
 			if (ImGui::Button("Load IDR"))
 			{
-				m_ModelScene->LoadFromPatch(QUICK_SCENE_PATH);
+				Scene::OpenWindowForSceneAndLoad(QUICK_SCENE_PATH);
 				loadedScene = true;
 			}
 
 			if (ImGui::Button("Load IDR + Flush Cache"))
 			{
 				graphics::ImageCache::GetInstance()->Clear();
-				m_ModelScene->Unload(false);
-				m_ModelScene->LoadFromPatch(QUICK_SCENE_PATH);
+				Scene::OpenWindowForSceneAndLoad(QUICK_SCENE_PATH);
 				loadedScene = true;
 			}
 
 			if (loadedScene)
 			{
-				m_ModelScene->LoadFromPatch(QUICK_SCENE_PATH);
-				ui->FindAppByType<integration::StarBar>()->SetCameraEnabled(true);
-				m_CameraSet = false;
-			}
-
-			// Reset camera once drawable loads
-			if (!m_CameraSet && m_ModelScene->IsLoaded())
-			{
-				m_ModelScene->ResetCameraPosition();
-				m_CameraSet = true;
+				Scene::OpenWindowForSceneAndLoad(QUICK_SCENE_PATH);
 			}
 #endif
 
