@@ -44,9 +44,9 @@ projectType = 0 # VS22
 # Advanced configuration
 if inputYes("Enter advanced configuration? y/n "):
     # What CPU doesn't support AVX2 in 2022?
-    useAvx2 = inputYes("Use AVX2? ")
-    useProfiler = inputYes("Use profiler? ")
+    # useAvx2 = inputYes("Use AVX2? ")
     testbed = inputYes("Enable Testbed? ")
+    useProfiler = inputYes("Use profiler? ")
 
 # Project type
 print("Select project type:")
@@ -64,6 +64,8 @@ if useAvx2:
     command += " --avx2"
 if useProfiler:
     command += " --easyprofiler"
+if testbed:
+    command += " --testbed"
 
 print(command)
 os.system(command)
