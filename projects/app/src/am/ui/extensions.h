@@ -97,6 +97,9 @@ namespace ImGui
 		bool StoppedRenaming() const { return WasRenaming && !Renaming; }
 	};
 
+	ImRect TableGetRowRect();
+	bool TableIsHoveringRow();
+
 	// Button with editable name, works similar to Selectable.
 	// Renaming can be started by pressing F2 or setting state::Renaming value to True.
 	bool RenamingSelectable(RenamingSelectableState& state, ImGuiRenamingSelectableFlags flags = 0);
@@ -128,7 +131,7 @@ namespace ImGui
 
 	// Performs mouse-drag selection (selection rectangle like on windows desktop)
 	// Returns true if selection is performed (left mouse button is held)
-	bool DragSelectionBehaviour(ImGuiID id, bool& stopped, ImRect& selection, ImGuiDragSelectionFlags flags = 0);
+	bool DragSelectionBehaviour(ImGuiID id, bool& stopped, ImRect& selection, const ImRect& clipRect, ImGuiDragSelectionFlags flags = 0);
 
 	// NOTE: These functions reserve 4 next ID's (0, 1, 2, 3) for storing rect parts, use ID + 4 to get next ID
 	ImRect GetStorageRect(const ImGuiStorage& storage, ImGuiID id);

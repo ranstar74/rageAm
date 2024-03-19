@@ -384,6 +384,7 @@ void rageam::ui::FolderView::RenderEntries()
 		ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, 0); // Remove default table header gray background
 		ImGui::TableHeadersRow();
 		ImGui::PopStyleColor();
+		m_HoveringTableHeaders = ImGui::TableIsHoveringRow();
 
 		ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0, 0)); // Remove 3km padding between entries
 		for (u16 i = 0; i < m_RootEntry->GetChildCount(); i++)
@@ -574,7 +575,9 @@ void rageam::ui::FolderView::Render()
 	RenderEntries();
 
 	// Open context menu
-	if (ImGui::IsMouseReleased(ImGuiMouseButton_Right) && ImGui::IsWindowHovered())
+	if (!m_HoveringTableHeaders && 
+		ImGui::IsMouseReleased(ImGuiMouseButton_Right) && 
+		ImGui::IsWindowHovered())
 	{
 		if (m_RenamingEntry)
 		{

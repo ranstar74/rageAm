@@ -28,6 +28,21 @@ void ImGui::HandleUndoHotkeys()
 	}
 }
 
+ImRect ImGui::TableGetRowRect()
+{
+	ImGuiTable* table = GImGui->CurrentTable;
+	IM_ASSERT(table);
+	return ImRect(table->WorkRect.Min.x, table->RowPosY1, table->WorkRect.Max.x, table->RowPosY2);
+}
+
+bool ImGui::TableIsHoveringRow()
+{
+	ImRect rowRect = TableGetRowRect();
+	return
+		IsMouseHoveringRect(rowRect.Min, rowRect.Max, false) &&
+		IsWindowHovered(ImGuiHoveredFlags_AnyWindow);
+}
+
 bool ImGui::RenamingSelectable(RenamingSelectableState& state, ImGuiRenamingSelectableFlags flags)
 {
 	ImGuiWindow* window = GetCurrentWindow();
@@ -352,7 +367,7 @@ void ImGui::StatusBar()
 
 	SetCursorScreenPos(ImVec2(barMin.x + style.FramePadding.x, barMin.y));
 
-	RenderFrame(barMin, barMax, 0/*GetColorU32(ImGuiCol_MenuBarBg)*/, false);
+	RenderFrame(barMin, barMax, GetColorU32(ImGuiCol_WindowBg), false);
 }
 
 void ImGui::PreStatusBar()
@@ -522,7 +537,7 @@ void ImGui::TreeNodeSetOpened(ConstString text, bool opened)
 	TreePushOverrideID(id);
 }
 
-bool ImGui::DragSelectionBehaviour(ImGuiID id, bool& stopped, ImRect& selection, ImGuiDragSelectionFlags flags)
+bool ImGui::DragSelectionBehaviour(ImGuiID id, bool& stopped, ImRect& selection, const ImRect& clipRect, ImGuiDragSelectionFlags flags)
 {
 	ImGuiWindow* window = GetCurrentWindow();
 	ImGuiStorage& storage = window->StateStorage;
@@ -565,7 +580,7 @@ bool ImGui::DragSelectionBehaviour(ImGuiID id, bool& stopped, ImRect& selection,
 
 		if (!dragging) // Begin selection
 		{
-			bool canStart = !disabled && mouseClicked && GImGui->HoveredWindow == window;
+			bool canStart = !disabled && mouseClicked;
 			if (canStart)
 			{
 				alpha = maxAlpha;
@@ -589,7 +604,7 @@ bool ImGui::DragSelectionBehaviour(ImGuiID id, bool& stopped, ImRect& selection,
 	selection.Max.x = MAX(bb.Min.x, bb.Max.x);
 	selection.Min.y = MIN(bb.Min.y, bb.Max.y);
 	selection.Max.y = MAX(bb.Min.y, bb.Max.y);
-	selection.ClipWith(window->ClipRect);
+	selection.ClipWith(clipRect);
 
 	// Render Rect + Border
 
