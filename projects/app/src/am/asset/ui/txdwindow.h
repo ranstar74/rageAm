@@ -48,9 +48,8 @@ namespace rageam::ui
 
 		struct SamplerCallbackState
 		{
-			int LOD			: 4;
-			int IsLinear	: 1;
-			int Pad			: 23;
+			int LOD;
+			int IsLinear;
 		};
 		static_assert(sizeof SamplerCallbackState <= 8);
 

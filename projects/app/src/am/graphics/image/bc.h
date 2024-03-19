@@ -38,7 +38,7 @@ namespace rageam::graphics
 
 #define IMAGE_BC_USE_MULTITHREADING
 
-#ifdef IMAGE_BC_USE_MULTITHREADING // Must be multiple of 4!
+#ifdef IMAGE_BC_USE_MULTITHREADING // Must be power of 2!
 	static constexpr int IMAGE_BC_MULTITHREAD_MAX_REGIONS = 16;		// Max threads
 	static constexpr int IMAGE_BC_MULTITHREAD_MIN_REGION_SIZE = 16;	// Num of Y blocks per one region
 #else
