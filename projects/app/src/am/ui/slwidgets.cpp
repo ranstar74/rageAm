@@ -270,7 +270,7 @@ bool SlGui::TreeNode(ConstString text, bool& selected, bool& toggled, ImTextureI
 		alpha = ImClamp(alpha, 0.0f, maxAlpha);
 
 		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, hoversArrow ? maxAlpha : alpha);
-		ImGui::RenderText(arrowPos, isOpen ? ICON_FA_ANGLE_DOWN : ICON_FA_ANGLE_RIGHT);
+		ImGui::RenderArrow(window->DrawList, arrowPos, ImGui::GetColorU32(ImGuiCol_Text), isOpen ? ImGuiDir_Down : ImGuiDir_Right);
 		ImGui::PopStyleVar(); // Alpha
 	}
 
