@@ -53,7 +53,9 @@ void rageam::ui::TreeView::RenderEntryRecurse(const ExplorerEntryPtr& entry, boo
 	bool selected = entry == m_SelectedEntry;
 	bool wasSelected = selected;
 	bool toggled;
+	ImGui::PushStyleColor(ImGuiCol_FrameBg, 0); // No node background
 	bool opened = SlGui::TreeNode(nodeName, selected, toggled, icon, nodeFlags);
+	ImGui::PopStyleColor();
 
 	if (ImGui::IsItemHovered())
 		m_HoveredEntry = entry;
