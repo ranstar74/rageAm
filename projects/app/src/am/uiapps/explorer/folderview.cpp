@@ -6,6 +6,7 @@
 #include "am/ui/extensions.h"
 #include "am/ui/font_icons/icons_am.h"
 #include "helpers/format.h"
+#include "am/uiapps/scene.h"
 
 #ifdef AM_INTEGRATED
 #include "am/integration/ui/modelscene.h"
@@ -237,7 +238,7 @@ void rageam::ui::FolderView::UpdateStatusBar() const
 
 void rageam::ui::FolderView::UpdateSelectAll()
 {
-	if (ImGui::Shortcut(ImGuiKey_A | ImGuiMod_Ctrl) && ImGui::IsWindowFocused())
+	if (ImGui::Shortcut(ImGuiKey_A | ImGuiMod_Ctrl) && ImGui::IsWindowFocused(ImGuiFocusedFlags_AnyWindow))
 	{
 		Selection newState = { m_Selection.LastClickedID };
 
@@ -289,13 +290,19 @@ void rageam::ui::FolderView::UpdateEntryOpening()
 
 void rageam::ui::FolderView::BeginDragSelection(ImRect& dragSelectRect)
 {
+	// Mouse must hover table region but not table entries
+	bool canStartDragSelection =
+		ImGui::IsMouseHoveringRect(m_TableRect.Min, m_TableRect.Max, false) &&
+		!ImGui::IsMouseHoveringRect(m_TableContentRect.Min, m_TableContentRect.Max, false) &&
+		ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow);
+
 	ImGuiDragSelectionFlags dragSelectionFlags = 0;
-	if (ImGui::IsAnyItemHovered())
+	if (!canStartDragSelection)
 		dragSelectionFlags |= ImGuiDragSelectionFlags_DisableBegin;
 	bool dragStopped;
 	bool wasDragSelecting = m_DragSelecting;
 	m_DragSelecting = ImGui::DragSelectionBehaviour(
-		ImGui::GetID("FOLDER_VIEW_DRAG_SELECTION"), dragStopped, dragSelectRect, dragSelectionFlags);
+		ImGui::GetID("FOLDER_VIEW_DRAG_SELECTION"), dragStopped, dragSelectRect, m_TableRect, dragSelectionFlags);
 
 	bool startedDragSelecting = !wasDragSelecting && m_DragSelecting;
 	if (startedDragSelecting)
@@ -329,8 +336,6 @@ void rageam::ui::FolderView::RenderEntries()
 	if (!m_RootEntry)
 		return;
 
-	ImGui::PreStatusBar();
-
 	m_DoubleClickedEntry = nullptr;
 
 	// Setup drag selection
@@ -342,15 +347,24 @@ void rageam::ui::FolderView::RenderEntries()
 		ImGuiTableFlags_Sortable |
 		ImGuiTableFlags_Resizable |
 		ImGuiTableFlags_NoBordersInBody |
-		ImGuiTableFlags_Reorderable;
+		ImGuiTableFlags_Hideable |
+		ImGuiTableFlags_Reorderable | 
+		ImGuiTableFlags_ScrollY; // For TableSetupScrollFreeze
 
 	// We leave a bit of empty space on the right to allow user to use drag selection
-	ImVec2 tableSize(
-		ImGui::GetCurrentWindow()->WorkRect.GetWidth() - ImGui::GetFrameHeight() * 2,
-		0);
+	m_TableRect = ImGui::GetCurrentWindow()->WorkRect;
+	m_TableRect.Max.y -= ImGui::GetFrameHeight();
+	ImVec2 tableSize = m_TableRect.GetSize();
 
+	m_TableContentRect = {};
+	ImGui::Indent(GImGui->FontSize * 0.75f); // Leave a bit of empty space left to the entries
 	if (ImGui::BeginTable("FolderTable", 4, tableFlags, tableSize))
 	{
+		// We leave a bit of empty space on the right to allow user to use drag selection
+		float space = GImGui->FontSize * 2.0f;
+		GImGui->CurrentTable->WorkRect.Max.x -= space;
+		GImGui->CurrentTable->InnerClipRect.Max.x -= space;
+
 		// Reset scroll, otherwise if if we're on bottom of some huge folder and switch
 		// to smaller one, scroll gonna break
 		if (m_RootEntryChangedThisFrame)
@@ -368,12 +382,14 @@ void rageam::ui::FolderView::RenderEntries()
 
 		ImGuiTableColumnFlags nameFlags =
 			ImGuiTableColumnFlags_DefaultSort |
-			ImGuiTableColumnFlags_PreferSortAscending;
+			ImGuiTableColumnFlags_PreferSortAscending | 
+			ImGuiTableColumnFlags_NoHide;
 
 		ImGui::TableSetupColumn("Name", nameFlags, 0, ExplorerEntryColumnID_Name);
 		ImGui::TableSetupColumn("Date Modified", 0, 0, ExplorerEntryColumnID_DateModified);
 		ImGui::TableSetupColumn("Type", 0, 0, ExplorerEntryColumnID_TypeName);
 		ImGui::TableSetupColumn("Size", 0, 0, ExplorerEntryColumnID_Size);
+		ImGui::TableSetupScrollFreeze(0, 1);
 
 		if (ImGuiTableSortSpecs* sort = ImGui::TableGetSortSpecs())
 		{
@@ -385,6 +401,8 @@ void rageam::ui::FolderView::RenderEntries()
 		ImGui::TableHeadersRow();
 		ImGui::PopStyleColor();
 		m_HoveringTableHeaders = ImGui::TableIsHoveringRow();
+		// Header must be added separately
+		m_TableContentRect.Add(ImGui::TableGetRowRect());
 
 		ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0, 0)); // Remove 3km padding between entries
 		for (u16 i = 0; i < m_RootEntry->GetChildCount(); i++)
@@ -467,10 +485,20 @@ void rageam::ui::FolderView::RenderEntries()
 			ImGui::SameLine(); ImGui::Dummy(ImVec2(10, 0));
 
 			ImGui::PopStyleVar(); // Alpha
+
+			// Add entry row to content rect
+			m_TableContentRect.Add(ImGui::TableGetRowRect());
 		}
 		ImGui::PopStyleVar();
 
+		// Make sure that content rect doesn't contain rows outside work area
+		ImRect tableClipRect = GImGui->CurrentTable->InnerClipRect;
+		m_TableContentRect.ClipWith(tableClipRect);
+
 		ImGui::EndTable(); // FolderTable
+
+		// GImGui->CurrentWindow->DrawList->AddRect(m_TableContentRect.Min, m_TableContentRect.Max, 0xFF0000FF);
+		// GImGui->CurrentWindow->DrawList->AddRect(m_TableRect.Min, m_TableRect.Max, 0xFFFFFF00);
 
 		if (m_RootEntry->GetChildCount() == 0)
 		{
@@ -478,6 +506,7 @@ void rageam::ui::FolderView::RenderEntries()
 			ImGui::TextCentered("This folder is empty.", ImGuiTextCenteredFlags_Horizontal);
 		}
 	}
+	ImGui::Unindent();
 
 	EndDragSelection(selectionChangedDuringDragging);
 	UpdateStatusBar();

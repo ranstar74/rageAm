@@ -54,6 +54,9 @@ namespace rageam::ui
 		double						m_NextEntryTimeUpdate = 0;	// We have to refresh formatted time on entries (i.e. 5 minutes ago) at least once per minute
 
 		bool						m_HoveringTableHeaders = false;
+		ImRect						m_TableContentRect; // Including header + all entries
+		ImRect						m_TableRect; // This is where we can do drag selection
+
 		// We override selected entries while drag selecting (aka selection rectangle) to preview them without spamming undo stack,
 		// when drag selection is over we push undo action with newly selected entries (in ::Render)
 		const EntrySelection& GetSelectedEntries() const;
