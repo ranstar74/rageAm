@@ -572,7 +572,6 @@ void rageam::ui::FolderView::Render()
 
 	// Render folder view
 	RenderEntries();
-	UpdateEntryOpening();
 
 	// Open context menu
 	if (ImGui::IsMouseReleased(ImGuiMouseButton_Right) && ImGui::IsWindowHovered())
@@ -592,6 +591,8 @@ void rageam::ui::FolderView::Render()
 	}
 
 	m_RootEntryChangedThisFrame = false;
+	// We proceed this after resetting entry changed flag because we may open directory here
+	UpdateEntryOpening();
 }
 
 void rageam::ui::FolderView::SetRootEntry(const ExplorerEntryPtr& root)
