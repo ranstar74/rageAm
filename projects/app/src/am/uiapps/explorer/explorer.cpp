@@ -197,16 +197,18 @@ void rageam::ui::Explorer::OnRender()
 		// Column: Folder view
 		if (ImGui::TableNextColumn())
 		{
-			ImGui::BeginChild("ASSETS_FOLDER_VIEW");
-			// SlGui::ShadeItem(SlGuiCol_Bg2);
+			// A little bit brighter than the rest
+			ImU32 folderBgCol = ImGui::ColorModifyHSV(ImGui::GetColorU32(ImGuiCol_WindowBg), 1, 1, 1.75f);
 
+			ImGui::PushStyleColor(ImGuiCol_ChildBg, folderBgCol);
+			ImGui::BeginChild("ASSETS_FOLDER_VIEW");
 			if (m_TreeView.GetSelectionChanged())
 			{
 				m_FolderView.SetRootEntry(m_TreeView.GetSelectedEntry());
 			}
 			m_FolderView.Render();
-
 			ImGui::EndChild();
+			ImGui::PopStyleColor();
 		}
 		ImGui::EndTable();
 	}
