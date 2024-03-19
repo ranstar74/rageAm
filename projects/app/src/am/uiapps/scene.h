@@ -17,8 +17,10 @@ namespace rageam::ui
 	enum SceneType
 	{
 		Scene_Invalid,
+#ifdef AM_INTEGRATED
 		Scene_Editor,
 		Scene_Inspector,
+#endif
 	};
 
 	/**
@@ -38,7 +40,7 @@ namespace rageam::ui
 			ConstString modelName = GetModelName();
 			if (String::IsNullOrEmpty(modelName)) // Nothing is loaded yet...
 				return ImGui::FormatTemp("Scene %s", GetName());
-			return ImGui::FormatTemp("%s - Scene %s", GetName(), GetModelName());
+			return ImGui::FormatTemp("%s - %s", GetName(), GetModelName());
 		}
 		ConstString GetID() const override { return "rageam::ui::Scene"; }
 
@@ -57,10 +59,12 @@ namespace rageam::ui
 
 		static SceneType GetSceneType(ConstWString path)
 		{
+#ifdef AM_INTEGRATED
 			if (file::MatchExtension(path, L"ydr"))
 				return Scene_Inspector;
 			if (asset::AssetFactory::GetAssetType(path) == asset::AssetType_Drawable)
 				return Scene_Editor;
+#endif
 			return Scene_Invalid;
 		}
 

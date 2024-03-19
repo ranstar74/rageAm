@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef AM_INTEGRATED
 #include "am/integration/components/drawablerender.h"
 #include "am/integration/updatecomponent.h"
 #include "am/integration/gameentity.h"
@@ -33,3 +34,4 @@ namespace rageam::integration
 		GameEntity* GetEntity() const { return m_GameEntity.Get(); }
 	};
 }
+#endif

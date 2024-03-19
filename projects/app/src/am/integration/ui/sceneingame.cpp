@@ -1,3 +1,4 @@
+#ifdef AM_INTEGRATED
 #include "sceneingame.h"
 
 #include "starbar.h"
@@ -81,3 +82,4 @@ void rageam::integration::SceneInGame::FocusCamera()
 	camera->SetPosition(camPos);
 	camera->LookAt(targetPos);
 }
+#endif
