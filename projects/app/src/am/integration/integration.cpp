@@ -27,11 +27,26 @@ namespace
 	gmAddress        s_SafeModeOperationsAddr;
 }
 
+void InitializeFromGameThread()
+{
+	if (s_InitializedFromGameThread)
+		return;
+
+	(void) SetThreadDescription(GetCurrentThread(), L"[RAGE] Game Thread");
+	rageam::ThreadInfo::GetInstance()->SetIsMainThread();
+
+	// Must be called from a thread with game allocator in TLS
+	rageam::integration::scrInit();
+	s_InitializedFromGameThread = true;
+}
+
 // Called from CApp::RunGame() -> fwRenderThreadInterface::Synchronise()
 // Render thread is guaranteed to be blocked here
 void (*gImpl_PerformSafeModeOperations)(pVoid);
 void aImpl_PerformSafeModeOperations(pVoid instance)
 {
+	InitializeFromGameThread();
+
 	rageam::integration::GameIntegration::GetInstance()->Update();
 	gImpl_PerformSafeModeOperations(instance);
 
@@ -46,21 +61,7 @@ void aImpl_PerformSafeModeOperations(pVoid instance)
 bool (*CApp_GameUpdate_gImpl)();
 bool CApp_GameUpdate_aImpl()
 {
-	static bool s_Initialized = false;
-	if (!s_Initialized)
-	{
-		(void) SetThreadDescription(GetCurrentThread(), L"[RAGE] Game Thread");
-		rageam::ThreadInfo::GetInstance()->SetIsMainThread();
-		s_Initialized = true;
-	}
-
-	if (!s_InitializedFromGameThread)
-	{
-		// Must be called from a thread with game allocator in TLS
-		rageam::integration::scrInit();
-
-		s_InitializedFromGameThread = true;
-	}
+	InitializeFromGameThread();
 
 	// We can't shut down until every component was released
 	auto componentManager = rageam::integration::ComponentManager::GetInstance();
