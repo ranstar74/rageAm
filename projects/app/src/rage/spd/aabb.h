@@ -98,7 +98,7 @@ namespace rage
 			Vec3V center = (Min + Max) * S_HALF;
 			Vec3V diagonal = Max - Min;
 
-			return spdSphere(center, diagonal.Length());
+			return spdSphere(center, diagonal.Length() * S_HALF);
 		}
 
 		//  Bottom Face          Top Face		(Faces are in XY plane, Z is depth)
