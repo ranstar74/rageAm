@@ -54,7 +54,7 @@ namespace rageam::ui
 
 			if (ImGui::Button("Inspect YDR"))
 			{
-				Scene::OpenWindowForSceneAndLoad(QUICK_YDR_PATH);
+				Scene::ConstructFor(QUICK_YDR_PATH);
 			}
 
 			SlGui::CategoryText("Model Scene");
@@ -62,20 +62,20 @@ namespace rageam::ui
 			bool loadedScene = false;
 			if (ImGui::Button("Load IDR"))
 			{
-				Scene::OpenWindowForSceneAndLoad(QUICK_SCENE_PATH);
+				Scene::ConstructFor(QUICK_SCENE_PATH);
 				loadedScene = true;
 			}
 
 			if (ImGui::Button("Load IDR + Flush Cache"))
 			{
 				graphics::ImageCache::GetInstance()->Clear();
-				Scene::OpenWindowForSceneAndLoad(QUICK_SCENE_PATH);
+				Scene::ConstructFor(QUICK_SCENE_PATH);
 				loadedScene = true;
 			}
 
 			if (loadedScene)
 			{
-				Scene::OpenWindowForSceneAndLoad(QUICK_SCENE_PATH);
+				Scene::ConstructFor(QUICK_SCENE_PATH);
 			}
 #endif
 
