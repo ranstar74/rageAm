@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <defs>
+    <style>.canvas{fill: none; opacity: 0;}.light-purple-10{fill: #6936aa; opacity: 0.1;}.light-purple{fill: #6936aa; opacity: 1;}.light-shadow{fill: #000000; opacity: 0.1;}.cls-1{opacity:0.75;}</style>
+  </defs>
+  <title>IconLightFolderClosedPurple</title>
+  <g id="canvas" class="canvas">
+    <path class="canvas" d="M16,16H0V0H16Z" />
+  </g>
+  <g id="level-2">
+    <g class="cls-1">
+      <path class="light-purple-10" d="M14.5,3.5v10H1.5V2.5h5l1,1Z" />
+      <path class="light-purple" d="M14.5,3H7.707l-.853-.854L6.5,2h-5L1,2.5v11l.5.5h13l.5-.5V3.5ZM14,13H2V3H6.293l.853.854L7.5,4H14Z" />
+    </g>
+  </g>
+  <g id="level-1">
+    <path class="light-shadow" d="M14.5,6H7.475l-.353.146L6.268,7H1.5L1,7.5v7l.5.5h13l.5-.5v-8ZM14,14H2V8H6.475l.354-.146L7.682,7H14Z" />
+    <path class="light-purple-10" d="M14.5,5.5v8H1.5v-7H6.475l1-1Z" />
+    <path class="light-purple" d="M14.5,5H7.475l-.353.146L6.268,6H1.5L1,6.5v7l.5.5h13l.5-.5v-8ZM14,13H2V7H6.475l.354-.146L7.682,6H14Z" />
+  </g>
+</svg>

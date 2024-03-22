@@ -436,7 +436,7 @@ void rageam::ui::ImGlue::RegisterSystemApps()
 #ifdef AM_TESTBED
 	AddApp(new TestbedApp());
 #else
-	Windows->Add(new Explorer());
+	// Windows->Add(new Explorer());
 #endif
 }
 

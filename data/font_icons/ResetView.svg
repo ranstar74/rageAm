@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <defs>
+    <style>.canvas{fill: none; opacity: 0;}.light-defaultgrey{fill: #212121; opacity: 1;}.light-purple-10{fill: #6936aa; opacity: 0.1;}.light-purple{fill: #6936aa; opacity: 1;}</style>
+  </defs>
+  <title>IconLightResetView</title>
+  <g id="canvas">
+    <path class="canvas" d="M16,16H0V0H16Z" />
+  </g>
+  <g id="level-1">
+    <path class="light-defaultgrey" d="M1.5,1H5V2H2V5H1V1.5Zm13,0H11V2h3V5h1V1.5ZM14,14H11v1h3.5l.5-.5V11H14ZM2,11H1v3.5l.5.5H5V14H2Z" />
+    <path class="light-purple-10" d="M11.5,6.165v4.041L8,12.227,4.5,10.206V6.165L8,4.144Z" />
+    <path class="light-purple" d="M11.75,5.732l-3.5-2.02h-.5l-3.5,2.02L4,6.165v4.041l.25.433,3.5,2.021h.5l3.5-2.021.25-.433V6.165ZM7.5,11.362,5,9.917V7.072L7.5,8.516ZM8,7.65,5.465,6.186,8,4.722l2.535,1.464Zm3,2.267L8.5,11.362V8.516L11,7.072Z" />
+  </g>
+</svg>

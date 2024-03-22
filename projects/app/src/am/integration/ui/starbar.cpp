@@ -11,6 +11,7 @@
 #include "am/ui/slwidgets.h"
 #include "am/integration/gamedrawlists.h"
 #include "am/integration/script/extensions.h"
+#include "am/uiapps/explorer/explorer.h"
 
 void rageam::integration::StarBar::UpdateCamera()
 {
@@ -48,6 +49,7 @@ void rageam::integration::StarBar::UpdateCamera()
 
 void rageam::integration::StarBar::OnRender()
 {
+	ui::WindowManager* ui = ui::GetUI()->Windows;
 	ui::Scene* scene = ui::Scene::GetCurrent();
 	ModelScene* sceneEditor = dynamic_cast<ModelScene*>(scene);
 
@@ -113,7 +115,7 @@ void rageam::integration::StarBar::OnRender()
 		if (!m_CameraEnabled) ImGui::BeginDisabled();
 
 		if (!scene) ImGui::BeginDisabled();
-		if (SlGui::MenuButton(ICON_AM_HOME""))
+		if (SlGui::MenuButton(ICON_AM_RESET_VIEW""))
 		{
 			scene->FocusCamera();
 		}
@@ -149,6 +151,18 @@ void rageam::integration::StarBar::OnRender()
 	if (ImGui::IsKeyPressed(ImGuiKey_Period, false)) // Hotkey switch
 		Im3D::SetGizmoUseWorld(!useWorld);
 
+	// Explorer
+	ui::WindowPtr explorer = ui->GetExisting<ui::Explorer>();
+	bool isExplorerOpen = explorer != nullptr;
+	if (SlGui::ToggleButton(ICON_AM_FOLDER_CLOSED_PURPLE" Explorer", isExplorerOpen))
+	{
+		if (isExplorerOpen)
+			ui->Add(new ui::Explorer());
+		else
+			ui->Close(explorer);
+	}
+
+	// Material Editor
 	bool isMaterialEditorOpened = sceneEditor && sceneEditor->MaterialEditor.IsOpen;
 	if (!sceneEditor) ImGui::BeginDisabled();
 	if (SlGui::ToggleButton(ICON_AM_BALL" Material Editor", isMaterialEditorOpened))
