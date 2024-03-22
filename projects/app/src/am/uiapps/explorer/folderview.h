@@ -55,7 +55,7 @@ namespace rageam::ui
 
 		bool						m_HoveringTableHeaders = false;
 		ImRect						m_TableContentRect; // Including header + all entries
-		ImRect						m_TableRect; // This is where we can do drag selection
+		ImRect						m_TableRect; // This is area where we can possibly begin drag selection
 
 		// We override selected entries while drag selecting (aka selection rectangle) to preview them without spamming undo stack,
 		// when drag selection is over we push undo action with newly selected entries (in ::Render)
@@ -75,8 +75,6 @@ namespace rageam::ui
 		// Renders selectable that spans across all table columns
 		void RenderEntryTableRow(const ExplorerEntryPtr& entry);
 
-		// Status bar with current folder and selection info
-		void UpdateStatusBar() const;
 		// Select all using Ctrl + A
 		void UpdateSelectAll();
 		// Open/Close QuickView if space was pressed
@@ -95,6 +93,9 @@ namespace rageam::ui
 		void UpdateSearchOnType();
 	public:
 		FolderView() = default;
+
+		// Status bar with current folder and selection info
+		void RenderStatusBar() const;
 
 		void Render();
 		void SetRootEntry(const ExplorerEntryPtr& root);

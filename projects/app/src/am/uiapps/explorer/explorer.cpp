@@ -197,18 +197,28 @@ void rageam::ui::Explorer::OnRender()
 		// Column: Folder view
 		if (ImGui::TableNextColumn())
 		{
-			// A little bit brighter than the rest
-			ImU32 folderBgCol = ImGui::ColorModifyHSV(ImGui::GetColorU32(ImGuiCol_WindowBg), 1, 1, 1.75f);
+			// Leave space for status bar
+			ImVec2 folderSize(0, ImGui::GetCurrentWindow()->WorkRect.GetSize().y - ImGui::GetFrameHeight());
 
-			ImGui::PushStyleColor(ImGuiCol_ChildBg, folderBgCol);
-			ImGui::BeginChild("ASSETS_FOLDER_VIEW");
-			if (m_TreeView.GetSelectionChanged())
+			if (ImGui::BeginChild("ASSETS_FOLDER_VIEW", folderSize))
 			{
-				m_FolderView.SetRootEntry(m_TreeView.GetSelectedEntry());
+				// We brighten up folder area a bit, note that we can't simply set child background color
+				// because it would add to CURRENT window background, and it will make it almost opaque
+				ImU32 folderAddColor = IM_COL32(30, 30, 30, 100);
+				ImGuiWindow* window = ImGui::GetCurrentWindow();
+				ImDrawList* dl = window->DrawList;
+				dl->AddRectFilled(window->WorkRect.Min, window->WorkRect.Max, folderAddColor);
+
+				if (m_TreeView.GetSelectionChanged())
+				{
+					m_FolderView.SetRootEntry(m_TreeView.GetSelectedEntry());
+				}
+
+				m_FolderView.Render();
 			}
-			m_FolderView.Render();
 			ImGui::EndChild();
-			ImGui::PopStyleColor();
+
+			m_FolderView.RenderStatusBar();
 		}
 		ImGui::EndTable();
 	}

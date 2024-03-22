@@ -204,11 +204,9 @@ void rageam::ui::FolderView::RenderEntryTableRow(const ExplorerEntryPtr& entry)
 	UpdateEntryRenaming(entry, state);
 }
 
-void rageam::ui::FolderView::UpdateStatusBar() const
+void rageam::ui::FolderView::RenderStatusBar() const
 {
-	ImGui::StatusBar();
-	ImGui::AlignTextToFramePadding();
-
+	ImGui::Indent();
 	u16 childCount = m_RootEntry->GetChildCount();
 	u16 selectedCount = GetSelectedEntries().GetCount();
 	if (selectedCount != 0)
@@ -234,6 +232,7 @@ void rageam::ui::FolderView::UpdateStatusBar() const
 	{
 		ImGui::Text("%u %s ", childCount, childCount == 1 ? "item" : "items");
 	}
+	ImGui::Unindent();
 }
 
 void rageam::ui::FolderView::UpdateSelectAll()
@@ -275,26 +274,30 @@ void rageam::ui::FolderView::UpdateEntryOpening()
 	SceneType sceneType = Scene::GetSceneType(entryPath);
 	if (sceneType != Scene_Invalid)
 	{
-		Scene::OpenWindowForSceneAndLoad(entryPath);
+		Scene::ConstructFor(entryPath);
 		m_DoubleClickedEntry = nullptr;
 		return;
 	}
 
+	// Last handler, don't reset m_DoubleClickedEntry here because TreeView will need it
 	if (m_DoubleClickedEntry && m_DoubleClickedEntry->IsDirectory())
 	{
 		SetRootEntry(m_DoubleClickedEntry);
 	}
-
-	m_DoubleClickedEntry = nullptr;
 }
 
 void rageam::ui::FolderView::BeginDragSelection(ImRect& dragSelectRect)
 {
+	ImRect& clipRect = m_TableRect;
+
 	// Mouse must hover table region but not table entries
 	bool canStartDragSelection =
-		ImGui::IsMouseHoveringRect(m_TableRect.Min, m_TableRect.Max, false) &&
+		ImGui::IsMouseHoveringRect(clipRect.Min, clipRect.Max, false) &&
 		!ImGui::IsMouseHoveringRect(m_TableContentRect.Min, m_TableContentRect.Max, false) &&
-		ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow);
+		ImGui::IsWindowFocused(ImGuiFocusedFlags_AnyWindow) && 
+		!ImGui::IsAnyPopUpOpen(); // Fix selection working when header context menu is open
+
+	// GImGui->CurrentWindow->DrawList->AddRect(clipRect.Min, clipRect.Max, 0xFF00FF00);
 
 	ImGuiDragSelectionFlags dragSelectionFlags = 0;
 	if (!canStartDragSelection)
@@ -302,7 +305,7 @@ void rageam::ui::FolderView::BeginDragSelection(ImRect& dragSelectRect)
 	bool dragStopped;
 	bool wasDragSelecting = m_DragSelecting;
 	m_DragSelecting = ImGui::DragSelectionBehaviour(
-		ImGui::GetID("FOLDER_VIEW_DRAG_SELECTION"), dragStopped, dragSelectRect, m_TableRect, dragSelectionFlags);
+		ImGui::GetID("FOLDER_VIEW_DRAG_SELECTION"), dragStopped, dragSelectRect, clipRect, dragSelectionFlags);
 
 	bool startedDragSelecting = !wasDragSelecting && m_DragSelecting;
 	if (startedDragSelecting)
@@ -351,19 +354,18 @@ void rageam::ui::FolderView::RenderEntries()
 		ImGuiTableFlags_Reorderable | 
 		ImGuiTableFlags_ScrollY; // For TableSetupScrollFreeze
 
-	// We leave a bit of empty space on the right to allow user to use drag selection
-	m_TableRect = ImGui::GetCurrentWindow()->WorkRect;
-	m_TableRect.Max.y -= ImGui::GetFrameHeight();
-	ImVec2 tableSize = m_TableRect.GetSize();
+
+	// Leave a bit of empty space left to the entries
+	float tableLeftMarginSize = GImGui->FontSize * 0.75f;
+	ImGui::Indent(tableLeftMarginSize);
 
 	m_TableContentRect = {};
-	ImGui::Indent(GImGui->FontSize * 0.75f); // Leave a bit of empty space left to the entries
-	if (ImGui::BeginTable("FolderTable", 4, tableFlags, tableSize))
+	if (ImGui::BeginTable("FolderTable", 4, tableFlags))
 	{
 		// We leave a bit of empty space on the right to allow user to use drag selection
-		float space = GImGui->FontSize * 2.0f;
-		GImGui->CurrentTable->WorkRect.Max.x -= space;
-		GImGui->CurrentTable->InnerClipRect.Max.x -= space;
+		float tableRightMarginSize = GImGui->FontSize * 2.0f;
+		GImGui->CurrentTable->WorkRect.Max.x -= tableRightMarginSize;
+		GImGui->CurrentTable->InnerClipRect.Max.x -= tableRightMarginSize;
 
 		// Reset scroll, otherwise if if we're on bottom of some huge folder and switch
 		// to smaller one, scroll gonna break
@@ -491,14 +493,18 @@ void rageam::ui::FolderView::RenderEntries()
 		}
 		ImGui::PopStyleVar();
 
+		ImGuiTable* table = GImGui->CurrentTable;
+		m_TableRect = table->InnerRect;
 		// Make sure that content rect doesn't contain rows outside work area
-		ImRect tableClipRect = GImGui->CurrentTable->InnerClipRect;
-		m_TableContentRect.ClipWith(tableClipRect);
+		m_TableContentRect.ClipWith(table->InnerClipRect);
+		// We use table rect for selection and because we added small padding on the left above
+		// we have to add it back here, otherwise this area will be unselectable
+		m_TableRect.Min.x -= tableLeftMarginSize;
 
 		ImGui::EndTable(); // FolderTable
 
 		// GImGui->CurrentWindow->DrawList->AddRect(m_TableContentRect.Min, m_TableContentRect.Max, 0xFF0000FF);
-		// GImGui->CurrentWindow->DrawList->AddRect(m_TableRect.Min, m_TableRect.Max, 0xFFFFFF00);
+		// GImGui->CurrentWindow->DrawList->AddRect(GImGui->CurrentWindow->WorkRect.Min, GImGui->CurrentWindow->WorkRect.Max, 0xFFFFFF00);
 
 		if (m_RootEntry->GetChildCount() == 0)
 		{
@@ -509,7 +515,6 @@ void rageam::ui::FolderView::RenderEntries()
 	ImGui::Unindent();
 
 	EndDragSelection(selectionChangedDuringDragging);
-	UpdateStatusBar();
 	UpdateSelectAll();
 	UpdateQuickView();
 }
@@ -521,6 +526,8 @@ void rageam::ui::FolderView::UpdateSearchOnType()
 
 void rageam::ui::FolderView::Render()
 {
+	m_DoubleClickedEntry = nullptr;
+
 	UpdateSearchOnType();
 
 	// Refresh directory F5 was pressed or some file was changed
@@ -606,7 +613,8 @@ void rageam::ui::FolderView::Render()
 	// Open context menu
 	if (!m_HoveringTableHeaders && 
 		ImGui::IsMouseReleased(ImGuiMouseButton_Right) && 
-		ImGui::IsWindowHovered())
+		ImGui::IsWindowFocused(ImGuiFocusedFlags_AnyWindow) &&
+		!ImGui::IsAnyPopUpOpen())
 	{
 		if (m_RenamingEntry)
 		{

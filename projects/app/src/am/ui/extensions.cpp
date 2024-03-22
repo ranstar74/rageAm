@@ -554,7 +554,7 @@ bool ImGui::DragSelectionBehaviour(ImGuiID id, bool& stopped, ImRect& selection,
 	constexpr float fadeoutTime = 6.0f; // Higher = faster
 
 	bool& dragging = *storage.GetBoolRef(id + 4);
-	float& alpha = *storage.GetFloatRef(id + 5, 1.0f);
+	float& alpha = *storage.GetFloatRef(id + 5, 0.0f);
 
 	if (!mouseDown)
 	{
