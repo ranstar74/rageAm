@@ -448,12 +448,17 @@ bool rageam::asset::TxdAsset::IsMissingTexture(const rage::grcTexture* texture)
 
 ConstString rageam::asset::TxdAsset::UndecorateMissingTextureName(const rage::grcTexture* texture)
 {
-	if (!texture)
-		return nullptr;
-	ImmutableString texName = texture->GetName();
+	if (texture)
+		return UndecorateMissingTextureName(texture->GetName());
+	return nullptr;
+}
+
+ConstString rageam::asset::TxdAsset::UndecorateMissingTextureName(ConstString textureName)
+{
+	ImmutableString texName = textureName;
 	int tokenIndex = texName.IndexOf("##$MT_");
 	if (tokenIndex == -1)
-		return texture->GetName();
+		return textureName;
 	return texName.Substring(tokenIndex + 6); // Length of ##$MT_
 }
 

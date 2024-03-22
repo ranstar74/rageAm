@@ -143,6 +143,7 @@ namespace rageam::asset
 		// Gets actual name from missing texture name (which is in format 'TEX_NAME (Missing)###$MT_TEXNAME')
 		// If texture is not missing, returns just texture name
 		static ConstString UndecorateMissingTextureName(const rage::grcTexture* texture);
+		static ConstString UndecorateMissingTextureName(ConstString textureName);
 		static void        SetMissingTextureName(rage::grcTexture* texture, ConstString textureName);
 
 		// When texture fails to compress, instead of failing, uses missing texture instead

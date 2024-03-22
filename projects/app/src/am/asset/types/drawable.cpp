@@ -89,7 +89,9 @@ void rageam::asset::MaterialTune::Param::CopyValue(rage::grcInstanceVar* var)
 	// Retrieve texture name
 	if (var->IsTexture() && var->GetTexture())
 	{
-		Value = string(var->GetTexture()->GetName());
+		// Missing name shouldn't go to file
+		ConstString textureName = TxdAsset::UndecorateMissingTextureName(var->GetTexture());
+		Value = string(textureName);
 	}
 }
 
