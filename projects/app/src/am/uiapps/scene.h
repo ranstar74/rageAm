@@ -74,5 +74,6 @@ namespace rageam::ui
 
 		// Gets currently opened scene window (there can be only one at a time)
 		static Scene* GetCurrent() { return sm_Instance; }
+		static inline Vec3V DefaultSpawnPosition = { 0 ,0 , 0 };
 	};
 }

@@ -103,9 +103,12 @@ void rageam::integration::StarBar::OnRender()
 
 		if (SlGui::ToggleButton(ICON_AM_OBJECT"", m_UseIsolatedScene))
 		{
-			m_UseIsolatedScene = !m_UseIsolatedScene;
-			scene->SetPosition(m_UseIsolatedScene ? SCENE_ISOLATED_POS : SCENE_DEFAULT_POS);
+			Vec3V pos = m_UseIsolatedScene ? SCENE_ISOLATED_POS : SCENE_DEFAULT_POS;
+
+			scene->SetPosition(pos);
 			scene->FocusCamera();
+
+			ui::Scene::DefaultSpawnPosition = pos;
 		}
 		ImGui::ToolTip("Isolates scene model from game world");
 
@@ -246,6 +249,11 @@ void rageam::integration::StarBar::OnRender()
 	}
 
 	SlGui::EndToolWindow();
+}
+
+void rageam::integration::StarBar::OnStart()
+{
+	ui::Scene::DefaultSpawnPosition = SCENE_DEFAULT_POS;
 }
 
 #endif

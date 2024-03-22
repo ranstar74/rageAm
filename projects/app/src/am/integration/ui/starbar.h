@@ -18,7 +18,7 @@
 namespace rageam::integration
 {
 	static const Vec3V SCENE_ISOLATED_POS = { -1700, -6000, 310 };
-	static const Vec3V SCENE_DEFAULT_POS = { 0, 0, 200 };
+	static const Vec3V SCENE_DEFAULT_POS = { 0, 0, 400 };
 
 	class StarBar : public ui::App
 	{
@@ -30,6 +30,7 @@ namespace rageam::integration
 
 		void UpdateCamera();
 		void OnRender() override;
+		void OnStart() override;
 
 	public:
 		void SetCameraEnabled(bool b)
