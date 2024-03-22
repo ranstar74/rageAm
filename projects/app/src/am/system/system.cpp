@@ -91,12 +91,17 @@ void rageam::System::Destroy()
 	auto dxContext = amComPtr(graphics::RenderGetContext());
 
 	// We must unhook WndProc safely before ImGui is destroyed
+	AM_INTEGRATED_ONLY(m_PlatformWindow->LockWndProc()); // Synchronize to make sure that WndProc is safe to unhook
 	AM_INTEGRATED_ONLY(m_PlatformWindow->UnsetHooks());
 
 	// Even though render is created before UI (in order to allocate GPU objects),
 	// we must destroy it now because it is currently drawing UI
 	m_Render = nullptr;
 	m_ImGlue = nullptr;
+
+	// This must only be unlocked after UI is destroyed because it's referenced in WndProc
+	AM_INTEGRATED_ONLY(m_PlatformWindow->UnlockWndProc());
+
 	m_PlatformWindow = nullptr;
 	m_ImageCache = nullptr;
 

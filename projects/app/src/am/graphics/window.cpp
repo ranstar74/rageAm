@@ -281,12 +281,21 @@ void rageam::graphics::Window::SetHooks() const
 	s_HooksInitialized = true;
 }
 
+void rageam::graphics::Window::LockWndProc() const
+{
+	s_WndProc_Mutex.lock();
+}
+
+void rageam::graphics::Window::UnlockWndProc() const
+{
+	s_WndProc_Mutex.unlock();
+}
+
 void rageam::graphics::Window::UnsetHooks() const
 {
 	if (!s_HooksInitialized)
 		return;
 
-	std::unique_lock lock(s_WndProc_Mutex); // Synchronize to make sure that WndProc is safe to unhook
 	Hook::Remove(s_WndProc_Addr);
 	Hook::Remove(ClipCursor);
 	Hook::Remove(ShowCursor);

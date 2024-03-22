@@ -53,6 +53,8 @@ namespace rageam::graphics
 		// In integration mode we hook WndProc, we can't do this in constructor because UI is not initialized yet
 		// Must be called once before update loop
 		void SetHooks() const;
+		void LockWndProc() const;
+		void UnlockWndProc() const;
 		void UnsetHooks() const;
 		void Update() const;
 #else
