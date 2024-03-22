@@ -20,6 +20,8 @@ namespace rageam::integration
 	public:
 		void SetEntity(GameEntity* entity) { m_Entity = entity; }
 
+		static inline bool IsVisible = true; // One switch for all debug overlays
+
 		static inline bool DrawBoundsOnTop = true;
 		static inline bool BoundingBox = true;
 		static inline bool BoundingSphere = false;

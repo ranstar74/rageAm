@@ -86,7 +86,7 @@ void rageam::integration::DrawableRender::RenderCollisionBound(rage::phBound* bo
 
 void rageam::integration::DrawableRender::OnUpdate()
 {
-	if (!m_Entity)
+	if (!m_Entity || !IsVisible)
 		return;
 
 	DrawList::SetTransform(m_Entity->GetWorldTransform());

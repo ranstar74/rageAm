@@ -216,7 +216,8 @@ rageam::graphics::ShapeHit rageam::integration::LightEditor::DrawOutliner(const 
 {
 	DrawList& drawList = GetDrawList();
 
-	if (OutlineMode == OutlineMode_None || 
+	if (!DrawableRender::IsVisible || // TODO: This flag should be somewhere else
+		OutlineMode == OutlineMode_None || 
 		(OutlineMode == OutlineMode_OnlySelected && !ctx.IsSelected))
 	{
 		return graphics::ShapeHit(0, false);

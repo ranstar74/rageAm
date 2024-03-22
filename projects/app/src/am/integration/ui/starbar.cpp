@@ -193,6 +193,9 @@ void rageam::integration::StarBar::OnRender()
 		ImGui::Checkbox("Focus camera on scene", &FocusCameraOnScene);
 		ImGui::ToolTip("After 3D scene was loaded, moves and points camera to object position");
 
+		ImGui::Checkbox("Debug Overlay", &DrawableRender::IsVisible);
+
+		if (!DrawableRender::IsVisible) ImGui::BeginDisabled();
 		SlGui::CategoryText("Light Outlines");
 		{
 			if (!sceneEditor) ImGui::BeginDisabled();
@@ -237,6 +240,7 @@ void rageam::integration::StarBar::OnRender()
 			ImGui::Checkbox("Bone Tags", &DrawableRender::BoneTags);
 			if (!DrawableRender::Skeleton) ImGui::EndDisabled();
 		}
+		if (!DrawableRender::IsVisible) ImGui::EndDisabled();
 
 		ImGui::EndPopup();
 	}
