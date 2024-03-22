@@ -39,7 +39,10 @@ void rageam::integration::SceneInGame::DestroyEntity()
 
 const rageam::Vec3V& rageam::integration::SceneInGame::GetPosition() const
 {
-	return m_GameEntity ? m_GameEntity->GetPosition() : m_CachedPosition;
+	// At the moment we always return cached position because on model spawn
+	// entity position is not updated yet and when we're trying to focus camera on it, camera always
+	// focuses on the world origin (0, 0, 0)
+	return m_CachedPosition; /*m_GameEntity ? m_GameEntity->GetPosition() : m_CachedPosition;*/
 }
 
 void rageam::integration::SceneInGame::SetPosition(const Vec3V& pos)
