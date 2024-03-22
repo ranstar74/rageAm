@@ -558,6 +558,9 @@ bool rageam::ui::ImGlue::UpdateApps()
 	ImGuiStyle& style = ImGui::GetStyle();
 	style.IndentSpacing = GImGui->FontSize * 0.9f;
 
+	// Place it before updating ui::WindowManager so new scene window can be added this frame
+	Scene::TryOpenPendingSceneWindow();
+
 	// Execute all apps
 	bool onlyUpdate = !IsVisible;
 	bool isDisabled = IsDisabled;

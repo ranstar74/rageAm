@@ -67,16 +67,13 @@ void rageam::ui::WindowManager::OnRender()
 
 rageam::ui::WindowPtr rageam::ui::WindowManager::Add(Window* window)
 {
-	return m_Windows.Emplace(amPtr<Window>(window));
+	return m_WindowsToAdd.Emplace(amPtr<Window>(window));
 }
 
 void rageam::ui::WindowManager::Close(const WindowPtr& ptr)
 {
-	if (!ptr)
-		return;
-
-	//m_Windows.Remove(ptr);
-	m_WindowsToRemove.Add(ptr);
+	if (ptr)
+		m_WindowsToRemove.Add(ptr);
 }
 
 void rageam::ui::WindowManager::Focus(const WindowPtr& window) const
@@ -93,9 +90,4 @@ rageam::ui::WindowPtr rageam::ui::WindowManager::FindByTitle(ConstString title) 
 			return window;
 	}
 	return nullptr;
-
-	/*WindowPtr* ppWindow = m_Windows.TryGetAt(rage::atStringHash(title));
-	if (ppWindow)
-		return *ppWindow;
-	return nullptr;*/
 }

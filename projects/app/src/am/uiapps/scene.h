@@ -29,7 +29,9 @@ namespace rageam::ui
 	 */
 	class Scene : public Window
 	{
-		static inline Scene* sm_Instance = nullptr;
+		// Use weak because scene window will be closed from outside - via close button or from window manager
+		static inline amWeakPtr<Scene> sm_OpenedSceneWeakRef;
+		static inline file::WPath      sm_PendingScenePath;
 
 	protected:
 		// Can only construct from OpenWindowForSceneAndLoad
@@ -74,12 +76,15 @@ namespace rageam::ui
 			return Scene_Invalid;
 		}
 
+		static void TryOpenPendingSceneWindow();
+
 		// Closes currently opened scene window (if there's any)
 		// and tries to open new one for specified path
-		static void OpenWindowForSceneAndLoad(ConstWString path);
+		static void ConstructFor(ConstWString path);
 
 		// Gets currently opened scene window (there can be only one at a time)
-		static Scene* GetCurrent() { return sm_Instance; }
+		static Scene* GetCurrent() { return sm_OpenedSceneWeakRef.lock().get(); }
+
 		static inline Vec3V DefaultSpawnPosition = { 0 ,0 , 0 };
 	};
 }

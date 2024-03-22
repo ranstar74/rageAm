@@ -85,3 +85,6 @@ using amUniquePtr = std::unique_ptr<T>;
 
 template<typename T>
 using amUPtr = std::unique_ptr<T>;
+
+template<typename T>
+using amWeakPtr = std::weak_ptr<T>;

@@ -5,37 +5,53 @@
 #include "am/integration/ui/modelscene.h"
 #endif
 
-void rageam::ui::Scene::OpenWindowForSceneAndLoad(ConstWString path)
+void rageam::ui::Scene::TryOpenPendingSceneWindow()
 {
-	sm_Instance = nullptr;
+	if (String::IsNullOrEmpty(sm_PendingScenePath))
+		return;
+
+	// Old scene is still valid...
+	if (!sm_OpenedSceneWeakRef.expired())
+		return;
 
 	WindowManager* windows = GetUI()->Windows;
+	Scene* newScene = nullptr;
 
-	// Find and close existing scene window
-	WindowPtr existingScene = windows->GetExisting<Scene>();
-	if (existingScene)
-		windows->Close(existingScene);
-
-	Scene* openedScene = nullptr;
-
-	SceneType sceneType = GetSceneType(path);
+	SceneType sceneType = GetSceneType(sm_PendingScenePath);
 	switch (sceneType)
 	{
 #ifdef AM_INTEGRATED
-		case Scene_Inspector: openedScene = new integration::ModelInspector();	break;
-		case Scene_Editor:	  openedScene = new integration::ModelScene();		break;
+	case Scene_Inspector: newScene = new integration::ModelInspector();	break;
+	case Scene_Editor:	  newScene = new integration::ModelScene();		break;
 #endif
 
-		case Scene_Invalid:
-			AM_ERRF(L"Scene::LoadScene() -> Unable to resolve for '%ls'", path);
-			break;
+	case Scene_Invalid:
+		AM_ERRF(L"Scene::LoadScene() -> Unable to resolve for '%ls'", sm_PendingScenePath.GetCStr());
+		break;
 	}
 
-	if (!openedScene)
+	if (!newScene)
 		return;
 
-	windows->Add(openedScene);
-	openedScene->LoadFromPath(path);
+	newScene->SetPosition(DefaultSpawnPosition);
+	newScene->LoadFromPath(sm_PendingScenePath);
 
-	sm_Instance = openedScene;
+	sm_OpenedSceneWeakRef = std::weak_ptr(std::dynamic_pointer_cast<Scene>(windows->Add(newScene)));
+	sm_PendingScenePath = L"";
+}
+
+void rageam::ui::Scene::ConstructFor(ConstWString path)
+{
+	// Find and close existing scene window
+	WindowManager* windows = GetUI()->Windows;
+	WindowPtr existingScene = windows->GetExisting<Scene>();
+	if (existingScene)
+	{
+		windows->Close(existingScene);
+	}
+
+	// We can't immediately load new scene if there's already one opened,
+	// mainly because entity takes few frames to completely unload,
+	// instead we put new scene in queue and wait until old one fully closes
+	sm_PendingScenePath = path;
 }
