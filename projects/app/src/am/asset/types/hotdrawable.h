@@ -158,6 +158,7 @@ namespace rageam::asset
 
 	public:
 		HotDrawable(ConstWString assetPath);
+		~HotDrawable() { if (m_LoadingTask) m_LoadingTask->Wait(); }
 
 		// Flushes current state and fully reloads asset
 		void LoadAndCompileAsync(bool keepAsset = true);
