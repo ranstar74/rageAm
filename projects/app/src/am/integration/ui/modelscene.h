@@ -99,6 +99,8 @@ namespace rageam::integration
 		void DrawDrawableUI();
 		void OnRender() override;
 
+		void SaveAssetConfig() const;
+
 	public:
 		ModelScene();
 

@@ -6,18 +6,17 @@
 #include "am/file/iterator.h"
 #include "am/system/system.h"
 #include "imgui_impl_dx11.h"
+#include "font_icons/icons_awesome.h"
 
+#include "am/asset/ui/assetasynccompiler.h"
 #include "am/uiapps/skeleton.h"
+#include "am/uiapps/scene.h"
+
 #ifdef AM_TESTBED
+#include "am/integration/script/core.h"
 #include "am/uiapps/testbed.h"
 #else
 #include "am/uiapps/explorer/explorer.h"
-#endif
-
-#include "font_icons/icons_awesome.h"
-
-#ifdef AM_INTEGRATED
-#include "am/integration/script/core.h"
 #endif
 
 #include <backends/imgui_impl_win32.h>
@@ -438,6 +437,8 @@ void rageam::ui::ImGlue::RegisterSystemApps()
 #else
 	// Windows->Add(new Explorer());
 #endif
+
+	AddApp(new AssetAsyncCompiler());
 }
 
 void rageam::ui::ImGlue::LoadIcons()

@@ -7,6 +7,7 @@
 #include "am/ui/slwidgets.h"
 #include "am/asset/ui/assetwindowfactory.h"
 #include "am/integration/components/camera.h"
+#include "am/asset/ui/assetasynccompiler.h"
 
 rageam::integration::DrawableStats rageam::integration::DrawableStats::ComputeFrom(gtaDrawable* drawable)
 {
@@ -515,20 +516,18 @@ void rageam::integration::ModelScene::OnRender()
 		if (!isSpawned) ImGui::BeginDisabled();
 		if (ImGui::BeginMenuBar())
 		{
-			if(ImGui::MenuItem(ICON_AM_SAVE" Save"))
+			if(ImGui::MenuItem(ICON_AM_SAVE" Save") || ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S))
 			{
-				m_Context.DrawableAsset->ParseFromGame(GetDrawable());
-				if(!m_Context.DrawableAsset->SaveConfig())
-				{
-					AM_ERRF("ModelScene::OnRender() -> Failed to save config...");
+				SaveAssetConfig();
 				}
 			}
 
-			// TODO: Should work via closing window?
-			if (ImGui::MenuItem(ICON_AM_CANCEL" Unload"))
+			if (ImGui::MenuItem(ICON_AM_BUILD_STYLE" Export") || ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_E))
 			{
-				needUnload = true;
+				SaveAssetConfig(); // TODO: Can we compile without saving?
+				ui::AssetAsyncCompiler::GetInstance()->CompileAsync(m_Context.DrawableAsset->GetDirectoryPath());
 			}
+			ImGui::ToolTip("Compiles asset to native binary format.");
 
 			//if (ImGui::MenuItem(ICON_AM_BALL" Materials"))
 			//{
@@ -602,6 +601,15 @@ void rageam::integration::ModelScene::OnRender()
 
 		//m_ResetUIAfterCompiling = false;
 		//m_SceneGlue->HotDrawable->LoadAndCompile(true);
+	}
+}
+
+void rageam::integration::ModelScene::SaveAssetConfig() const
+{
+	m_Context.DrawableAsset->ParseFromGame(GetDrawable());
+	if (!m_Context.DrawableAsset->SaveConfig())
+	{
+		AM_ERRF("ModelScene::OnRender() -> Failed to save config...");
 	}
 }
 

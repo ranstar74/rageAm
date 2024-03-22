@@ -16,21 +16,14 @@ namespace rageam::ui
 {
 	class AssetWindow : public Window
 	{
-		static constexpr ConstString SAVE_POPUP_NAME = "Exporting...##ASSET_SAVE_MODAL_DIALOG";
 		static constexpr ConstString REFRESH_POPUP_NAME = "Confirmation required##ASSET_SAVE_MODAL_DIALOG";
 		static constexpr ConstString RESET_POPUP_NAME = "Confirmation required##ASSET_RESET_MODAL_DIALOG";
-
-		using Messages = rage::atArray<rage::atString>;
 
 		file::Watcher		m_Watcher;
 
 		std::atomic_bool	m_IsCompiling;
 		asset::AssetPtr		m_Asset;
 		char				m_Title[AssetWindowFactory::MAX_ASSET_WINDOW_NAME];
-
-		std::mutex			m_ProgressMutex;
-		double				m_Progress = 0;
-		Messages			m_ProgressMessages;
 
 		void DoSave();
 		void DoRefresh();
