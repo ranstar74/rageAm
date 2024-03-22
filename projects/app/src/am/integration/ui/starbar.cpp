@@ -101,6 +101,7 @@ void rageam::integration::StarBar::OnRender()
 		}
 		ImGui::ToolTip("Orbit camera rotates around the object");
 
+		if (!scene) ImGui::BeginDisabled();
 		if (SlGui::ToggleButton(ICON_AM_OBJECT"", m_UseIsolatedScene))
 		{
 			Vec3V pos = m_UseIsolatedScene ? SCENE_ISOLATED_POS : SCENE_DEFAULT_POS;
@@ -110,6 +111,7 @@ void rageam::integration::StarBar::OnRender()
 
 			ui::Scene::DefaultSpawnPosition = pos;
 		}
+		if (!scene) ImGui::EndDisabled();
 		ImGui::ToolTip("Isolates scene model from game world");
 
 		// Separate toggle buttons from actions
@@ -127,9 +129,8 @@ void rageam::integration::StarBar::OnRender()
 
 		if (SlGui::MenuButton(ICON_AM_HOME""))
 		{
-			m_Camera = nullptr;
-			m_CameraEnabled = true;
-			UpdateCamera();
+			// TODO: Need player PED front + position here (or just matrix)
+			// m_Camera->SetPosition()
 		}
 		ImGui::ToolTip("Reset camera position to player");
 
