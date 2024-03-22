@@ -37,10 +37,16 @@ namespace rageam::ui
 	public:
 		ConstString GetTitle() const override
 		{
+			static constexpr int MAX_TITLE = 256;
+			static char s_Buffer[MAX_TITLE];
+
 			ConstString modelName = GetModelName();
-			if (String::IsNullOrEmpty(modelName)) // Nothing is loaded yet...
-				return ImGui::FormatTemp("Scene %s", GetName());
-			return ImGui::FormatTemp("%s - %s", GetName(), GetModelName());
+			if (String::IsNullOrEmpty(modelName)) // No model is loaded yet
+				sprintf_s(s_Buffer, MAX_TITLE, "Scene %s", GetName());
+			else
+				sprintf_s(s_Buffer, MAX_TITLE, "Scene %s - %s", GetName(), modelName);
+		
+			return s_Buffer;
 		}
 		ConstString GetID() const override { return "rageam::ui::Scene"; }
 
