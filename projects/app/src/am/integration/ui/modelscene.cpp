@@ -231,12 +231,15 @@ void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::Scen
 	// Column: Visibility Eye
 	ImGui::TableNextColumn();
 	rage::grmModel* model = GetMeshAttr(nodeIndex);
-	bool isModelVisible = model->IsSubDrawBucketFlagSet(rage::RB_MODEL_DEFAULT);
-	// Make hidden icon a little bit dimmer
-	ImU32 visibilityColor = isModelVisible ? IM_COL32_WHITE : IM_COL32(125, 125, 125, 255);
-	if (SlGui::IconButton(ICON_AM_EYE_ON, visibilityColor))
+	if (model) // Might be NULL if node is dummy
 	{
-		model->SetSubDrawBucketFlags(1 << rage::RB_MODEL_DEFAULT, !isModelVisible);
+		bool isModelVisible = model->IsSubDrawBucketFlagSet(rage::RB_MODEL_DEFAULT);
+		// Make hidden icon a little bit dimmer
+		ImU32 visibilityColor = isModelVisible ? IM_COL32_WHITE : IM_COL32(125, 125, 125, 255);
+		if (SlGui::IconButton(ICON_AM_EYE_ON, visibilityColor))
+		{
+			model->SetSubDrawBucketFlags(1 << rage::RB_MODEL_DEFAULT, !isModelVisible);
+		}
 	}
 
 	// Draw children
@@ -519,7 +522,6 @@ void rageam::integration::ModelScene::OnRender()
 			if(ImGui::MenuItem(ICON_AM_SAVE" Save") || ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S))
 			{
 				SaveAssetConfig();
-				}
 			}
 
 			if (ImGui::MenuItem(ICON_AM_BUILD_STYLE" Export") || ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_E))
@@ -631,8 +633,6 @@ void rageam::integration::ModelScene::Unload(bool keepHotDrawable)
 
 	if (!keepHotDrawable)
 		m_HotDrawable = nullptr;
-
-	m_LoadedName = "";
 }
 
 void rageam::integration::ModelScene::LoadFromPath(ConstWString path)
