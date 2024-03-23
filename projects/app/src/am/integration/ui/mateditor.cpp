@@ -460,9 +460,7 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List(float 
 
 				ImTextureID texId = GetTexID(texture);
 
-				// Texture icon, we draw it first to get full available rect for text
-				ImVec2 textMin = nodeRect.GetTL() + ImVec2(ImGui::GetFrameHeight(), 0);
-				ImVec2 textMax;
+				// Texture icon
 				{
 					const ImGuiStyle& style = GImGui->Style;
 					const ImVec2 iconPad = ImVec2();
@@ -478,12 +476,12 @@ rage::grcTexture* rageam::integration::MaterialEditor::TexturePicker_List(float 
 					min.y += iconPad.y;
 					ImVec2 max = min + ImVec2(width, height - iconPad.y);
 
-					textMax = ImVec2(min.x, max.y);
-
 					ImGui::GetWindowDrawList()->AddImage(texId, min, max);
 				}
 
 				// Node label
+				ImVec2 textMin = nodeRect.GetTL() + ImVec2(ImGui::GetFrameHeight(), 0);
+				ImVec2 textMax = nodeRect.GetBR() - ImVec2(ImGui::GetFrameHeight(), 0);;
 				ImVec2 textPos = textMin + ImGui::GetStyle().FramePadding;
 				ImRect textRect(textPos, textMax);
 				ScrollingLabel(textPos, textRect, texture);
