@@ -598,15 +598,15 @@ void rageam::ui::ImGlue::EndFrame() AM_STANDALONE_ONLY(const)
 		return;
 
 	ImGuiIO& io = ImGui::GetIO();
+	ImDrawData* drawData = ImGui::GetDrawData();
 
 #ifdef AM_INTEGRATED
-	if (!m_BeganFrame)
+	// Render existing frame...
+	if (!m_BeganFrame && drawData)
 	{
-		// Render existing frame...
-		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+		ImGui_ImplDX11_RenderDrawData(drawData);
 		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 			ImGui::RenderPlatformWindowsDefault();
-
 		return;
 	}
 
@@ -614,7 +614,7 @@ void rageam::ui::ImGlue::EndFrame() AM_STANDALONE_ONLY(const)
 #endif
 
 	ImGui::Render();
-	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+	ImGui_ImplDX11_RenderDrawData(drawData);
 
 	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 	{
