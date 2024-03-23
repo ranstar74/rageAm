@@ -357,7 +357,7 @@ void rageam::integration::ModelInspector::LoadFromPath(ConstWString path)
 	rage::datResourceMap map;
 	rage::datResourceInfo info;
 	rage::pgBase* root = rage::pgRscBuilder::LoadBuild(pathA, 165, map, info);
-	
+
 	m_Drawable = gtaDrawablePtr((gtaDrawable*) root);
 
 	// Place drawable using native game function
@@ -410,8 +410,9 @@ void rageam::integration::ModelInspector::LoadFromPath(ConstWString path)
 	m_ArchetypeDef->Name = ASSET_NAME_HASH;
 	m_ArchetypeDef->AssetName = ASSET_NAME_HASH;
 	m_ArchetypeDef->PhysicsDictionary = ASSET_NAME_HASH;
-	m_ArchetypeDef->LodDist = 100.0f;
 	m_ArchetypeDef->Flags = FLAG_IS_TYPE_OBJECT | FLAG_IS_FIXED | FLAG_HAS_ANIM;
+	// Add bounding sphere radius as long distance to draw it far enough
+	m_ArchetypeDef->LodDist = m_Drawable->GetBoundingSphere().GetRadius().Get() + 200.0f;
 
 	CreateEntity(m_Drawable, m_ArchetypeDef);
 	GetEntity()->SetEntityWasAllocatedByGame(true); // Ensure that drawable will be destroyed with game allocator in TLS
