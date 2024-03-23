@@ -558,14 +558,13 @@ bool rageam::ui::ImGlue::UpdateApps()
 	ImGuiStyle& style = ImGui::GetStyle();
 	style.IndentSpacing = GImGui->FontSize * 0.9f;
 
-	// Place it before updating ui::WindowManager so new scene window can be added this frame
-	Scene::TryOpenPendingSceneWindow();
-
 	// Execute all apps
 	bool onlyUpdate = !IsVisible;
 	bool isDisabled = IsDisabled;
 	if (isDisabled) ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true); // TODO: Window still can be dragged
 	AM_INTEGRATED_ONLY(scrBegin());
+	// Place it before updating ui::WindowManager so new scene window can be added this frame
+	Scene::TryOpenPendingSceneWindow();
 	for (amUniquePtr<App>& app : m_Apps)
 	{
 		m_LastUpdatedApp = app.get();
