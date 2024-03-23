@@ -34,6 +34,7 @@ namespace rageam::integration
 		scrObjectIndex              m_EntityHandle;
 		Mat44V                      m_EntityWorld;
 
+		bool						m_Spawned = false;
 		bool					    m_IsEntityWasAllocatedByGame = false;
 
 		void Spawn();

@@ -16,6 +16,8 @@ void rageam::integration::GameEntity::Spawn()
 	rage::fwDrawableStore* dwStore = rage::GetDrawableStore();
 	m_DrawableSlot = dwStore->AddSlot(name);
 	dwStore->Set(m_DrawableSlot, m_Drawable.Get());
+	// Add extra ref to prevent entity deleting pointer on destruction
+	dwStore->AddRef(m_DrawableSlot);
 
 	// Create and register archetype
 	m_Archetype = std::make_unique<CBaseModelInfo>();
@@ -24,7 +26,7 @@ void rageam::integration::GameEntity::Spawn()
 	m_Archetype->InitMasterDrawableData(0);
 	// Prevent fwEntity from ref counting, we don't need that because we control lifetime manually
 	m_Archetype->SetIsStreamedArchetype(false); // Permanent
-	
+
 	// TODO: This is currently disabled because our implementation of ComputeBucketMask sets 0xFFFF
 	// NOTE: Ugly hack! We set all buckets in drawable render mask to allow easier runtime editing
 	// because it is easier than updating render mask on entities
@@ -49,10 +51,11 @@ void rageam::integration::GameEntity::Spawn()
 
 void rageam::integration::GameEntity::OnEarlyUpdate()
 {
-	// Already spawned
-	if (m_Entity)
+	if (m_Spawned)
 	{
-		m_CachedPosition = GetWorldTransform().Pos;
+		// Entity will be NULL if we're aborting
+		if (m_Entity)
+			m_CachedPosition = GetWorldTransform().Pos;
 		return;
 	}
 
@@ -65,6 +68,7 @@ void rageam::integration::GameEntity::OnEarlyUpdate()
 	}
 
 	Spawn();
+	m_Spawned = true;
 }
 
 void rageam::integration::GameEntity::OnLateUpdate()
@@ -95,9 +99,10 @@ bool rageam::integration::GameEntity::OnAbort()
 		scrDeleteObject(m_EntityHandle);
 		m_Entity = nullptr;
 	}
-	
+
 	// Draw list (or possible something else, including entity itself) still holds reference on this drawable
-	if (rage::GetDrawableStore()->GetNumRefs(m_DrawableSlot) > 0 || m_Archetype->GetRefCount() > 0)
+	// NOTE: There must be 1 ref for drawable because we added it in Spawn()
+	if (rage::GetDrawableStore()->GetNumRefs(m_DrawableSlot) > 1 || m_Archetype->GetRefCount() > 0)
 		return false;
 
 	AM_DEBUGF("GameEntity -> no more refs, unregistering archetype and drawable");
@@ -108,6 +113,13 @@ bool rageam::integration::GameEntity::OnAbort()
 
 	// Drawable
 	rage::fwDrawableStore* dwStore = rage::GetDrawableStore();
+	// We added ref in Spawn() to not let the game remove drawable object,
+	// use RemoveRefWithoutDelete to just decrement ref count, although it doesn't matter at this point
+	{
+		int dwRefs = dwStore->GetNumRefs(m_DrawableSlot);
+		AM_ASSERT(dwRefs == 1, "GameEntity::OnAbort() -> Ref mismatch (%i), can't delete...", dwRefs);
+		dwStore->RemoveRefWithoutDelete(m_DrawableSlot);
+	}
 	dwStore->Set(m_DrawableSlot, nullptr);
 	dwStore->RemoveSlot(m_DrawableSlot);
 	m_DrawableSlot = rage::INVALID_STR_INDEX;
