@@ -392,7 +392,8 @@ namespace rageam::asset
 		void CalculateLodExtents() const;
 
 		// Creates grmShader for every scene material (and default one if needed) and sets value from Material::Param
-		void CreateMaterials();
+		// Returns false if at least one texture was not found (unless tl_SkipTextures flag is set)
+		bool CreateMaterials();
 		bool ResolveAndSetTexture(rage::grcInstanceVar* var, ConstString textureName);
 		// Sets missing checker texture (similar to half life 2)
 		void SetMissingTexture(rage::grcInstanceVar* var, ConstString textureName) const;

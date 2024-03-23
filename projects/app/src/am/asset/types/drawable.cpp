@@ -1046,7 +1046,7 @@ void rageam::asset::DrawableAsset::CalculateLodExtents() const
 	m_Drawable->GetLodGroup().CalculateExtents();
 }
 
-void rageam::asset::DrawableAsset::CreateMaterials()
+bool rageam::asset::DrawableAsset::CreateMaterials()
 {
 	rage::grmShaderGroup* shaderGroup = m_Drawable->GetShaderGroup();
 
@@ -1088,10 +1088,9 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 				}
 				else if (!ResolveAndSetTexture(var, textureName))
 				{
-					AM_WARNINGF("Texture '%s' is not found in any known dictionary in material '%s'.",
+					AM_ERRF("Texture '%s' is not found in any known dictionary in material '%s'.",
 						textureName.GetCStr(), materialTune->Name.GetCStr());
-
-					SetMissingTexture(var, textureName);
+					return false;
 				}
 			}
 			else // Other simple types
@@ -1122,12 +1121,14 @@ void rageam::asset::DrawableAsset::CreateMaterials()
 
 		shaderGroup->AddShader(shader);
 	}
+	return true;
 }
 
 bool rageam::asset::DrawableAsset::ResolveAndSetTexture(rage::grcInstanceVar* var, ConstString textureName)
 {
 	if (tl_SkipTextures)
 	{
+		// 'None' texture
 		if (String::Equals(textureName, TxdAsset::MISSING_TEXTURE_NAME))
 		{
 			var->SetTexture(TxdAsset::GetNoneTexture());
@@ -1143,6 +1144,13 @@ bool rageam::asset::DrawableAsset::ResolveAndSetTexture(rage::grcInstanceVar* va
 
 		var->SetTexture(missingTexture);
 		return true;
+	}
+
+	// 'None' texture
+	if (String::Equals(textureName, TxdAsset::MISSING_TEXTURE_NAME))
+	{
+		var->SetTexture(TxdAsset::GetNoneTexture());
+		return false;
 	}
 
 	// Try to resolve first in embed dictionary (it has the highest priority)
@@ -1190,7 +1198,6 @@ bool rageam::asset::DrawableAsset::ResolveAndSetTexture(rage::grcInstanceVar* va
 
 	// Texture was not found or failed to compile, mark it as missing...
 	var->SetTexture(TxdAsset::CreateMissingTexture(textureName));
-
 	return false;
 }
 
@@ -1486,7 +1493,8 @@ bool rageam::asset::DrawableAsset::TryCompileToGame()
 
 	AM_DEBUGF("DrawableAsset() -> Creating materials");
 	ReportProgress(L"Generating materials", 0.4);
-	CreateMaterials();
+	if (!CreateMaterials())
+		return false;
 
 	AM_DEBUGF("DrawableAsset() -> Creating collision bounds");
 	ReportProgress(L"Creating collision bounds", 0.5);
