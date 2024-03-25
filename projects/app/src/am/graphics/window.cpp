@@ -77,19 +77,15 @@ LRESULT rageam::graphics::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
 	ui->Unlock();
 #endif
 
-#ifdef AM_INTEGRATED
-	gImpl_WndProc(hWnd, msg, wParam, lParam);
-#endif
-
 	switch (msg)
 	{
 	case WM_SIZE:
-		if (wParam == SIZE_MINIMIZED)
-			return 0;
-
-		s_NewWidth = LOWORD(lParam);
-		s_NewHeight = HIWORD(lParam);
-		return 0;
+		if (wParam != SIZE_MINIMIZED)
+		{
+			s_NewWidth = LOWORD(lParam);
+			s_NewHeight = HIWORD(lParam);
+		}
+		break;
 
 	case WM_MOVING:
 		s_UpdatedPosition = true;
@@ -120,7 +116,11 @@ LRESULT rageam::graphics::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
 		return 0;
 	}
 
+#ifdef AM_INTEGRATED
+	return gImpl_WndProc(hWnd, msg, wParam, lParam);
+#else
 	return DefWindowProcW(hWnd, msg, wParam, lParam);
+#endif
 }
 
 void rageam::graphics::Window::Create(int width, int height, int x, int y)
