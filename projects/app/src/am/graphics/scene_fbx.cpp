@@ -44,7 +44,7 @@ ConstString rageam::graphics::SceneMaterialFbx::GetTextureName(eMaterialTexture 
 u32 rageam::graphics::SceneGeometryFbx::ComputeVertexCount() const
 {
 	// We don't know total vertex count yet but it will be less or equal to index count
-	u32 indexCount = m_UMeshMat->num_triangles * 3;
+	u32 indexCount = m_UMesh->num_triangles * 3;
 	BitArray processedVerts;
 	processedVerts.Allocate(indexCount);
 
