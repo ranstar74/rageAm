@@ -72,6 +72,20 @@ LRESULT rageam::graphics::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
 	{
 		ui->Lock();
 		ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam);
+		switch (msg)
+		{
+		case WM_DPICHANGED:
+			if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DpiEnableScaleViewports)
+			{
+				const RECT* suggested_rect = (RECT*)lParam;
+				SetWindowPos(hWnd, nullptr,
+					suggested_rect->left, suggested_rect->top,
+					suggested_rect->right - suggested_rect->left,
+					suggested_rect->bottom - suggested_rect->top,
+					SWP_NOZORDER | SWP_NOACTIVATE);
+			}
+			break;
+		}
 		ui->Unlock();
 	}
 
@@ -92,18 +106,6 @@ LRESULT rageam::graphics::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
 	case WM_SYSCOMMAND:
 		if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
 			return 0;
-		break;
-
-	case WM_DPICHANGED:
-		if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DpiEnableScaleViewports)
-		{
-			const RECT* suggested_rect = (RECT*)lParam;
-			SetWindowPos(hWnd, nullptr,
-				suggested_rect->left, suggested_rect->top,
-				suggested_rect->right - suggested_rect->left,
-				suggested_rect->bottom - suggested_rect->top,
-				SWP_NOZORDER | SWP_NOACTIVATE);
-		}
 		break;
 
 	case WM_DESTROY:
@@ -297,6 +299,10 @@ void rageam::graphics::Window::UnsetHooks() const
 	Hook::Remove(s_WndProc_Addr);
 	Hook::Remove(ClipCursor);
 	Hook::Remove(ShowCursor);
+
+	// Old hook was unset, make sure to update wnd proc address
+	// for edge case when render thread is awaiting s_WndProc_Mutex in WndProc
+	gImpl_WndProc = s_WndProc_Addr.To<decltype(gImpl_WndProc)>();
 }
 #endif
 
