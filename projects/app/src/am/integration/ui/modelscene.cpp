@@ -396,7 +396,7 @@ void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex)
 	if (!opened)
 	{
 		m_SelectedNodeIndex = -1;
-}
+	}
 }
 
 void rageam::integration::ModelScene::DrawDrawableUI()
@@ -593,6 +593,13 @@ void rageam::integration::ModelScene::OnRender()
 	{
 		LightEditor.Render();
 		MaterialEditor.Render();
+
+		// TODO: Lods...
+		auto& models = GetDrawable()->GetLodGroup().GetLod(0)->GetModels();
+		for (u16 i = 0; i < models.GetSize(); i++)
+		{
+			models[i]->SetOutline(m_SelectedNodeIndex == i);
+		}
 	}
 
 	// Recompile drawable after changing tune
