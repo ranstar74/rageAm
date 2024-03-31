@@ -11,6 +11,7 @@
 #include "am/types.h"
 #include "am/system/worker.h"
 #include "am/asset/gameasset.h"
+#include "am/system/singleton.h"
 
 #include <mutex>
 #include <queue>
