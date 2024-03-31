@@ -423,6 +423,8 @@ namespace rage
 			m_DrawBucketMask.SetDrawBucket(bucket);
 		}
 
+		ConstString GetPresetName() const { return m_Preset.Ptr ? m_Preset.Ptr->m_Preset.Name : nullptr; }
+
 		class Iterator
 		{
 			grcInstanceVar* m_Begin;
