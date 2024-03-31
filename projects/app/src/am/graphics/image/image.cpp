@@ -2080,15 +2080,15 @@ bool rageam::graphics::Image::CreateDX11Resource(
 		pixelDataOffset += slicePitch;
 	}
 
-	ID3D11Texture2D* pTex;
-	code = device->CreateTexture2D(&texDesc, texData, &pTex);
+	amComPtr<ID3D11Texture2D> tex;
+	code = device->CreateTexture2D(&texDesc, texData, &tex);
 	if (code != S_OK)
 	{
 		AM_ERRF(L"Image::CreateDX11Resource() -> Failed to create Texture2D for '%ls', error code: %u", GetDebugName(), code);
 		return false;
 	}
 
-	SetObjectDebugName(pTex, "IImage Tex - '%ls'", image->GetDebugName());
+	SetObjectDebugName(tex.Get(), "IImage Tex - '%ls'", image->GetDebugName());
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC viewDesc = {};
 	viewDesc.Format = texDesc.Format;
@@ -2096,21 +2096,18 @@ bool rageam::graphics::Image::CreateDX11Resource(
 	viewDesc.Texture2D.MipLevels = texDesc.MipLevels;
 	viewDesc.Texture2D.MostDetailedMip = 0;
 
-	ID3D11ShaderResourceView* pView;
-	code = device->CreateShaderResourceView(pTex, &viewDesc, &pView);
+	code = device->CreateShaderResourceView(tex.Get(), &viewDesc, &outView);
 
 	if (code != S_OK)
 	{
 		AM_ERRF(L"Image::CreateDX11Resource() -> Failed to create ShaderResourceView for '%ls', error code: %u", GetDebugName(), code);
-		pTex->Release();
 		return false;
 	}
 
-	SetObjectDebugName(pView, "IImage View - '%ls'", image->GetDebugName());
+	SetObjectDebugName(outView.Get(), "IImage View - '%ls'", image->GetDebugName());
 
-	amComPtr tex = amComPtr(pTex);
-	outView = amComPtr(pView);
-	if (outTex) *outTex = tex;
+	if (outTex)
+		*outTex = tex;
 
 	// Add image to cache
 	timer.Stop();

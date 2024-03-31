@@ -211,7 +211,6 @@ ImTextureID rageam::ui::TextureVM::AsyncImage::GetTextureID()
 rageam::ui::TextureVM::SharedState::SharedState()
 {
 	ID3D11Device* device = graphics::RenderGetDevice();
-	ID3D11SamplerState* samplerState;
 
 	// Nearest sampling for checker, we don't want it to look muddy when zooming
 	D3D11_SAMPLER_DESC samplerDesc = {};
@@ -223,13 +222,11 @@ rageam::ui::TextureVM::SharedState::SharedState()
 	samplerDesc.MinLOD = 0;
 	samplerDesc.MaxLOD = FLT_MAX;
 	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
-	AM_ASSERT_STATUS(device->CreateSamplerState(&samplerDesc, &samplerState));
-	CheckerSampler = amComPtr(samplerState);
+	AM_ASSERT_STATUS(device->CreateSamplerState(&samplerDesc, &CheckerSampler));
 
 	// Linear sampler by default
 	samplerDesc.Filter = D3D11_FILTER_ANISOTROPIC;
-	AM_ASSERT_STATUS(device->CreateSamplerState(&samplerDesc, &samplerState));
-	DefaultSampler = amComPtr(samplerState);
+	AM_ASSERT_STATUS(device->CreateSamplerState(&samplerDesc, &DefaultSampler));
 
 	graphics::ImageFactory::CreateChecker_Opacity()->CreateDX11Resource(Checker);
 }
@@ -246,7 +243,6 @@ ID3D11SamplerState* rageam::ui::TextureVM::SharedState::GetSamplerStateFor(int m
 	if (!states[mipLevel])
 	{
 		ID3D11Device* device = graphics::RenderGetDevice();
-		ID3D11SamplerState* samplerState;
 
 		D3D11_SAMPLER_DESC samplerDesc = {};
 		samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
@@ -258,8 +254,7 @@ ID3D11SamplerState* rageam::ui::TextureVM::SharedState::GetSamplerStateFor(int m
 		samplerDesc.MaxLOD = static_cast<float>(mipLevel);
 
 		samplerDesc.Filter = linear ? D3D11_FILTER_MIN_MAG_MIP_LINEAR : D3D11_FILTER_MIN_MAG_MIP_POINT;
-		AM_ASSERT_STATUS(device->CreateSamplerState(&samplerDesc, &samplerState));
-		states[mipLevel] = amComPtr(samplerState);
+		AM_ASSERT_STATUS(device->CreateSamplerState(&samplerDesc, &states[mipLevel]));
 	}
 
 	return states[mipLevel].Get();

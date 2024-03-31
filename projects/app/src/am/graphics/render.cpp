@@ -52,9 +52,9 @@ void rageam::graphics::Render::CreateDevice()
 		pSwapchainDesc, &swapchain, &device, &featureLevel, &context);
 	AM_ASSERT_STATUS(result, "Render::Create() -> Failed to create DX11 Device; Code: %x", result);
 
-	Device = amComPtr(device);
-	Context = amComPtr(context);
-	Swapchain = amComPtr(swapchain);
+	Device = amComPtr<ID3D11Device>(device);
+	Context = amComPtr<ID3D11DeviceContext>(context);
+	Swapchain = amComPtr<IDXGISwapChain>(swapchain);
 
 	// Get dimensions of the back buffer
 	ID3D11Texture2D* backBuffer = nullptr;
@@ -70,27 +70,27 @@ void rageam::graphics::Render::CreateDevice()
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
 	gmAddress addr = gmAddress::Scan(
 		"45 33 C0 8B 94 24 04 01 00 00 33 C9", "rage::grcDevice::InitClass").GetAt(-95);
-	Context = amComPtr(*addr.GetRef(3).To<ID3D11DeviceContext**>());
-	Device = amComPtr(*addr.GetRef(25 + 3).To<ID3D11Device**>());
-	Swapchain = amComPtr(*addr.GetRef(37 + 3).To<IDXGISwapChain**>());
+	Context = amComPtr<ID3D11DeviceContext>(*addr.GetRef(3).To<ID3D11DeviceContext**>());
+	Device = amComPtr<ID3D11Device>(*addr.GetRef(25 + 3).To<ID3D11Device**>());
+	Swapchain = amComPtr<IDXGISwapChain>(*addr.GetRef(37 + 3).To<IDXGISwapChain**>());
 #elif APP_BUILD_2699_16_RELEASE
 	gmAddress addr = gmAddress::Scan(
 		"48 8D 05 ?? ?? ?? ?? BE 07 00 00 00", "rage::grcDevice::InitClass");
-	Context = amComPtr(*addr.GetRef(3).To<ID3D11DeviceContext**>());
-	Device = amComPtr(*addr.GetRef(32 + 3).To<ID3D11Device**>());
-	Swapchain = amComPtr(*addr.GetRef(47 + 3).To<IDXGISwapChain**>());
+	Context = amComPtr<ID3D11DeviceContext>(*addr.GetRef(3).To<ID3D11DeviceContext**>());
+	Device = amComPtr<ID3D11Device>(*addr.GetRef(32 + 3).To<ID3D11Device**>());
+	Swapchain = amComPtr<IDXGISwapChain>(*addr.GetRef(47 + 3).To<IDXGISwapChain**>());
 #elif APP_BUILD_2699_16
 	gmAddress addr = gmAddress::Scan(
 		"48 8D 05 ?? ?? ?? ?? 45 33 C9 48 89 44 24 58 48 8D 85 D0 08 00 00", "rage::grcDevice::InitClass");
 	Context = amComPtr(*addr.GetRef(3).To<ID3D11DeviceContext**>());
-	Device = amComPtr(*addr.GetRef(30 + 3).To<ID3D11Device**>());
-	Swapchain = amComPtr(*addr.GetRef(44 + 3).To<IDXGISwapChain**>());
+	Device = amComPtr<ID3D11Device>(*addr.GetRef(30 + 3).To<ID3D11Device**>());
+	Swapchain = amComPtr<IDXGISwapChain>(*addr.GetRef(44 + 3).To<IDXGISwapChain**>());
 #else // APP_BUILD_3095_0
 	gmAddress addr = gmAddress::Scan( // 4th byte from the end is different comparing to APP_BUILD_2699_16
 		"48 8D 05 ?? ?? ?? ?? 45 33 C9 48 89 44 24 58 48 8D 85 E0 08 00 00", "rage::grcDevice::InitClass");
-	Context = amComPtr(*addr.GetRef(3).To<ID3D11DeviceContext**>());
-	Device = amComPtr(*addr.GetRef(30 + 3).To<ID3D11Device**>());
-	Swapchain = amComPtr(*addr.GetRef(44 + 3).To<IDXGISwapChain**>());
+	Context = amComPtr<ID3D11DeviceContext>(*addr.GetRef(3).To<ID3D11DeviceContext**>());
+	Device = amComPtr<ID3D11Device>(*addr.GetRef(30 + 3).To<ID3D11Device**>());
+	Swapchain = amComPtr<IDXGISwapChain>(*addr.GetRef(44 + 3).To<IDXGISwapChain**>());
 #endif
 
 	Context->AddRef();
@@ -103,12 +103,9 @@ void rageam::graphics::Render::CreateDevice()
 #ifdef AM_STANDALONE
 void rageam::graphics::Render::CreateRT()
 {
-	ID3D11Texture2D* backBuffer = nullptr;
-	ID3D11RenderTargetView* backBufferRT = nullptr;
+	amComPtr<ID3D11Texture2D> backBuffer;
 	AM_ASSERT_STATUS(Swapchain->GetBuffer(0, IID_PPV_ARGS(&backBuffer)));
-	AM_ASSERT_STATUS(Device->CreateRenderTargetView(backBuffer, nullptr, &backBufferRT));
-	backBuffer->Release();
-	m_RenderTarget = amComPtr(backBufferRT);
+	AM_ASSERT_STATUS(Device->CreateRenderTargetView(backBuffer.Get(), nullptr, &m_RenderTarget));
 }
 #endif
 
@@ -139,7 +136,6 @@ void rageam::graphics::Render::EnterRenderLoop() AM_INTEGRATED_ONLY(const)
 	Window* window = Window::GetInstance();
 	AM_INTEGRATED_ONLY(window->UpdateInit());
 
-#ifdef AM_STANDALONE
 	auto ui = ui::GetUI();
 	while (true)
 	{
@@ -164,9 +160,5 @@ void rageam::graphics::Render::EnterRenderLoop() AM_INTEGRATED_ONLY(const)
 
 		(void) Swapchain->Present(1, 0);
 	}
-
-#else
-
-#endif
 }
 #endif

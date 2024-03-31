@@ -351,7 +351,7 @@ void rage::grcTextureDX11::CreateInternal(
 
 		ID3D11Texture3D* tex;
 		AM_ASSERT_STATUS(device->CreateTexture3D(&desc, initialData, &tex));
-		m_CachedTexture = amComPtr<ID3D11Resource>(tex);
+		m_CachedTexture = amComPtr<ID3D11Resource>((ID3D11Resource*) tex);
 
 		if (DoesNeedStagingTexture(createType))
 		{
@@ -363,7 +363,7 @@ void rage::grcTextureDX11::CreateInternal(
 
 			ID3D11Texture3D* texStaging;
 			AM_ASSERT_STATUS(device->CreateTexture3D(&desc, nullptr, &texStaging));
-			m_ExtraData->StagingTexture = amComPtr<ID3D11Resource>(texStaging);
+			m_ExtraData->StagingTexture = amComPtr<ID3D11Resource>((ID3D11Resource*) texStaging);
 		}
 
 		viewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE3D;
@@ -387,7 +387,7 @@ void rage::grcTextureDX11::CreateInternal(
 
 		ID3D11Texture2D* tex;
 		AM_ASSERT_STATUS(device->CreateTexture2D(&desc, initialData, &tex));
-		m_CachedTexture = amComPtr<ID3D11Resource>(tex);
+		m_CachedTexture = amComPtr<ID3D11Resource>((ID3D11Resource*)tex);
 
 		if (DoesNeedStagingTexture(createType))
 		{
@@ -405,7 +405,7 @@ void rage::grcTextureDX11::CreateInternal(
 
 			ID3D11Texture2D* texStaging;
 			AM_ASSERT_STATUS(device->CreateTexture2D(&desc, createInfo.SubresourceData, &texStaging));
-			m_ExtraData->StagingTexture = amComPtr<ID3D11Resource>(texStaging);
+			m_ExtraData->StagingTexture = amComPtr<ID3D11Resource>((ID3D11Resource*) texStaging);
 		}
 
 		if (m_ImageType == IMAGE_TYPE_STANDARD)
@@ -437,9 +437,7 @@ void rage::grcTextureDX11::CreateInternal(
 		}
 	}
 
-	ID3D11ShaderResourceView* shaderResourceView;
-	AM_ASSERT_STATUS(device->CreateShaderResourceView(m_CachedTexture.Get(), &viewDesc, &shaderResourceView));
-	m_ShaderResourceView = amComPtr(shaderResourceView);
+	AM_ASSERT_STATUS(device->CreateShaderResourceView(m_CachedTexture.Get(), &viewDesc, &m_ShaderResourceView));
 
 	if (UsesBackingStoreForLocks(createType) && !isFromBackingStore)
 	{

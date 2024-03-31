@@ -660,10 +660,6 @@ void rageam::integration::DrawListExecutor::RenderDrawData(const DrawList::DrawD
 void rageam::integration::DrawListExecutor::CreateBackbuf()
 {
 	ID3D11Device* device = graphics::RenderGetDevice();
-	ID3D11Texture2D* backbufMs;
-	ID3D11RenderTargetView* rtMs;
-	ID3D11Texture2D* backbuf;
-	ID3D11ShaderResourceView* view;
 
 	D3D11_TEXTURE2D_DESC texDesc = {};
 	texDesc.Width = m_ScreenWidth;
@@ -677,7 +673,7 @@ void rageam::integration::DrawListExecutor::CreateBackbuf()
 	texDesc.SampleDesc.Count = m_SampleCount;
 	texDesc.CPUAccessFlags = 0;
 	texDesc.MiscFlags = 0;
-	AM_ASSERT_STATUS(device->CreateTexture2D(&texDesc, nullptr, &backbufMs));
+	AM_ASSERT_STATUS(device->CreateTexture2D(&texDesc, nullptr, &m_BackbufMs));
 
 	if (m_SampleCount > 1)
 	{
@@ -685,7 +681,7 @@ void rageam::integration::DrawListExecutor::CreateBackbuf()
 		rtDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		rtDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMS;
 		rtDesc.Texture2DMS.UnusedField_NothingToDefine = 0;
-		AM_ASSERT_STATUS(device->CreateRenderTargetView(backbufMs, &rtDesc, &rtMs));
+		AM_ASSERT_STATUS(device->CreateRenderTargetView(m_BackbufMs.Get(), &rtDesc, &m_BackbufMsRt));
 	}
 	else
 	{
@@ -693,25 +689,19 @@ void rageam::integration::DrawListExecutor::CreateBackbuf()
 		rtDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		rtDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
 		rtDesc.Texture2D.MipSlice = 0;
-		AM_ASSERT_STATUS(device->CreateRenderTargetView(backbufMs, &rtDesc, &rtMs));
+		AM_ASSERT_STATUS(device->CreateRenderTargetView(m_BackbufMs.Get(), &rtDesc, &m_BackbufMsRt));
 	}
-
-	m_BackbufMs = amComPtr(backbufMs);
-	m_BackbufMsRt = amComPtr(rtMs);
 
 	// Non multi sampled for resolving 
 	texDesc.SampleDesc.Count = 1;
-	AM_ASSERT_STATUS(device->CreateTexture2D(&texDesc, nullptr, &backbuf));
+	AM_ASSERT_STATUS(device->CreateTexture2D(&texDesc, nullptr, &m_Backbuf));
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC viewDesc;
 	viewDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	viewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 	viewDesc.Texture2D.MipLevels = 1;
 	viewDesc.Texture2D.MostDetailedMip = 0;
-	AM_ASSERT_STATUS(device->CreateShaderResourceView(backbuf, &viewDesc, &view));
-
-	m_Backbuf = amComPtr(backbuf);
-	m_BackbufView = amComPtr(view);
+	AM_ASSERT_STATUS(device->CreateShaderResourceView(m_Backbuf.Get(), &viewDesc, &m_BackbufView));
 }
 
 rageam::integration::DrawListExecutor::DrawListExecutor()
@@ -719,11 +709,12 @@ rageam::integration::DrawListExecutor::DrawListExecutor()
 	m_DefaultShader.Create();
 	m_ImBlitShader.Create();
 
+	m_GaussVS = graphics::Shader::CreateFromPath(graphics::ShaderPixel, L"im_gauss_ps.hlsl");
+
 	ID3D11Device* device = graphics::RenderGetDevice();
 
 	// Depth Stencil State
 	{
-		ID3D11DepthStencilState* depthStencilState;
 		D3D11_DEPTH_STENCIL_DESC dsDesc;
 		dsDesc.DepthEnable = true;
 		dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
@@ -739,16 +730,13 @@ rageam::integration::DrawListExecutor::DrawListExecutor()
 		dsDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
 		dsDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
 		dsDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
-		AM_ASSERT_STATUS(device->CreateDepthStencilState(&dsDesc, &depthStencilState));
-		m_DSS = amComPtr(depthStencilState);
+		AM_ASSERT_STATUS(device->CreateDepthStencilState(&dsDesc, &m_DSS));
 		dsDesc.DepthEnable = false;
-		AM_ASSERT_STATUS(device->CreateDepthStencilState(&dsDesc, &depthStencilState));
-		m_DSSNoDepth = amComPtr(depthStencilState);
+		AM_ASSERT_STATUS(device->CreateDepthStencilState(&dsDesc, &m_DSSNoDepth));
 	}
 
 	// Resterizer State
 	{
-		ID3D11RasterizerState* rasterizerState;
 		D3D11_RASTERIZER_DESC rsDesc;
 		rsDesc.CullMode = D3D11_CULL_BACK;
 		rsDesc.FillMode = D3D11_FILL_SOLID;
@@ -762,21 +750,18 @@ rageam::integration::DrawListExecutor::DrawListExecutor()
 		rsDesc.MultisampleEnable = true;
 		// Default
 		{
-			AM_ASSERT_STATUS(device->CreateRasterizerState(&rsDesc, &rasterizerState));
-			m_RS = amComPtr(rasterizerState);
+			AM_ASSERT_STATUS(device->CreateRasterizerState(&rsDesc, &m_RS));
 		}
 		// Two-sided
 		{
 			rsDesc.CullMode = D3D11_CULL_NONE;
-			AM_ASSERT_STATUS(device->CreateRasterizerState(&rsDesc, &rasterizerState));
-			m_RSTwoSided = amComPtr(rasterizerState);
+			AM_ASSERT_STATUS(device->CreateRasterizerState(&rsDesc, &m_RSTwoSided));
 		}
 		// Wireframe
 		{
 			rsDesc.CullMode = D3D11_CULL_BACK;
 			rsDesc.FillMode = D3D11_FILL_WIREFRAME;
-			AM_ASSERT_STATUS(device->CreateRasterizerState(&rsDesc, &rasterizerState));
-			m_RSWireframe = amComPtr(rasterizerState);
+			AM_ASSERT_STATUS(device->CreateRasterizerState(&rsDesc, &m_RSWireframe));
 		}
 	}
 
@@ -792,10 +777,7 @@ rageam::integration::DrawListExecutor::DrawListExecutor()
 		blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
 		blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
 		blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-		ID3D11BlendState* blendState;
-		AM_ASSERT_STATUS(device->CreateBlendState(&blendDesc, &blendState));
-
-		m_BlendState = amComPtr(blendState);
+		AM_ASSERT_STATUS(device->CreateBlendState(&blendDesc, &m_BlendState));
 	}
 }
 

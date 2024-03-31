@@ -154,9 +154,7 @@ void rage::grcBufferD3D11::Initialize(
 	if (desc.Usage == D3D11_USAGE_DYNAMIC && initialData == nullptr)
 		pInitData = nullptr;
 
-	ID3D11Buffer* buffer;
-	AM_ASSERT_STATUS(device->CreateBuffer(&desc, pInitData, &buffer));
-	m_Object = amComPtr(buffer);
+	AM_ASSERT_STATUS(device->CreateBuffer(&desc, pInitData, &m_Object));
 
 	// Allocate CPU copy of the data
 	// We allow to force allocate copy even if buffer is read-only because
