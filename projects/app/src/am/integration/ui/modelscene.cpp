@@ -293,7 +293,8 @@ void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex)
 			return ImGui::BeginTabItem(icon, 0, flags);
 		};
 
-	if (ImGui::Begin(title))
+	bool opened = true;
+	if (ImGui::Begin(title, &opened))
 	{
 		if (ImGui::BeginTabBar("PROPERTIES_TAB_BAR"))
 		{
@@ -390,6 +391,12 @@ void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex)
 		}
 	}
 	ImGui::End();
+
+	// Was closed...
+	if (!opened)
+	{
+		m_SelectedNodeIndex = -1;
+}
 }
 
 void rageam::integration::ModelScene::DrawDrawableUI()
