@@ -93,7 +93,7 @@ void rage::grcDevice::GetScreenSize(u32& width, u32& height)
 {
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
 	static char* sm_CurrentWindows = gmAddress::Scan(
-		"48 8D 0D ?? ?? ?? ?? 8B 54 24 28 89 54 01 04 EB C3", "rage::grcDevice::sm_CurrentWindows")
+		"48 8D 15 ?? ?? ?? ?? 48 8B FA 48 8D 34 01 B9 18 00 00 00 F3 A4 0F B6 45 04", "rage::grcDevice::sm_GlobalWindow")
 		.GetRef(3)
 		.To<char*>();
 
