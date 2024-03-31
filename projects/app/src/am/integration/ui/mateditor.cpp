@@ -1158,7 +1158,7 @@ void rageam::integration::MaterialEditor::DrawMaterialList()
 
 			bool selected = m_SelectedMaterialIndex == i;
 			bool toggled;
-			SlGui::GraphTreeNode(nodeName, selected, toggled, SlGuiTreeNodeFlags_NoChildren);
+			SlGui::GraphTreeNode(nodeName, selected, toggled, SlGuiTreeNodeFlags_NoChildren | SlGuiTreeNodeFlags_NoArrowIndent);
 			if (selected && m_SelectedMaterialIndex != i)
 			{
 				m_SelectedMaterialIndex = i;
@@ -1171,6 +1171,12 @@ void rageam::integration::MaterialEditor::DrawMaterialList()
 		for (u16 i = 0; i < shaderGroup->GetShaderCount(); i++)
 		{
 			materialEntry(i);
+
+			rage::grmShader* shader = shaderGroup->GetShader(i);
+			if (ImGui::IsItemHovered())
+				shader->SetDrawBucketMask(shader->GetDrawBucketMask() | (1 << rage::RB_MODEL_OUTLINE));
+			else
+				shader->SetDrawBucketMask(shader->GetDrawBucketMask() & ~(1 << rage::RB_MODEL_OUTLINE));
 		}
 	}
 	ImGui::PopStyleVar(); // Item_Spacing
@@ -1249,7 +1255,7 @@ void rageam::integration::MaterialEditor::DrawMaterialVariables()
 				case rage::VT_INT1:		edited = ImGui::InputInt(inputID, var->GetValuePtr<int>());				break;
 				case rage::VT_INT2:		edited = ImGui::InputInt2(inputID, var->GetValuePtr<int>());			break;
 				case rage::VT_INT3:		edited = ImGui::InputInt3(inputID, var->GetValuePtr<int>());			break;
-				case rage::VT_FLOAT:		edited = ImGui::DragFloat(inputID, var->GetValuePtr<float>(), 0.1f);	break;
+				case rage::VT_FLOAT:	edited = ImGui::DragFloat(inputID, var->GetValuePtr<float>(), 0.1f);	break;
 				case rage::VT_VECTOR2:	edited = ImGui::DragFloat2(inputID, var->GetValuePtr<float>(), 0.1f);	break;
 				case rage::VT_VECTOR3:	edited = ImGui::DragFloat3(inputID, var->GetValuePtr<float>(), 0.1f);	break;
 				case rage::VT_VECTOR4:	edited = ImGui::DragFloat4(inputID, var->GetValuePtr<float>(), 0.1f);	break;
