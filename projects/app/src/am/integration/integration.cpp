@@ -168,13 +168,13 @@ void rageam::integration::GameIntegration::HookRenderThread() const
 {
 	s_EndFrame_Addr = gmAddress::Scan(
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
-		"48 89 4C 24 08 48 81 EC F8 00 00 00 E8 ?? ?? ?? ?? 8B 05",
+		"48 89 4C 24 08 48 81 EC F8 00 00 00 E8 ?? ?? ?? ?? 8B 05", "rage::grcDevice::EndFrame");
 #elif APP_BUILD_2699_16_RELEASE
-		"40 55 53 56 57 41 54 41 56 41 57 48 8B EC 48 83 EC 70 48",
+		"40 55 53 56 57 41 54 41 56 41 57 48 8B EC 48 83 EC 70 48", "rage::grcDevice::EndFrame");
 #else
-		"40 55 53 56 57 41 54 41 56 41 57 48 8B EC 48 83 EC 40 48 8B 0D",
-#endif
-		"rage::grcDevice::EndFrame");
+		// Use offset pattern because mods may hook this function and first bytes will change
+		"75 0C 44 38 35", "rage::grcDevice::EndFrame+0xC8").GetAt(-0xC8);
+#endif;
 
 	Hook::Create(s_EndFrame_Addr, aImpl_grcDevice_EndFrame, &gImpl_grcDevice_EndFrame);
 }
