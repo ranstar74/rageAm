@@ -216,6 +216,8 @@ void aImpl_grmShader_DrawInternal(rage::grmShader* self, int drawType, rage::grm
 
 rageam::integration::GameIntegration::GameIntegration()
 {
+	AntiDebugFixes();
+
 	// Register integration apps
 	ui::ImGlue* ui = ui::GetUI();
 	ui->AddApp(new StarBar());
@@ -235,7 +237,6 @@ rageam::integration::GameIntegration::GameIntegration()
 
 	HookGameThread();
 	HookRenderThread();
-	AntiDebugFixes();
 }
 
 rageam::integration::GameIntegration::~GameIntegration()
