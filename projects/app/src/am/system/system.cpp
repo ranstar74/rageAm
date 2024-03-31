@@ -87,8 +87,8 @@ void rageam::System::Destroy()
 	rage::grcVertexDeclaration::CleanUpCache();
 
 	// Cache GPU devices to report live objects after destruction
-	auto dxDevice = amComPtr(graphics::RenderGetDevice());
-	auto dxContext = amComPtr(graphics::RenderGetContext());
+	amComPtr<ID3D11Device> dxDevice = DXDEVICE;
+	amComPtr<ID3D11DeviceContext> dxContext = DXCONTEXT;
 
 	// We must unhook WndProc safely before ImGui is destroyed
 	AM_INTEGRATED_ONLY(m_PlatformWindow->LockWndProc()); // Synchronize to make sure that WndProc is safe to unhook

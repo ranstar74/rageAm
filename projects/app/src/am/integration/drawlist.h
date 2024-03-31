@@ -9,8 +9,10 @@
 
 #ifdef AM_INTEGRATED
 
-#include "am/graphics/color.h"
 #include "am/types.h"
+#include "am/graphics/color.h"
+#include "am/graphics/shader.h"
+#include "am/graphics/shaders.h"
 
 #include <d3d11.h>
 
@@ -75,15 +77,12 @@ namespace rageam::integration
 			bool                     IsIndexed = false;
 		};
 
-		static ID3D11Buffer* CreateBuffer(size_t elementSize, size_t elementCount, bool vertexBuffer);
-		static void UploadBuffer(const amComPtr<ID3D11Buffer>& buffer, pConstVoid data, u32 dataSize);
-
 		DrawData             m_Lines;
 		DrawData             m_Tris;
 		ConstString          m_Name;
 		std::recursive_mutex m_Mutex;
-		bool				 m_HasLinesToDraw = false;
-		bool				 m_HasTrisToDraw = false;
+		bool                 m_HasLinesToDraw = false;
+		bool                 m_HasTrisToDraw = false;
 
 		// Those are non-thread safe functions, exposed interface that calls them must use mutex
 
@@ -179,72 +178,20 @@ namespace rageam::integration
 
 	class DrawListExecutor
 	{
-		class Shader
-		{
-			amComPtr<ID3D11VertexShader> m_VS;
-			amComPtr<ID3D11PixelShader>  m_PS;
-			amComPtr<ID3D11InputLayout>  m_VSLayout;
-			ConstWString				 m_VsName;
-			ConstWString				 m_PsName;
-
-		public:
-			Shader(ConstWString vsName, ConstWString psName);
-			virtual ~Shader() = default;
-
-			virtual void Create();
-			virtual void Bind();
-		};
-
-		class DefaultShader : public Shader
-		{
-			struct Locals
-			{
-				int	Unlit;
-			};
-
-			amComPtr<ID3D11Buffer> m_LocalsCB;
-		public:
-			DefaultShader() : Shader(L"default_vs.hlsl", L"default_ps.hlsl") {}
-
-			void Create() override;
-			void Bind() override;
-
-			Locals Locals = {};
-		};
-
-		class ImageBlitShader : public Shader
-		{
-			amComPtr<ID3D11Buffer> m_ScreenVerts;
-
-		public:
-			ImageBlitShader() : Shader(L"im_blit_vs.hlsl", L"im_blit_ps.hlsl") {}
-
-			void Create() override;
-
-			void Blit(ID3D11ShaderResourceView* view) const;
-		};
-
 		u32                                m_ScreenWidth = 0, m_ScreenHeight = 0, m_SampleCount = 0;
 		amComPtr<ID3D11Texture2D>          m_BackbufMs;
 		amComPtr<ID3D11RenderTargetView>   m_BackbufMsRt;
 		amComPtr<ID3D11Texture2D>          m_Backbuf;
 		amComPtr<ID3D11ShaderResourceView> m_BackbufView;
-		amComPtr<ID3D11BlendState>		   m_BlendState;
+		amComPtr<ID3D11BlendState>         m_BlendState;
 		amComPtr<ID3D11DepthStencilState>  m_DSS;
 		amComPtr<ID3D11DepthStencilState>  m_DSSNoDepth;
 		amComPtr<ID3D11RasterizerState>    m_RSTwoSided;
 		amComPtr<ID3D11RasterizerState>    m_RSWireframe;
 		amComPtr<ID3D11RasterizerState>    m_RS;
-		DefaultShader                      m_DefaultShader;
-		ImageBlitShader                    m_ImBlitShader;
-
-		static ID3D11Buffer* CreateCB(size_t size);
-		static void CreateShaders(
-			ID3D11VertexShader** vs, 
-			ID3D11PixelShader** ps,
-			ID3DBlob** vsBlob, 
-			ConstWString vsFileName, 
-			ConstWString psFileName);
+		graphics::DefaultShader            m_DefaultShader;
+		graphics::ImageBlitShader          m_ImBlitShader;
+		amPtr<graphics::Shader>            m_GaussVS;
 
 		void RenderDrawData(const DrawList::DrawData& drawData) const;
 		void CreateBackbuf();

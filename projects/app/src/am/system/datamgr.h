@@ -49,6 +49,13 @@ namespace rageam
 			return logsFolder;
 		}
 
+		// data/shaders
+		static const file::WPath& GetShadersFolder()
+		{
+			static file::WPath shadersFolder = GetDataFolder() / L"shaders";
+			return shadersFolder;
+		}
+
 		// Gets path to RageAm data folder, this folder contains logs, icons, fonts
 		static const file::WPath& GetDataFolder()
 		{

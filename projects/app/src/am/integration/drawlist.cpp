@@ -43,7 +43,7 @@ rageam::integration::DrawList::DrawList(ConstString name, u32 maxTris, u32 maxLi
 
 void rageam::integration::DrawList::VertexBuffer::Init(u32 capacity)
 {
-	Resource = amComPtr(CreateBuffer(sizeof Vertex, capacity, true));
+	Resource = amComPtr<ID3D11Buffer>(graphics::CreateBuffer(sizeof Vertex, capacity, true));
 	Vertices = amUPtr<Vertex[]>(new Vertex[capacity]);
 	Capacity = capacity;
 }
@@ -51,7 +51,7 @@ void rageam::integration::DrawList::VertexBuffer::Init(u32 capacity)
 void rageam::integration::DrawList::VertexBuffer::Upload()
 {
 	GPUSize = Size;
-	UploadBuffer(Resource, Vertices.get(), sizeof Vertex * Size);
+	graphics::UploadBuffer(Resource, Vertices.get(), sizeof Vertex * Size);
 }
 
 void rageam::integration::DrawList::VertexBuffer::Bind() const
@@ -64,7 +64,7 @@ void rageam::integration::DrawList::VertexBuffer::Bind() const
 
 void rageam::integration::DrawList::IndexBuffer::Init(u32 capacity)
 {
-	Resource = amComPtr(CreateBuffer(sizeof Index_t, capacity, false));
+	Resource = amComPtr<ID3D11Buffer>(graphics::CreateBuffer(sizeof Index_t, capacity, false));
 	Indices = amUPtr<Index_t[]>(new Index_t[capacity]);
 	Capacity = capacity;
 }
@@ -72,36 +72,12 @@ void rageam::integration::DrawList::IndexBuffer::Init(u32 capacity)
 void rageam::integration::DrawList::IndexBuffer::Upload()
 {
 	GPUSize = Size;
-	UploadBuffer(Resource, Indices.get(), sizeof Index_t * Size);
+	graphics::UploadBuffer(Resource, Indices.get(), sizeof Index_t * Size);
 }
 
 void rageam::integration::DrawList::IndexBuffer::Bind() const
 {
 	graphics::RenderGetContext()->IASetIndexBuffer(Resource.Get(), DXGI_FORMAT_R16_UINT, 0);
-}
-
-ID3D11Buffer* rageam::integration::DrawList::CreateBuffer(size_t elementSize, size_t elementCount, bool vertexBuffer)
-{
-	D3D11_BUFFER_DESC desc;
-	desc.BindFlags = vertexBuffer ? D3D11_BIND_VERTEX_BUFFER : D3D11_BIND_INDEX_BUFFER;
-	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	desc.Usage = D3D11_USAGE_DYNAMIC;
-	desc.ByteWidth = elementSize * elementCount;
-	desc.StructureByteStride = elementSize;
-	desc.MiscFlags = 0;
-
-	ID3D11Buffer* object;
-	AM_ASSERT_STATUS(graphics::RenderGetDevice()->CreateBuffer(&desc, NULL, &object));
-	return object;
-}
-
-void rageam::integration::DrawList::UploadBuffer(const amComPtr<ID3D11Buffer>& buffer, pConstVoid data, u32 dataSize)
-{
-	ID3D11DeviceContext* context = graphics::RenderGetContext();
-	D3D11_MAPPED_SUBRESOURCE mapped;
-	AM_ASSERT_STATUS(context->Map(buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped));
-	memcpy(mapped.pData, data, dataSize);
-	context->Unmap(buffer.Get(), 0);
 }
 
 void rageam::integration::DrawList::DrawLine_Unsafe(
@@ -405,112 +381,6 @@ void rageam::integration::DrawList::DrawQuadFill(const Vec3V& p1, const Vec3V& p
 	DrawQuadFill(p1, p2, p3, p4, col, tl_Transform);
 }
 
-void rageam::integration::DrawListExecutor::Shader::Create()
-{
-	ID3D11Device* device = graphics::RenderGetDevice();
-
-	ID3DBlob* vsBlob;
-
-	ID3D11VertexShader* vs;
-	ID3D11PixelShader* ps;
-	CreateShaders(&vs, &ps, &vsBlob, m_VsName, m_PsName);
-	m_VS = amComPtr(vs);
-	m_PS = amComPtr(ps);
-
-	D3D11_INPUT_ELEMENT_DESC inputDesc[] =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-	};
-	ID3D11InputLayout* vsLayout;
-	AM_ASSERT_STATUS(device->CreateInputLayout(
-		inputDesc, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &vsLayout));
-	SAFE_RELEASE(vsBlob);
-	m_VSLayout = amComPtr(vsLayout);
-}
-
-rageam::integration::DrawListExecutor::Shader::Shader(ConstWString vsName, ConstWString psName)
-{
-	m_VsName = vsName;
-	m_PsName = psName;
-}
-
-void rageam::integration::DrawListExecutor::Shader::Bind()
-{
-	ID3D11DeviceContext* context = graphics::RenderGetContext();
-	context->IASetInputLayout(m_VSLayout.Get());
-	context->VSSetShader(m_VS.Get(), NULL, 0);
-	context->PSSetShader(m_PS.Get(), NULL, 0);
-}
-
-void rageam::integration::DrawListExecutor::DefaultShader::Create()
-{
-	Shader::Create();
-
-	m_LocalsCB = amComPtr(CreateCB(sizeof Locals));
-}
-
-void rageam::integration::DrawListExecutor::DefaultShader::Bind()
-{
-	Shader::Bind();
-
-	ID3D11DeviceContext* context = graphics::RenderGetContext();
-
-	DrawList::UploadBuffer(m_LocalsCB, &Locals, sizeof Locals);
-	ID3D11Buffer* cb = m_LocalsCB.Get();
-	context->VSSetConstantBuffers(2, 1, &cb);
-}
-
-void rageam::integration::DrawListExecutor::ImageBlitShader::Create()
-{
-	Shader::Create();
-
-	Vec3S screenVerts[] =
-	{
-		Vec3S(-1, -1, 0), // Bottom Left
-		Vec3S( 1,  1, 0), // Top Right
-		Vec3S(-1,  1, 0), // Top Left
-		Vec3S( 1, -1, 0), // Bottom Right
-		Vec3S( 1,  1, 0), // Top Right
-		Vec3S(-1, -1, 0), // Bottom Left
-	};
-
-	D3D11_BUFFER_DESC bufferDesc;
-	bufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	bufferDesc.CPUAccessFlags = 0;
-	bufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	bufferDesc.ByteWidth = sizeof screenVerts;
-	bufferDesc.StructureByteStride = sizeof Vec3S;
-	bufferDesc.MiscFlags = 0;
-
-	D3D11_SUBRESOURCE_DATA bufferData;
-	bufferData.SysMemPitch = 0;
-	bufferData.SysMemSlicePitch = 0;
-	bufferData.pSysMem = screenVerts;
-
-	ID3D11Buffer* buffer;
-	AM_ASSERT_STATUS(graphics::RenderGetDevice()->CreateBuffer(&bufferDesc, &bufferData, &buffer));
-
-	m_ScreenVerts = amComPtr(buffer);
-}
-
-void rageam::integration::DrawListExecutor::ImageBlitShader::Blit(ID3D11ShaderResourceView* view) const
-{
-	ID3D11DeviceContext* context = graphics::RenderGetContext();
-
-	// Map texture
-	ID3D11ShaderResourceView* views = view;
-	context->PSSetShaderResources(0, 1, &views);
-
-	// Blit texture on screen
-	ID3D11Buffer* vb = m_ScreenVerts.Get();
-	u32           stride = sizeof Vec3S;
-	u32           offset = 0;
-	context->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
-	context->Draw(6, 0);
-}
-
 // DX11 state backup
 struct OldState
 {
@@ -589,54 +459,6 @@ void RestoreOldState(OldState& oldState)
 	SAFE_RELEASE(oldState.InputLayout);
 	for (ID3D11RenderTargetView*& rt : oldState.RenderTargets) SAFE_RELEASE(rt);
 	SAFE_RELEASE(oldState.DepthStencil);
-}
-
-ID3D11Buffer* rageam::integration::DrawListExecutor::CreateCB(size_t size)
-{
-	size = ALIGN_16(size);
-
-	D3D11_BUFFER_DESC desc;
-	desc.ByteWidth = size;
-	desc.Usage = D3D11_USAGE_DYNAMIC;
-	desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	desc.MiscFlags = 0;
-	desc.StructureByteStride = size;
-
-	ID3D11Buffer* buffer;
-	AM_ASSERT_STATUS(graphics::RenderGetDevice()->CreateBuffer(&desc, NULL, &buffer));
-	return buffer;
-}
-
-void rageam::integration::DrawListExecutor::CreateShaders(
-	ID3D11VertexShader** vs, ID3D11PixelShader** ps, ID3DBlob** vsBlob,
-	ConstWString vsFileName, ConstWString psFileName)
-{
-	ID3D11Device* device = graphics::RenderGetDevice();
-
-	file::WPath shaders = DataManager::GetDataFolder() / L"shaders";
-	file::WPath vsPath = shaders / vsFileName;
-	file::WPath psPath = shaders / psFileName;
-
-	// VS
-	{
-		ID3DBlob* blob;
-		ID3DBlob* errors;
-		AM_ASSERT_STATUS(D3DCompileFromFile(vsPath, NULL, NULL, "main", "vs_4_0", 0, 0, &blob, &errors));
-		AM_ASSERT_STATUS(device->CreateVertexShader(blob->GetBufferPointer(), blob->GetBufferSize(), NULL, vs));
-		SAFE_RELEASE(errors);
-		*vsBlob = blob;
-	}
-
-	// PS
-	{
-		ID3DBlob* blob;
-		ID3DBlob* errors;
-		AM_ASSERT_STATUS(D3DCompileFromFile(psPath, NULL, NULL, "main", "ps_4_0", 0, 0, &blob, &errors));
-		AM_ASSERT_STATUS(device->CreatePixelShader(blob->GetBufferPointer(), blob->GetBufferSize(), NULL, ps));
-		SAFE_RELEASE(errors);
-		SAFE_RELEASE(blob);
-	}
 }
 
 void rageam::integration::DrawListExecutor::RenderDrawData(const DrawList::DrawData& drawData) const
@@ -895,6 +717,7 @@ void rageam::integration::DrawListExecutor::Execute(DrawList& drawList)
 		context->OMSetDepthStencilState(m_DSSNoDepth.Get(), 1); // We don't need depth
 		context->OMSetRenderTargets(1, oldState.RenderTargets, nullptr);
 		m_ImBlitShader.Bind();
+		m_GaussVS->Bind(); // Glowing outline
 		m_ImBlitShader.Blit(m_BackbufView.Get());
 	}
 	RestoreOldState(oldState);

@@ -47,3 +47,5 @@ namespace rageam::graphics
 	inline auto RenderGetDevice() { return Render::GetInstance()->Device.Get(); }
 	inline auto RenderGetContext() { return Render::GetInstance()->Context.Get(); }
 }
+#define DXDEVICE  rageam::graphics::RenderGetDevice()
+#define DXCONTEXT rageam::graphics::RenderGetContext()
