@@ -51,7 +51,7 @@ void rageam::integration::DrawableRender::RenderBound_Geometry(const rage::phBou
 	{
 		Vec3V v1, v2, v3;
 
-		rage::phPrimTriangle& tri = bound->GetPolygon(i);
+		rage::phPolygon& tri = bound->GetPolygon(i);
 		bound->DecompressPoly(tri, v1, v2, v3);
 
 		dl.DrawTriFill(v1, v2, v3, CollisionBoundColor);
