@@ -154,6 +154,8 @@ namespace rage
 		Vec3V Rotate(const Vec3V& axis, float angle) const;
 		Vec3V Rotate(const QuatV& rotation) const;
 
+		Vec3V Abs() const { return DirectX::XMVectorAbs(M); }
+
 		Vec3V& operator=(const Vec3V& other) { M = other.M; return *this; }
 
 		// -- Arithmetic Operators --
@@ -274,6 +276,8 @@ namespace rage
 	static const Vec3V VEC_X = { 1.0f, 0.0f, 0.0f };
 	static const Vec3V VEC_Y = { 0.0f, 1.0f, 0.0f };
 	static const Vec3V VEC_Z = { 0.0f, 0.0f, 1.0f };
+
+	static const Vec3V VEC_ZERO = { 0.0f, 0.0f, 0.0f };
 
 	static const Vec3V VEC_ORIGIN = { 0.0f, 0.0f, 0.0f };
 	static const Vec3V VEC_UP = { 0.0f, 0.0f, 1.0f };
