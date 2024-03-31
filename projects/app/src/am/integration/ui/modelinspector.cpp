@@ -11,6 +11,8 @@
 #include "rage/paging/builder/builder.h"
 #include "am/integration/gamedrawlists.h"
 #include "am/ui/slwidgets.h"
+#include "rage/physics/bounds/bvh.h"
+#include "rage/physics/bounds/composite.h"
 
 ConstString rageam::integration::ModelInspector::FormatVec(const Vec3V& vec) const
 {
@@ -125,6 +127,223 @@ bool rageam::integration::ModelInspector::BeginCategory(ConstString name, bool d
 void rageam::integration::ModelInspector::EndCategory() const
 {
 	ImGui::TreePop();
+}
+
+bool rageam::integration::ModelInspector::BeginProperties() const
+{
+	ImGuiTableFlags tableFlags = ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable;
+	if (!ImGui::BeginTable("ModelInspectorTable", 3, tableFlags))
+		return false;
+
+	ImGui::TableSetupColumn("Name");
+	ImGui::TableSetupColumn("Value");
+	ImGui::TableSetupColumn("Extra", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, GImGui->FontSize);
+
+	return true;
+}
+
+void rageam::integration::ModelInspector::EndProperties() const
+{
+	ImGui::EndTable();
+}
+
+ConstString rageam::integration::ModelInspector::FormatMaterialName(int index) const
+{
+	rage::grmShader* shader = m_Drawable->GetShaderGroup()->GetShader(index);
+	rage::grcEffect* effect = shader->GetEffect();
+
+	// Use the first texture name (diffuse) as material name
+	// Textures are always placed first
+	AM_DEBUG_ASSERTS(shader->GetVarCount() > 0);
+	AM_DEBUG_ASSERTS(shader->GetVar(0)->IsTexture());
+	const char* firstTextureName = shader->GetVar(0)->GetTexture()->GetName(); // TODO: Texture is NULL on some props, WHY?
+
+	return ImGui::FormatTemp("%s/%s###Shader%i", effect->GetName(), firstTextureName, index);
+}
+
+void rageam::integration::ModelInspector::DrawBoundRecurse(rage::phBound* bound, Mat44V transform, rage::phBoundComposite* compositeParent, int compositeIndex)
+{
+	if (!bound)
+		return;
+
+	rage::phBoundComposite* composite = nullptr;
+	if (bound->GetShapeType() == rage::PH_BOUND_COMPOSITE)
+		composite = reinterpret_cast<rage::phBoundComposite*>(bound);
+
+	ConstString boundTypeName = rage::phBoundTypeName[bound->GetShapeType()];
+	ConstString treeNodeName = ImGui::FormatTemp("%s###BOUND_%p", boundTypeName, bound);
+	SlGuiTreeNodeFlags treeNodeFlags = SlGuiTreeNodeFlags_None;
+
+	if (!composite || composite->GetNumBounds() == 0)
+		treeNodeFlags |= SlGuiTreeNodeFlags_NoChildren;
+	else
+		treeNodeFlags |= SlGuiTreeNodeFlags_DefaultOpen;
+
+	// Draw node and handle selection
+	bool selected = m_SelectedBound == bound;
+	bool toggled;
+	bool wasSelected = selected;
+	bool treeOpened = SlGui::GraphTreeNode(treeNodeName, selected, toggled, treeNodeFlags);
+	if (wasSelected != selected) // Selection changed
+	{
+		m_SelectedBound = bound;
+		m_SelectedBoundCompositeIndex = compositeIndex;
+		m_SelectedBoundComposite = compositeParent;
+
+		// Depth is computed every call so cache it on selection change
+		rage::phOptimizedBvh* octree = bound->GetBVH();
+		m_SelectedBoundBVHDepth = octree ? octree->ComputeDepth() : 0;
+		m_SelectedBoundBVHDepthDraw = -1;
+	}
+
+	// Draw bounding box for selected bound
+	if (ImGui::IsItemHovered())
+	{
+		DrawList& dl = GameDrawLists::GetInstance()->Overlay;
+
+		DrawList::SetTransform(transform);
+		dl.DrawAABB(bound->GetBoundingBox(), graphics::COLOR_PINK);
+		DrawList::ResetTransform();
+	}
+
+	// Draw child composite bounds
+	if (treeOpened)
+	{
+		AM_ASSERTS(composite);
+		for (u16 i = 0; i < composite->GetNumBounds(); i++)
+		{
+			// TODO: It's 34 in bound
+			Mat44V childTransform = Mat34V(composite->GetMatrix(i)).To44() * transform;
+			DrawBoundRecurse(composite->GetBound(i).Get(), childTransform, composite, i);
+		}
+		ImGui::TreePop();
+	}
+
+	// TODO:
+	// ==
+	// Display all polyhedron bound primitives!
+}
+
+void rageam::integration::ModelInspector::DrawBoundInfo()
+{
+	rage::phBoundType boundType = m_SelectedBound->GetShapeType();
+	rage::phOptimizedBvh* octree = m_SelectedBound->GetBVH();
+	const rage::spdAABB& bb = m_SelectedBound->GetBoundingBox();
+	const rage::spdSphere& bs = m_SelectedBound->GetBoundingSphere();
+	const rage::Vec3V& centroidOffset = m_SelectedBound->GetCentroidOffset();
+	const rage::Vec3V& cgOffset = m_SelectedBound->GetCGOffset();
+
+	ImGui::Text("Type: %s", rage::phBoundTypeName[boundType]);
+	ImGui::Text("Primitive Material ID: %X", m_SelectedBound->GetPrimitiveMaterialId());
+	ImGui::Text("AABB Min: <%.02f %.02f %.02f>", bb.Min.X(), bb.Min.Y(), bb.Min.Z());
+	ImGui::Text("AABB Max: <%.02f %.02f %.02f>", bb.Max.X(), bb.Max.Y(), bb.Max.Z());
+	ImGui::Text("Cull Sphere Center: <%.02f %.02f %.02f>", bs.CenterAndRadius.X(), bs.CenterAndRadius.Y(), bs.CenterAndRadius.Z());
+	ImGui::Text("Cull Sphere Radius: %.02f", bs.CenterAndRadius.W());
+	ImGui::Text("Centroid Offset: <%.02f %.02f %.02f>", centroidOffset.X(), centroidOffset.Y(), centroidOffset.Z());
+	ImGui::Text("Center Of Gravity Offset: <%.02f %.02f %.02f>", cgOffset.X(), cgOffset.Y(), cgOffset.Z());
+
+	if (boundType == rage::PH_BOUND_COMPOSITE)
+	{
+		SlGui::CategoryText("Composite");
+		rage::phBoundComposite* composite = reinterpret_cast<rage::phBoundComposite*>(m_SelectedBound);
+		ImGui::Text("Bound Count: %i", composite->GetNumBounds());
+	}
+
+	if (boundType == rage::PH_BOUND_GEOMETRY)
+	{
+		SlGui::CategoryText("Geometry");
+		rage::phBoundGeometry* geometry = reinterpret_cast<rage::phBoundGeometry*>(m_SelectedBound);
+	}
+
+	// Info about this bound in a composite
+	if (m_SelectedBoundComposite)
+	{
+		ImGui::HelpMarker(
+			"Composite properties section shows information about this bound in the parent composite.\n"
+			"For example, primitive bounds can't have any kind of transformation on their own, but composite bound allows to define a matrix.");
+		ImGui::SameLine();
+		SlGui::CategoryText("In-Composite Properties");
+
+		u32 typeFlags = m_SelectedBoundComposite->GetTypeFlags(m_SelectedBoundCompositeIndex);
+		u32 includeFlags = m_SelectedBoundComposite->GetIncludeFlags(m_SelectedBoundCompositeIndex);
+		// TODO: VFT is unaligned
+		u64 materialId = 0; // m_SelectedBoundComposite->GetMaterialId(m_SelectedBoundCompositeIndex);
+
+		ImGui::Text("Type Flags: %X", typeFlags);
+		ImGui::Text("Include Flags: %X", includeFlags);
+		ImGui::Text("Material ID: %X", materialId);
+
+		// Transformation
+		const Mat44V& matrix = m_SelectedBoundComposite->GetMatrix(m_SelectedBoundCompositeIndex);
+		Vec3V         pos, scale;
+		QuatV         rot;
+		matrix.Decompose(&pos, &scale, &rot);
+		// Vec3V rotEuler = rot.ToEuler(); // TODO: ...
+		SlGui::CategoryText("Transformation");
+		ImGui::BeginDisabled();
+		ImGui::DragFloat3("Position", pos.M.m128_f32);
+		ImGui::DragFloat3("Scale", scale.M.m128_f32);
+		ImGui::DragFloat4("Rotation", rot.M.m128_f32);
+		ImGui::EndDisabled();
+	}
+
+	// BVH Octree
+	if (boundType == rage::PH_BOUND_BVH || boundType == rage::PH_BOUND_COMPOSITE)
+	{
+		SlGui::CategoryText("Bounding Volume Hierarchy");
+		if (!octree)
+		{
+			ImGui::TextDisabled("Octree was not generated for this bound.");
+		}
+		else
+		{
+			if (ImGui::Button("Print BVH"))
+				octree->PrintInfo();
+			ImGui::ToolTip("Writes BVH internal state and node hierarchy to the console.");
+
+			ImGui::SetNextItemWidth(GImGui->FontSize * 5); // Slider is way too wide
+			ImGui::SliderInt("Visualize Depth", &m_SelectedBoundBVHDepthDraw, -1, m_SelectedBoundBVHDepth - 1);
+			ImGui::ToolTip("Draws bounding box of BVH nodes at selected depth");
+
+			if (m_SelectedBoundBVHDepthDraw != -1)
+			{
+				octree->IterateTree([&](rage::phOptimizedBvhNode& node, int depth)
+					{
+						if (m_SelectedBoundBVHDepthDraw != depth)
+							return;
+
+						DrawList& dl = GameDrawLists::GetInstance()->Overlay;
+						Mat44V boundOffset = Mat44V::Translation(m_SelectedBound->GetCentroidOffset());
+						// TODO: This doesn't account composite transform...
+						DrawList::SetTransform(boundOffset * GetEntity()->GetWorldTransform());
+						dl.DrawAABB(octree->GetNodeAABB(node), graphics::COLOR_RED);
+						DrawList::ResetTransform();
+					});
+			}
+		}
+	}
+}
+
+void rageam::integration::ModelInspector::DrawBounds()
+{
+	const rage::phBoundPtr& bound = m_Drawable->GetBound();
+
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+	DrawBoundRecurse(bound.Get(), GetEntity()->GetWorldTransform());
+	ImGui::PopStyleVar();
+
+	// TODO: Display bound index in composite for navigation
+
+	if (m_SelectedBound)
+	{
+		// ImGui::DockBuilderAddNode(0, ImGuiDockNodeFlags_)
+		// ImGui::DockBuilderSplitNode()
+		if (ImGui::Begin("Bound Inspector"))
+		{
+			DrawBoundInfo();
+		}
+		ImGui::End();
+	}
 }
 
 void rageam::integration::ModelInspector::DrawGeometry(rage::grmModel* model, u16 index)
@@ -287,7 +506,7 @@ void rageam::integration::ModelInspector::DrawShaderParams(const rage::grmShader
 				ImGui::ScrollingLabel(texture->GetName());
 				ImGui::ToolTip(texture->GetName()); // Show full texture name on hover
 				ImGui::Image(texture->GetTextureView(), ImVec2(static_cast<float>(width), static_cast<float>(height)));
-	}
+			}
 			else
 			{
 				// Render value text inside a rect, similar to what DragFloat/DragInt looks like
@@ -321,8 +540,8 @@ void rageam::integration::ModelInspector::DrawMaterialGroup()
 	bool openedCombo = false;
 	if (ImGui::BeginCombo("###MaterialPicker", FormatMaterialName(m_SelectedMaterial)))
 	{
-	for (u16 i = 0; i < shaderGroup->GetShaderCount(); i++)
-	{
+		for (u16 i = 0; i < shaderGroup->GetShaderCount(); i++)
+		{
 			ConstString shaderName = FormatMaterialName(i);
 
 			bool selected = m_SelectedMaterial == i;
@@ -342,7 +561,7 @@ void rageam::integration::ModelInspector::DrawMaterialGroup()
 
 	// Set outline to selected material
 	if (openedCombo)
-		{
+	{
 		constexpr int outlineFlag = 1 << rage::RB_MODEL_OUTLINE;
 		for (u16 i = 0; i < shaderGroup->GetShaderCount(); i++)
 		{
@@ -351,7 +570,7 @@ void rageam::integration::ModelInspector::DrawMaterialGroup()
 			if (hoveredMaterial == -1 || hoveredMaterial != i)
 			{
 				shader->SetDrawBucketMask(shader->GetDrawBucketMask() & ~outlineFlag);
-		}
+			}
 			else
 			{
 				shader->SetDrawBucketMask(shader->GetDrawBucketMask() | outlineFlag);
@@ -361,7 +580,7 @@ void rageam::integration::ModelInspector::DrawMaterialGroup()
 
 	// Duplicated from MaterialEditor::DrawMaterialOptions
 	static constexpr ConstString s_BucketNames[] =
-		{
+	{
 		"0 - Opaque",
 		"1 - Alpha",
 		"2 - Decal",
@@ -383,8 +602,8 @@ void rageam::integration::ModelInspector::DrawMaterialGroup()
 	ImGui::Text("Draw Bucket: %s, Mask: %X", s_BucketNames[shader->GetDrawBucket()], shader->GetDrawBucketMask());
 	ImGui::Unindent();
 	SlGui::CategoryText("Variables");
-			DrawShaderParams(shader, effect);
-		}
+	DrawShaderParams(shader, effect);
+}
 
 void rageam::integration::ModelInspector::OnRender()
 {
@@ -397,23 +616,23 @@ void rageam::integration::ModelInspector::OnRender()
 		if (ImGui::BeginTabItem("Info"))
 		{
 			if (BeginProperties())
-	{
-		PropertyValue("Name", m_Drawable->GetName());
-			PropertyValue("File Size", FormatSize(m_FileSize));
-			ImGui::HelpMarker("Size of the resource file on disk.");
-			PropertyValue("Resource Size", FormatSize(m_ResourceSize));
-			ImGui::HelpMarker("Size taken by streamed resource in-game");
-			ImGui::Indent();
-			PropertyValue("Virtual", FormatSize(m_VirtualSize));
-			PropertyValue("Physical", FormatSize(m_PhysicalSize));
-			ImGui::Unindent();
+			{
+				PropertyValue("Name", m_Drawable->GetName());
+				PropertyValue("File Size", FormatSize(m_FileSize));
+				ImGui::HelpMarker("Size of the resource file on disk.");
+				PropertyValue("Resource Size", FormatSize(m_ResourceSize));
+				ImGui::HelpMarker("Size taken by streamed resource in-game");
+				ImGui::Indent();
+				PropertyValue("Virtual", FormatSize(m_VirtualSize));
+				PropertyValue("Physical", FormatSize(m_PhysicalSize));
+				ImGui::Unindent();
 
 				const rage::spdAABB& bb = m_Drawable->GetBoundingBox();
-			const rage::spdSphere& bs = m_Drawable->GetBoundingSphere();
-			PropertyValue("Box Min", FormatVec(bb.Min));
-			PropertyValue("Box Max", FormatVec(bb.Max));
-			PropertyValue("Sphere Center", FormatVec(bs.GetCenter()));
-			PropertyValue("Sphere Radius", "%.02f", bs.GetRadius().Get());
+				const rage::spdSphere& bs = m_Drawable->GetBoundingSphere();
+				PropertyValue("Box Min", FormatVec(bb.Min));
+				PropertyValue("Box Max", FormatVec(bb.Max));
+				PropertyValue("Sphere Center", FormatVec(bs.GetCenter()));
+				PropertyValue("Sphere Radius", "%.02f", bs.GetRadius().Get());
 
 				EndProperties();
 			}
@@ -430,11 +649,11 @@ void rageam::integration::ModelInspector::OnRender()
 		{
 			if (BeginProperties())
 			{
-		DrawLodGroup();
+				DrawLodGroup();
 				EndProperties();
 			}
 			ImGui::EndTabItem();
-			}
+		}
 
 		if (ImGui::BeginTabItem("Bounds"))
 		{

@@ -9,6 +9,7 @@
 
 #ifdef AM_INTEGRATED
 
+#include "rage/physics/bounds/composite.h"
 #include "am/integration/gameentity.h"
 #include "game/modelinfo/basemodelinfo.h"
 #include "am/ui/font_icons/icons_am.h"
@@ -30,6 +31,11 @@ namespace rageam::integration
 		u32                      m_ResourceSize = 0;
 		ImGuiID                  m_SelectedRowID = 0;
 		int                      m_SelectedMaterial = 0;
+		rage::phBound*           m_SelectedBound = nullptr;
+		int						 m_SelectedBoundCompositeIndex = -1;
+		int						 m_SelectedBoundBVHDepth = 0;
+		int						 m_SelectedBoundBVHDepthDraw = -1;
+		rage::phBoundComposite*  m_SelectedBoundComposite = nullptr; // Parent of m_SelectedBound, if placed in composite
 
 		ConstString FormatVec(const Vec3V& vec) const;
 
@@ -44,6 +50,9 @@ namespace rageam::integration
 
 		ConstString FormatMaterialName(int index) const;
 
+		void DrawBoundRecurse(rage::phBound* bound, Mat44V transform, rage::phBoundComposite* compositeParent = nullptr, int compositeIndex = -1);
+		void DrawBoundInfo();
+		void DrawBounds();
 		void DrawGeometry(rage::grmModel* model, u16 index);
 		void DrawLodGroup();
 		void DrawShaderParams(const rage::grmShader* shader, rage::grcEffect* effect);
