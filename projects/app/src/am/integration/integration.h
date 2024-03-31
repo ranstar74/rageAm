@@ -11,6 +11,7 @@
 
 #include "am/system/singleton.h"
 #include "am/system/ptr.h"
+#include "am/graphics/outlinerender.h"
 
 namespace rageam::integration
 {
@@ -39,8 +40,9 @@ namespace rageam::integration
 		void HookRenderThread() const;
 		void AntiDebugFixes() const;
 
-		amUPtr<ComponentManager> m_ComponentMgr;
-		amUPtr<GameDrawLists>    m_GameDrawLists;
+		amUPtr<ComponentManager>        m_ComponentMgr;
+		amUPtr<GameDrawLists>           m_GameDrawLists;
+		amUPtr<graphics::OutlineRender> m_OutlineRender;
 
 	public:
 		GameIntegration();
@@ -48,9 +50,9 @@ namespace rageam::integration
 
 		// -- All callbacks in one place, see diagram above --
 
-		void GPUEndFrame() const;
+		void GPUEndFrame();
 		void EarlyUpdate() const;
-		void Update() const;
+		void Update();
 		void LateUpdate() const;
 	};
 }

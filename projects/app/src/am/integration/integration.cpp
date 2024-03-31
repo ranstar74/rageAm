@@ -200,6 +200,20 @@ void rageam::integration::GameIntegration::AntiDebugFixes() const
 #endif
 }
 
+gmAddress s_Addr_grmShader_DrawInternal;
+void (*gImpl_grmShader_DrawInternal)(void* self, int drawType, void* model, u32 geom, bool restoreState);
+void aImpl_grmShader_DrawInternal(rage::grmShader* self, int drawType, rage::grmModel* model, u32 geom, bool restoreState)
+{
+	gImpl_grmShader_DrawInternal(self, drawType, model, geom, restoreState);
+
+	if (self->GetDrawBucketMask() & (1 << rage::RB_MODEL_OUTLINE) || model->HasOutline())
+	{
+		rageam::graphics::OutlineRender::GetInstance()->Begin();
+		gImpl_grmShader_DrawInternal(self, drawType, model, geom, restoreState);
+		rageam::graphics::OutlineRender::GetInstance()->End();
+	}
+}
+
 rageam::integration::GameIntegration::GameIntegration()
 {
 	// Register integration apps
@@ -208,6 +222,16 @@ rageam::integration::GameIntegration::GameIntegration()
 
 	m_ComponentMgr = std::make_unique<ComponentManager>();
 	m_GameDrawLists = std::make_unique<GameDrawLists>();
+	m_OutlineRender = std::make_unique<graphics::OutlineRender>();
+
+	// Detour for drawing grmShader outlines
+	s_Addr_grmShader_DrawInternal = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		"44 8A 44 24 60 8B 54 24 48", "rage::grmShader::DrawInternal+0x1A").GetAt(-0x1A);
+#else
+		"7C D5 48 83 25", "rage::grmShader::DrawInternal+0x60").GetAt(-0x60);
+#endif
+	Hook::Create(s_Addr_grmShader_DrawInternal, aImpl_grmShader_DrawInternal, &gImpl_grmShader_DrawInternal);
 
 	HookGameThread();
 	HookRenderThread();
@@ -216,6 +240,8 @@ rageam::integration::GameIntegration::GameIntegration()
 
 rageam::integration::GameIntegration::~GameIntegration()
 {
+	Hook::Remove(s_Addr_grmShader_DrawInternal);
+
 	s_ShuttingDownEndFrame = true;
 	while (s_ShuttingDownEndFrame) {}
 
@@ -230,11 +256,13 @@ rageam::integration::GameIntegration::~GameIntegration()
 	m_GameDrawLists = nullptr;
 }
 
-void rageam::integration::GameIntegration::GPUEndFrame() const
+void rageam::integration::GameIntegration::GPUEndFrame()
 {
 	// Window stuff must be updated from owner thread,
 	// nothing bad will happen if we do it right here, before presenting image
 	graphics::Window::GetInstance()->Update();
+
+	m_OutlineRender->EndFrame();
 
 	ui::ImGlue::GetInstance()->EndFrame();
 }
@@ -244,10 +272,12 @@ void rageam::integration::GameIntegration::EarlyUpdate() const
 	m_ComponentMgr->EarlyUpdateAll();
 }
 
-void rageam::integration::GameIntegration::Update() const
+void rageam::integration::GameIntegration::Update()
 {
 	// Update called before building new game draw lists, release all old unused textures
 	asset::HotDrawable::RemoveTexturesFromRenderThread(false);
+
+	m_OutlineRender->NewFrame();
 
 	System::GetInstance()->Update();
 	// Render UI and update all components

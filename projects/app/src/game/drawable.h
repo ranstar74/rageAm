@@ -8,6 +8,7 @@
 #pragma once
 
 #include "lightattr.h"
+#include "am/graphics/outlinerender.h"
 #include "am/ui/extensions.h"
 #include "rage/paging/template/array.h"
 #include "rage/physics/bounds/boundbase.h"
@@ -37,11 +38,27 @@ public:
 	void Draw(const rage::Mat34V& mtx, rage::grcDrawMask mask, rage::eDrawableLod lod) override
 	{
 		rmcDrawable::Draw(mtx, mask, lod);
+
+		if (mask.Match(1 << rage::RB_MODEL_OUTLINE))
+		{
+			auto outlineRender = rageam::graphics::OutlineRender::GetInstance();
+			outlineRender->Begin();
+			rmcDrawable::Draw(mtx, mask, lod);
+			outlineRender->End();
+		}
 	}
 
 	void DrawSkinned(const rage::Mat34V& mtx, u64 a3, rage::grcDrawMask mask, rage::eDrawableLod lod) override
 	{
 		rmcDrawable::DrawSkinned(mtx, a3, mask, lod);
+
+		if (mask.Match(1 << rage::RB_MODEL_OUTLINE))
+		{
+			auto outlineRender = rageam::graphics::OutlineRender::GetInstance();
+			outlineRender->Begin();
+			rmcDrawable::DrawSkinned(mtx, a3, mask, lod);
+			outlineRender->End();
+		}
 	}
 };
 

@@ -217,6 +217,42 @@ namespace rageam::graphics::DXGI
 			fmt == DXGI_FORMAT_BC4_SNORM;
 	}
 
+	// Bytes per one pixel line (scanline), aka 'stride'
+	inline u32 ComputeRowPitch(int width, DXGI_FORMAT format)
+	{
+		// For block-compressed formats row pitch is computed differently
+		if (!IsCompressed(format))
+		{
+			return BitsPerPixel(format) * width / 8;
+		}
+
+		u32 totalNumBlocks = width / 4;
+
+		if (IsBC1(format) || IsBC4(format))
+			return totalNumBlocks * 8;
+
+		// BC2, BC3, BC5, BC7
+		return totalNumBlocks * 16;
+	}
+
+	// Total size of image in bytes
+	inline u32 ComputeSlicePitch(int width, int height, DXGI_FORMAT format)
+	{
+		if (!IsCompressed(format))
+		{
+			return BitsPerPixel(format) * width * height / 8;
+		}
+
+		u32 totalNumBlocksX = width / 4;
+		u32 totalNumBlocksY = height / 4;
+
+		if (IsBC1(format) || IsBC4(format))
+			return totalNumBlocksY * totalNumBlocksX * 8;
+
+		// BC2, BC3, BC5, BC7
+		return totalNumBlocksY * totalNumBlocksX * 16;
+	}
+
 	inline DXGI_FORMAT ToTypeless(DXGI_FORMAT fmt)
 	{
 		switch (static_cast<int>(fmt))

@@ -27,12 +27,15 @@ namespace rage
 		RB_NUM_BASE_BUCKETS            = 8,
 		RB_BASE_BUCKETS_MASK		   = 1 << RB_NUM_BASE_BUCKETS - 1,
 
-		RB_MODEL_DEFAULT               = 8, // Visibility
+		RB_MODEL_DEFAULT               = 8,  // Visibility
 		RB_MODEL_SHADOW                = 9,
 		RB_MODEL_REFLECTION_PARABOLOID = 10,
 		RB_MODEL_REFLECTION_MIRROR     = 11,
 		RB_MODEL_REFLECTION_WATER      = 12,
+
 		RB_MODEL_TESSELLATION          = 15,
+
+		RB_MODEL_OUTLINE			   = 31, // rageAm extension
 	};
 
 	/**

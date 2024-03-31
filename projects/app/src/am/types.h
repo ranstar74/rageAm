@@ -68,6 +68,7 @@ namespace rageam
 
 	using Scalar = float;
 	using ScalarV = rage::ScalarV;
+	using QuatV = rage::QuatV;
 	using Vec3V = rage::Vec3V;
 	using Vec4V = rage::Vec4V;
 	using Vec2S = rage::Vector2;

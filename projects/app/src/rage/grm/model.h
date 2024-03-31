@@ -139,6 +139,14 @@ namespace rage
 
 		u32 ComputeBucketMask(const grmShaderGroup* shaderGroup) const;
 
+		// Use unused flag bit for outline flag
+		bool HasOutline() const { return m_Flags & 0x80; }
+		void SetOutline(bool b)
+		{
+			m_Flags &= ~0x80;
+			if (b) m_Flags |= 0x80;
+		}
+
 		// -- Draw functions --
 
 		void DrawPortion(int a2, u32 startGeometryIndex, u32 totalGeometries, const grmShaderGroup* shaderGroup, grcDrawMask mask) const;
