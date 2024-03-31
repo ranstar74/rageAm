@@ -467,6 +467,7 @@ void rageam::ui::ImGlue::StyleVS() const
 	style.Colors[ImGuiCol_Button] = { 0, 0, 0, 0 };
 	style.Colors[ImGuiCol_ButtonHovered] = ImGui::ColorConvertU32ToFloat4(0x783D3D3D);
 	style.Colors[ImGuiCol_ButtonActive] = ImGui::ColorConvertU32ToFloat4(0x782E2E2E);
+	style.Colors[ImGuiCol_Tab] = style.Colors[ImGuiCol_FrameBg]; // TODO: Move to SlGui
 }
 
 rageam::ui::ImGlue::ImGlue()
