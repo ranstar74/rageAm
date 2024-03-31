@@ -29,7 +29,7 @@ namespace rageam::integration
 		u32                      m_PhysicalSize = 0;
 		u32                      m_ResourceSize = 0;
 		ImGuiID                  m_SelectedRowID = 0;
-		int                      m_MaterialIndexToSelect = -1;
+		int                      m_SelectedMaterial = 0;
 
 		ConstString FormatVec(const Vec3V& vec) const;
 
@@ -37,8 +37,12 @@ namespace rageam::integration
 		bool IconButton(ConstString name) const;
 		void DisabledCheckBox(ConstString name, bool v) const;
 		void PropertyValue(ConstString propertyName, ConstString valueFormat, ...);
-		bool BeginCategory(ConstString name, bool defaultOpen = false);
+		bool BeginCategory(ConstString name, bool defaultOpen = false, bool spanAllColumns = false);
 		void EndCategory() const;
+		bool BeginProperties() const;
+		void EndProperties() const;
+
+		ConstString FormatMaterialName(int index) const;
 
 		void DrawGeometry(rage::grmModel* model, u16 index);
 		void DrawLodGroup();
@@ -51,6 +55,7 @@ namespace rageam::integration
 
 		ConstString GetName() const override { return "Inspector"; }
 		ConstString GetModelName() const override { return m_Drawable ? m_Drawable->GetName() : nullptr; }
+		bool Padding() const override { return true; }
 		void LoadFromPath(ConstWString path) override;
 	};
 }

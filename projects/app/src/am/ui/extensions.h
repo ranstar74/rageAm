@@ -114,6 +114,7 @@ namespace ImGui
 	// Samples animated pink color
 	ImU32 GetMissingColor();
 
+	void ScrollingLabel(ConstString text);
 	void ScrollingLabel(const ImVec2& pos, const ImRect& bb, ConstString text);
 	void ScrollingLabel(const ImVec2& pos, const ImRect& bb, ConstString text, ImU32 col, double startTime = 0);
 	void ScrollingLabel(const ImVec2& pos, const ImRect& bb, ConstString text, ConstString textEnd, ImU32 col, double startTime = 0);

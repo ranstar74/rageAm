@@ -305,6 +305,17 @@ ImU32 ImGui::GetMissingColor()
 	return ColorConvertFloat4ToU32(ImLerp(COL1, COL2, phase));
 }
 
+void ImGui::ScrollingLabel(ConstString text)
+{
+	ImGuiWindow* window = GImGui->CurrentWindow;
+	ImVec2 cursor = window->DC.CursorPos;
+	// Height of text + span full width from cursor to work rect end
+	ImRect rect(cursor, ImVec2(window->WorkRect.Max.x, cursor.y + GImGui->FontSize));
+	ItemSize(rect);
+	ItemAdd(rect, 0);
+	ScrollingLabel(cursor, rect, text);
+}
+
 void ImGui::ScrollingLabel(const ImVec2& pos, const ImRect& bb, ConstString text)
 {
 	ScrollingLabel(pos, bb, text, GetColorU32(ImGuiCol_Text), 0.0f);

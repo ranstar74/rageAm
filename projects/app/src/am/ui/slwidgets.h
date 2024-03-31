@@ -21,6 +21,7 @@ enum SlGuiTreeNodeFlags_
 	SlGuiTreeNodeFlags_RightClickSelect = 1 << 2,
 	SlGuiTreeNodeFlags_DisplayAsHovered = 1 << 3,
 	SlGuiTreeNodeFlags_AlwaysShowArrows = 1 << 4,
+	SlGuiTreeNodeFlags_NoArrowIndent = 1 << 5,
 };
 typedef int SlGuiTreeNodeFlags;
 

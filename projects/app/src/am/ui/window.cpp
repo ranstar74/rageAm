@@ -35,7 +35,10 @@ void rageam::ui::WindowManager::OnRender()
 		ConstString title = ImGui::FormatTemp("%s%s###%s",
 			window->GetTitle(), unsaved ? "*" : "", window->GetID());
 
-		if (SlGui::Begin(title, &isOpen, windowFlags))
+		if (!window->Padding()) ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(1, 1));
+		bool begin = ImGui::Begin(title, &isOpen, windowFlags);
+		if (!window->Padding()) ImGui::PopStyleVar(); // Window_Padding
+		if (begin)
 		{
 			UndoStack::Push(window->Undo);
 			if (!window->m_Started)

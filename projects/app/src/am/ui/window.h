@@ -36,6 +36,8 @@ namespace rageam::ui
 		// Override if ID must be the same for all derived window types
 		virtual ConstString GetID() const { return GetTitle(); }
 		virtual ImVec2 GetDefaultSize() { return { 0, 0 }; }
+		// Window inner padding, default is none
+		virtual bool Padding() const { return false; }
 
 		UndoStack Undo;
 	};

@@ -133,10 +133,17 @@ bool SlGui::TreeNode(ConstString text, bool& selected, bool& toggled, ImTextureI
 
 	ImVec2 cursor = window->DC.CursorPos;
 
+	bool span = flags & ImGuiTreeNodeFlags_SpanAllColumns;
+
 	// Stretch horizontally on whole window
-	ImVec2 frameSize(window->WorkRect.GetWidth(), iconSize + style.FramePadding.y);
+	ImVec2 frameSize(span ? window->ParentWorkRect.GetWidth() : window->WorkRect.GetWidth(), iconSize + style.FramePadding.y);
 	ImVec2 frameMin(window->WorkRect.Min.x, cursor.y);
 	ImVec2 frameMax(frameMin.x + frameSize.x, frameMin.y + frameSize.y);
+	if (GImGui->CurrentTable) // Remove ugly padding around node when used in tables
+	{
+		frameMin -= GImGui->Style.CellPadding;
+		frameMax += GImGui->Style.CellPadding;
+	}
 	ImRect bb(frameMin, frameMax);
 
 	ImGui::ItemSize(frameSize, 0.0f);
@@ -1543,6 +1550,12 @@ bool SlGui::GraphTreeNode(ConstString text, bool& selected, bool& toggled, SlGui
 	ImVec2 arrowMax(arrowMin.x + arrowSizeX, frameMax.y);
 	ImRect arrowBb(arrowMin, arrowMax);
 
+	if (flags & SlGuiTreeNodeFlags_NoArrowIndent)
+	{
+		// arrowMax = arrowMin;
+		// arrowBb = ImRect(arrowMin, arrowMax);
+	}
+
 	// Item bounding it set to only arrow to allow us to add more items in node later using ImGui::SameLine
 	ImRect itemBb(arrowMin, arrowMax);
 	ImRect bb(frameMin, frameMax);
@@ -1667,6 +1680,8 @@ bool SlGui::GraphTreeNode(ConstString text, bool& selected, bool& toggled, SlGui
 	// but in order to allow correct drawing on top of node we have to update rect manually
 	GImGui->LastItemData.Rect = bb;
 	GImGui->LastItemData.NavRect = bb;
+	if (ImGui::IsMouseHoveringRect(bb.Min, bb.Max, false))
+		GImGui->LastItemData.StatusFlags |= ImGuiItemStatusFlags_HoveredRect;
 
 	if (isOpen)
 		ImGui::TreePushOverrideID(id);
