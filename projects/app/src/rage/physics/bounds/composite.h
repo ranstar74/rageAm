@@ -27,17 +27,15 @@ namespace rage
 			CollisionFlags Include;
 		};
 
-		// It's not clear what 'Owned' flags for, they seem to match regular set so we just duplicate them
-
 		pgCArray<phBoundPtr>		m_Bounds;
 		pgCArray<Mat44V>			m_CurrentMatrices;
 		pgCArray<Mat44V>			m_LastMatrices;
 		pgCArray<spdAABB>			m_AABBs;
 		pgCArray<CompositeFlags>	m_TypeAndIncludeFlags;
-		pgCArray<CompositeFlags>	m_OwnedTypeAndIncludeFlags;
+		pgCArray<CompositeFlags>	m_OwnedTypeAndIncludeFlags; // Allocated calling AllocateTypeAndIncludeFlags, we don't need them
 		u16							m_MaxNumBounds;				// Number of bounds in array
 		u16							m_NumBounds;				// Number of 'active' bounds in array
-		pgUPtr<phOptimizedBvh>		m_Bvh;
+		pgUPtr<phOptimizedBvh>		m_BVH;
 
 		// Ensures that given index is less than m_MaxNumBounds
 		void AssertWithinArray(u16 index) const;
@@ -47,16 +45,16 @@ namespace rage
 		phBoundComposite(const datResource& rsc);
 		~phBoundComposite() override;
 
-		u16 GetNumBounds() const { return m_MaxNumBounds; }
+		u16			GetNumBounds() const { return m_MaxNumBounds; }
 		phBoundPtr& GetBound(u16 index);
-		void SetBound(u16 index, const phBoundPtr& bound);
+		void		SetBound(u16 index, const phBoundPtr& bound);
 
-		void SetTypeFlags(u16 index, CollisionFlags flags);
-		void SetIncludeFlags(u16 index, CollisionFlags flags);
+		void		   SetTypeFlags(u16 index, CollisionFlags flags);
+		void		   SetIncludeFlags(u16 index, CollisionFlags flags);
 		CollisionFlags GetTypeFlags(u16 index);
 		CollisionFlags GetIncludeFlags(u16 index);
 
-		void SetMatrix(u16 index, const Mat44V& mtx);
+		void		  SetMatrix(u16 index, const Mat44V& mtx);
 		const Mat44V& GetMatrix(u16 index);
 
 		void InitFromArray(const atArray<phBoundPtr>& bounds, bool allowInternalMotion);
@@ -72,20 +70,21 @@ namespace rage
 			// TODO: BVH
 		}
 
+		void Copy(const phBound* from) override { AM_UNREACHABLE("phBoundComposite::Copy() -> Not Implemented."); }
+
 		void ShiftCentroidOffset(const Vec3V& offset) override { /* Composite doesn't support centroid offset */ }
 
-		u8 GetNumMaterials() const override { return m_Bounds[0]->GetNumMaterials(); }
-		phMaterial* GetMaterial(int partIndex) const override;
-		u64 GetMaterialIdFromPartIndex(int partIndex, int boundIndex) const override;
+		int               GetNumMaterials() const override { return m_Bounds[0]->GetNumMaterials(); }
+		phMaterial*       GetMaterial(int partIndex) const override { return GetMaterial(partIndex, 0); }
+		phMaterialMgr::Id GetMaterialIdFromPartIndexAndComponent(int partIndex, int boundIndex) const override;
 
 		bool CanBecomeActive() const override;
-
 		void CalculateExtents() override;
 
-		// -- Extra composite virtual functions
+		phOptimizedBvh* GetBVH() const { return m_BVH.Get(); }
 
-		phMaterial* GetMaterialFromPartIndexAndComponent(int partIndex, int boundIndex) const;
-		virtual u64 GetMaterialIdFromPartIndexAndComponent(int partIndex, int boundIndex) const;
-		virtual u64 GetMaterialIdFromPartIndexDefaultComponent(int partIndex) const;
+		virtual phMaterial*		  GetMaterial(int partIndex, int boundIndex) const;
+		virtual phMaterialMgr::Id GetMaterialId(int partIndex, int boundIndex) const;
+		virtual phMaterialMgr::Id GetMaterialId(int partIndex) const;
 	};
 }

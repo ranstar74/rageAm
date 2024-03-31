@@ -8,20 +8,33 @@
 #pragma once
 
 #include "geometry.h"
+#include "rage/physics/optimizedbvh.h"
 
 namespace rage
 {
+	/**
+	 * \brief Spatial accelerated bound container.
+	 * The BVH is built once and never again, because it is quite expensive operation.
+	 * For BVH that can be rebuilt on runtime, see phBoundComposite.
+	 * This type is used mostly on static map collision.
+	 */
 	class phBoundBVH : public phBoundGeometry
 	{
-	public:
-		phBoundBVH()
-		{
-			m_Type = PH_BOUND_BVH;
-		}
+		pgUPtr<phOptimizedBvh> m_BVH;
+		pgCArray<u16>          m_ActivePolygonIndices; // Used for debug drawing, unused in release
+		u16                    m_NumActivePolygons;
+		u8					   m_Pad[14];
 
-		phBoundBVH(const datResource& rsc) : phBoundGeometry(rsc)
-		{
-			
-		}
+	public:
+		phBoundBVH();
+		phBoundBVH(const datResource& rsc);
+
+		// Do not use GetPolygon function! BVH allows all sort of primitives
+		phPrimitive& GetPrimitive(int index) const;
+		int GetPrimitiveCount() const { return GetPolygonCount(); }
+
+		void BuildBVH();
+
+		phOptimizedBvh* GetBVH() const { return m_BVH.Get(); }
 	};
 }

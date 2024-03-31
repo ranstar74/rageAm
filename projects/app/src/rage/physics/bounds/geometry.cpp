@@ -14,17 +14,16 @@ void rage::phBoundPolyhedron::ComputeBoundingBoxCenter()
 
 void rage::phBoundPolyhedron::ComputeNeighbors() const
 {
-	// Refer to diagram in header to understand things easier
+	// Refer to diagram in header to understand things better
 
-	amUniquePtr<atArray<u32>[]> vertexToPolys =
-		std::make_unique<atArray<u32>[]>(m_NumVertices);
+	amUPtr<atArray<u32>[]> vertexToPolys = std::make_unique<atArray<u32>[]>(m_NumVertices);
 
-	// Generate vertex to polygons map so we can quickly look up all polygons that share vertex at index X
+	// Generate vertex to polygons map, this allows us to quickly look up all polygons that share vertex at index X
 	for (u32 i = 0; i < m_NumPolygons; i++)
 	{
-		phPrimTriangle& poly = GetPolygon(i);
+		phPolygon& poly = GetPolygon(i);
 
-		if (m_Type == PH_BOUND_BVH && !poly.IsTriangle())
+		if (m_Type == PH_BOUND_BVH && !poly.IsPolygon())
 			continue;
 
 		poly.ResetNeighboors();
@@ -41,9 +40,9 @@ void rage::phBoundPolyhedron::ComputeNeighbors() const
 
 	for (u32 lhsPolyIdx = 0; lhsPolyIdx < m_NumPolygons; lhsPolyIdx++)
 	{
-		phPrimTriangle& lhsPoly = GetPolygon(lhsPolyIdx);
+		phPolygon& lhsPoly = GetPolygon(lhsPolyIdx);
 
-		if (m_Type == PH_BOUND_BVH && !lhsPoly.IsTriangle())
+		if (m_Type == PH_BOUND_BVH && !lhsPoly.IsPolygon())
 			continue;
 
 		for (u32 lhsPolyVertIdx = 0; lhsPolyVertIdx < 3; lhsPolyVertIdx++)
@@ -64,7 +63,7 @@ void rage::phBoundPolyhedron::ComputeNeighbors() const
 				if (rhsPolyIdx <= lhsPolyIdx)
 					continue;
 
-				phPrimTriangle& rhsPoly = GetPolygon(rhsPolyIdx);
+				phPolygon& rhsPoly = GetPolygon(rhsPolyIdx);
 
 				// Neighbor polygon must share edge that is defined by
 				// current vertex index + next vertex index in phPolygon::VertexIndices
@@ -104,7 +103,7 @@ void rage::phBoundPolyhedron::ComputePolyArea() const
 {
 	for (u32 i = 0; i < m_NumPolygons; i++)
 	{
-		phPrimTriangle& poly = GetPolygon(i);
+		phPolygon& poly = GetPolygon(i);
 
 		Vec3V v1, v2, v3;
 		DecompressPoly(poly, v1, v2, v3);
@@ -258,20 +257,16 @@ void rage::phBoundPolyhedron::OctantMapAllocateAndCopy(const u32* indexCounts, u
 rage::phBoundPolyhedron::phBoundPolyhedron()
 {
 	m_VerticesPad = 0;
-
 	m_OctantIndexCounts = nullptr;
 	m_OctantIndices = nullptr;
-
 	m_NumShrunkVertices = 0;
 	m_NumVertices = 0;
 	m_NumPolygons = 0;
+	m_Unused0 = 0;
+	m_Unused1 = 0;
+	m_NumPerVertexAttributes = 0;
 
-	m_Unknown80 = 0;
-	m_Unknown82 = 0;
-	m_UnknownB8 = 0;
-	m_UnknownD8 = 0;
-	m_UnknownE0 = 0;
-	m_UnknownE8 = 0;
+	ZeroMemory(m_Pad0, sizeof m_Pad0);
 }
 
 // ReSharper disable once CppPossiblyUninitializedMember
@@ -286,7 +281,7 @@ rage::phBoundPolyhedron::phBoundPolyhedron(const datResource& rsc) : phBound(rsc
 	}
 }
 
-void rage::phBoundPolyhedron::DecompressPoly(const phPrimTriangle& poly, Vec3V& v1, Vec3V& v2, Vec3V& v3, bool shrunk) const
+void rage::phBoundPolyhedron::DecompressPoly(const phPolygon& poly, Vec3V& v1, Vec3V& v2, Vec3V& v3, bool shrunk) const
 {
 	v1 = DecompressVertex(poly.GetVertexIndex(0), shrunk);
 	v2 = DecompressVertex(poly.GetVertexIndex(1), shrunk);
@@ -315,7 +310,17 @@ rage::phBoundPolyhedron::CompressedVertex rage::phBoundPolyhedron::CompressVerte
 		(s16)packedVec.Z());
 }
 
-rage::Vec3V rage::phBoundPolyhedron::ComputePolygonNormalEstimate(const phPrimTriangle& poly) const
+void rage::phBoundPolyhedron::SetBoundingBox(const Vec3V& min, const Vec3V& max)
+{
+	m_BoundingBoxMin = min;
+	m_BoundingBoxMax = max;
+
+	ComputeBoundingBoxCenter();
+	ComputeUnQuantizeFactor();
+	CalculateBoundingSphere();
+}
+
+rage::Vec3V rage::phBoundPolyhedron::ComputePolygonNormalEstimate(const phPolygon& poly) const
 {
 	Vec3V v1 = DecompressVertex(poly.GetVertexIndex(0));
 	Vec3V v2 = DecompressVertex(poly.GetVertexIndex(1));
@@ -326,7 +331,7 @@ rage::Vec3V rage::phBoundPolyhedron::ComputePolygonNormalEstimate(const phPrimTr
 	return normalSq * lengthInv;
 }
 
-rage::Vec3V rage::phBoundPolyhedron::ComputePolygonNormal(const phPrimTriangle& poly) const
+rage::Vec3V rage::phBoundPolyhedron::ComputePolygonNormal(const phPolygon& poly) const
 {
 	Vec3V v1 = DecompressVertex(poly.GetVertexIndex(0));
 	Vec3V v2 = DecompressVertex(poly.GetVertexIndex(1));
@@ -342,7 +347,7 @@ void rage::phBoundPolyhedron::ComputeVertexNormals(Vec3V* outNormals) const
 
 	for (u32 i = 0; i < m_NumPolygons; i++)
 	{
-		phPrimTriangle& poly = GetPolygon(i);
+		phPolygon& poly = GetPolygon(i);
 
 		u16 vi1 = poly.GetVertexIndex(0);
 		u16 vi2 = poly.GetVertexIndex(1);
@@ -359,7 +364,7 @@ void rage::phBoundPolyhedron::ComputeVertexNormals(Vec3V* outNormals) const
 		outNormals[vi3] += normal;
 	}
 
-	// After adding bunch of normals we have to make sure that resulting normal is ... normalized
+	// After adding a bunch of normals we have to make sure that resulting normal is ... normalized
 	for (u32 i = 0; i < m_NumVertices; i++)
 	{
 		outNormals[i].Normalize();
@@ -376,7 +381,7 @@ void rage::phBoundPolyhedron::GetIndices(u16* outIndices) const
 {
 	for (u32 i = 0; i < m_NumPolygons; i++)
 	{
-		const phPrimTriangle& poly = m_Polygons[i];
+		const phPolygon& poly = m_Polygons[i];
 		outIndices[i * 3 + 0] = poly.GetVertexIndex(0);
 		outIndices[i * 3 + 1] = poly.GetVertexIndex(1);
 		outIndices[i * 3 + 2] = poly.GetVertexIndex(2);
@@ -421,7 +426,7 @@ void rage::phBoundGeometry::ShrinkPolysByMargin(float margin, Vec3V* outVertices
 	ScalarV negMargin = -margin;
 	for (u32 polyIndex = 0; polyIndex < m_NumPolygons; polyIndex++)
 	{
-		phPrimTriangle& polygon = GetPolygon(polyIndex);
+		phPolygon& polygon = GetPolygon(polyIndex);
 		for (u32 polyVertexIndex = 0; polyVertexIndex < 3; polyVertexIndex++)
 		{
 			u16 vertexIndex = polygon.GetVertexIndex(polyVertexIndex);
@@ -429,7 +434,7 @@ void rage::phBoundGeometry::ShrinkPolysByMargin(float margin, Vec3V* outVertices
 			// Check if this vertex was already processed,
 			// can be simplified with set but this is faster
 			u32 bucket = vertexIndex >> 5;
-			u32 mask = 1 << (polygon.GetVertexID(polyVertexIndex) & 0x1F);
+			u32 mask = 1 << (polygon.GetVertex(polyVertexIndex) & 0x1F);
 			if (processedVertices[bucket] & mask)
 				continue;
 			processedVertices[bucket] |= mask;
@@ -449,17 +454,17 @@ void rage::phBoundGeometry::ShrinkPolysByMargin(float margin, Vec3V* outVertices
 			{
 				// Find starting neighbor index
 				u16 polyNeighborIndex = (polyVertexIndex + 2) % 3;
-				u16 neighbor = polygon.m_NeighboringPolygons[polyNeighborIndex];
-				if (neighbor == INVALID_NEIGHBOR)
+				u16 neighbor = polygon.GetNeighborIndex(polyNeighborIndex);
+				if (neighbor == PH_INVALID_INDEX)
 				{
 					neighbor = polygon.GetNeighborIndex(polyVertexIndex);
 					polyNeighborIndex = polyVertexIndex;
 				}
 
 				// Search for neighbors and accumulate normal...
-				while (neighbor != INVALID_NEIGHBOR)
+				while (neighbor != PH_INVALID_INDEX)
 				{
-					phPrimTriangle& neighborPoly = GetPolygon(neighbor);
+					phPolygon& neighborPoly = GetPolygon(neighbor);
 					Vec3V neighborNormal = ComputePolygonNormal(neighborPoly);
 					averageNormal += neighborNormal;
 					neighborNormals[neighborCount] = neighborNormal;
@@ -468,7 +473,7 @@ void rage::phBoundGeometry::ShrinkPolysByMargin(float margin, Vec3V* outVertices
 					neighborCount++;
 
 					// Lookup for new neighbor
-					u16 newNeighbor = INVALID_NEIGHBOR;
+					u16 newNeighbor = PH_INVALID_INDEX;
 					for (u32 j = 0; j < 3; j++)
 					{
 						u32 nextIndex = (j + 1) % 3;
@@ -622,7 +627,7 @@ bool rage::phBoundGeometry::TryShrinkByMargin(float margin, float t, Vec3V* outS
 
 		for (u32 polygonIndex = 0; polygonIndex < m_NumPolygons; polygonIndex++)
 		{
-			phPrimTriangle& poly = GetPolygon(polygonIndex);
+			phPolygon& poly = GetPolygon(polygonIndex);
 
 			u16 vi1 = poly.GetVertexIndex(0);
 			u16 vi2 = poly.GetVertexIndex(1);
@@ -653,20 +658,16 @@ bool rage::phBoundGeometry::TryShrinkByMargin(float margin, float t, Vec3V* outS
 rage::phBoundGeometry::phBoundGeometry()
 {
 	m_Type = PH_BOUND_GEOMETRY;
-
 	m_Materials = nullptr;
-	m_MaterialIds = nullptr;
+	m_MaterialColors = nullptr;
+	m_SecondSurfaceVertexDisplacements = nullptr;
+	m_NumSecondSurfaceVertexDisplacements = 0;
+	m_PolygonToMaterial = nullptr;
 	m_NumMaterials = 0;
+	m_NumMaterialColors = 0;
 
-	m_UnknownF8 = 0;
-	m_Unknown100 = 0;
-	m_Unknown108 = 0;
-	m_Unknown110 = 0;
-	m_Unknown121 = 0;
-	m_Unknown122 = 0;
-	m_Unknown124 = 0;
-	m_Unknown128 = 0;
-	m_Unknown12C = 0;
+	ZeroMemory(m_Pad1, sizeof m_Pad1);
+	ZeroMemory(m_Pad2, sizeof m_Pad2);
 }
 
 // ReSharper disable once CppPossiblyUninitializedMember
@@ -702,7 +703,7 @@ rage::phMaterial* rage::phBoundGeometry::GetMaterial(int partIndex) const
 #ifdef AM_STANDALONE
 	return nullptr;
 #else
-	static auto fn = gmAddress::Scan("48 8B 81 F0 00 00 00 48 63").ToFunc<phMaterial * (int)>();
+	static auto fn = gmAddress::Scan("48 8B 81 F0 00 00 00 48 63").ToFunc<phMaterial* (int)>();
 	return fn(partIndex);
 #endif
 }
@@ -720,14 +721,18 @@ void rage::phBoundGeometry::SetMaterial(u64 materialId, int partIndex)
 	m_Materials[partIndex] = materialId;
 }
 
-u64 rage::phBoundGeometry::GetMaterialIdFromPartIndex(int partIndex, int boundIndex) const
+u64 rage::phBoundGeometry::GetMaterialIdFromPartIndexAndComponent(int partIndex, int boundIndex) const
 {
 	if (partIndex >= m_NumPolygons)
-		return 0;
+		return phMaterialMgr::DEFAULT_MATERIAL_ID;
 
-	u8 materialIdx = m_MaterialIds[partIndex];
+	u8 materialIdx = m_PolygonToMaterial[partIndex];
 	if (materialIdx >= m_NumMaterials)
-		return 0;
+	{
+		AM_ERRF("phBoundGeometry::GetMaterialIDFromPartIndex() -> Polygon %i has material ID %i and there are only %i materials!",
+			partIndex, materialIdx, m_NumMaterials);
+		return phMaterialMgr::DEFAULT_MATERIAL_ID;
+	}
 
 	return m_Materials[materialIdx];
 }
@@ -741,21 +746,21 @@ void rage::phBoundGeometry::CalculateExtents()
 	ComputeBoundingBoxCenter();
 }
 
-u64 rage::phBoundGeometry::GetMaterialID(int partIndex)
+rage::phMaterialMgr::Id rage::phBoundGeometry::GetMaterialId(int partIndex)
 {
 	if (partIndex < m_NumMaterials)
 		return m_Materials[partIndex];
 	return m_Materials[0];
 }
 
-u64 rage::phBoundGeometry::GetPolygonMaterialIndex(int polygon)
+rage::phMaterialMgr::Id rage::phBoundGeometry::GetPolygonMaterialIndex(int polygon)
 {
-	return m_MaterialIds[polygon];
+	return m_PolygonToMaterial[polygon];
 }
 
 void rage::phBoundGeometry::SetPolygonMaterialIndex(int polygon, int materialIndex)
 {
-	m_MaterialIds[polygon] = materialIndex;
+	m_PolygonToMaterial[polygon] = materialIndex;
 }
 
 ConstString rage::phBoundGeometry::GetMaterialName(int materialIndex)
@@ -822,14 +827,14 @@ void rage::phBoundGeometry::SetMesh(const spdAABB& bb, const Vector3* vertices, 
 	u32 polyCount = indexCount / 3;
 
 	m_CompressedVertices = new CompressedVertex[indexCount];
-	m_Polygons = new phPrimTriangle[polyCount];
+	m_Polygons = new phPolygon[polyCount];
 	m_NumPolygons = polyCount;
 	m_NumVertices = vertexCount;
 
 	// TODO: Materials...
 	m_NumMaterials = 1;
 	m_Materials = new u64[1]{ 56 };
-	m_MaterialIds = new u8[m_NumPolygons]{ 0 };
+	m_PolygonToMaterial = new u8[m_NumPolygons]{ 0 };
 
 	// TODO: Test...
 	m_VolumeDistribution = { 0.333f, 0.333f, 0.333f, 5.0f };
@@ -847,7 +852,7 @@ void rage::phBoundGeometry::SetMesh(const spdAABB& bb, const Vector3* vertices, 
 		u16 vi2 = indices[i * 3 + 1];
 		u16 vi3 = indices[i * 3 + 2];
 
-		m_Polygons[i] = phPrimTriangle(vi1, vi2, vi3);
+		m_Polygons[i] = phPolygon(vi1, vi2, vi3);
 	}
 	ComputeNeighbors();
 	ComputePolyArea();
@@ -877,9 +882,9 @@ void rage::phBoundGeometry::WriteObj(const fiStreamPtr& stream, bool shrunkedVer
 	stream->WriteLinef("\n# Faces\n");
 	for (u32 i = 0; i < m_NumPolygons; i++)
 	{
-		phPrimTriangle& poly = GetPolygon(i);
+		phPolygon& poly = GetPolygon(i);
 
-		if (!poly.IsTriangle())
+		if (!poly.IsPolygon())
 			continue;
 
 		stream->WriteLinef("f %u %u %u\n",
@@ -895,35 +900,35 @@ void rage::phBoundGeometry::WriteObj(ConstString path, bool shrunkedVertices) co
 	WriteObj(stream, shrunkedVertices);
 }
 
-amUniquePtr<rage::Vector3> rage::phBoundGeometry::GetVertices(bool shrunkedVertices) const
+amUPtr<rage::Vector3[]> rage::phBoundGeometry::GetVertices(bool shrunkedVertices) const
 {
 	Vector3* vertices = new Vector3[m_NumVertices];
 	for (u32 i = 0; i < m_NumVertices; i++)
 		vertices[i] = DecompressVertex(i, shrunkedVertices);
-	return amUniquePtr<Vector3>(vertices);
+	return amUPtr<Vector3[]>(vertices);
 }
 
-amUniquePtr<u16> rage::phBoundGeometry::GetIndices() const
+amUPtr<u16[]> rage::phBoundGeometry::GetIndices() const
 {
 	u16* indices = new u16[GetIndexCount()];
 	for (u32 i = 0; i < m_NumPolygons; i++)
 	{
-		phPrimTriangle& poly = GetPolygon(i);
+		phPolygon& poly = GetPolygon(i);
 
 		indices[i * 3 + 0] = poly.GetVertexIndex(0);
 		indices[i * 3 + 1] = poly.GetVertexIndex(1);
 		indices[i * 3 + 2] = poly.GetVertexIndex(2);
 	}
-	return amUniquePtr<u16>(indices);
+	return amUPtr<u16[]>(indices);
 }
 
-amUniquePtr<char> rage::phBoundGeometry::ComposeVertexBuffer(const grcVertexFormatInfo& vertexInfo) const
+amUPtr<char> rage::phBoundGeometry::ComposeVertexBuffer(const grcVertexFormatInfo& vertexInfo) const
 {
 	rageam::graphics::VertexBufferEditor bufferEditor(vertexInfo);
 	bufferEditor.Init(m_NumVertices);
 
-	auto normals = amUniquePtr<Vec3V>(new Vec3V[m_NumVertices]);
-	auto vertices = amUniquePtr<Vec3V>(new Vec3V[m_NumVertices]);
+	auto normals = amUPtr<Vec3V>(new Vec3V[m_NumVertices]);
+	auto vertices = amUPtr<Vec3V>(new Vec3V[m_NumVertices]);
 
 	ComputeVertexNormals(normals.get());
 	DecompressVertices(vertices.get());
@@ -933,7 +938,7 @@ amUniquePtr<char> rage::phBoundGeometry::ComposeVertexBuffer(const grcVertexForm
 	bufferEditor.SetColorSingle(0, 0xFFFFFFFF); // White
 	bufferEditor.SetTexcordSingle(0, Vector2(0, 0));
 
-	return amUniquePtr<char>((char*)bufferEditor.MoveBuffer());
+	return amUPtr<char>((char*)bufferEditor.MoveBuffer());
 }
 
 void rage::phBoundGeometry::PrintOctantMap(bool printIndices) const

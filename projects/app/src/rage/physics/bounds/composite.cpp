@@ -155,17 +155,12 @@ void rage::phBoundComposite::CalculateVolume()
 	m_VolumeDistribution.SetW(totalVolume);
 }
 
-rage::phMaterial* rage::phBoundComposite::GetMaterial(int partIndex) const
-{
-	return GetMaterialFromPartIndexAndComponent(partIndex, 0);
-}
-
-u64 rage::phBoundComposite::GetMaterialIdFromPartIndex(int partIndex, int boundIndex) const
+rage::phMaterialMgr::Id rage::phBoundComposite::GetMaterialIdFromPartIndexAndComponent(int partIndex, int boundIndex) const
 {
 	const phBoundPtr& bound = m_Bounds[boundIndex];
 	if (bound)
-		return bound->GetMaterialIdFromPartIndex(partIndex);
-	return 0;
+		return bound->GetMaterialIdFromPartIndexAndComponent(partIndex);
+	return phMaterialMgr::DEFAULT_MATERIAL_ID;
 }
 
 bool rage::phBoundComposite::CanBecomeActive() const
@@ -185,7 +180,7 @@ void rage::phBoundComposite::CalculateExtents()
 	CalculateVolume();
 }
 
-rage::phMaterial* rage::phBoundComposite::GetMaterialFromPartIndexAndComponent(int partIndex, int boundIndex) const
+rage::phMaterial* rage::phBoundComposite::GetMaterial(int partIndex, int boundIndex) const
 {
 	const phBoundPtr& bound = m_Bounds[boundIndex];
 	if (bound)
@@ -193,15 +188,15 @@ rage::phMaterial* rage::phBoundComposite::GetMaterialFromPartIndexAndComponent(i
 	return phMaterialMgr::GetInstance()->GetDefaultMaterial();
 }
 
-u64 rage::phBoundComposite::GetMaterialIdFromPartIndexAndComponent(int partIndex, int boundIndex) const
+u64 rage::phBoundComposite::GetMaterialId(int partIndex, int boundIndex) const
 {
 	const phBoundPtr& bound = m_Bounds[boundIndex];
 	if (bound)
-		return bound->GetMaterialIdFromPartIndex(partIndex);
-	return 0;
+		return bound->GetMaterialIdFromPartIndexAndComponent(partIndex);
+	return phMaterialMgr::DEFAULT_MATERIAL_ID;
 }
 
-u64 rage::phBoundComposite::GetMaterialIdFromPartIndexDefaultComponent(int partIndex) const
+u64 rage::phBoundComposite::GetMaterialId(int partIndex) const
 {
 	return GetMaterialIdFromPartIndexAndComponent(partIndex, 0);
 }

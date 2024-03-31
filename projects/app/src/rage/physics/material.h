@@ -22,6 +22,10 @@ namespace rage
 	class phMaterialMgr
 	{
 	public:
+		typedef u64 Id;
+
+		static constexpr Id DEFAULT_MATERIAL_ID = 0;
+
 		static phMaterialMgr* GetInstance()
 		{
 #ifndef AM_STANDALONE
@@ -34,10 +38,11 @@ namespace rage
 #endif
 		}
 
+		// TODO: This if VFT FUNCTION!
 		phMaterial* GetDefaultMaterial() const
 		{
 #ifndef AM_STANDALONE
-			static auto fn = gmAddress::Scan("40 53 48 83 EC 20 48 8B 01 48 8D 15").ToFunc<phMaterial * (const phMaterialMgr*)>();
+			static auto fn = gmAddress::Scan("40 53 48 83 EC 20 48 8B 01 48 8D 15").ToFunc<phMaterial* (const phMaterialMgr*)>();
 			return fn(this);
 #else
 			AM_UNREACHABLE("phMaterialMgr::GetDefaultMaterial() -> Unsupported in standalone.");

@@ -21,7 +21,7 @@ namespace rage
 		phBoundPrimitive() = default;
 		phBoundPrimitive(const datResource& rsc) : phBound(rsc) {}
 
-		u64 GetMaterialIdFromPartIndex(int partIndex, int boundIndex = -1) const override { return GetMaterialID(); }
+		u64 GetMaterialIdFromPartIndexAndComponent(int partIndex, int boundIndex = -1) const override { return GetMaterialID(); }
 
 		virtual u64 GetMaterialID() const { return m_MaterialID0 | u64(m_MaterialID1) << 32; }
 	};

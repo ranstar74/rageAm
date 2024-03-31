@@ -11,9 +11,14 @@
 #include "rage/paging/place.h"
 #include "rage/paging/resource.h"
 #include "rage/paging/template/array.h"
-#include "rage/spd/aabb.h"
 #include "rage/physics/collisionflags.h"
 #include "rage/physics/material.h"
+#include "rage/spd/aabb.h"
+
+namespace rage
+{
+	class phOptimizedBvh;
+}
 
 namespace rage
 {
@@ -65,6 +70,10 @@ namespace rage
 
 		PH_BOUND_UNKNOWN = 255,
 	};
+	static constexpr ConstString phBoundTypeName[]
+	{
+		"Sphere", "Capsule", "-", "Box", "Geometry", "-", "-", "-", "BVH", "-", "Composite", "-", "Disk", "Cylinder", "-", "Plane"
+	};
 
 	static constexpr float PH_DEFAULT_MARGIN = 0.04f;
 
@@ -90,42 +99,50 @@ namespace rage
 
 	public:
 		phBound();
-
-		// ReSharper disable once CppPossiblyUninitializedMember
-		phBound(const datResource& rsc)
-		{
-
-		}
+		phBound(const datResource& rsc);
 
 		Vec3V ComputeAngularInertia(float mass) const;
 		float GetVolume() const;
-		void SetCGOffset(const Vec3V& offset);
+		void  SetCGOffset(const Vec3V& offset);
 
 		spdAABB   GetBoundingBox() const { return spdAABB(m_BoundingBoxMin, m_BoundingBoxMax); }
 		spdSphere GetBoundingSphere() const { return spdSphere(m_CGOffset, m_RadiusAroundCentroid); }
+		Vec3V	  GetCentroidOffset() const { return m_CentroidOffset; }
+		Vec3V	  GetCGOffset() const { return m_CGOffset; }
+
+		phMaterialMgr::Id GetPrimitiveMaterialId() const;
+		void              SetPrimitiveMaterialId(phMaterialMgr::Id id);
+
+		// Only BVH & Composite bounds can have octree (however it may be NULL if there was not enough children to generate them)
+		phOptimizedBvh* GetBVH() const;
 
 		virtual void PostLoadCompute() { }
 
 		virtual void SetCentroidOffset(const Vec3V& offset);
 		virtual void ShiftCentroidOffset(const Vec3V& offset);
 
-		virtual u8 GetNumMaterials() const { return 1; /* Primitive bounds only have single material */ }
-		virtual phMaterial* GetMaterial(int partIndex) const;
-		virtual void SetMaterial(u64 materialId, int partIndex = BOUND_PARTS_ALL);
-		// Bound index is used only on composite
-		virtual u64 GetMaterialIdFromPartIndex(int partIndex, int boundIndex = -1) const = 0;
+		// Component is a bound in composite or octree in a BVH
+		// Part is primitive element in a bound, for example - polygon, sphere, box
+
+		virtual int				  GetNumMaterials() const { return 1; /* Primitive bounds only have single material */ }
+		virtual phMaterial*		  GetMaterial(int partIndex) const { return phMaterialMgr::GetInstance()->GetDefaultMaterial(); }
+		virtual void			  SetMaterial(phMaterialMgr::Id materialId, int partIndex = BOUND_PARTS_ALL) {}
+		virtual phMaterialMgr::Id GetMaterialIdFromPartIndexAndComponent(int partIndex, int componentIndex = -1) const = 0;
 
 		virtual bool IsPolygonal() const { return false; }
 		virtual bool CanBecomeActive() const { return true; }
 
-		virtual void Copy(const phBound* from);
+		virtual void	 Copy(const phBound* from);
 		virtual phBound* Clone() const;
 
 		virtual phBoundType GetShapeType() const { return m_Type; }
 		virtual ConstString GetName() const { return "RAGEBOUND"; }
 
-		// Parses bound from text file. Unused in release build, we don't need it
-		virtual void Load() {}
+	private:
+		virtual void DeclareStruct() {}
+		virtual void Load_V110() {}
+		virtual void Save_V110() {}
+	public:
 
 		virtual void CalculateExtents() = 0;
 

@@ -1336,9 +1336,8 @@ void rageam::asset::DrawableAsset::CreateAndSetCompositeBound() const
 		composite->SetMatrix(i, worldMtx);
 
 		// TODO: Test flags
-		using namespace rage;
-		composite->SetTypeFlags(i, CF_MAP_WEAPON | CF_MAP_DYNAMIC | CF_MAP_ANIMAL | CF_MAP_COVER | CF_MAP_VEHICLE);
-		composite->SetIncludeFlags(i, CF_VEHICLE_NOT_BVH | CF_VEHICLE_BVH | CF_PED | CF_RAGDOLL | CF_ANIMAL | CF_ANIMAL_RAGDOLL | CF_OBJECT | CF_PLANT | CF_PROJECTILE | CF_EXPLOSION | CF_FORKLIFT_FORKS | CF_TEST_WEAPON | CF_TEST_CAMERA | CF_TEST_AI | CF_TEST_SCRIPT | CF_TEST_VEHICLE_WHEEL | CF_GLASS);
+		composite->SetTypeFlags(i, rage::CF_ALL);
+		composite->SetIncludeFlags(i, rage::CF_ALL);
 	}
 
 	composite->CalculateExtents(); // TODO: Should we include matrices in composite bound extents?

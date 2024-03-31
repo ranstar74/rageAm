@@ -26,6 +26,12 @@ rage::phBound::phBound()
 	m_MaterialID1 = 0;
 }
 
+// ReSharper disable once CppPossiblyUninitializedMember
+rage::phBound::phBound(const datResource& rsc)
+{
+
+}
+
 rage::Vec3V rage::phBound::ComputeAngularInertia(float mass) const
 {
 	return m_VolumeDistribution * mass;
@@ -39,6 +45,26 @@ float rage::phBound::GetVolume() const
 void rage::phBound::SetCGOffset(const Vec3V& offset)
 {
 	m_CGOffset = offset;
+}
+
+rage::phMaterialMgr::Id rage::phBound::GetPrimitiveMaterialId() const
+{
+	return (m_MaterialID1 << 32) | m_MaterialID0;
+}
+
+void rage::phBound::SetPrimitiveMaterialId(phMaterialMgr::Id id)
+{
+	m_MaterialID0 = id;
+	m_MaterialID1 = id >> 32;
+}
+
+rage::phOptimizedBvh* rage::phBound::GetBVH() const
+{
+	if (m_Type == PH_BOUND_BVH)
+		return reinterpret_cast<const phBoundBVH*>(this)->GetBVH();
+	if (m_Type == PH_BOUND_COMPOSITE)
+		return reinterpret_cast<const phBoundComposite*>(this)->GetBVH();
+	return nullptr;
 }
 
 void rage::phBound::SetCentroidOffset(const Vec3V& offset)
@@ -56,24 +82,10 @@ void rage::phBound::ShiftCentroidOffset(const Vec3V& offset)
 	SetCentroidOffset(Vec3V(m_CentroidOffset) + offset);
 }
 
-rage::phMaterial* rage::phBound::GetMaterial(int partIndex) const
-{
-#ifdef AM_STANDALONE
-	return nullptr;
-#else
-	static auto fn = gmAddress::Scan("8B 41 4C 48 8B 15").ToFunc<phMaterial * (int)>();
-	return fn(partIndex);
-#endif
-}
-
-void rage::phBound::SetMaterial(u64 materialId, int partIndex)
-{
-	m_MaterialID0 = materialId;
-	m_MaterialID1 = materialId >> 32;
-}
-
 void rage::phBound::Copy(const phBound* from)
 {
+	AM_ASSERTS(m_Type == from->m_Type);
+
 	m_Type = from->m_Type;
 	m_Flags = from->m_Flags;
 	m_PartIndex = from->m_PartIndex;
@@ -100,15 +112,12 @@ rage::phBound* rage::phBound::Place(const datResource& rsc, phBound* that)
 {
 	switch (that->m_Type)
 	{
-	case PH_BOUND_BOX:			return new (that) phBoundBox(rsc);
-	case PH_BOUND_GEOMETRY:		return new (that) phBoundGeometry(rsc);
-		//case PH_BOUND_BVH:			return new (that) phBoundBVH(rsc);
-	case PH_BOUND_COMPOSITE:	return new (that) phBoundComposite(rsc);
-	default:
-		AM_WARNINGF("phBound::Place() -> Type %u is not supported.", that->m_Type);
-		//return nullptr;
-		return new (that) phBoundBox(rsc); // TO PREVENT ERROR SPAM
-		//AM_UNREACHABLE("phBound::Place() -> Type %u is not supported.", that->m_Type);
+		case PH_BOUND_BOX:		 return new (that) phBoundBox(rsc);
+		case PH_BOUND_GEOMETRY:	 return new (that) phBoundGeometry(rsc);
+		case PH_BOUND_COMPOSITE: return new (that) phBoundComposite(rsc);
+
+		default:
+			AM_UNREACHABLE("phBound::Place() -> Type %u is not supported.", that->m_Type);
 	}
 }
 
@@ -116,8 +125,11 @@ rage::phBound* rage::phBound::CreateOfType(phBoundType type)
 {
 	switch (type)
 	{
-	case PH_BOUND_BOX:	return new phBoundBox();
-	default:
-		AM_UNREACHABLE("phBound::CreateOfType() -> Type %u is not supported.", type);
+		case PH_BOUND_BOX:		 return new phBoundBox();
+		case PH_BOUND_GEOMETRY:  return new phBoundGeometry();
+		case PH_BOUND_COMPOSITE: return new phBoundComposite();
+
+		default:
+			AM_UNREACHABLE("phBound::CreateOfType() -> Type %u is not supported.", type);
 	}
 }
