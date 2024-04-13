@@ -9,7 +9,7 @@
 
 #ifdef AM_INTEGRATED
 
-#include "rage/physics/bounds/composite.h"
+#include "rage/physics/bounds/boundcomposite.h"
 #include "am/integration/gameentity.h"
 #include "game/modelinfo/basemodelinfo.h"
 #include "am/ui/font_icons/icons_am.h"

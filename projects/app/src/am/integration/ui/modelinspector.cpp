@@ -11,8 +11,8 @@
 #include "rage/paging/builder/builder.h"
 #include "am/integration/gamedrawlists.h"
 #include "am/ui/slwidgets.h"
-#include "rage/physics/bounds/bvh.h"
-#include "rage/physics/bounds/composite.h"
+#include "rage/physics/bounds/boundbvh.h"
+#include "rage/physics/bounds/boundcomposite.h"
 
 ConstString rageam::integration::ModelInspector::FormatVec(const Vec3V& vec) const
 {
