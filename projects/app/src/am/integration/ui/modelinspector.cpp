@@ -302,7 +302,7 @@ void rageam::integration::ModelInspector::DrawBoundInfo()
 			ImGui::ToolTip("Writes BVH internal state and node hierarchy to the console.");
 
 			ImGui::SetNextItemWidth(GImGui->FontSize * 5); // Slider is way too wide
-			ImGui::SliderInt("Visualize Depth", &m_SelectedBoundBVHDepthDraw, -1, m_SelectedBoundBVHDepth - 1);
+			ImGui::SliderInt("Visualize Depth", &m_SelectedBoundBVHDepthDraw, -1, m_SelectedBoundBVHDepth);
 			ImGui::ToolTip("Draws bounding box of BVH nodes at selected depth");
 
 			if (m_SelectedBoundBVHDepthDraw != -1)
