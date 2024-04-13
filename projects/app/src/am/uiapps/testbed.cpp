@@ -2,12 +2,14 @@
 
 #include "am/asset/factory.h"
 #include "am/asset/ui/assetwindowfactory.h"
+#include "am/graphics/geomprimitives.h"
 #include "am/graphics/image/imagecache.h"
 #include "am/integration/memory/hook.h"
 #include "am/ui/imglue.h"
 #include "am/ui/slwidgets.h"
 #include "helpers/format.h"
-#include "rage/physics/optimizedbvh.h"
+#include "rage/physics/bounds/optimizedbvh.h"
+#include "am/graphics/scene.h"
 
 #ifdef AM_INTEGRATED
 #include "am/integration/ui/modelscene.h"
@@ -27,8 +29,15 @@
 void rageam::ui::TestbedApp::OnStart()
 {
 #ifdef AM_INTEGRATED
-	Scene::ConstructFor(L"D:/quick.ws/prop_towercrane_02a.ydr");
-	// Scene::ConstructFor(L"D:/quick.ws/cubic.idr");
+	// Scene::ConstructFor(L"D:/quick.ws/prop_towercrane_02a.ydr");
+
+	// Collision tests
+	Scene::DefaultSpawnPosition = Vec3V(-4.1, 76.1, 7.4);
+	//Scene::DefaultSpawnPosition = Vec3V(-1234.7, -1135.6, 7);
+	GetUI()->FindAppByType<integration::StarBar>()->FocusCameraOnScene = false;
+
+	Scene::ConstructFor(L"D:/quick.ws/cols.idr");
+	// Scene::ConstructFor(L"D:/quick.ws/prop_towercrane_02a.ydr");
 #endif
 }
 
@@ -39,6 +48,40 @@ void rageam::ui::TestbedApp::OnRender()
 	ImGlue* ui = GetUI();
 	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 4.0f);
 	ImGui::SliderInt("Font Size", &ui->FontSize, 8, 24);
+
+	if (ImGui::Button("Primitive Detection"))
+	{
+		graphics::ScenePtr scene = graphics::SceneFactory::LoadFrom(L"C:/Users/falco/Desktop/spheres.glb");
+		Timer timer = Timer::StartNew();
+		u16 nodeCount = scene->GetNodeCount();
+		for (u16 i = 0; i < nodeCount; i++)
+		{
+			graphics::SceneNode* node = scene->GetNode(i);
+			graphics::SceneMesh* mesh = node->GetMesh();
+			if (!mesh)
+				continue;
+
+			u16 geomCount = mesh->GetGeometriesCount();
+			for (u16 k = 0; k < geomCount; k++)
+			{
+				graphics::SceneGeometry* geom = mesh->GetGeometry(k);
+				graphics::SceneData positions;
+				graphics::SceneData indices;
+				geom->GetAttribute(positions, graphics::POSITION, 0);
+				geom->GetIndices(indices);
+
+				graphics::Primitive primitive;
+				// MatchPrimitive(positions.GetBufferAs<Vec3S>(), geom->GetVertexCount(), indices.GetBufferAs<u16>(), geom->GetIndexCount(), primitive);
+
+				AM_TRACEF("%s:%i -> %s", node->GetName(), k, Enum::GetName(primitive.Type));
+			}
+		}
+		timer.Stop();
+
+		AM_TRACEF("Match Primitive elapsed %llu micros", timer.GetElapsedMicroseconds());
+
+		int b = 0;
+	}
 
 	if (ImGui::Button("BVH"))
 	{
