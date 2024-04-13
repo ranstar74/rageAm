@@ -104,6 +104,22 @@ rage::Vec3V rage::Vec3V::Project(const Vec3V& normal) const
 	return DirectX::XMVectorMultiply(normal.M, dot.M);
 }
 
+void rage::Vec3V::TangentAndBiNormal(Vec3V& outTangent, Vec3V& outBiNormal) const
+{
+	// Pick vector that's not aligned with 'this'
+	if (Dot(VEC_RIGHT).Abs().AlmostEqual(S_ONE))
+		outTangent = Cross(VEC_FRONT);
+	else 
+		outTangent = Cross(VEC_RIGHT);
+	outTangent.Normalize();
+	outBiNormal = Cross(outTangent);
+}
+
+bool rage::Vec3V::IsParallel(const Vec3V& to) const
+{
+	return Dot(to).Abs().AlmostEqual(S_ONE);
+}
+
 rage::Vec3V rage::Vec3V::Min(const Vec3V& other) const
 {
 	return _mm_min_ps(M, other.M);
@@ -148,6 +164,20 @@ bool rage::Vec3V::AlmostEqual(const ScalarV& other) const
 	__m128 diff = DirectX::XMVectorSubtract(M, other.M);
 	__m128 abs = DirectX::XMVectorAbs(diff);
 	return DirectX::XMVector3LessOrEqual(abs, S_EPSION.M);
+}
+
+bool rage::Vec3V::AlmostEqual(const Vec3V& other, const ScalarV& epsilon) const
+{
+	__m128 diff = DirectX::XMVectorSubtract(M, other.M);
+	__m128 abs = DirectX::XMVectorAbs(diff);
+	return DirectX::XMVector3LessOrEqual(abs, epsilon.M);
+}
+
+bool rage::Vec3V::AlmostEqual(const ScalarV& other, const ScalarV& epsilon) const
+{
+	__m128 diff = DirectX::XMVectorSubtract(M, other.M);
+	__m128 abs = DirectX::XMVectorAbs(diff);
+	return DirectX::XMVector3LessOrEqual(abs, epsilon.M);
 }
 
 float rage::Vec3V::operator[](int index) const

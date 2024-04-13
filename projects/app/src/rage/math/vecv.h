@@ -137,6 +137,8 @@ namespace rage
 		Vec3V Cross(const Vec3V& v) const { return Vec3V(DirectX::XMVector3Cross(M, v.M)); }
 		Vec3V Reflect(const Vec3V& normal) const { return DirectX::XMVector3Reflect(M, normal.M); }
 		Vec3V Project(const Vec3V& normal) const;
+		void TangentAndBiNormal(Vec3V& outTangent, Vec3V& outBiNormal) const;
+		bool IsParallel(const Vec3V& to) const;
 
 		Vec3V Reciprocal() const { return DirectX::XMVectorReciprocal(M); }
 		Vec3V ReciprocalEstimate() const { return DirectX::XMVectorReciprocalEst(M); }
@@ -196,6 +198,8 @@ namespace rage
 		bool operator<(const ScalarV& other) const { return DirectX::XMVector3Less(M, other.M); }
 		bool AlmostEqual(const Vec3V& other) const;
 		bool AlmostEqual(const ScalarV& other) const;
+		bool AlmostEqual(const Vec3V& other, const ScalarV& epsilon) const;
+		bool AlmostEqual(const ScalarV& other, const ScalarV& epsilon) const;
 
 		// -- Getters --
 
@@ -292,4 +296,8 @@ namespace rage
 	static const Vec3V VEC_SOUTH = { 0.0f, -1.0f, 0.0f };
 	static const Vec3V VEC_EAST = { 1.0f, 0.0f, 0.0f };
 	static const Vec3V VEC_WEST = { -1.0f, 0.0f, 0.0f };
+
+	static const Vec3V VEC_EXTENT = { 1.0f, 1.0f, 1.0f };
+	// Normalized (1, 1, 1)
+	static const Vec3V VEC_EXTENT_SPHERE = { 0.5773502691896259f, 0.5773502691896259f, 0.5773502691896259f };
 }

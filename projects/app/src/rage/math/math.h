@@ -13,6 +13,8 @@ namespace rage
 {
 	static constexpr float PI = 3.14159265358979323846f;
 	static constexpr float PI2 = PI * 2.0f;
+	static constexpr float FOUR_THIRDS = 4.0f / 3.0f;
+	static constexpr float ONE_THIRD = 1.0f / 3.0f;
 
 	static bool AlmostEquals(float a, float b, float maxDelta = 0.01f) { return abs(a - b) <= maxDelta; }
 
