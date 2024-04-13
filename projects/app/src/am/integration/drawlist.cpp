@@ -192,10 +192,14 @@ void rageam::integration::DrawList::EndFrame()
 	m_HasLinesToDraw = m_Lines.VTXBuffer.Size > 0;
 	m_HasTrisToDraw = m_Tris.VTXBuffer.Size > 0;
 
-	if (m_HasLinesToDraw)
+	// TODO:
+	// For some reason not clearing buffer causes
+	// weird graphical artefacts, need to investigate this...
+
+	if (1 || m_HasLinesToDraw)
 		m_Lines.VTXBuffer.Upload();
 
-	if (m_HasTrisToDraw)
+	if (1 || m_HasTrisToDraw)
 	{
 		m_Tris.VTXBuffer.Upload();
 		m_Tris.IDXBuffer.Upload();
