@@ -3,8 +3,13 @@
 #ifdef AM_INTEGRATED
 
 #include "am/integration/gameentity.h"
-#include "rage/physics/bounds/geometry.h"
 #include "am/graphics/color.h"
+
+namespace rage
+{
+	class phBoundGeometry;
+	class phBoundBVH;
+}
 
 namespace rageam::integration
 {
@@ -14,6 +19,7 @@ namespace rageam::integration
 
 		void RenderBoneRecurse(rage::crSkeletonData* skel, const rage::crBoneData* rootBone, u32 depth = 0);
 		void RenderBound_Geometry(const rage::phBoundGeometry* bound) const;
+		void RenderBound_BVH(const rage::phBoundBVH* bound) const;
 		void RenderCollisionBound(rage::phBound* bound);
 		void OnUpdate() override;
 
@@ -32,6 +38,7 @@ namespace rageam::integration
 		// Bounding box / sphere
 		static inline u32 BoundingOutlineColor = graphics::ColorU32(30, 160, 55, 240);
 		// Collision mesh
+		// TODO: Separate color for mesh, primitives, BVH
 		static inline u32 CollisionBoundColor = graphics::ColorU32(201, 201, 201, 81);
 	};
 }
