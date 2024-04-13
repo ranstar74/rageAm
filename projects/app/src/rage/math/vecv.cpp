@@ -92,7 +92,10 @@ rage::Vec3V::Vec3V(const Vec4V& v)
 
 rage::Vec3V::Vec3V(const Vector3& v)
 {
-	M = _mm_loadu_ps(&v.X);
+	// Fix for loadu accessing read-protected memory,
+	// attempting to read all 16 bytes, but Vector3 is only 3 floats (12 bytes)
+	Vector3 v_ = v;
+	M = _mm_loadu_ps(&v_.X);
 }
 
 rage::Vec3V rage::Vec3V::Project(const Vec3V& normal) const
