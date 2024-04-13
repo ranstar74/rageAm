@@ -16,6 +16,7 @@
 
 #ifdef AM_INTEGRATED
 #include "am/integration/integration.h"
+#include "am/integration/memory/address.h"
 #endif
 
 namespace rageam
