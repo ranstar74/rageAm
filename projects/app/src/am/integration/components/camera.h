@@ -51,6 +51,7 @@ namespace rageam::integration
 		scrBlipIndex   m_BlipHandle;
 		pVoid          m_Camera = nullptr;
 		bool           m_DisableControls = false;
+		bool		   m_ViewChanged = true;
 
 	public:
 		CameraComponentBase() = default;

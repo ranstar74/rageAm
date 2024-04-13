@@ -53,7 +53,7 @@ void rageam::integration::CameraComponentBase::OnStart()
 void rageam::integration::CameraComponentBase::OnUpdate()
 {
 	// Update only if position has changed
-	if (m_OldPos != m_Pos)
+	if (m_ViewChanged)
 	{
 		m_Velocity = m_Pos - m_OldPos;
 		m_OldPos = m_Pos;
@@ -67,6 +67,13 @@ void rageam::integration::CameraComponentBase::OnUpdate()
 			u64 frame = (u64)m_Camera + 0x20;
 			*(rage::Mat44V*)(frame + 0x10) = GetMatrix();
 		}
+		m_ViewChanged = false;
+	}
+	// Reset velocity velocity if there's no input (because it affects streaming)
+	else if (!m_Velocity.AlmostEqual(rage::VEC_ZERO))
+	{
+		m_Velocity = rage::VEC_ZERO;
+		scrSetFocusPosAndVel(m_Pos, rage::VEC_ZERO);
 	}
 
 	// Update blip
@@ -149,6 +156,7 @@ void rageam::integration::CameraComponentBase::LookAt(const rage::Vec3V& point)
 	m_Front = (point - m_Pos).Normalized();;
 	m_Right = m_Front.Cross(rage::VEC_UP).Normalized();
 	m_Up = m_Right.Cross(m_Front).Normalized();
+	m_ViewChanged = true;
 }
 
 bool rageam::integration::CameraComponentBase::ControlsDisabled()
@@ -208,6 +216,7 @@ void rageam::integration::FreeCamera::OnUpdate()
 		move *= moveSpeed;
 
 		m_Pos += move;
+		m_ViewChanged = true;
 	}
 
 	// Rotation
@@ -229,6 +238,7 @@ void rageam::integration::FreeCamera::OnUpdate()
 		m_Right = DirectX::XMVector3Rotate(m_Right, rotVertical);
 		m_Right = DirectX::XMVector3Rotate(m_Right, rotHorizontal);
 		m_Up = m_Right.Cross(m_Front).Normalized();
+		m_ViewChanged = true;
 	}
 	prevMousePos = mousePos;
 }
@@ -236,6 +246,7 @@ void rageam::integration::FreeCamera::OnUpdate()
 void rageam::integration::FreeCamera::SetPosition(const rage::Vec3V& position)
 {
 	m_Pos = position;
+	m_ViewChanged = true;
 }
 
 void rageam::integration::OrbitCamera::ComputeRadius()
@@ -283,6 +294,7 @@ void rageam::integration::OrbitCamera::OnUpdate()
 
 		m_Center += shift;
 		m_Pos += shift;
+		m_ViewChanged = true;
 
 		ComputeRadius();
 	}
@@ -292,6 +304,7 @@ void rageam::integration::OrbitCamera::OnUpdate()
 		scrDisableAllControlsThisFrame();
 
 		Rotate(deltaX, deltaY);
+		m_ViewChanged = true;
 	}
 
 	// Center camera around clicked position in world
@@ -326,12 +339,14 @@ void rageam::integration::OrbitCamera::LookAt(const rage::Vec3V& point)
 	CameraComponentBase::LookAt(point);
 	m_Center = point;
 	ComputeRadius();
+	m_ViewChanged = true;
 }
 
 void rageam::integration::OrbitCamera::SetPosition(const rage::Vec3V& position)
 {
 	m_Pos = position;
 	LookAt(m_Center);
+	m_ViewChanged = true;
 }
 
 void rageam::integration::OrbitCamera::Rotate(float h, float v)
@@ -350,6 +365,7 @@ void rageam::integration::OrbitCamera::Rotate(float h, float v)
 		m_Pos = m_Center + newOffset;
 		LookAt(m_Center);
 	}
+	m_ViewChanged = true;
 }
 
 void rageam::integration::OrbitCamera::Zoom(const rage::ScalarV& d)
@@ -357,6 +373,7 @@ void rageam::integration::OrbitCamera::Zoom(const rage::ScalarV& d)
 	rage::ScalarV zoomDistance = d.Clamp(-m_MaxZoomDistance, m_MaxZoomDistance);
 	m_Pos += m_Front * zoomDistance;
 	ComputeRadius();
+	m_ViewChanged = true;
 }
 
 #endif
