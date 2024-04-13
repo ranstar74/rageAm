@@ -1,10 +1,8 @@
 #include "boundbase.h"
 
-#include "box.h"
-#include "bvh.h"
-#include "composite.h"
-#include "geometry.h"
-#include "am/integration/memory/address.h"
+#include "boundbvh.h"
+#include "boundcomposite.h"
+#include "boundprimitives.h"
 
 rage::phBound::phBound()
 {
@@ -113,6 +111,9 @@ rage::phBound* rage::phBound::Place(const datResource& rsc, phBound* that)
 	switch (that->m_Type)
 	{
 		case PH_BOUND_BOX:		 return new (that) phBoundBox(rsc);
+		case PH_BOUND_SPHERE:	 return new (that) phBoundSphere(rsc);
+		case PH_BOUND_CYLINDER:	 return new (that) phBoundCylinder(rsc);
+		case PH_BOUND_CAPSULE:	 return new (that) phBoundCapsule(rsc);
 		case PH_BOUND_GEOMETRY:	 return new (that) phBoundGeometry(rsc);
 		case PH_BOUND_COMPOSITE: return new (that) phBoundComposite(rsc);
 
@@ -125,9 +126,12 @@ rage::phBound* rage::phBound::CreateOfType(phBoundType type)
 {
 	switch (type)
 	{
-		case PH_BOUND_BOX:		 return new phBoundBox();
-		case PH_BOUND_GEOMETRY:  return new phBoundGeometry();
-		case PH_BOUND_COMPOSITE: return new phBoundComposite();
+	case PH_BOUND_BOX:		 return new phBoundBox();
+	case PH_BOUND_SPHERE:	 return new phBoundSphere();
+	case PH_BOUND_CYLINDER:	 return new phBoundCylinder();
+	case PH_BOUND_CAPSULE:	 return new phBoundCapsule();
+	case PH_BOUND_GEOMETRY:	 return new phBoundGeometry();
+	case PH_BOUND_COMPOSITE: return new phBoundComposite();
 
 		default:
 			AM_UNREACHABLE("phBound::CreateOfType() -> Type %u is not supported.", type);

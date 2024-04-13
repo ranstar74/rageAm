@@ -1,6 +1,4 @@
-#include "composite.h"
-
-#include "am/integration/memory/address.h"
+#include "boundcomposite.h"
 
 void rage::phBoundComposite::AssertWithinArray(u16 index) const
 {

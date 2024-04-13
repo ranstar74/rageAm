@@ -1,15 +1,51 @@
-#include "bvh.h"
+#include "boundbvh.h"
 
 rage::phBoundBVH::phBoundBVH()
 {
 	m_Type = PH_BOUND_BVH;
 	m_NumActivePolygons = 0;
+	m_Margin = PH_BVH_MARGIN;
 
 	ZeroMemory(m_Pad, sizeof m_Pad);
 }
 
+rage::phBoundBVH::phBoundBVH(const atArray<Vector3>& vertices, const atArray<phPrimitive>& primitives)
+	: phBoundBVH()
+{
+	int vertexCount = vertices.GetSize();
+	int primCount = primitives.GetSize();
+
+	// Compute AABB
+	spdAABB bb(S_MAX, S_MIN);
+	for (phPrimitive prim : primitives)
+		bb = bb.Merge(prim.ComputeBoundingBox(vertices.begin()));
+	SetBoundingBox(bb.Min, bb.Max);
+
+	m_CompressedVertices = new CompressedVertex[vertexCount];
+	m_Polygons = new phPolygon[primCount];
+	m_NumPolygons = primCount;
+	m_NumVertices = vertexCount;
+
+	// TODO: Materials...
+	m_NumMaterials = 1;
+	m_Materials = new u64[1]{ 56 };
+	m_PolygonToMaterial = new u8[m_NumPolygons]{ 0 };
+
+	// Compress & set vertices
+	for (u32 i = 0; i < vertexCount; i++)
+		m_CompressedVertices[i] = CompressVertex(vertices[i]);
+
+	// Copy primitives
+	memcpy(m_Polygons.Get(), primitives.GetItems(), sizeof phPrimitive * primCount);
+
+	ComputeNeighbors();
+	ComputePolyArea();
+	CalculateVolumeDistribution();
+	BuildBVH();
+}
+
 // ReSharper disable once CppPossiblyUninitializedMember
-rage::phBoundBVH::phBoundBVH(const datResource& rsc): phBoundGeometry(rsc)
+rage::phBoundBVH::phBoundBVH(const datResource& rsc) : phBoundGeometry(rsc)
 {
 			
 }
@@ -44,7 +80,7 @@ void rage::phBoundBVH::BuildBVH()
 			for (int k = 0; k < 3; k++)
 			{
 				Vec3V vertex = GetVertex(polygon.GetVertexIndex(k));
-				bb.AddPoint(vertex);
+				bb = bb.AddPoint(vertex);
 				centroid += vertex;
 			}
 			bb.Min -= margin;
@@ -68,7 +104,7 @@ void rage::phBoundBVH::BuildBVH()
 			ScalarV radius = capsule.GetRadius();
 			bb.Min = bb.Min.Min(endIndex0 - radius);
 			bb.Min = bb.Min.Min(endIndex1 - radius);
-			bb.Max = bb.Max.Max(endIndex1 + radius);
+			bb.Max = bb.Max.Max(endIndex0 + radius);
 			bb.Max = bb.Max.Max(endIndex1 + radius);
 			centroid = (endIndex0 + endIndex1) * S_HALF; // Average
 		}
@@ -134,7 +170,7 @@ void rage::phBoundBVH::BuildBVH()
 		phPolygon& polygon = primitive.GetPolygon();
 		for (int k = 0; k < 3; k++)
 		{
-			u16 neighborIndex = polygon.GetNeighborIndex(i);
+			u16 neighborIndex = polygon.GetNeighborIndex(k);
 			if (neighborIndex == PH_INVALID_INDEX)
 				continue;
 
@@ -142,13 +178,14 @@ void rage::phBoundBVH::BuildBVH()
 		}
 	}
 
-	// Swap primitives and materials 
-	for (int lhs = 0; lhs < primitiveCount; lhs++)
+	// Remap all primitives
+	phPolygon* polygons = m_Polygons.Get();
+	for (int newPolyIndex = 0; newPolyIndex < primitiveCount; ++newPolyIndex)
 	{
-		u16 rhs = oldToNew[lhs];
-		phPrimitive& primitiveLhs = GetPrimitive(lhs);
-		phPrimitive& primitiveRhs = GetPrimitive(rhs);
-		std::swap(primitiveLhs, primitiveRhs);
-		std::swap(m_PolygonToMaterial[lhs], m_PolygonToMaterial[rhs]);
+		const int oldPolyIndex = primitiveDatas[newPolyIndex].PrimitiveIndex;
+		std::swap(polygons[newPolyIndex], polygons[oldPolyIndex]);
+		std::swap(m_PolygonToMaterial[newPolyIndex], m_PolygonToMaterial[oldPolyIndex]);
+		std::swap(primitiveDatas[newPolyIndex], primitiveDatas[oldToNew[newPolyIndex]]);
+		std::swap(oldToNew[newPolyIndex], oldToNew[oldPolyIndex]);
 	}
 }

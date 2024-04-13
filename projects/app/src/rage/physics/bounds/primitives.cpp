@@ -1,6 +1,4 @@
 #include "primitives.h"
-
-#include "geometry.h"
 #include "rage/paging/resource.h"
 
 void rage::phPrimitiveBase::SetType(phPrimitiveType type)
@@ -61,6 +59,7 @@ void rage::phPolygon::ResetNeighboors()
 
 void rage::phPolygon::SetArea(float v)
 {
+	AM_ASSERTS(GetType() == PRIM_TYPE_POLYGON);
 	// See m_AreaAndType in phPrimitive for more details
 	// We have to manually re-set primitive type because overwriting area will trash it
 	m_Area = v;
@@ -134,4 +133,75 @@ void rage::phPrimitive::SetType(phPrimitiveType type)
 {
 	m_AreaAndType &= ~TYPE_MASK;
 	m_AreaAndType |= type & TYPE_MASK;
+}
+
+rage::spdAABB rage::phPrimitive::ComputeBoundingBox(Vector3* vertices)
+{
+	spdAABB bb(S_MAX, S_MIN);
+	switch (GetType())
+	{
+	case PRIM_TYPE_POLYGON:
+	{
+		phPolygon& poly = GetPolygon();
+		bb = bb.AddPoint(vertices[poly.GetVertexIndex(0)]);
+		bb = bb.AddPoint(vertices[poly.GetVertexIndex(1)]);
+		bb = bb.AddPoint(vertices[poly.GetVertexIndex(2)]);
+		break;
+	}
+	case PRIM_TYPE_SPHERE:
+	{
+		phPrimSphere& sphere = GetSphere();
+		Vec3V center = vertices[sphere.GetCenterIndex()];
+		Vec3V extent = VEC_EXTENT * sphere.GetRadius();
+		bb = bb.AddPoint(center - extent);
+		bb = bb.AddPoint(center + extent);
+		bb = bb.AddPoint(vertices[sphere.GetCenterIndex()]);
+		break;
+	}
+	case PRIM_TYPE_CAPSULE:
+	{
+		phPrimCapsule& capsule = GetCapsule();
+		float radius = capsule.GetRadius();
+		Vec3V end0 = vertices[capsule.GetEndIndex0()];
+		Vec3V end1 = vertices[capsule.GetEndIndex1()];
+		Vec3V extent = VEC_EXTENT * radius;
+		bb = bb.AddPoint(end0 - extent);
+		bb = bb.AddPoint(end0 + extent);
+		bb = bb.AddPoint(end1 - extent);
+		bb = bb.AddPoint(end1 + extent);
+		break;
+	}
+	case PRIM_TYPE_BOX:
+	{
+		phPrimBox& box = GetBox();
+		Vec3V vertex0 = vertices[box.GetVertexIndex(0)];
+		Vec3V vertex1 = vertices[box.GetVertexIndex(1)];
+		Vec3V vertex2 = vertices[box.GetVertexIndex(2)];
+		Vec3V vertex3 = vertices[box.GetVertexIndex(3)];
+		Vec3V boxX = ((vertex1 + vertex3 - vertex0 - vertex2) * S_QUARTER).Abs();
+		Vec3V boxY = ((vertex0 + vertex3 - vertex1 - vertex2) * S_QUARTER).Abs();
+		Vec3V boxZ = ((vertex2 + vertex3 - vertex0 - vertex1) * S_QUARTER).Abs();
+		Vec3V halfExtent = (boxX + boxY + boxZ);
+		Vec3V centroid = (vertex0 + vertex1 + vertex2 + vertex3) * S_QUARTER;
+		bb.Min = centroid - halfExtent;
+		bb.Max = centroid + halfExtent;
+		break;
+	}
+	case PRIM_TYPE_CYLINDER:
+	{
+		phPrimCylinder& cylinder = GetCylinder();
+		Vec3V endIndex0 = vertices[cylinder.GetEndIndex0()];
+		Vec3V endIndex1 = vertices[cylinder.GetEndIndex1()];
+		ScalarV radius = cylinder.GetRadius();
+		Vec3V dir = (endIndex1 - endIndex0).Normalized();
+		Vec3V halfDisc = (S_ONE - dir * dir).Max(S_ZERO).Sqrt() * radius;
+		bb.Min = endIndex0.Min(endIndex1) - halfDisc;
+		bb.Max = endIndex0.Max(endIndex1) + halfDisc;
+		break;
+	}
+
+	default:
+		break;
+	}
+	return bb;
 }

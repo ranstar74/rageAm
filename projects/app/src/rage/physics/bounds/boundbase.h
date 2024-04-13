@@ -1,7 +1,7 @@
 //
 // File: boundbase.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
@@ -18,64 +18,31 @@
 namespace rage
 {
 	class phOptimizedBvh;
-}
 
-namespace rage
-{
 	static constexpr int BOUND_PARTS_ALL = -1;
-
-	enum phBoundMaterialFlags
-	{
-		BMF_NONE = 0,
-		BMF_STAIRS = 1 << 0,
-		BMF_NOT_CLIMBABLE = 1 << 1,
-		BMF_SEE_THROUGH = 1 << 2,
-		BMF_SHOOT_THROUGH = 1 << 3,
-		BMF_NOT_COVER = 1 << 4,
-		BMF_WALKABLE_PATH = 1 << 5,
-		BMF_NO_CAM_COLLISION = 1 << 6,
-		BMF_SHOOT_THROUGH_FX = 1 << 7,
-		BMF_NO_DECAL = 1 << 8,
-		BMF_NO_NAVMESH = 1 << 9,
-		BMF_NO_RAGDOLL = 1 << 10,
-		BMF_VEHICLE_WHEEL = 1 << 11,
-		BMF_NO_PTFX = 1 << 12,
-		BMF_TOO_STEEP_FOR_PLAYER = 1 << 13,
-		BMF_NO_NETWORK_SPAWN = 1 << 14,
-		BMF_NO_CAM_COLLISION_ALLOW_CLIPPING = 1 << 15,
-	};
-
-	// Only for bound primitives, geometry bound stores flags per poly
-	inline u64 phApplyFlagsToMaterialID(u64 materialID, phBoundMaterialFlags flags)
-	{
-		return materialID | flags << 24;
-	}
-
-	inline phBoundMaterialFlags phGetFlagsFromMaterialID(u64 materialID)
-	{
-		return phBoundMaterialFlags(materialID >> 24 & 0xF);
-	}
 
 	enum phBoundType : u8
 	{
-		PH_BOUND_SPHERE = 0,
-		PH_BOUND_CAPSULE = 1,
-		PH_BOUND_BOX = 3,
-		PH_BOUND_GEOMETRY = 4,
-		PH_BOUND_BVH = 8,
+		PH_BOUND_SPHERE    = 0,
+		PH_BOUND_CAPSULE   = 1,
+		PH_BOUND_BOX       = 3,
+		PH_BOUND_GEOMETRY  = 4,
+		PH_BOUND_BVH       = 8,
 		PH_BOUND_COMPOSITE = 10,
-		PH_BOUND_DISC = 12,
-		PH_BOUND_CYLINDER = 13,
-		PH_BOUND_PLANE = 15,
+		PH_BOUND_DISC      = 12,
+		PH_BOUND_CYLINDER  = 13,
+		PH_BOUND_PLANE     = 15,
 
-		PH_BOUND_UNKNOWN = 255,
+		PH_BOUND_UNKNOWN   = 255,
 	};
 	static constexpr ConstString phBoundTypeName[]
 	{
+		// There are excluded dummy entries because V doesn't use all supported by rage bound types
 		"Sphere", "Capsule", "-", "Box", "Geometry", "-", "-", "-", "BVH", "-", "Composite", "-", "Disk", "Cylinder", "-", "Plane"
 	};
 
 	static constexpr float PH_DEFAULT_MARGIN = 0.04f;
+	static constexpr float PH_BVH_MARGIN = 0.005f;
 
 	/**
 	 * \brief Base class of physics collider bound.
@@ -106,7 +73,7 @@ namespace rage
 		void  SetCGOffset(const Vec3V& offset);
 
 		spdAABB   GetBoundingBox() const { return spdAABB(m_BoundingBoxMin, m_BoundingBoxMax); }
-		spdSphere GetBoundingSphere() const { return spdSphere(m_CGOffset, m_RadiusAroundCentroid); }
+		spdSphere GetBoundingSphere() const { return spdSphere(m_CentroidOffset, m_RadiusAroundCentroid); }
 		Vec3V	  GetCentroidOffset() const { return m_CentroidOffset; }
 		Vec3V	  GetCGOffset() const { return m_CGOffset; }
 
@@ -127,7 +94,7 @@ namespace rage
 		virtual int				  GetNumMaterials() const { return 1; /* Primitive bounds only have single material */ }
 		virtual phMaterial*		  GetMaterial(int partIndex) const { return phMaterialMgr::GetInstance()->GetDefaultMaterial(); }
 		virtual void			  SetMaterial(phMaterialMgr::Id materialId, int partIndex = BOUND_PARTS_ALL) {}
-		virtual phMaterialMgr::Id GetMaterialIdFromPartIndexAndComponent(int partIndex, int componentIndex = -1) const = 0;
+		virtual phMaterialMgr::Id GetMaterialIdFromPartIndexAndComponent(int partIndex, int componentIndex = BOUND_PARTS_ALL) const = 0;
 
 		virtual bool IsPolygonal() const { return false; }
 		virtual bool CanBecomeActive() const { return true; }

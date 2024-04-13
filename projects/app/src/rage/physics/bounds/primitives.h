@@ -66,6 +66,7 @@ namespace rage
 		bool  GetNormalCode(u32 i) const { return m_VertexIndices[i] & 0x8000; } // Highest bit; TODO: Is normal out?
 		u16   GetVertex(u32 i) const { return m_VertexIndices[i]; } // Including normal flag
 		u16   GetVertexIndex(u32 i) const { return m_VertexIndices[i] & 0x7FFF; } // All bits except highest
+		void  SetVertexIndex(u32 i, u32 index) { m_VertexIndices[i] = index; }
 		u16   GetNeighborIndex(u32 i) const { return m_NeighboringPolygons[i]; }
 		void  SetNeighborIndex(u32 i, u32 neighbor) { m_NeighboringPolygons[i] = static_cast<u16>(neighbor); }
 		bool  UsesVertexIndex(u32 index) const; // Whether any vertex index in this polygon is equals to given one
@@ -74,7 +75,7 @@ namespace rage
 		void  SetArea(float v);
 	};
 
-	class phPrimSphere : phPrimitiveBase
+	class phPrimSphere : public phPrimitiveBase
 	{
 		u8	  m_Pad0[2];
 		u16   m_CenterIndex;
@@ -89,7 +90,7 @@ namespace rage
 		float GetRadius() const { return m_Radius; }
 	};
 
-	class phPrimCapsule : phPrimitiveBase
+	class phPrimCapsule : public phPrimitiveBase
 	{
 		u8	  m_Pad0[2];
 		u16   m_EndIndex0;
@@ -108,7 +109,7 @@ namespace rage
 	};
 
 	// Oriented bounding box (OBB)
-	class phPrimBox : phPrimitiveBase
+	class phPrimBox : public phPrimitiveBase
 	{
 		u8  m_Pad0[3];
 		u16 m_VertexIndices[4];
@@ -120,7 +121,7 @@ namespace rage
 		void SetVertexIndex(int i, u16 vi) { AM_ASSERTS(i >= 0 && i < 4); m_VertexIndices[i] = vi; }
 	};
 
-	class phPrimCylinder : phPrimitiveBase
+	class phPrimCylinder : public phPrimitiveBase
 	{
 		u8	  m_Pad0[2];
 		u16   m_EndIndex0;
@@ -164,6 +165,8 @@ namespace rage
 		phPrimCapsule&	GetCapsule()  { AM_ASSERTS(GetType() == PRIM_TYPE_CAPSULE);  return *reinterpret_cast<phPrimCapsule*>(this); }
 		phPrimBox&		GetBox()	  { AM_ASSERTS(GetType() == PRIM_TYPE_BOX);      return *reinterpret_cast<phPrimBox*>(this); }
 		phPrimCylinder& GetCylinder() { AM_ASSERTS(GetType() == PRIM_TYPE_CYLINDER); return *reinterpret_cast<phPrimCylinder*>(this); }
+
+		spdAABB ComputeBoundingBox(Vector3* vertices);
 	};
 
 	// Size of all types must match

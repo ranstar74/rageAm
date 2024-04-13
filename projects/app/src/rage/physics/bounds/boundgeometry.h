@@ -1,7 +1,7 @@
 //
-// File: geometry.h
+// File: boundgeometry.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
@@ -107,7 +107,8 @@ namespace rage
 		}
 		void CalculateVolumeDistribution()
 		{
-			// TODO:
+			// TODO: Test...
+			m_VolumeDistribution = { 0.333f, 0.333f, 0.333f, 5.0f };
 		}
 		void ComputePolyArea() const;
 
@@ -179,6 +180,7 @@ namespace rage
 	public:
 		phBoundGeometry();
 		phBoundGeometry(const datResource& rsc);
+		phBoundGeometry(const spdAABB& bb, const Vector3* vertices, const u16* indices, u32 vertexCount, u32 indexCount);
 
 		void PostLoadCompute() override;
 
@@ -194,12 +196,11 @@ namespace rage
 
 		bool HasOpenEdges() override { return false; } // TODO: ...
 
-		virtual ConstString GetMaterialName(int materialIndex);
+		virtual void GetMaterialName(int partIndex, char* buffer, int bufferSize) const;
 		virtual void ScaleSize(float x, float y, float z) { } // TODO: ...
 		virtual bool ComponentsStreamed() { return false; } // Deprecated & Unused
 
 		void SetMarginAndShrink(float margin = PH_DEFAULT_MARGIN, float t = 0.0f);
-		void SetMesh(const spdAABB& bb, const Vector3* vertices, const u16* indices, u32 vertexCount, u32 indexCount);
 
 		// Decompresses all vertices and stores them in non-SIMD vector
 		amUPtr<Vector3[]> GetVertices(bool shrunkedVertices = false) const;

@@ -1,4 +1,4 @@
-#include "geometry.h"
+#include "boundgeometry.h"
 
 #include "am/graphics/buffereditor.h"
 #include "am/graphics/shapetest.h"
@@ -14,6 +14,9 @@ void rage::phBoundPolyhedron::ComputeBoundingBoxCenter()
 
 void rage::phBoundPolyhedron::ComputeNeighbors() const
 {
+	if (m_NumPolygons == 0)
+		return;
+
 	// Refer to diagram in header to understand things better
 
 	amUPtr<atArray<u32>[]> vertexToPolys = std::make_unique<atArray<u32>[]>(m_NumVertices);
@@ -22,7 +25,6 @@ void rage::phBoundPolyhedron::ComputeNeighbors() const
 	for (u32 i = 0; i < m_NumPolygons; i++)
 	{
 		phPolygon& poly = GetPolygon(i);
-
 		if (m_Type == PH_BOUND_BVH && !poly.IsPolygon())
 			continue;
 
@@ -41,7 +43,6 @@ void rage::phBoundPolyhedron::ComputeNeighbors() const
 	for (u32 lhsPolyIdx = 0; lhsPolyIdx < m_NumPolygons; lhsPolyIdx++)
 	{
 		phPolygon& lhsPoly = GetPolygon(lhsPolyIdx);
-
 		if (m_Type == PH_BOUND_BVH && !lhsPoly.IsPolygon())
 			continue;
 
@@ -104,6 +105,8 @@ void rage::phBoundPolyhedron::ComputePolyArea() const
 	for (u32 i = 0; i < m_NumPolygons; i++)
 	{
 		phPolygon& poly = GetPolygon(i);
+		if (!poly.IsPolygon())
+			continue;
 
 		Vec3V v1, v2, v3;
 		DecompressPoly(poly, v1, v2, v3);
@@ -312,8 +315,8 @@ rage::phBoundPolyhedron::CompressedVertex rage::phBoundPolyhedron::CompressVerte
 
 void rage::phBoundPolyhedron::SetBoundingBox(const Vec3V& min, const Vec3V& max)
 {
-	m_BoundingBoxMin = min;
-	m_BoundingBoxMax = max;
+	m_BoundingBoxMin = min - m_Margin;
+	m_BoundingBoxMax = max + m_Margin;
 
 	ComputeBoundingBoxCenter();
 	ComputeUnQuantizeFactor();
@@ -676,6 +679,48 @@ rage::phBoundGeometry::phBoundGeometry(const datResource& rsc): phBoundPolyhedro
 
 }
 
+rage::phBoundGeometry::phBoundGeometry(const spdAABB& bb, const Vector3* vertices, const u16* indices, u32 vertexCount, u32 indexCount)
+	: phBoundGeometry()
+{
+	AM_ASSERT(indexCount % 3 == 0, "phBoundGeometry::phBoundGeometry() -> Non triangle mesh with %u indices", indexCount);
+
+	// TODO: Concave check
+	// TODO: Init function
+
+	u32 polyCount = indexCount / 3;
+
+	m_CompressedVertices = new CompressedVertex[vertexCount];
+	m_Polygons = new phPolygon[polyCount];
+	m_NumPolygons = polyCount;
+	m_NumVertices = vertexCount;
+
+	// TODO: Materials...
+	m_NumMaterials = 1;
+	m_Materials = new u64[1]{ 56 };
+	m_PolygonToMaterial = new u8[m_NumPolygons]{ 0 };
+
+	SetBoundingBox(bb.Min, bb.Max);
+
+	// Compress & set vertices
+	for (u32 i = 0; i < vertexCount; i++)
+		m_CompressedVertices[i] = CompressVertex(vertices[i]);
+
+	// Create polygons from indices
+	for (u32 i = 0; i < polyCount; i++)
+	{
+		u16 vi1 = indices[i * 3 + 0];
+		u16 vi2 = indices[i * 3 + 1];
+		u16 vi3 = indices[i * 3 + 2];
+
+		m_Polygons[i] = phPolygon(vi1, vi2, vi3);
+	}
+	ComputeNeighbors();
+	ComputePolyArea();
+	SetMarginAndShrink();
+	RecomputeOctantMap();
+	CalculateVolumeDistribution();
+}
+
 void rage::phBoundGeometry::PostLoadCompute()
 {
 	CalculateExtents();
@@ -700,15 +745,12 @@ void rage::phBoundGeometry::ShiftCentroidOffset(const Vec3V& offset)
 
 rage::phMaterial* rage::phBoundGeometry::GetMaterial(int partIndex) const
 {
-#ifdef AM_STANDALONE
-	return nullptr;
-#else
-	static auto fn = gmAddress::Scan("48 8B 81 F0 00 00 00 48 63").ToFunc<phMaterial* (int)>();
-	return fn(partIndex);
-#endif
+	AM_ASSERTS(partIndex < m_NumMaterials);
+	phMaterialMgr::Id id = m_Materials[partIndex];
+	return phMaterialMgr::GetInstance()->GetMaterialById(id);
 }
 
-void rage::phBoundGeometry::SetMaterial(u64 materialId, int partIndex)
+void rage::phBoundGeometry::SetMaterial(phMaterialMgr::Id materialId, int partIndex)
 {
 	if (partIndex == BOUND_PARTS_ALL || partIndex >= m_NumMaterials)
 	{
@@ -721,7 +763,7 @@ void rage::phBoundGeometry::SetMaterial(u64 materialId, int partIndex)
 	m_Materials[partIndex] = materialId;
 }
 
-u64 rage::phBoundGeometry::GetMaterialIdFromPartIndexAndComponent(int partIndex, int boundIndex) const
+rage::phMaterialMgr::Id rage::phBoundGeometry::GetMaterialIdFromPartIndexAndComponent(int partIndex, int boundIndex) const
 {
 	if (partIndex >= m_NumPolygons)
 		return phMaterialMgr::DEFAULT_MATERIAL_ID;
@@ -763,15 +805,10 @@ void rage::phBoundGeometry::SetPolygonMaterialIndex(int polygon, int materialInd
 	m_PolygonToMaterial[polygon] = materialIndex;
 }
 
-ConstString rage::phBoundGeometry::GetMaterialName(int materialIndex)
+void rage::phBoundGeometry::GetMaterialName(int partIndex, char* buffer, int bufferSize) const
 {
-#ifdef AM_STANDALONE
-	return "";
-#else
-	static auto fn = gmAddress::Scan("48 8B C4 48 89 58 10 48 89 68 18 48 89 70 20 57 48 83 EC 30 49")
-		.ToFunc<ConstString(u64)>();
-	return fn(m_Materials[materialIndex]);
-#endif
+	AM_ASSERTS(partIndex < m_NumMaterials);
+	phMaterialMgr::GetInstance()->GetMaterialName(m_Materials[partIndex], buffer, bufferSize);
 }
 
 void rage::phBoundGeometry::SetMarginAndShrink(float margin, float t)
@@ -815,55 +852,6 @@ void rage::phBoundGeometry::SetMarginAndShrink(float margin, float t)
 	}
 
 	delete shrunkVertices;
-}
-
-void rage::phBoundGeometry::SetMesh(const spdAABB& bb, const Vector3* vertices, const u16* indices, u32 vertexCount, u32 indexCount)
-{
-	AM_ASSERT(indexCount % 3 == 0, "phBoundGeometry::SetMesh() -> Non triangle mesh with %u indices", indexCount);
-
-	// TODO: Concave check
-	// TODO: Init function
-
-	u32 polyCount = indexCount / 3;
-
-	m_CompressedVertices = new CompressedVertex[indexCount];
-	m_Polygons = new phPolygon[polyCount];
-	m_NumPolygons = polyCount;
-	m_NumVertices = vertexCount;
-
-	// TODO: Materials...
-	m_NumMaterials = 1;
-	m_Materials = new u64[1]{ 56 };
-	m_PolygonToMaterial = new u8[m_NumPolygons]{ 0 };
-
-	// TODO: Test...
-	m_VolumeDistribution = { 0.333f, 0.333f, 0.333f, 5.0f };
-
-	SetBoundingBox(bb.Min, bb.Max);
-
-	// Compress & set vertices
-	for (u32 i = 0; i < vertexCount; i++)
-		m_CompressedVertices[i] = CompressVertex(vertices[i]);
-
-	// Create polygons from indices
-	for (u32 i = 0; i < polyCount; i++)
-	{
-		u16 vi1 = indices[i * 3 + 0];
-		u16 vi2 = indices[i * 3 + 1];
-		u16 vi3 = indices[i * 3 + 2];
-
-		m_Polygons[i] = phPolygon(vi1, vi2, vi3);
-	}
-	ComputeNeighbors();
-	ComputePolyArea();
-
-	SetMarginAndShrink();
-	RecomputeOctantMap();
-	//auto addr = gmAddress::Scan("E8 ?? ?? ?? ?? 48 03 DE").GetCall();
-	//auto ro = addr.To<void(*)(phBoundGeometry*)>();
-	//ro(this);
-
-	CalculateVolumeDistribution();
 }
 
 void rage::phBoundGeometry::WriteObj(const fiStreamPtr& stream, bool shrunkedVertices) const

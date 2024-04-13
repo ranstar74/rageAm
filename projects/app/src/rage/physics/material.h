@@ -1,52 +1,76 @@
 //
 // File: material.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
 #pragma once
 
-#ifdef AM_STANDALONE
-#include "am/system/asserts.h"
-#else
-#include "am/integration/memory/address.h"
-#endif
+#include "am/graphics/color.h"
+#include "rage/atl/conststring.h"
+#include "rage/dat/base.h"
 
 namespace rage
 {
-	// Placeholder, for now
+	class fiAsciiTokenizer;
 
-	struct phMaterial { };
+	using phMaterialColor = rageam::graphics::ColorU32;
 
-	class phMaterialMgr
+	struct phMaterial : datBase
+	{
+		int         Type;
+		ConstString Name;
+		float       Friction;
+		float       Elasticity;
+		u8          Pad[12];
+
+		virtual bool LoadData(fiAsciiTokenizer& tokenizer) { return false; }
+		virtual void SaveData(fiAsciiTokenizer& tokenizer) { }
+		virtual phMaterialColor GetDebugColor() { return rageam::graphics::COLOR_RED; }
+	};
+
+	class phMaterialMgr : public datBase
 	{
 	public:
-		typedef u64 Id;
+		using Id = u64;
 
 		static constexpr Id DEFAULT_MATERIAL_ID = 0;
+		static constexpr Id MATERIAL_NOT_FOUND = Id(-1);
 
-		static phMaterialMgr* GetInstance()
+		struct phMaterialPair
 		{
-#ifndef AM_STANDALONE
-			static phMaterialMgr* inst = gmAddress::Scan("48 8B 15 ?? ?? ?? ?? 4C 23 42 10")
-				.GetRef(3)
-				.To<decltype(inst)>();
-			return inst;
-#else
-			AM_UNREACHABLE("phMaterialMgr::GetInstance() -> Unsupported in standalone.");
-#endif
-		}
+			Id    MaterialIndexA;
+			Id    MaterialIndexB;
+			float CombinedFriction;
+			float CombinedElasticity;
+		};
 
-		// TODO: This if VFT FUNCTION!
-		phMaterial* GetDefaultMaterial() const
-		{
-#ifndef AM_STANDALONE
-			static auto fn = gmAddress::Scan("40 53 48 83 EC 20 48 8B 01 48 8D 15").ToFunc<phMaterial* (const phMaterialMgr*)>();
-			return fn(this);
-#else
-			AM_UNREACHABLE("phMaterialMgr::GetDefaultMaterial() -> Unsupported in standalone.");
-#endif
-		}
+		phMaterialMgr() = delete;
+
+		virtual void Load(int reservedSlots = 0) = 0;
+		virtual void Destroy() = 0;
+
+		virtual phMaterial*     FindMaterial(ConstString name) const = 0;
+		virtual Id              FindMaterialId(ConstString name) const = 0;
+		virtual void            GetMaterialName(Id id, char* buffer, int bufferSize) const = 0;
+		virtual void            GetMaterialId(const phMaterial& material) const = 0;
+		virtual phMaterial*     GetDefaultMaterial() const = 0;
+		virtual phMaterialColor GetDebugColor(const phMaterial& material) = 0; // Hardcoded red
+		virtual int             GetFlags(Id id) = 0; // MTLFLAG_
+
+		u32         GetNumMaterials() const { return m_NumMaterials; }
+		phMaterial* GetMaterialByIndex(u32 index) const;
+		phMaterial* GetMaterialById(Id id) const;
+
+		static phMaterialMgr* GetInstance();
+
+	private:
+		atConstString           m_AssetFolder;
+		u64                     m_MaterialIndexMask; // 0xFF -> gtaMaterialId::GetId
+		u32                     m_NumMaterials;
+		u32                     m_MaterialsSize;
+		char*                   m_Materials;
+		atArray<phMaterialPair> m_MaterialOverridePairs;
 	};
 }

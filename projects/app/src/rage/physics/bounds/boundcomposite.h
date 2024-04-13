@@ -1,7 +1,7 @@
 //
-// File: composite.h
+// File: boundcomposite.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
@@ -9,7 +9,7 @@
 
 #include "boundbase.h"
 #include "rage/math/mtxv.h"
-#include "rage/physics/optimizedbvh.h"
+#include "optimizedbvh.h"
 
 // TODO: BHV, Copy / Clone
 
@@ -57,17 +57,42 @@ namespace rage
 		void		  SetMatrix(u16 index, const Mat44V& mtx);
 		const Mat44V& GetMatrix(u16 index);
 
-		void InitFromArray(const atArray<phBoundPtr>& bounds, bool allowInternalMotion);
-		void Init(u16 numBounds, bool allowInternalMotion);
+		void InitFromArray(const atArray<phBoundPtr>& bounds, bool allowInternalMotion = true);
+		void Init(u16 numBounds, bool allowInternalMotion = true);
 		bool AllowsInternalMotion() const { return m_CurrentMatrices != m_LastMatrices; }
 		void MakeDynamic();
+
+		void AllocateAndBuildBvhStructure()
+		{
+			AM_WARNINGF("phBoundComposite::AllocateAndBuildBVHStructure() -> Not implemented!");
+
+			// At least 5 bounds are required to build BVH
+			if (m_NumBounds < 5)
+			{
+				m_BVH = nullptr;
+				return;
+			}
+
+			return; // TODO: ...
+
+			// Composite BVH is not the same as in phBoundBVH, it's a little bit simpler
+			// We create only 1 node per bound, so we don't have to remap them after building tree
+			m_BVH = new phOptimizedBvh();
+			m_BVH->SetExtents(GetBoundingBox());
+
+			amPtr<phBvhPrimitiveData[]> primitiveDatas = amPtr<phBvhPrimitiveData[]>(new phBvhPrimitiveData[m_NumBounds]);
+			for (int i = 0; i < m_NumBounds; i++)
+			{
+				
+			}
+		}
 
 		void CalculateBoundingBox();
 		void CalculateVolume();
 
 		void PostLoadCompute() override
 		{
-			// TODO: BVH
+			AllocateAndBuildBvhStructure();
 		}
 
 		void Copy(const phBound* from) override { AM_UNREACHABLE("phBoundComposite::Copy() -> Not Implemented."); }

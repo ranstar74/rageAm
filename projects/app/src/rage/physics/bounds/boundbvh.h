@@ -1,14 +1,14 @@
 //
-// File: bvh.h
+// File: boundbvh.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
 #pragma once
 
-#include "geometry.h"
-#include "rage/physics/optimizedbvh.h"
+#include "boundgeometry.h"
+#include "optimizedbvh.h"
 
 namespace rage
 {
@@ -27,6 +27,7 @@ namespace rage
 
 	public:
 		phBoundBVH();
+		phBoundBVH(const atArray<Vector3>& vertices, const atArray<phPrimitive>& primitives);
 		phBoundBVH(const datResource& rsc);
 
 		// Do not use GetPolygon function! BVH allows all sort of primitives

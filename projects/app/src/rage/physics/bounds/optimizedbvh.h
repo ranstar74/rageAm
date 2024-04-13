@@ -74,7 +74,7 @@ namespace rage
 		s16 AABBMin[3];
 		s16 AABBMax[3];
 		u16 RootNodeIndex;
-		u8  EndIndex;
+		u16 EndIndex;
 
 		void SetAABBFromNode(const phOptimizedBvhNode& node)
 		{

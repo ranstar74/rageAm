@@ -1,5 +1,6 @@
 #include "optimizedbvh.h"
 
+#include "am/integration/memory/address.h"
 #include "common/logger.h"
 #include "rage/atl/string.h"
 
