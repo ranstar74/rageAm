@@ -33,11 +33,12 @@ void rageam::ui::Scene::TryOpenPendingSceneWindow()
 	if (!newScene)
 		return;
 
-	newScene->SetPosition(DefaultSpawnPosition);
+	newScene->SetPosition(sm_PendingScenePosition);
 	newScene->LoadFromPath(sm_PendingScenePath);
 
 	sm_OpenedSceneWeakRef = std::weak_ptr(std::dynamic_pointer_cast<Scene>(windows->Add(newScene)));
 	sm_PendingScenePath = L"";
+	sm_PendingScenePosition = {};
 }
 
 void rageam::ui::Scene::ConstructFor(ConstWString path)
@@ -54,4 +55,5 @@ void rageam::ui::Scene::ConstructFor(ConstWString path)
 	// mainly because entity takes few frames to completely unload,
 	// instead we put new scene in queue and wait until old one fully closes
 	sm_PendingScenePath = path;
+	sm_PendingScenePosition = DefaultSpawnPosition;
 }

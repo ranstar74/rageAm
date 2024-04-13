@@ -32,6 +32,7 @@ namespace rageam::ui
 		// Use weak because scene window will be closed from outside - via close button or from window manager
 		static inline amWeakPtr<Scene> sm_OpenedSceneWeakRef;
 		static inline file::WPath      sm_PendingScenePath;
+		static inline Vec3V			   sm_PendingScenePosition;
 
 	protected:
 		// Can only construct from OpenWindowForSceneAndLoad
