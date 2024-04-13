@@ -10,10 +10,10 @@ void rageam::integration::SceneInGame::TrySetEntityPosition(const Vec3V& pos)
 		m_GameEntity->SetPosition(pos);
 }
 
-void rageam::integration::SceneInGame::CreateEntity(const gtaDrawablePtr& drawable, const amPtr<CBaseArchetypeDef>& archetypeDef)
+void rageam::integration::SceneInGame::CreateEntity(ConstString name, const gtaDrawablePtr& drawable, const amPtr<CBaseArchetypeDef>& archetypeDef)
 {
 	m_Drawable = drawable;
-	m_GameEntity.Create(drawable, archetypeDef, m_CachedPosition);
+	m_GameEntity.Create(name, drawable, archetypeDef, m_CachedPosition);
 	m_DrawableRender.Create();
 	m_DrawableRender->SetEntity(m_GameEntity.Get());
 

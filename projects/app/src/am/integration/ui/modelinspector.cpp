@@ -669,7 +669,8 @@ void rageam::integration::ModelInspector::LoadFromPath(ConstWString path)
 {
 	AM_ASSERTS(file::MatchExtension(path, L"ydr"));
 
-	static constexpr u32 ASSET_NAME_HASH = rage::atStringHash("amInspectorArchetype");
+	static constexpr ConstString ASSET_NAME = "amInspectorArchetype";
+	static constexpr u32 ASSET_NAME_HASH = rage::atStringHash(ASSET_NAME);
 
 	if (!file::IsFileExists(path))
 	{
@@ -742,7 +743,7 @@ void rageam::integration::ModelInspector::LoadFromPath(ConstWString path)
 	// Add bounding sphere radius as long distance to draw it far enough
 	m_ArchetypeDef->LodDist = m_Drawable->GetBoundingSphere().GetRadius().Get() + 200.0f;
 
-	CreateEntity(m_Drawable, m_ArchetypeDef);
+	CreateEntity(ASSET_NAME, m_Drawable, m_ArchetypeDef);
 	GetEntity()->SetEntityWasAllocatedByGame(true); // Ensure that drawable will be destroyed with game allocator in TLS
 }
 

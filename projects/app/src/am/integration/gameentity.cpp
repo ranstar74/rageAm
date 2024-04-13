@@ -139,11 +139,28 @@ bool rageam::integration::GameEntity::OnAbort()
 	return true;
 }
 
-rageam::integration::GameEntity::GameEntity(const gtaDrawablePtr& drawable, const amPtr<rage::fwArchetypeDef>& archetypeDef, const Vec3V& pos)
+rageam::integration::GameEntity::GameEntity(ConstString name, const gtaDrawablePtr& drawable, const amPtr<rage::fwArchetypeDef>& archetypeDef, const Vec3V& pos)
 {
 	m_Drawable = drawable;
 	m_ArchetypeDef = archetypeDef;
 	m_DefaultPos = pos;
+
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+	static bool initialized = false;
+	if (!initialized)
+	{
+		initialized = true;
+
+		// On debug builds of the game we have to add archetype name to hash string dictionary
+		// Otherwise game will crash on accesing it in rage::decalManager::KickProcessInstAsync
+		// strncpy(td->debugName, GetEntityName(pEntity), NELEM(td->debugName));
+
+		// rage::atHashStringNamespaceSupport::AddString(u32 nameSpace, u32 hash, const char *str)
+		gmAddress addr = gmAddress::Scan("4C 89 44 24 18 89 54 24 10 89 4C 24 08 48 83 EC 78 83");
+		auto fn = addr.ToFunc<void(u32, u32, const char*)>();
+		fn(0 /* HSNS_ATHASHSTRING */, archetypeDef->Name, name);
+	}
+#endif
 }
 
 void rageam::integration::GameEntity::SetPosition(const rage::Vec3V& pos)

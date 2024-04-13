@@ -43,7 +43,7 @@ namespace rageam::integration
 		bool OnAbort() override;
 
 	public:
-		GameEntity(const gtaDrawablePtr& drawable, const amPtr<rage::fwArchetypeDef>& archetypeDef, const Vec3V& pos);
+		GameEntity(ConstString name, const gtaDrawablePtr& drawable, const amPtr<rage::fwArchetypeDef>& archetypeDef, const Vec3V& pos);
 
 		void           SetPosition(const Vec3V& pos);
 		const Vec3V&   GetPosition()		const { return m_CachedPosition; }

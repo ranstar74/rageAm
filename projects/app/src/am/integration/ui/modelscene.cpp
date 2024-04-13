@@ -83,7 +83,8 @@ CLightAttr* rageam::integration::ModelScene::GetLightAttr(u16 nodeIndex) const
 
 void rageam::integration::ModelScene::CreateArchetypeDefAndSpawnGameEntity()
 {
-	static constexpr u32 ASSET_NAME_HASH = rage::atStringHash("amTestBedArchetype");
+	static constexpr ConstString ASSET_NAME = "amTestBedArchetype";
+	static constexpr u32 ASSET_NAME_HASH = rage::atStringHash(ASSET_NAME);
 
 	// Make sure that lod distance is not smaller than drawable itself
 	float lodDistance = GetDrawable()->GetBoundingSphere().GetRadius().Get();
@@ -99,7 +100,7 @@ void rageam::integration::ModelScene::CreateArchetypeDefAndSpawnGameEntity()
 	//m_GameEntity.Create(m_Context.Drawable, m_ArchetypeDef, GetScenePosition());
 	//m_DrawableRender.Create();
 	//m_DrawableRender->SetEntity(m_GameEntity.Get());
-	CreateEntity(m_Context.Drawable, m_ArchetypeDef);
+	CreateEntity(ASSET_NAME, m_Context.Drawable, m_ArchetypeDef);
 }
 
 //void rageam::integration::ModelScene::WarpEntityToScenePosition()

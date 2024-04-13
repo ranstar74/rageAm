@@ -21,7 +21,7 @@ namespace rageam::integration
 		void TrySetEntityPosition(const Vec3V& pos);
 
 	protected:
-		void CreateEntity(const gtaDrawablePtr& drawable, const amPtr<CBaseArchetypeDef>& archetypeDef);
+		void CreateEntity(ConstString name, const gtaDrawablePtr& drawable, const amPtr<CBaseArchetypeDef>& archetypeDef);
 		void DestroyEntity();
 
 	public:
