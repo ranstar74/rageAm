@@ -122,7 +122,7 @@ namespace rage
 		phBoundPolyhedron();
 		phBoundPolyhedron(const datResource& rsc);
 
-		phPolygon& GetPolygon(u16 i) const { return m_Polygons[i]; }
+		phPolygon& GetPolygon(u16 i) const { return m_Polygons.Get()[i]; }
 		void  DecompressPoly(const phPolygon& poly, Vec3V& v1, Vec3V& v2, Vec3V& v3, bool shrunk = false) const;
 		Vec3V DecompressVertex(const CompressedVertex& vertex) const;
 		Vec3V DecompressVertex(u32 index, bool shrunked = false) const;

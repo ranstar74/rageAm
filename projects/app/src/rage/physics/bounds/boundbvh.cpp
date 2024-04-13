@@ -53,7 +53,7 @@ rage::phBoundBVH::phBoundBVH(const datResource& rsc) : phBoundGeometry(rsc)
 rage::phPrimitive& rage::phBoundBVH::GetPrimitive(int index) const
 {
 	AM_ASSERTS(index >= 0 && index < m_NumPolygons);
-	return m_Polygons[index].GetPrimitive();
+	return m_Polygons.Get()[index].GetPrimitive();
 }
 
 void rage::phBoundBVH::BuildBVH()
