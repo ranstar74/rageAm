@@ -7,6 +7,8 @@
 //
 #pragma once
 
+#include "am/integration/memory/address.h"
+
 namespace rage
 {
 	class fwArchetypeManager
