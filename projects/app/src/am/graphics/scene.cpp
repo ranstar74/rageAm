@@ -54,6 +54,43 @@ bool rageam::graphics::SceneNode::HasTransformedChild() const
 	return false;
 }
 
+int rageam::graphics::SceneNode::GetNumSiblings() const
+{
+	int numSiblings = 0;
+	const SceneNode* node = this;
+	while (node)
+	{
+		numSiblings++;
+		node = node->GetNextSibling();
+	}
+	return numSiblings;;
+}
+
+rageam::List<rageam::graphics::SceneNode*> rageam::graphics::SceneNode::GetAllChildren() const
+{
+	List<SceneNode*> childs;
+	SceneNode* child = GetFirstChild();
+	while (child)
+	{
+		childs.Add(child);
+		child = child->GetNextSibling();
+	}
+	return childs;
+}
+
+rageam::List<rageam::graphics::SceneNode*> rageam::graphics::SceneNode::GetAllChildrenRecurse() const
+{
+	List<SceneNode*> childs;
+	SceneNode* child = GetFirstChild();
+	while (child)
+	{
+		childs.Add(child);
+		childs.AddRange(child->GetAllChildrenRecurse());
+		child = child->GetNextSibling();
+	}
+	return childs;
+}
+
 void rageam::graphics::Scene::FindSkinnedNodes()
 {
 	m_HasSkinning = false;

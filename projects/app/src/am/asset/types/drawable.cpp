@@ -4,12 +4,15 @@
 #include "am/asset/factory.h"
 #include "am/file/iterator.h"
 #include "am/graphics/buffereditor.h"
+#include "am/graphics/geomprimitives.h"
 #include "am/graphics/meshsplitter.h"
 #include "rage/grcore/effectmgr.h"
-#include "rage/physics/bounds/composite.h"
-#include "rage/physics/bounds/geometry.h"
 #include "am/xml/iterator.h"
 #include "rage/math/math.h"
+#include "rage/physics/bounds/boundprimitives.h"
+#include "rage/physics/bounds/boundcomposite.h"
+#include "rage/physics/bounds/boundgeometry.h"
+#include "rage/physics/bounds/boundbvh.h"
 
 bool rageam::asset::DrawableTxd::TryCompile()
 {
@@ -562,10 +565,12 @@ rage::crBoneData* rageam::asset::DrawableAssetMap::GetBoneFromScene(const rage::
 
 rage::phBound* rageam::asset::DrawableAssetMap::GetBoundFromScene(const gtaDrawable* drawable, u16 sceneNodeIndex) const
 {
-	u16 boundIndex = SceneNodeToBound[sceneNodeIndex];
+	/*u16 boundIndex = SceneNodeToBound[sceneNodeIndex];
 	if (boundIndex == u16(-1))
 		return nullptr;
-	return ((rage::phBoundComposite*)drawable->GetBound().Get())->GetBound(boundIndex).Get();
+	return ((rage::phBoundComposite*)drawable->GetBound().Get())->GetBound(boundIndex).Get();*/
+	// TODO: ...
+	return nullptr;
 }
 
 CLightAttr* rageam::asset::DrawableAssetMap::GetLightFromScene(gtaDrawable* drawable, u16 sceneNodeIndex) const
@@ -618,7 +623,7 @@ void rageam::asset::DrawableAsset::PrepareForConversion()
 	CompiledDrawableMap->SceneNodeToLightAttr.Resize(nodeCount);
 	// Default everything to -1
 	for (auto& handle : CompiledDrawableMap->SceneNodeToModel)	handle = { u16(-1), u16(-1) };
-	for (u16& i : CompiledDrawableMap->SceneNodeToBound)		i = u16(-1);
+	for (auto& i : CompiledDrawableMap->SceneNodeToBound)		i = {};
 	for (u16& i : CompiledDrawableMap->SceneNodeToBone)			i = u16(-1);
 	for (u16& i : CompiledDrawableMap->SceneMaterialToShader)	i = u16(-1);
 	for (u16& i : CompiledDrawableMap->SceneNodeToLightAttr)	i = u16(-1);
@@ -1235,119 +1240,364 @@ bool rageam::asset::DrawableAsset::CompileAndSetEmbedDict()
 	return true;
 }
 
-rageam::SmallList<rage::phBoundPtr> rageam::asset::DrawableAsset::CreateBoundsFromNode(const graphics::SceneNode* sceneNode) const
+rageam::List<rageam::graphics::Primitive> rageam::asset::DrawableAsset::GetPrimitivesFromNode(const graphics::SceneNode* node) const
 {
-	// TODO: Other bound types...
-
-	SmallList<rage::phBoundPtr> bounds;
-	if (!sceneNode->HasMesh())
-		return bounds;
-
-	const graphics::SceneMesh* sceneMesh = sceneNode->GetMesh();
-
-	bounds.Reserve(sceneMesh->GetGeometriesCount());
-	for (u16 i = 0; i < sceneMesh->GetGeometriesCount(); i++)
+	graphics::SceneMesh* mesh = node->GetMesh();
+	if (!mesh)
 	{
-		graphics::SceneGeometry* sceneGeom = sceneMesh->GetGeometry(i);
+		AM_ERRF("DrawableAsset::GetPrimitiveFromNode() -> Node '%s' don't have mesh!", node->GetName());
+		return {};
+	}
+
+	List<graphics::Primitive> primitives;
+	for (u16 i = 0; i < mesh->GetGeometriesCount(); i++)
+	{
+		graphics::SceneGeometry* geom = mesh->GetGeometry(i);
+
+		u32 indexCount = geom->GetIndexCount();
+		u32 vertexCount = geom->GetVertexCount();
+		// Make sure that we're dealing with polygon topology
+		if (vertexCount < 3 || indexCount % 3 != 0)
+		{
+			AM_ERRF("DrawableAsset::GetPrimitivesFromNode() -> Geometry #%i in model '%s' don't have triangle topology!",
+				i, node->GetName());
+			continue;
+		}
 
 		graphics::SceneData indices;
 		graphics::SceneData vertices;
-		sceneGeom->GetIndices(indices);
-		sceneGeom->GetAttribute(vertices, graphics::POSITION, 0);
+		geom->GetIndices(indices);
+		geom->GetAttribute(vertices, graphics::POSITION, 0);
 
 		// We can split it of course but such high dense collision with 65K+ indices is not good
 		if (indices.Format != DXGI_FORMAT_R16_UINT)
 		{
-			AM_WARNINGF("DrawableAsset::CreateBound() -> Geometry #%i in model '%s' has too much indices (%u) - maximum allowed 65 535, skipping...",
-				i, sceneNode->GetName(), sceneGeom->GetIndexCount());
+			AM_WARNINGF("DrawableAsset::GetPrimitivesFromNode() -> Geometry #%i in model '%s' has too much indices (%u) - maximum allowed 65 535, skipping...",
+				i, node->GetName(), indexCount);
 			continue;
 		}
 
-		rage::phBoundGeometry* geometryBound = new rage::phBoundGeometry();
-		geometryBound->SetMesh(
-			sceneGeom->GetAABB(), vertices.GetBufferAs<rage::Vector3>(), indices.GetBufferAs<u16>(), sceneGeom->GetVertexCount(), sceneGeom->GetIndexCount());
+		graphics::Primitive primitive;
+		MatchPrimitive(geom->GetAABB(), vertices.GetBufferAs<Vec3S>(), vertexCount, indices.GetBufferAs<u16>(), indexCount, primitive);
+		primitives.Add(primitive);
+	}
+	return primitives;
+}
 
-		bounds.Add(rage::phBoundPtr(geometryBound));
+rageam::List<rageam::asset::DrawableAsset::CreatedBoundInfo> rageam::asset::DrawableAsset::CreateBoundsFromNode(graphics::SceneNode* node) const
+{
+	List<CreatedBoundInfo> bounds;
+	for (graphics::Primitive& primitive : GetPrimitivesFromNode(node))
+	{
+		rage::phBound* newBound = nullptr;
+
+		switch(primitive.Type)
+		{
+		case graphics::PrimitiveMesh:
+			newBound = new rage::phBoundGeometry(
+				primitive.AABB, primitive.Mesh.Points, primitive.Mesh.Indices, primitive.Mesh.PointCount, primitive.Mesh.IndexCount);
+			break;
+
+		case graphics::PrimitiveBox:
+			newBound = new rage::phBoundBox(primitive.AABB);
+			break;
+
+		case graphics::PrimitiveSphere:
+			newBound = new rage::phBoundSphere(primitive.Sphere.Center, primitive.Sphere.Radius.Get());
+			break;
+
+		case graphics::PrimitiveCylinder:
+			newBound = new rage::phBoundCylinder(primitive.Cylinder.Center, primitive.Cylinder.Radius.Get(), primitive.Cylinder.HalfHeight.Get());
+			break;
+
+		case graphics::PrimitiveCapsule:
+			newBound = new rage::phBoundCapsule(primitive.Capsule.Center, primitive.Capsule.Radius.Get(), primitive.Capsule.HalfHeight.Get());
+			break;
+
+		case graphics::PrimitiveInvalid:
+			break;
+		}
+
+		if (newBound)
+		{
+			CreatedBoundInfo createdBound;
+			createdBound.Node = node;
+			createdBound.Bound = rage::phBoundPtr(newBound);
+			createdBound.Primitive = primitive;
+			bounds.Emplace(std::move(createdBound));
+		}
 	}
 	return bounds;
 }
 
-void rageam::asset::DrawableAsset::CreateAndSetCompositeBound() const
+rageam::asset::DrawableAsset::CreatedBoundInfo rageam::asset::DrawableAsset::CreateBvhFromNode(graphics::SceneNode* node) const
 {
-	u16 nodeCount = m_Scene->GetNodeCount();
+	SmallList<rage::phPrimitive> bvhPrimitives;
+	SmallList<Vec3S> bvhVertices;
 
-	// Collect all bounds from scene models in single list
-	SmallList<rage::phBoundPtr> bounds;
-	auto boundToSceneIndex = std::unique_ptr<u16[]>(new u16[nodeCount]);
-	for (u16 i = 0; i < m_Scene->GetNodeCount(); i++)
+	for (graphics::SceneNode* childNode : node->GetAllChildrenRecurse())
 	{
-		graphics::SceneNode* sceneNode = m_Scene->GetNode(i);
-
-		if (!sceneNode->HasMesh())
+		if (!childNode->HasMesh())
 			continue;
 
-		bool forceUseAsBound = m_DrawableTune.Lods.Models.Get(i)->UseAsBound;
-		if (!forceUseAsBound && !IsCollisionNode(sceneNode))
-			continue;
+		// BVH don't have any matrix stored for polygons, we have to transform every primitive vertices before adding them to BVH
+		const rage::Mat44V& worldTransform = childNode->GetWorldTransform();
 
-		auto nodeBounds = CreateBoundsFromNode(sceneNode);
+		// Adds new vertex to BVH and returns index + transforms it to world space
+		auto addVertex = [&](const Vec3V& v)
+			{
+				// TODO: We can solve this by creating another BVH? And return list from this function
+				AM_ASSERT(bvhVertices.GetSize() < UINT16_MAX, "DrawableAsset::CreateBvhFromNode() -> Too much vertices in BVH!");
 
-		// Map all bounds created from scene node to the node
-		u16 startIndex = bounds.GetSize();
-		for (u16 k = 0; k < nodeBounds.GetSize(); k++)
+				int index = bvhVertices.GetSize();
+				bvhVertices.Add(v.Transform(worldTransform));
+				return index;
+			};
+
+		for (graphics::Primitive& primitive : GetPrimitivesFromNode(childNode))
 		{
-			u16 boundIndex = startIndex + k;
-			boundToSceneIndex[boundIndex] = i;
-
-			// Map graphics::SceneNode -> rage::phBound
-			CompiledDrawableMap->SceneNodeToBound[i] = boundIndex;
-			CompiledDrawableMap->BoneToSceneNode.Add(i);
+			switch (primitive.Type)
+			{
+			case graphics::PrimitiveMesh:
+			{
+				auto& mesh = primitive.Mesh;
+				for (int i = 0; i < mesh.IndexCount; i += 3)
+				{
+					rage::phPolygon poly;
+					poly.SetVertexIndex(0, addVertex(mesh.Points[mesh.Indices[i + 0]]));
+					poly.SetVertexIndex(1, addVertex(mesh.Points[mesh.Indices[i + 1]]));
+					poly.SetVertexIndex(2, addVertex(mesh.Points[mesh.Indices[i + 2]]));
+					bvhPrimitives.Add(poly.GetPrimitive());
+				}
+				break;
+			}
+			case graphics::PrimitiveBox:
+			{
+				rage::phPrimBox box;
+				box.SetVertexIndex(0, addVertex(primitive.Box.Points[0]));
+				box.SetVertexIndex(1, addVertex(primitive.Box.Points[1]));
+				box.SetVertexIndex(2, addVertex(primitive.Box.Points[2]));
+				box.SetVertexIndex(3, addVertex(primitive.Box.Points[3]));
+				bvhPrimitives.Add(box.GetPrimitive());
+				break;
+			}
+			case graphics::PrimitiveSphere:
+			{
+				rage::phPrimSphere sphere;
+				sphere.SetCenter(addVertex(primitive.Sphere.Center));
+				sphere.SetRadius(primitive.Sphere.Radius.Get());
+				bvhPrimitives.Add(sphere.GetPrimitive());
+				break;
+			}
+			case graphics::PrimitiveCylinder:
+			{
+				rage::phPrimCylinder cylinder;
+				Vec3V extent = primitive.Cylinder.Direction * primitive.Cylinder.HalfHeight;
+				cylinder.SetEndIndex0(addVertex(primitive.Cylinder.Center + extent));
+				cylinder.SetEndIndex1(addVertex(primitive.Cylinder.Center - extent));
+				cylinder.SetRadius(primitive.Cylinder.Radius.Get());
+				bvhPrimitives.Add(cylinder.GetPrimitive());
+				break;
+			}
+			case graphics::PrimitiveCapsule:
+			{
+				rage::phPrimCapsule capsule;
+				Vec3V extent = primitive.Capsule.Direction * primitive.Capsule.HalfHeight;
+				capsule.SetEndIndex0(addVertex(primitive.Capsule.Center + extent));
+				capsule.SetEndIndex1(addVertex(primitive.Capsule.Center - extent));
+				capsule.SetRadius(primitive.Capsule.Radius.Get());
+				bvhPrimitives.Add(capsule.GetPrimitive());
+				break;
+			}
+			default:
+				break;
+			}
 		}
-
-		bounds.AddRange(std::move(nodeBounds));
 	}
 
-	if (!bounds.Any())
+	if (!bvhPrimitives.Any())
+		return {};
+
+	// TODO: AABB is computed in BVH constructor from created primitives, not optimal! We should use AABBs from scene nodes
+	rage::phBoundBVH* bvh = new rage::phBoundBVH(bvhVertices, bvhPrimitives);
+
+	CreatedBoundInfo createdBoundInfo;
+	createdBoundInfo.Node = node;
+	createdBoundInfo.Bound = rage::phBoundPtr(bvh);
+	createdBoundInfo.Primitive.Type = graphics::PrimitiveInvalid;
+	return createdBoundInfo;
+}
+
+rageam::asset::DrawableAsset::ColType rageam::asset::DrawableAsset::GetNodeColType(const graphics::SceneNode* sceneNode) const
+{
+	if (IsBvhIdentifierNode(sceneNode))
+		return ColBvhRoot;
+
+	// All nodes in .COL / .BVH hierarchy are implicitly bounds
+	bool hasCol = false;
+	bool hasBvh = false;
+	while (sceneNode)
+	{
+		if (IsBvhIdentifierNode(sceneNode))
+			hasBvh = true;
+
+		if (IsColIdentifierNode(sceneNode))
+			hasCol = true;
+
+		sceneNode = sceneNode->GetParent();
+	}
+
+	// Nodes under .BVH have are BVH nodes! This has higher priority than .COL
+	if (hasBvh)
+		return ColBvh;
+
+	if (hasCol)
+		return ColRegular;
+
+	return ColNone;
+}
+
+bool rageam::asset::DrawableAsset::IsColIdentifierNode(const graphics::SceneNode* sceneNode) const
+{
+	ImmutableString modelName = sceneNode->GetName();
+
+	// Explicit bound identifier
+	if (modelName.EndsWith(COL_MODEL_EXT, true))
+		return true;
+
+	// Support for https://github.com/Weisl/Collider-Tools
+	if (modelName.StartsWith("UBX_") || // Box
+		modelName.StartsWith("USP_") || // Sphere 
+		modelName.StartsWith("UCP_") || // Capsule
+		modelName.StartsWith("UCX_"))	// Convex
+		return true;
+
+	return false;
+}
+
+bool rageam::asset::DrawableAsset::IsBvhIdentifierNode(const graphics::SceneNode* sceneNode) const
+{
+	ImmutableString nodeName = sceneNode->GetName();
+	return nodeName.EndsWith(COL_BVH_EXT, true);
+}
+
+void rageam::asset::DrawableAsset::CreateBound() const
+{
+	// TODO:
+	// - How do we handle CG offset, do we use pivot?
+	// - Materials
+
+	List<CreatedBoundInfo> createdBounds;
+	for (u16 i = 0; i < m_Scene->GetNodeCount(); i++)
+	{
+		graphics::SceneNode* node = m_Scene->GetNode(i);
+
+		ColType colType = GetNodeColType(node);
+		if (colType == ColNone)
+			continue;
+
+		// We skip bvh nodes because it is easier to work them later by traversing bvh root children
+		if (colType == ColBvh)
+			continue;
+
+		// Regular collision will be later added to a composite
+		if (colType == ColRegular)
+		{
+			List<CreatedBoundInfo> createdNodeBounds = CreateBoundsFromNode(node);
+			for (CreatedBoundInfo& createdNodeBound : createdNodeBounds)
+				createdBounds.Emplace(std::move(createdNodeBound));
+			continue;
+		}
+
+		// BVH collider doesn't hold bounds as separate entities, it uses primitives instead
+		// Because of this we have to handle construction differently from composite
+		if (colType == ColBvhRoot)
+		{
+			CreatedBoundInfo createdBvh = CreateBvhFromNode(node);
+			if (createdBvh.Bound)
+				createdBounds.Emplace(std::move(createdBvh));
+			continue;
+		}
+	}
+
+	// No bounds were created...
+	if (!createdBounds.Any())
 		return;
 
-	rage::phBoundComposite* composite = new rage::phBoundComposite();
-	composite->Init(bounds.GetSize(), true);
-
-	// Set bounds & matrices
-	for (u16 i = 0; i < bounds.GetSize(); i++)
+	// TODO: Flags
+	// We've got single bound. Composite is only required if we have flags or non-identity transform
+	if (createdBounds.GetSize() == 1)
 	{
-		graphics::SceneNode* sceneNode = m_Scene->GetNode(boundToSceneIndex[i]);
+		CreatedBoundInfo& boundInfo = createdBounds[0];
 
-		const rage::Mat44V& worldMtx = sceneNode->GetWorldTransform();
+		// However we can set bound offset if we know that it's not rotated or scaled
+		const rage::Mat44V& transform = boundInfo.Node->GetWorldTransform();
+		bool isOnlyOffset = 
+			Vec3V(transform.Right).AlmostEqual(rage::VEC_RIGHT) &&
+			Vec3V(transform.Front).AlmostEqual(rage::VEC_FRONT) &&
+			Vec3V(transform.Up).AlmostEqual(rage::VEC_UP);
 
-		// TODO:
-		// Scale causes weird issues on geometry bound, may be worth to 'apply transform'
-		// but it may cause issues with animation, i'm not sure
+		// Cylinder & Capsule are Y axis up, we must check if UP axis is aligned with Y
+		graphics::Primitive& primitive = boundInfo.Primitive;
+		if (isOnlyOffset && (primitive.Type == graphics::PrimitiveCylinder || primitive.Type == graphics::PrimitiveCapsule))
+		{
+			float dot = primitive.Cylinder.Direction.Dot(rage::PH_DEFAULT_ORIENTATION).Get();
+			if (!rage::AlmostEquals(fabs(dot), 1.0f))
+				isOnlyOffset = false;
+		}
+
+		if (isOnlyOffset)
+		{
+			rage::phBoundPtr bound = boundInfo.Bound;
+			bound->SetCentroidOffset(transform.Pos);
+			m_Drawable->SetBound(bound);
+			return;
+		}
+	}
+
+	// Otherwise we need to create a composite
+	auto composite = new rage::phBoundComposite();
+	composite->Init(createdBounds.GetSize());
+	for (int i = 0; i < createdBounds.GetSize(); i++)
+	{
+		CreatedBoundInfo& createdBoundInfo = createdBounds[i];
+		graphics::SceneNode* node = createdBoundInfo.Node;
+
+		rage::Mat44V transform = node->GetWorldTransform();
+
+		// Cylinder & Capsule primitives are special cases and we have to align UP axis manually
+		graphics::Primitive& primitive = createdBoundInfo.Primitive;
+		if (primitive.Type == graphics::PrimitiveCylinder || primitive.Type == graphics::PrimitiveCapsule)
+		{
+			Mat44V orientation = Mat44V::FromNormalPos(rage::VEC_ORIGIN, primitive.Cylinder.Direction);
+			transform = orientation * transform;
+		}
+
+		// Scale causes weird issues on geometry bound
 		rage::Vec3V scale;
-		worldMtx.Decompose(nullptr, &scale, nullptr);
+		transform.Decompose(nullptr, &scale, nullptr);
 		if (!scale.AlmostEqual(rage::S_ONE))
 		{
 			AM_WARNINGF(
-				"DrawableAsset::CreateAndSetCompositeBound() -> Element '%s' (index %u) has non-identity (1, 1, 1) scale (%f, %f, %f), collision may work unstable",
-				sceneNode->GetName(), i, scale.X(), scale.Y(), scale.Z());
+				"DrawableAsset::CreateBound() -> Element '%s' (index %u) has non-identity (1, 1, 1) scale (%f, %f, %f), collision may work unstable",
+				node->GetName(), i, scale.X(), scale.Y(), scale.Z());
 		}
 
-		composite->SetBound(i, bounds[i]);
-		composite->SetMatrix(i, worldMtx);
-
-		// TODO: Test flags
-		composite->SetTypeFlags(i, rage::CF_ALL);
+		composite->SetBound(i, createdBoundInfo.Bound);
+		// TODO: Flags
 		composite->SetIncludeFlags(i, rage::CF_ALL);
+		composite->SetTypeFlags(i, 
+			rage::CF_MAP_TYPE_WEAPON | 
+			rage::CF_MAP_TYPE_MOVER | 
+			rage::CF_MAP_TYPE_HORSE | 
+			rage::CF_MAP_TYPE_COVER | 
+			rage::CF_MAP_TYPE_VEHICLE);
+		// Matrix must be set after the bound because it access the bound AABB
+		composite->SetMatrix(i, transform);
 	}
-
-	composite->CalculateExtents(); // TODO: Should we include matrices in composite bound extents?
+	composite->CalculateExtents();
+	composite->AllocateAndBuildBvhStructure();
 	m_Drawable->SetBound(rage::phBoundPtr(composite));
-}
-
-bool rageam::asset::DrawableAsset::IsCollisionNode(const graphics::SceneNode* sceneNode) const
-{
-	ImmutableString modelName = sceneNode->GetName();
-	return modelName.EndsWith(COL_MODEL_EXT, true);
 }
 
 void rageam::asset::DrawableAsset::PoseModelBoundsFromScene() const
@@ -1497,7 +1747,7 @@ bool rageam::asset::DrawableAsset::TryCompileToGame()
 
 	AM_DEBUGF("DrawableAsset() -> Creating collision bounds");
 	ReportProgress(L"Creating collision bounds", 0.5);
-	CreateAndSetCompositeBound();
+	CreateBound();
 
 	AM_DEBUGF("DrawableAsset() -> Creating lights");
 	ReportProgress(L"Creating lights", 0.6);

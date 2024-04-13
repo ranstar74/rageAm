@@ -265,14 +265,28 @@ namespace rageam::graphics
 		// Combined local + parent node matrices into world transform matrix
 		const rage::Mat44V& GetWorldTransform() const { return m_WorldMatrix; }
 
+		bool HasWorldTransform() const
+		{
+			if (HasTransform())
+				return true;
+
+			SceneNode* parent = GetParent();
+			return parent && parent->HasWorldTransform();
+		}
 		bool HasTransform() const { return HasTranslation() || HasRotation() || HasScale(); }
 		bool HasTransformedChild() const;
+
+		// Computes num of nodes on this level of depth starting from current node
+		int GetNumSiblings() const;
 
 		// Navigation
 
 		SceneNode* GetParent() const { return m_Parent; }
 		SceneNode* GetNextSibling() const { return m_NextSibling; }
 		SceneNode* GetFirstChild() const { return m_FirstChild; }
+
+		List<SceneNode*> GetAllChildren() const;
+		List<SceneNode*> GetAllChildrenRecurse() const;
 	};
 	struct SceneNodeHashFn
 	{
