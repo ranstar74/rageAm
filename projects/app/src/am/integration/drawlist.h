@@ -164,7 +164,10 @@ namespace rageam::integration
 		void DrawSphere(const Mat44V& mtx, ColorU32 color, float radius);
 		void DrawSphere(ColorU32 color, float radius);
 		void DrawSphere(const Sphere& sphere, ColorU32 color);
-		void DrawCapsule() {} // TODO:
+		void DrawCapsule(float radius, float halfExtent, ColorU32 color);
+		void DrawCapsule(float radius, const Vec3V& normal, const Vec3V& extentFrom, const Vec3V& extentTo, ColorU32 color);
+		void DrawCylinder(float radius, const Vec3V& normal, const Vec3V& extentFrom, const Vec3V& extentTo, ColorU32 color);
+		void DrawCylinder(float radius, float halfExtent, ColorU32 color);
 
 		// --- Fill ---
 

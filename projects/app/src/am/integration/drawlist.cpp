@@ -353,6 +353,90 @@ void rageam::integration::DrawList::DrawSphere(const Sphere& sphere, ColorU32 co
 	DrawSphere(sphereWorld, color, sphere.GetRadius().Get());
 }
 
+void rageam::integration::DrawList::DrawCapsule(float radius, float halfExtent, ColorU32 color)
+{
+	rage::Vec3V extentFrom = rage::VEC_UP * halfExtent;
+	rage::Vec3V extentTo = rage::VEC_DOWN * halfExtent;
+
+	DrawLine(extentFrom, extentTo, color);
+
+	// Half sphere tops
+	DrawCircle(extentTo, rage::VEC_UP, rage::VEC_RIGHT, radius, color);
+	DrawCircle(extentFrom, rage::VEC_UP, rage::VEC_RIGHT, radius, color);
+
+	// Draw two half spheres (arcs)
+	DrawCircle(extentTo, rage::VEC_FRONT, rage::VEC_RIGHT, radius, color, 0, rage::PI);
+	DrawCircle(extentTo, -rage::VEC_RIGHT, rage::VEC_FRONT, radius, color, 0, rage::PI);
+	DrawCircle(extentFrom, -rage::VEC_FRONT, rage::VEC_RIGHT, radius, color, 0, rage::PI);
+	DrawCircle(extentFrom, rage::VEC_RIGHT, rage::VEC_FRONT, radius, color, 0, rage::PI);
+
+	// Draw lines connecting half spheres (arcs)
+	DrawLine(extentTo + rage::VEC_FRONT * radius, extentFrom + rage::VEC_FRONT * radius, color);
+	DrawLine(extentTo + rage::VEC_RIGHT * radius, extentFrom + rage::VEC_RIGHT * radius, color);
+	DrawLine(extentTo - rage::VEC_FRONT * radius, extentFrom - rage::VEC_FRONT * radius, color);
+	DrawLine(extentTo - rage::VEC_RIGHT * radius, extentFrom - rage::VEC_RIGHT * radius, color);
+}
+
+void rageam::integration::DrawList::DrawCapsule(float radius, const Vec3V& normal, const Vec3V& extentFrom, const Vec3V& extentTo, ColorU32 color)
+{
+	DrawLine(extentFrom, extentTo, color);
+
+	Vec3V tangent, biNormal;
+	normal.TangentAndBiNormal(tangent, biNormal);
+
+	// Half sphere tops
+	DrawCircle(extentTo, normal, tangent, radius, color);
+	DrawCircle(extentFrom, normal, tangent, radius, color);
+
+	// Draw two half spheres (arcs)
+	DrawCircle(extentTo, biNormal, tangent, radius, color, 0, rage::PI);
+	DrawCircle(extentTo, -tangent, biNormal, radius, color, 0, rage::PI);
+	DrawCircle(extentFrom, -biNormal, tangent, radius, color, 0, rage::PI);
+	DrawCircle(extentFrom, tangent, biNormal, radius, color, 0, rage::PI);
+
+	// Draw lines connecting half spheres (arcs)
+	DrawLine(extentTo + biNormal * radius, extentFrom + biNormal * radius, color);
+	DrawLine(extentTo + tangent * radius, extentFrom + tangent * radius, color);
+	DrawLine(extentTo - biNormal * radius, extentFrom - biNormal * radius, color);
+	DrawLine(extentTo - tangent * radius, extentFrom - tangent * radius, color);
+}
+
+void rageam::integration::DrawList::DrawCylinder(float radius, const Vec3V& normal, const Vec3V& extentFrom, const Vec3V& extentTo, ColorU32 color)
+{
+	DrawLine(extentFrom, extentTo, color);
+
+	Vec3V tangent, biNormal;
+	normal.TangentAndBiNormal(tangent, biNormal);
+
+	// Half sphere tops
+	DrawCircle(extentTo, normal, tangent, radius, color);
+	DrawCircle(extentFrom, normal, tangent, radius, color);
+
+	// Draw lines connecting half spheres (arcs)
+	DrawLine(extentTo + biNormal * radius, extentFrom + biNormal * radius, color);
+	DrawLine(extentTo + tangent * radius, extentFrom + tangent * radius, color);
+	DrawLine(extentTo - biNormal * radius, extentFrom - biNormal * radius, color);
+	DrawLine(extentTo - tangent * radius, extentFrom - tangent * radius, color);
+}
+
+void rageam::integration::DrawList::DrawCylinder(float radius, float halfExtent, ColorU32 color)
+{
+	rage::Vec3V extentFrom = rage::VEC_UP * halfExtent;
+	rage::Vec3V extentTo = rage::VEC_DOWN * halfExtent;
+
+	DrawLine(extentFrom, extentTo, color);
+
+	// Half top cylinders
+	DrawCircle(extentTo, rage::VEC_UP, rage::VEC_RIGHT, radius, color);
+	DrawCircle(extentFrom, rage::VEC_UP, rage::VEC_RIGHT, radius, color);
+
+	// Draw lines connecting half spheres (arcs)
+	DrawLine(extentTo + rage::VEC_FRONT * radius, extentFrom + rage::VEC_FRONT * radius, color);
+	DrawLine(extentTo + rage::VEC_RIGHT * radius, extentFrom + rage::VEC_RIGHT * radius, color);
+	DrawLine(extentTo - rage::VEC_FRONT * radius, extentFrom - rage::VEC_FRONT * radius, color);
+	DrawLine(extentTo - rage::VEC_RIGHT * radius, extentFrom - rage::VEC_RIGHT * radius, color);
+}
+
 void rageam::integration::DrawList::DrawTriFill(const Vec3V& p1, const Vec3V& p2, const Vec3V& p3, ColorU32 col1, ColorU32 col2, ColorU32 col3, const Mat44V& mtx)
 {
 	std::unique_lock lock(m_Mutex);
