@@ -234,7 +234,20 @@ rageam::asset::SceneTunePtr rageam::asset::MaterialTuneGroup::CreateTune() const
 rageam::asset::SceneTunePtr rageam::asset::MaterialTuneGroup::CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const
 {
 	graphics::SceneMaterial* sceneMaterial = scene->GetMaterial(itemIndex);
-	amPtr<MaterialTune> materialTune = std::make_shared<MaterialTune>(sceneMaterial->GetName()/*, false*/);
+
+	ConstString matchedShader = DEFAULT_SHADER;
+
+	// Pick default shader based on texture maps available
+	bool hasSpec = sceneMaterial->HasTextureInSlot(graphics::MT_Specular);
+	bool hasNormal = sceneMaterial->HasTextureInSlot(graphics::MT_Normal);
+	if (hasSpec && hasNormal)
+		matchedShader = "normal_spec";
+	else if (hasSpec)
+		matchedShader = "spec";
+	else if (hasNormal)
+		matchedShader = "normal";
+
+	amPtr<MaterialTune> materialTune = std::make_shared<MaterialTune>(sceneMaterial->GetName(), matchedShader);
 	materialTune->InitFromEffect();
 	materialTune->SetTextureNamesFromSceneMaterial(sceneMaterial);
 	return materialTune;

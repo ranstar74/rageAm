@@ -86,6 +86,8 @@ namespace rageam::graphics
 		virtual ConstString GetTextureName(eMaterialTexture texture) const = 0;
 
 		virtual bool IsDefault() const { return false; }
+
+		bool HasTextureInSlot(eMaterialTexture texture) const { return GetTextureName(texture); }
 	};
 	struct SceneMaterialHashFn
 	{
