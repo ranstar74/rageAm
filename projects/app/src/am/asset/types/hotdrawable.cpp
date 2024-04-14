@@ -828,7 +828,8 @@ rage::grcTexture* rageam::asset::HotDrawable::LookupTexture(ConstString name) co
 	if (String::IsNullOrEmpty(name))
 		return nullptr;
 
-	return m_MegaDictionary->Find(name);
+	ConstString undecoratedName = TxdAsset::UndecorateMissingTextureName(name);
+	return m_MegaDictionary->Find(undecoratedName);
 }
 
 void rageam::asset::HotDrawable::RemoveTexturesFromRenderThread(bool forceAll)
