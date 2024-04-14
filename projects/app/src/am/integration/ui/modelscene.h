@@ -69,6 +69,7 @@ namespace rageam::integration
 		ModelSceneContext		 m_Context;
 		// Graph View
 		s32						 m_SelectedNodeIndex = -1;
+		s32						 m_HoveredNodeIndex = -1;
 		eSceneNodeAttr			 m_SelectedNodeAttr = SceneNodeAttr_None;
 		eSceneNodeAttr			 m_JustSelectedNodeAttr = SceneNodeAttr_None; // In current frame
 		DrawableStats			 m_DrawableStats;

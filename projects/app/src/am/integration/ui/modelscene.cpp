@@ -185,6 +185,9 @@ void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::Scen
 		if (selected)
 			m_SelectedNodeIndex = nodeIndex;
 
+		if (ImGui::IsItemHovered())
+			m_HoveredNodeIndex = nodeIndex;
+
 		// Attribute buttons
 		auto attrButton = [&](pVoid attrData, eSceneNodeAttr attr, ConstString icon, ImU32 col)
 			{
@@ -264,7 +267,17 @@ void rageam::integration::ModelScene::DrawSceneGraph(const graphics::SceneNode* 
 	{
 		ImGui::TableSetupColumn("Node", ImGuiTableColumnFlags_WidthStretch);
 		ImGui::TableSetupColumn("Visibility", ImGuiTableColumnFlags_WidthFixed);
+		m_HoveredNodeIndex = -1;
 		DrawSceneGraphRecurse(sceneNode);
+		// Show outline for hovered node
+		{
+			// TODO: Lods...
+			auto& models = GetDrawable()->GetLodGroup().GetLod(0)->GetModels();
+			for (u16 i = 0; i < models.GetSize(); i++)
+			{
+				models[i]->SetOutline(m_HoveredNodeIndex == i);
+			}
+		}
 		ImGui::EndTable();
 	}
 	ImGui::PopStyleVar(3);
@@ -595,13 +608,6 @@ void rageam::integration::ModelScene::OnRender()
 	{
 		LightEditor.Render();
 		MaterialEditor.Render();
-
-		// TODO: Lods...
-		auto& models = GetDrawable()->GetLodGroup().GetLod(0)->GetModels();
-		for (u16 i = 0; i < models.GetSize(); i++)
-		{
-			models[i]->SetOutline(m_SelectedNodeIndex == i);
-		}
 	}
 
 	// Recompile drawable after changing tune
