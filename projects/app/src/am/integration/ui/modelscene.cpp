@@ -86,9 +86,10 @@ void rageam::integration::ModelScene::CreateArchetypeDefAndSpawnGameEntity()
 	static constexpr ConstString ASSET_NAME = "amTestBedArchetype";
 	static constexpr u32 ASSET_NAME_HASH = rage::atStringHash(ASSET_NAME);
 
+	// TODO: Should be taken from lod group!
 	// Make sure that lod distance is not smaller than drawable itself
 	float lodDistance = GetDrawable()->GetBoundingSphere().GetRadius().Get();
-	lodDistance += 100.0f;
+	lodDistance += 200.0f;
 
 	m_ArchetypeDef = std::make_shared<CBaseArchetypeDef>();
 	m_ArchetypeDef->Name = ASSET_NAME_HASH;

@@ -740,6 +740,7 @@ void rageam::integration::ModelInspector::LoadFromPath(ConstWString path)
 	m_ArchetypeDef->AssetName = ASSET_NAME_HASH;
 	m_ArchetypeDef->PhysicsDictionary = ASSET_NAME_HASH;
 	m_ArchetypeDef->Flags = FLAG_IS_TYPE_OBJECT | FLAG_IS_FIXED | FLAG_HAS_ANIM;
+	// TODO: Should be taken from lod group!
 	// Add bounding sphere radius as long distance to draw it far enough
 	m_ArchetypeDef->LodDist = m_Drawable->GetBoundingSphere().GetRadius().Get() + 200.0f;
 

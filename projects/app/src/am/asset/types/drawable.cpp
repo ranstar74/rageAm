@@ -1057,6 +1057,9 @@ void rageam::asset::DrawableAsset::SetupLodModels()
 
 		lodModels.Emplace(ConvertSceneModel(sceneNode));
 	}
+
+	// TODO: Set high lod distance for now so buildings don't disappear quickly
+	lodGroup.SetLodThreshold(rage::LOD_HIGH, 200.0f);
 }
 
 void rageam::asset::DrawableAsset::CalculateLodExtents() const

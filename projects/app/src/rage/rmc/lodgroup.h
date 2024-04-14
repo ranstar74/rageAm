@@ -77,6 +77,7 @@ namespace rage
 			m_BoundingSphere = bs;
 		}
 
+		void SetLodThreshold(int lod, float dist) { m_LodThreshold[lod] = dist; }
 		float GetLodThreshold(int lod) const { return m_LodThreshold[lod]; }
 		// Merges lod model bucket masks into single lod mask
 		void ComputeBucketMask(const grmShaderGroup* shaderGroup);
