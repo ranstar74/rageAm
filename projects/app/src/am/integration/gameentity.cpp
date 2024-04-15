@@ -163,6 +163,14 @@ rageam::integration::GameEntity::GameEntity(ConstString name, const gtaDrawableP
 #endif
 }
 
+void rageam::integration::GameEntity::SetRotation(const rage::Vec3V& angle) const
+{
+	if (!m_EntityHandle.IsValid())
+		return;
+
+	scrSetEntityRotation(m_EntityHandle, angle);
+}
+
 void rageam::integration::GameEntity::SetPosition(const rage::Vec3V& pos)
 {
 	m_CachedPosition = pos;

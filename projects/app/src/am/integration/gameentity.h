@@ -45,6 +45,7 @@ namespace rageam::integration
 	public:
 		GameEntity(ConstString name, const gtaDrawablePtr& drawable, const amPtr<rage::fwArchetypeDef>& archetypeDef, const Vec3V& pos);
 
+		void           SetRotation(const rage::Vec3V& angle) const;
 		void           SetPosition(const Vec3V& pos);
 		const Vec3V&   GetPosition()		const { return m_CachedPosition; }
 		const Mat44V&  GetWorldTransform()	const { return m_EntityWorld; }

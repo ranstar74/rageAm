@@ -27,6 +27,7 @@ namespace rageam::integration
 		bool             m_CameraEnabled = false;
 		bool             m_UseOrbitCamera = true;
 		bool             m_UseIsolatedScene = false;
+		float			 m_SceneRotation = 0.0f;
 
 		void UpdateCamera();
 		void OnRender() override;

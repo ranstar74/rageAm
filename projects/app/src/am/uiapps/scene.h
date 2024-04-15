@@ -55,8 +55,10 @@ namespace rageam::ui
 
 		virtual void LoadFromPath(ConstWString path) = 0;
 
+		virtual const Vec3V& GetRotation() const = 0;
 		virtual const Vec3V& GetPosition() const = 0;
 		virtual void SetPosition(const Vec3V& pos) = 0;
+		virtual void SetRotation(const Vec3V& angle) = 0;
 
 		// Name of the loaded scene - for e.g. 'Duck.idr'
 		virtual ConstString GetModelName() const = 0;

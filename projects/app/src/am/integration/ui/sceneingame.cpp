@@ -10,6 +10,12 @@ void rageam::integration::SceneInGame::TrySetEntityPosition(const Vec3V& pos)
 		m_GameEntity->SetPosition(pos);
 }
 
+void rageam::integration::SceneInGame::TrySetEntityRotation(const Vec3V& angle)
+{
+	if (m_GameEntity)
+		m_GameEntity->SetRotation(angle);
+}
+
 void rageam::integration::SceneInGame::CreateEntity(ConstString name, const gtaDrawablePtr& drawable, const amPtr<CBaseArchetypeDef>& archetypeDef)
 {
 	m_Drawable = drawable;
@@ -37,6 +43,11 @@ void rageam::integration::SceneInGame::DestroyEntity()
 	m_GameEntity = nullptr;
 }
 
+const rage::Vec3V& rageam::integration::SceneInGame::GetRotation() const
+{
+	return m_CachedRotation;
+}
+
 const rageam::Vec3V& rageam::integration::SceneInGame::GetPosition() const
 {
 	// At the moment we always return cached position because on model spawn
@@ -49,6 +60,12 @@ void rageam::integration::SceneInGame::SetPosition(const Vec3V& pos)
 {
 	m_CachedPosition = pos;
 	TrySetEntityPosition(pos);
+}
+
+void rageam::integration::SceneInGame::SetRotation(const Vec3V& angle)
+{
+	m_CachedRotation = angle;
+	TrySetEntityRotation(angle);
 }
 
 void rageam::integration::SceneInGame::FocusCamera()

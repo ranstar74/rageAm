@@ -595,6 +595,24 @@ inline void scrSetEntityCoordsNoOffset(scrObjectIndex entityIndex, const scrVect
 	s_Handler(info);
 }
 
+inline void scrSetEntityRotation(scrObjectIndex entityIndex, const scrVector& rot)
+{
+	using namespace rageam::integration;
+	static scrSignature s_Handler = scrLookupHandler(0x8CE3D365F064F69E);
+	scrValue params[6];
+	params[0].Int = entityIndex.Get();
+	params[1].Float = rot.X;
+	params[2].Float = rot.Y;
+	params[3].Float = rot.Z;
+	params[4].Int = 0; // EULER_XYZ
+	params[5].Int = 0; // doDeadCheck
+	scrInfo info;
+	info.ResultPtr = nullptr;
+	info.ParamCount = 6;
+	info.Params = params;
+	s_Handler(info);
+}
+
 inline void scrSetEntityAsMissionEntity(scrObjectIndex entityIndex, bool scriptHostObject = true, bool grabFromOtherScript = false)
 {
 	using namespace rageam::integration;
