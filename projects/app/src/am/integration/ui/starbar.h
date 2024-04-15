@@ -30,8 +30,8 @@ namespace rageam::integration
 		float			 m_SceneRotation = 0.0f;
 
 		void UpdateCamera();
-		void OnRender() override;
 		void OnStart() override;
+		void OnRender() override;
 
 	public:
 		void SetCameraEnabled(bool b)

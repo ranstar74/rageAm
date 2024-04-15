@@ -12,6 +12,30 @@
 #include "am/integration/gamedrawlists.h"
 #include "am/integration/script/extensions.h"
 #include "am/uiapps/explorer/explorer.h"
+#include "am/integration/memory/hook.h"
+
+namespace
+{
+	// Disables effect of dark red vertex channel on model, in simple
+	// words make model appear a little bit brighter
+	bool s_DisableDiffuseShadows = false;
+}
+
+// Time cycle value overrides
+char* g_timeCycle;
+void (*gImpl_Lights_UpdateBaseLights)();
+void aImpl_Lights_UpdateBaseLights()
+{
+	constexpr int TCVAR_LIGHT_NATURAL_PUSH = 20;
+
+	// g_timeCycle.m_frameInfo.m_keyframe.m_vars
+	float* vars = (float*)(g_timeCycle + 0x1D60);
+
+	float oldNaturalPush = vars[TCVAR_LIGHT_NATURAL_PUSH];
+	if (s_DisableDiffuseShadows) vars[TCVAR_LIGHT_NATURAL_PUSH] = 1.0f;
+	gImpl_Lights_UpdateBaseLights();
+	if (s_DisableDiffuseShadows) vars[TCVAR_LIGHT_NATURAL_PUSH] = oldNaturalPush;
+}
 
 void rageam::integration::StarBar::UpdateCamera()
 {
@@ -45,6 +69,16 @@ void rageam::integration::StarBar::UpdateCamera()
 		m_Camera->LookAt(m_Camera->GetPosition() + m_Camera->GetFront() * 3.0f);
 
 	m_Camera->SetActive(true);
+}
+
+void rageam::integration::StarBar::OnStart()
+{
+	ui::Scene::DefaultSpawnPosition = SCENE_DEFAULT_POS;
+
+	// For overriding time cycle values
+	gmAddress updateBaseLights = gmAddress::Scan("48 81 EC D8 0B 00 00 48 8D");
+	g_timeCycle = updateBaseLights.GetAt(7).GetRef(3).To<char*>();
+	Hook::Create(updateBaseLights, aImpl_Lights_UpdateBaseLights, &gImpl_Lights_UpdateBaseLights);
 }
 
 void rageam::integration::StarBar::OnRender()
@@ -207,6 +241,11 @@ void rageam::integration::StarBar::OnRender()
 	{
 		GameDrawLists* drawLists = GameDrawLists::GetInstance();
 
+		ImGui::Checkbox("No Diffuse Shadows", &s_DisableDiffuseShadows);
+		ImGui::ToolTip(
+			"Technically, this disables RED vertex color on mesh, ligthing model up.\n"
+			"Under the hood sets TCVAR_LIGHT_NATURAL_PUSH to 1.0");
+
 		// ImGui::SliderFloat("Line Thickness", &DrawList::LineThickness, 0.0f, 0.05f);
 
 		ImGui::Checkbox("Focus camera on scene", &FocusCameraOnScene);
@@ -265,11 +304,6 @@ void rageam::integration::StarBar::OnRender()
 	}
 
 	SlGui::EndToolWindow();
-}
-
-void rageam::integration::StarBar::OnStart()
-{
-	ui::Scene::DefaultSpawnPosition = SCENE_DEFAULT_POS;
 }
 
 #endif
