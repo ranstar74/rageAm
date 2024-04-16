@@ -76,8 +76,18 @@ void rageam::integration::StarBar::OnStart()
 	ui::Scene::DefaultSpawnPosition = SCENE_DEFAULT_POS;
 
 	// For overriding time cycle values
-	gmAddress updateBaseLights = gmAddress::Scan("48 81 EC D8 0B 00 00 48 8D");
+	gmAddress updateBaseLights = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		"48 81 EC D8 0B 00 00 48 8D", "Lights::UpdateBaseLights");
 	g_timeCycle = updateBaseLights.GetAt(7).GetRef(3).To<char*>();
+#else
+		"40 22 CE 74 02", "Lights::UpdateBaseLights+0x216").GetAt(-0x216);
+
+	gmAddress timeCycle = gmAddress::Scan(
+		"48 8D 0D ?? ?? ?? ?? 33 D2 E8 ?? ?? ?? ?? 48 8B D7", 
+		"camFramePropagator::ComputeAndPropagateRevisedFarClipFromTimeCycle+0x33");
+	g_timeCycle = timeCycle.GetRef(3).To<char*>();
+#endif
 	Hook::Create(updateBaseLights, aImpl_Lights_UpdateBaseLights, &gImpl_Lights_UpdateBaseLights);
 }
 

@@ -270,7 +270,7 @@ void rageam::graphics::Window::SetHooks() const
 		gmAddress::Scan("E9 2F 15 00 00", "rage::grcWindowProc+0x176").GetAt(-0x176);
 #elif APP_BUILD_2699_16_RELEASE
 		gmAddress::Scan("48 8B C4 48 89 58 08 4C 89 48 20 55 56 57 41 54 41 55 41 56 41 57 48 8D 68 A1 48 81 EC F0", "rage::grcWindowProc");
-#else // APP_BUILD_2699_16 | APP_BUILD_3095_0
+#else // APP_BUILD_2699_16 | APP_BUILD_3095_0 | APP_BUILD_3179_0
 		gmAddress::Scan("48 8D 05 ?? ?? ?? ?? 33 C9 89 75 20", "rage::grcWindowProc").GetRef(3);
 #endif
 	Hook::Create(s_WndProc_Addr, WndProc, &gImpl_WndProc);

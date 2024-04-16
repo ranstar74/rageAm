@@ -150,7 +150,8 @@ void rageam::integration::scrInit()
 	tl_CurrentThread.SetOffset(*tlValues.GetAt(2).To<int*>());
 	tl_ThisThreadIsRunningAScript.SetOffset(*tlValues.GetAt(6 + 4 + 2).To<int*>());
 #else
-	gmAddress tlValues = gmAddress::Scan("41 BF 48 08 00 00", "rage::scrThread::Run+0x52");
+	gmAddress tlValues = gmAddress::Scan("4A 8B 3C 3A 41 C6 04 16 01", "rage::scrThread::Run+0x5E");
+	tlValues = tlValues.GetAt(-12);
 	// mov r15d, 848h
 	// mov r14d, 850h
 	tl_CurrentThread.SetOffset(*tlValues.GetAt(2).To<int*>());

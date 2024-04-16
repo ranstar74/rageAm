@@ -61,7 +61,7 @@ void scrEnd();
 // Include build-specific headers
 #if APP_BUILD_2699_16_RELEASE
 #include "headers/commands_2699_16.h"
-#elif APP_BUILD_3095_0
+#elif APP_BUILD_3095_0 | APP_BUILD_3179_0
 #include "headers/commands_3095_0.h"
 #else
 #error No script headers available for current game version.
