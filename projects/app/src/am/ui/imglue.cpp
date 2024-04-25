@@ -219,7 +219,7 @@ void rageam::ui::ImGlue::BuildFontRanges(List<ImWchar>& fontRanges) const
 #undef FONT_ADD_RANGE
 }
 
-void rageam::ui::ImGlue::CreateDefaultFonts(const ImWchar* fontRanges) const
+void rageam::ui::ImGlue::CreateDefaultFonts(const ImWchar* fontRanges, float fontScaleMultiplier) const
 {
 	float fontSize = static_cast<float>(FontSize);
 
@@ -228,7 +228,7 @@ void rageam::ui::ImGlue::CreateDefaultFonts(const ImWchar* fontRanges) const
 	io.Fonts->FontBuilderFlags = ImGuiFreeTypeBuilderFlags_ForceAutoHint;
 
 	ImFontConfig fontConfig = {};
-	fontConfig.SizePixels = fontSize;
+	fontConfig.SizePixels = fontSize * fontScaleMultiplier;
 	fontConfig.OversampleH = 1;
 	fontConfig.OversampleV = 1;
 
@@ -241,10 +241,10 @@ void rageam::ui::ImGlue::CreateDefaultFonts(const ImWchar* fontRanges) const
 	file::U8Path regular = PATH_TO_UTF8(DataManager::GetFontsFolder() / L"NotoSans.ttf");
 	file::U8Path medium = PATH_TO_UTF8(DataManager::GetFontsFolder() / L"NotoSansMedium.ttf");
 	file::U8Path awesome = PATH_TO_UTF8(DataManager::GetFontsFolder() / L"Font Awesome 6.ttf");
-	io.Fonts->AddFontFromFileTTF(regular, fontSize, &fontConfig, fontRanges);		// Regular
-	io.Fonts->AddFontFromFileTTF(awesome, fontSize, &iconConfig, iconRange);		// Awesome icons (merged into regular)
-	io.Fonts->AddFontFromFileTTF(regular, fontSize - 2, &fontConfig, fontRanges);	// Small
-	io.Fonts->AddFontFromFileTTF(medium, fontSize, &fontConfig, fontRanges);		// Medium
+	io.Fonts->AddFontFromFileTTF(regular, fontSize * fontScaleMultiplier, &fontConfig, fontRanges);		// Regular
+	io.Fonts->AddFontFromFileTTF(awesome, fontSize * fontScaleMultiplier, &iconConfig, iconRange);		// Awesome icons (merged into regular)
+	io.Fonts->AddFontFromFileTTF(regular, fontSize * fontScaleMultiplier - 2, &fontConfig, fontRanges);	// Small
+	io.Fonts->AddFontFromFileTTF(medium, fontSize * fontScaleMultiplier, &fontConfig, fontRanges);		// Medium
 }
 
 void rageam::ui::ImGlue::CreateBankFont() const
@@ -415,9 +415,12 @@ void rageam::ui::ImGlue::CreateFonts() const
 	ImGuiIO& io = ImGui::GetIO();
 	io.Fonts->Clear();
 
+	HMONITOR monitor = MonitorFromWindow(graphics::WindowGetHWND(), MONITOR_DEFAULTTONEAREST);
+	float fontScale = ImGui_ImplWin32_GetDpiScaleForMonitor(monitor);
+
 	List<ImWchar> fontRanges;
 	BuildFontRanges(fontRanges);
-	CreateDefaultFonts(fontRanges.GetItems());
+	CreateDefaultFonts(fontRanges.GetItems(), fontScale);
 	CreateBankFont();
 	EmbedFontIcons(ImFont_Regular);
 	

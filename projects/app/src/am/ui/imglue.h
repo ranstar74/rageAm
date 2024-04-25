@@ -87,7 +87,7 @@ namespace rageam::ui
 		void EmbedFontIcons(ImFonts font) const;
 		// Extra languages that we want to load from font file
 		void BuildFontRanges(List<ImWchar>& fontRanges) const;
-		void CreateDefaultFonts(const ImWchar* fontRanges) const;
+		void CreateDefaultFonts(const ImWchar* fontRanges, float fontScaleMultiplier) const;
 		// Creates famous font used in rage BANK widgets
 		// Font has fixed size 8x8 pixels and can't be resized
 		void CreateBankFont() const;
