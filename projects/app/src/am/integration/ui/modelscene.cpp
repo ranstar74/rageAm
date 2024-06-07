@@ -124,7 +124,10 @@ void rageam::integration::ModelScene::OnDrawableCompiled()
 	m_CompilerMessages.Destroy();
 	m_CompilerProgress = 1.0;
 
-	if(m_ResetUIAfterCompiling)
+	m_SceneNodeToCanBeSelectedInViewport.Resize(m_Context.DrawableAsset->GetScene()->GetNodeCount());
+	for (bool& v : m_SceneNodeToCanBeSelectedInViewport)
+		v = true;
+
 	{
 		m_SelectedNodeIndex = -1;
 		m_SelectedNodeAttr = SceneNodeAttr_None;
@@ -152,6 +155,7 @@ void rageam::integration::ModelScene::UpdateHotDrawableAndContext()
 	m_Context.MegaDictionary = info.MegaDictionary;
 	m_Context.HotFlags = info.HotFlags;
 	m_Context.HotDrawable = m_HotDrawable.get();
+	m_Context.SceneNodeToCanBeSelectedInViewport = &m_SceneNodeToCanBeSelectedInViewport;
 
 	// Entity will be NULL if drawable just compiled
 	GameEntity* gameEntity = GetEntity();
@@ -244,6 +248,17 @@ void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::Scen
 		ImGui::PopStyleVar(2); // ItemSpacing, FramePadding
 	}
 
+	// TODO: Hierarchy with SHIFT modifier
+
+	// Column: Can Select
+	ImGui::TableNextColumn();
+	bool canBeSelected = m_SceneNodeToCanBeSelectedInViewport[nodeIndex];
+	if (SlGui::IconButton(canBeSelected ? ICON_AM_RESTRICT_SELECTOFF : ICON_AM_RESTRICT_SELECTON))
+	{
+		m_SceneNodeToCanBeSelectedInViewport[nodeIndex] = !canBeSelected;
+	}
+	ImGui::ToolTip("Toggle whether object can be selected in viewport using mouse.");
+
 	// Column: Visibility Eye
 	ImGui::TableNextColumn();
 	rage::grmModel* model = GetMeshAttr(nodeIndex);
@@ -274,20 +289,36 @@ void rageam::integration::ModelScene::DrawSceneGraph(const graphics::SceneNode* 
 	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0, 0));
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 0));
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(0, 0));
-	if (ImGui::BeginTable("SCENE_GRAPH_TABLE", 2))
+	if (ImGui::BeginTable("SCENE_GRAPH_TABLE", 3))
 	{
 		ImGui::TableSetupColumn("Node", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("CanSelect", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Visibility", ImGuiTableColumnFlags_WidthFixed);
 		m_HoveredNodeIndex = -1;
 		DrawSceneGraphRecurse(sceneNode);
-		// Show outline for hovered node
+
+		// First Reset outline on all lods, we have to do it in any case
+		for (u16 lod = 0; lod < 4; lod++)
 		{
-			// TODO: Lods...
-			auto& models = GetDrawable()->GetLodGroup().GetLod(0)->GetModels();
+			auto& models = GetDrawable()->GetLodGroup().GetLod(lod)->GetModels();
 			for (u16 i = 0; i < models.GetSize(); i++)
 			{
-				models[i]->SetOutline(m_HoveredNodeIndex == i);
+				models[i]->SetOutline(false);
 			}
+		}
+
+		// Show outline for hovered node
+		if (m_HoveredNodeIndex != -1)
+		{
+			const auto& modelHandle = GetDrawableMap().SceneNodeToModel[m_HoveredNodeIndex];
+			if (modelHandle.Index != u16(-1))
+			{
+				auto& models = GetDrawable()->GetLodGroup().GetLod(modelHandle.Lod)->GetModels();
+			for (u16 i = 0; i < models.GetSize(); i++)
+			{
+					models[i]->SetOutline(modelHandle.Index == i);
+			}
+		}
 		}
 		ImGui::EndTable();
 	}

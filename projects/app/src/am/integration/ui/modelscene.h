@@ -1,5 +1,4 @@
 #pragma once
-#include "sceneingame.h"
 
 #ifdef AM_INTEGRATED
 
@@ -9,6 +8,7 @@
 #include "am/integration/gameentity.h"
 #include "am/asset/types/hotdrawable.h"
 #include "am/integration/components/drawablerender.h"
+#include "sceneingame.h"
 
 namespace rageam::integration
 {
@@ -26,6 +26,7 @@ namespace rageam::integration
 		asset::DrawableAssetPtr     DrawableAsset;
 		rage::grcTextureDictionary* MegaDictionary;
 		asset::HotDrawable*         HotDrawable;
+		List<bool>*					SceneNodeToCanBeSelectedInViewport;
 	};
 
 	struct DrawableStats
@@ -79,6 +80,7 @@ namespace rageam::integration
 		bool					 m_AssetTuneChanged = false;		 // Set by UI to post reload request on the end of frame
 		bool					 m_ResetUIAfterCompiling = false; // We don't want to reset UI when just recompiling drawable
 		file::Path				 m_LoadedName;
+		List<bool>				 m_SceneNodeToCanBeSelectedInViewport;
 
 		auto GetDrawable()									const { return m_Context.Drawable.Get(); }
 		auto GetDrawableMap()								const -> const asset::DrawableAssetMap&;
