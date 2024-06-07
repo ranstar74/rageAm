@@ -47,6 +47,9 @@ PS_Out main(VS_Out IN)
 	color += float4(0.6, 0.6, 0.6, 0);
     color += Blur(screenCoord, 2, 4, 16) * float4(1.2, 1.2, 1.2, 1.2);
 
+	// color = Texture.Sample(Sampler, screenCoord);
+	color = lerp(Texture.Sample(Sampler, screenCoord), color, 0.1f);
+
 	PS_Out output;
 	output.Diffuse = color;
     return output;
