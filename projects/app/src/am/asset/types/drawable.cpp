@@ -103,6 +103,7 @@ void rageam::asset::MaterialTune::Deserialize(const XmlHandle& node)
 	SceneTune::Deserialize(node);
 	XML_GET_ATTR(node, Effect);
 	XML_GET_ATTR(node, DrawBucket);
+	XML_GET_ATTR(node, PhysicalMaterialId);
 
 	for (const XmlHandle& xParam : XmlIterator(node, "Param"))
 	{
@@ -117,6 +118,7 @@ void rageam::asset::MaterialTune::Serialize(XmlHandle& node) const
 	SceneTune::Serialize(node);
 	XML_SET_ATTR(node, Effect);
 	XML_SET_ATTR(node, DrawBucket);
+	XML_SET_ATTR(node, PhysicalMaterialId);
 
 	for (const Param& param : Params)
 	{
@@ -266,15 +268,17 @@ u16 rageam::asset::MaterialTuneGroup::GetItemCount(graphics::Scene* scene) const
 void rageam::asset::ModelTune::Serialize(XmlHandle& node) const
 {
 	SceneTune::Serialize(node);
-	XML_SET_CHILD_VALUE(node, UseAsBound);
 	XML_SET_CHILD_VALUE(node, CreateBone);
+	XML_SET_CHILD_VALUE(node, BoundTune.IncludeFlags);
+	XML_SET_CHILD_VALUE(node, BoundTune.TypeFlags);
 }
 
 void rageam::asset::ModelTune::Deserialize(const XmlHandle& node)
 {
 	SceneTune::Deserialize(node);
-	XML_GET_CHILD_VALUE(node, UseAsBound);
 	XML_GET_CHILD_VALUE(node, CreateBone);
+	XML_GET_CHILD_VALUE(node, BoundTune.IncludeFlags);
+	XML_GET_CHILD_VALUE(node, BoundTune.TypeFlags);
 }
 
 int rageam::asset::ModelTuneGroup::IndexOf(const graphics::Scene* scene, ConstString itemName) const
@@ -576,14 +580,27 @@ rage::crBoneData* rageam::asset::DrawableAssetMap::GetBoneFromScene(const rage::
 	return drawable->GetSkeletonData()->GetBone(boneIndex);
 }
 
-rage::phBound* rageam::asset::DrawableAssetMap::GetBoundFromScene(const gtaDrawable* drawable, u16 sceneNodeIndex) const
+rage::phBound* rageam::asset::DrawableAssetMap::GetBoundFromScene(const gtaDrawable* drawable, u16 sceneNodeIndex, u16 arrayIndex) const
 {
-	/*u16 boundIndex = SceneNodeToBound[sceneNodeIndex];
+	// To keep compatablity with old code, although this seems weird
+	if (!SceneNodeToBound[sceneNodeIndex].Any())
+		return nullptr;
+
+	u16 boundIndex = SceneNodeToBound[sceneNodeIndex][arrayIndex];
 	if (boundIndex == u16(-1))
 		return nullptr;
-	return ((rage::phBoundComposite*)drawable->GetBound().Get())->GetBound(boundIndex).Get();*/
-	// TODO: ...
-	return nullptr;
+
+	// CreateBound always created composite!
+	rage::phBound* rootBound = drawable->GetBound().Get();
+	AM_ASSERTS(rootBound->GetShapeType() == rage::PH_BOUND_COMPOSITE);
+
+	rage::phBoundComposite* composite = reinterpret_cast<rage::phBoundComposite*>(rootBound);
+	return composite->GetBound(boundIndex).Get();
+}
+
+u16 rageam::asset::DrawableAssetMap::GetBoundCountFromScene(const gtaDrawable* drawable, u16 sceneNodeIndex) const
+{
+	return SceneNodeToBound[sceneNodeIndex].GetSize();
 }
 
 CLightAttr* rageam::asset::DrawableAssetMap::GetLightFromScene(gtaDrawable* drawable, u16 sceneNodeIndex) const
@@ -633,6 +650,7 @@ void rageam::asset::DrawableAsset::PrepareForConversion()
 	CompiledDrawableMap->SceneNodeToBound.Resize(nodeCount);
 	CompiledDrawableMap->SceneNodeToBone.Resize(nodeCount);
 	CompiledDrawableMap->SceneMaterialToShader.Resize(m_Scene->GetMaterialCount());
+	CompiledDrawableMap->SceneMaterialToBounds.Resize(m_Scene->GetMaterialCount());
 	CompiledDrawableMap->SceneNodeToLightAttr.Resize(nodeCount);
 	// Default everything to -1
 	for (auto& handle : CompiledDrawableMap->SceneNodeToModel)	handle = { u16(-1), u16(-1) };
@@ -1294,13 +1312,13 @@ rageam::List<rageam::graphics::Primitive> rageam::asset::DrawableAsset::GetPrimi
 		}
 
 		graphics::Primitive primitive;
-		MatchPrimitive(geom->GetAABB(), vertices.GetBufferAs<Vec3S>(), vertexCount, indices.GetBufferAs<u16>(), indexCount, primitive);
+		MatchPrimitive(geom, primitive);
 		primitives.Add(primitive);
 	}
 	return primitives;
 }
 
-rageam::List<rageam::asset::DrawableAsset::CreatedBoundInfo> rageam::asset::DrawableAsset::CreateBoundsFromNode(graphics::SceneNode* node) const
+rageam::List<rageam::asset::DrawableAsset::CreatedBoundInfo> rageam::asset::DrawableAsset::CreateBoundsFromNode(int boundIndex, graphics::SceneNode* node) const
 {
 	List<CreatedBoundInfo> bounds;
 	for (graphics::Primitive& primitive : GetPrimitivesFromNode(node))
@@ -1336,6 +1354,17 @@ rageam::List<rageam::asset::DrawableAsset::CreatedBoundInfo> rageam::asset::Draw
 
 		if (newBound)
 		{
+			int newBoundIndex = boundIndex + bounds.GetSize();
+
+			// Set material
+			// At the moment all meshes are split by materials, so we don't need more than 1 material on geometry bound
+			int sceneMaterialIndex = primitive.Geometry->GetMaterialIndex();
+			const auto& materialTune = m_DrawableTune.Materials.Get(sceneMaterialIndex);
+			newBound->SetMaterial(materialTune->PhysicalMaterialId);
+			// Link material to bound
+			CompiledDrawableMap->SceneMaterialToBounds[sceneMaterialIndex].Add(
+				DrawableAssetMap::BoundMaterialHandle(newBoundIndex, 0));
+
 			CreatedBoundInfo createdBound;
 			createdBound.Node = node;
 			createdBound.Bound = rage::phBoundPtr(newBound);
@@ -1346,10 +1375,23 @@ rageam::List<rageam::asset::DrawableAsset::CreatedBoundInfo> rageam::asset::Draw
 	return bounds;
 }
 
-rageam::asset::DrawableAsset::CreatedBoundInfo rageam::asset::DrawableAsset::CreateBvhFromNode(graphics::SceneNode* node) const
+rageam::asset::DrawableAsset::CreatedBoundInfo rageam::asset::DrawableAsset::CreateBvhFromNode(int boundIndex, graphics::SceneNode* node) const
 {
+	struct GroupedMaterial
+	{
+		u16			   SceneMaterialIndex;
+		SmallList<u16> PrimitiveIndices;
+	};
+
 	SmallList<rage::phPrimitive> bvhPrimitives;
 	SmallList<Vec3S> bvhVertices;
+	// We don't know yet how much materials are actually used, group created primitives by used material
+	Dictionary<u64, GroupedMaterial> materialToPrimitives;
+	materialToPrimitives.InitAndAllocate(64);
+
+	// If BVH node has transform, it will be transformed in composite node,
+	// we shouldn't apply BVH node transformation on primitives
+	rage::Mat44V bvhWorldInverse = node->GetWorldTransform().Inverse();
 
 	for (graphics::SceneNode* childNode : node->GetAllChildrenRecurse())
 	{
@@ -1357,7 +1399,8 @@ rageam::asset::DrawableAsset::CreatedBoundInfo rageam::asset::DrawableAsset::Cre
 			continue;
 
 		// BVH don't have any matrix stored for polygons, we have to transform every primitive vertices before adding them to BVH
-		const rage::Mat44V& worldTransform = childNode->GetWorldTransform();
+		// This transform is relative to the BVH node
+		rage::Mat44V worldTransform = childNode->GetWorldTransform() * bvhWorldInverse;
 
 		// Adds new vertex to BVH and returns index + transforms it to world space
 		auto addVertex = [&](const Vec3V& v)
@@ -1372,6 +1415,7 @@ rageam::asset::DrawableAsset::CreatedBoundInfo rageam::asset::DrawableAsset::Cre
 
 		for (graphics::Primitive& primitive : GetPrimitivesFromNode(childNode))
 		{
+			u16 primitiveIndex = bvhPrimitives.GetSize();
 			switch (primitive.Type)
 			{
 			case graphics::PrimitiveMesh:
@@ -1425,17 +1469,51 @@ rageam::asset::DrawableAsset::CreatedBoundInfo rageam::asset::DrawableAsset::Cre
 				bvhPrimitives.Add(capsule.GetPrimitive());
 				break;
 			}
+
+				// Skip if we didn't create any phPrimitive
 			default:
-				break;
+				continue;
 			}
+
+			u16 sceneMaterialIndex = primitive.Geometry->GetMaterialIndex();
+			const auto& materialTune = m_DrawableTune.Materials.Get(sceneMaterialIndex);
+			GroupedMaterial& groupedMaterial = materialToPrimitives[materialTune->PhysicalMaterialId];
+			groupedMaterial.SceneMaterialIndex = sceneMaterialIndex;
+			groupedMaterial.PrimitiveIndices.Add(primitiveIndex);
 		}
 	}
 
 	if (!bvhPrimitives.Any())
 		return {};
 
+	// TODO: We can split it into multiple BVHs
+	int numMaterials = materialToPrimitives.GetNumUsedSlots();
+	if (numMaterials > 255)
+	{
+		AM_ERRF("DrawableAsset::CreateBvhFromNode() -> Created '%i' materials, but max 255 are allowed!", numMaterials);
+		return {};
+	}
+
 	// TODO: AABB is computed in BVH constructor from created primitives, not optimal! We should use AABBs from scene nodes
-	rage::phBoundBVH* bvh = new rage::phBoundBVH(bvhVertices, bvhPrimitives);
+	rage::phBoundBVH* bvh = new rage::phBoundBVH(bvhVertices, bvhPrimitives, numMaterials);
+
+	// Set material for each polygon (primitive)
+	u16 currentMaterialIndex = 0;
+	for (auto& materialPrimitives : materialToPrimitives)
+	{
+		// For each primitive grouped by material
+		GroupedMaterial* groupedMaterial = materialPrimitives.Value;
+		for (u16 primitiveIndex : groupedMaterial->PrimitiveIndices)
+		{
+			const auto& materialTune = m_DrawableTune.Materials.Get(groupedMaterial->SceneMaterialIndex);
+			bvh->SetMaterial(materialTune->PhysicalMaterialId, currentMaterialIndex);
+			bvh->SetPolygonMaterialIndex(primitiveIndex, currentMaterialIndex);
+			// Link material to bound
+			CompiledDrawableMap->SceneMaterialToBounds[groupedMaterial->SceneMaterialIndex].Add(
+				DrawableAssetMap::BoundMaterialHandle(boundIndex, currentMaterialIndex));
+		}
+		currentMaterialIndex++;
+	}
 
 	CreatedBoundInfo createdBoundInfo;
 	createdBoundInfo.Node = node;
@@ -1501,7 +1579,6 @@ void rageam::asset::DrawableAsset::CreateBound() const
 {
 	// TODO:
 	// - How do we handle CG offset, do we use pivot?
-	// - Materials
 
 	List<CreatedBoundInfo> createdBounds;
 	for (u16 i = 0; i < m_Scene->GetNodeCount(); i++)
@@ -1516,10 +1593,12 @@ void rageam::asset::DrawableAsset::CreateBound() const
 		if (colType == ColBvh)
 			continue;
 
+		int newBoundIndex = static_cast<int>(createdBounds.GetSize());
+
 		// Regular collision will be later added to a composite
 		if (colType == ColRegular)
 		{
-			List<CreatedBoundInfo> createdNodeBounds = CreateBoundsFromNode(node);
+			List<CreatedBoundInfo> createdNodeBounds = CreateBoundsFromNode(newBoundIndex, node);
 			for (CreatedBoundInfo& createdNodeBound : createdNodeBounds)
 				createdBounds.Emplace(std::move(createdNodeBound));
 			continue;
@@ -1529,7 +1608,7 @@ void rageam::asset::DrawableAsset::CreateBound() const
 		// Because of this we have to handle construction differently from composite
 		if (colType == ColBvhRoot)
 		{
-			CreatedBoundInfo createdBvh = CreateBvhFromNode(node);
+			CreatedBoundInfo createdBvh = CreateBvhFromNode(newBoundIndex, node);
 			if (createdBvh.Bound)
 				createdBounds.Emplace(std::move(createdBvh));
 			continue;
@@ -1540,9 +1619,14 @@ void rageam::asset::DrawableAsset::CreateBound() const
 	if (!createdBounds.Any())
 		return;
 
-	// TODO: Flags
+	/* Only centroid offset is disabled for simplicity reasons, if we'll want to enable it back, we have to:
+	 *  - Make sure that composite flags are not set (before we had BoundTune::UseCompositeFlags)
+	 *  - GetBoundFromScene always assumes that root bound is composite, this needs to be changed
+	 *
 	// We've got single bound. Composite is only required if we have flags or non-identity transform
-	if (createdBounds.GetSize() == 1)
+	// For some reason centroid offset doesn't work for BVH, so skip it
+	if (createdBounds.GetSize() == 1 &&
+		createdBounds[0].Bound->GetShapeType() != rage::PH_BOUND_BVH)
 	{
 		CreatedBoundInfo& boundInfo = createdBounds[0];
 
@@ -1570,6 +1654,7 @@ void rageam::asset::DrawableAsset::CreateBound() const
 			return;
 		}
 	}
+	*/
 
 	// Otherwise we need to create a composite
 	auto composite = new rage::phBoundComposite();
@@ -1578,7 +1663,12 @@ void rageam::asset::DrawableAsset::CreateBound() const
 	{
 		CreatedBoundInfo& createdBoundInfo = createdBounds[i];
 		graphics::SceneNode* node = createdBoundInfo.Node;
+		const amPtr<ModelTune>& nodeTune = m_DrawableTune.Lods.Models.Get(node->GetIndex());
 
+		// Add bound to map
+		CompiledDrawableMap->SceneNodeToBound[node->GetIndex()].Add(i);
+
+		CompiledDrawableMap->SceneNodeToBound[node->GetIndex()].Add(i);
 		rage::Mat44V transform = node->GetWorldTransform();
 
 		// Cylinder & Capsule primitives are special cases and we have to align UP axis manually
@@ -1600,14 +1690,8 @@ void rageam::asset::DrawableAsset::CreateBound() const
 		}
 
 		composite->SetBound(i, createdBoundInfo.Bound);
-		// TODO: Flags
-		composite->SetIncludeFlags(i, rage::CF_ALL);
-		composite->SetTypeFlags(i, 
-			rage::CF_MAP_TYPE_WEAPON | 
-			rage::CF_MAP_TYPE_MOVER | 
-			rage::CF_MAP_TYPE_HORSE | 
-			rage::CF_MAP_TYPE_COVER | 
-			rage::CF_MAP_TYPE_VEHICLE);
+		composite->SetIncludeFlags(i, nodeTune->BoundTune.IncludeFlags);
+		composite->SetTypeFlags(i, nodeTune->BoundTune.TypeFlags);
 		// Matrix must be set after the bound because it access the bound AABB
 		composite->SetMatrix(i, transform);
 	}
@@ -1719,7 +1803,43 @@ void rageam::asset::DrawableAsset::CreateLights()
 
 bool rageam::asset::DrawableAsset::ValidateScene() const
 {
-	return true;
+	bool isValid = true;
+
+	// 3Ds Max (any maybe other tools) allow multiple materials / nodes have the same name
+	// Our tune config system fully relies on the names, we have to ensure that they're not shared
+	// between multiple objects in the scene
+	HashSet<u32> materials;
+	HashSet<u32> nodes;
+	// Materials:
+	for (u16 i = 0; i < m_Scene->GetMaterialCount(); i++)
+	{
+		graphics::SceneMaterial* material = m_Scene->GetMaterial(i);
+		if (materials.Contains(material->GetNameHash()))
+		{
+			AM_ERRF("DrawableAsset::ValidateScene() -> Duplicate material '%s'! Material names must be unique.", material->GetName());
+			isValid = false;
+		}
+		else
+		{
+			materials.Insert(material->GetNameHash());
+		}
+	}
+	// Nodes:
+	for (u16 i = 0; i < m_Scene->GetNodeCount(); i++)
+	{
+		graphics::SceneNode* node = m_Scene->GetNode(i);
+		if (nodes.Contains(node->GetNameHash()))
+		{
+			AM_ERRF("DrawableAsset::ValidateScene() -> Duplicate node '%s'! Node names must be unique.", node->GetName());
+			isValid = false;
+		}
+		else
+		{
+			nodes.Insert(node->GetNameHash());
+		}
+	}
+
+	return isValid;
 }
 
 bool rageam::asset::DrawableAsset::TryCompileToGame()

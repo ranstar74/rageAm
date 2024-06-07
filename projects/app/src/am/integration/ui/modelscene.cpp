@@ -8,6 +8,7 @@
 #include "am/asset/ui/assetwindowfactory.h"
 #include "am/integration/components/camera.h"
 #include "am/asset/ui/assetasynccompiler.h"
+#include "rage/physics/bounds/boundcomposite.h"
 
 rageam::integration::DrawableStats rageam::integration::DrawableStats::ComputeFrom(gtaDrawable* drawable)
 {
@@ -66,15 +67,21 @@ rage::crBoneData* rageam::integration::ModelScene::GetBoneAttr(u16 nodeIndex) co
 	return GetDrawableMap().GetBoneFromScene(GetDrawable(), nodeIndex);
 }
 
-rage::phBound* rageam::integration::ModelScene::GetBoundAttr(u16 nodeIndex) const
+rage::phBound* rageam::integration::ModelScene::GetBoundAttr(u16 nodeIndex, u16 arrayIndex) const
 {
-	return GetDrawableMap().GetBoundFromScene(GetDrawable(), nodeIndex);
+	return GetDrawableMap().GetBoundFromScene(GetDrawable(), nodeIndex, arrayIndex);
+}
+
+auto rageam::integration::ModelScene::GetBoundAttrCount(u16 nodeIndex) const -> int
+{
+	return GetDrawableMap().GetBoundCountFromScene(GetDrawable(), nodeIndex);
 }
 
 CLightAttr* rageam::integration::ModelScene::GetLightAttr(u16 nodeIndex) const
 {
 	return GetDrawableMap().GetLightFromScene(GetDrawable(), nodeIndex);
 }
+
 //
 //rageam::Vec3V rageam::integration::ModelScene::GetScenePosition() const
 //{
@@ -219,10 +226,14 @@ void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::Scen
 
 		}
 		// Collision
-		rage::phBound* phBound = GetBoundAttr(nodeIndex);
-		if (attrButton(phBound, SceneNodeAttr_Collision, ICON_AM_COLLIDER, IM_COL32(178, 255, 89, 255)))
+		int boundCount = GetBoundAttrCount(nodeIndex);
+		if (boundCount > 0)
 		{
+			rage::phBound* bound = GetBoundAttr(nodeIndex, 0); // We don't really care what bound to pick!
+			if (attrButton(bound, SceneNodeAttr_Collision, ICON_AM_COLLIDER, IM_COL32(178, 255, 89, 255)))
+			{
 
+		}
 		}
 		// Light
 		CLightAttr* lightAttr = GetLightAttr(nodeIndex);
@@ -384,9 +395,82 @@ void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex)
 			}
 
 			// Collision
-			rage::phBound* phBound = GetBoundAttr(nodeIndex);
-			if (beginAttrTabItem(phBound, SceneNodeAttr_Collision, ICON_AM_COLLIDER" Collision"))
+			rage::phBound* phBound = GetBoundAttr(nodeIndex, 0); // TODO: Support multiple bounds per node!
+			if (beginAttrTabItem(phBound, SceneNodeAttr_Collision, /*ICON_AM_COLLIDER*/" Collision"))
 			{
+				auto collisionFlagEditor = [] (ConstString id, u32& flags) -> bool
+					{
+						if (!ImGui::BeginTable(id, 3))
+							return false;
+
+						ImGui::TableSetupColumn("Col1", ImGuiTableColumnFlags_WidthFixed);
+						ImGui::TableSetupColumn("Col2", ImGuiTableColumnFlags_WidthFixed);
+						ImGui::TableSetupColumn("Col3", ImGuiTableColumnFlags_WidthFixed);
+
+						bool edited = false;
+
+						ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(1, 1));
+						ImGui::PushFont(ImFont_Small);
+
+						ImGui::TableNextColumn();
+						edited |= ImGui::CheckboxFlags("Map Weapon", &flags, rage::CF_MAP_TYPE_WEAPON);
+						edited |= ImGui::CheckboxFlags("Map Mover", &flags, rage::CF_MAP_TYPE_MOVER);
+						edited |= ImGui::CheckboxFlags("Map Horse", &flags, rage::CF_MAP_TYPE_HORSE);
+						edited |= ImGui::CheckboxFlags("Map Cover", &flags, rage::CF_MAP_TYPE_COVER);
+						edited |= ImGui::CheckboxFlags("Map Vehicle", &flags, rage::CF_MAP_TYPE_VEHICLE);
+						edited |= ImGui::CheckboxFlags("Vehicle Non BVH", &flags, rage::CF_VEHICLE_NON_BVH_TYPE);
+						edited |= ImGui::CheckboxFlags("Vehicle BVH", &flags, rage::CF_VEHICLE_BVH_TYPE);
+						edited |= ImGui::CheckboxFlags("Box Vehicle", &flags, rage::CF_BOX_VEHICLE_TYPE);
+						edited |= ImGui::CheckboxFlags("PED", &flags, rage::CF_PED_TYPE);
+						edited |= ImGui::CheckboxFlags("Ragdoll", &flags, rage::CF_RAGDOLL_TYPE);
+						ImGui::TableNextColumn();
+						edited |= ImGui::CheckboxFlags("Horse", &flags, rage::CF_HORSE_TYPE);
+						edited |= ImGui::CheckboxFlags("Horse Ragdoll", &flags, rage::CF_HORSE_RAGDOLL_TYPE);
+						edited |= ImGui::CheckboxFlags("Object", &flags, rage::CF_OBJECT_TYPE);
+						edited |= ImGui::CheckboxFlags("Envcloth", &flags, rage::CF_ENVCLOTH_OBJECT_TYPE);
+						edited |= ImGui::CheckboxFlags("Plant", &flags, rage::CF_PLANT_TYPE);
+						edited |= ImGui::CheckboxFlags("Projectile", &flags, rage::CF_PROJECTILE_TYPE);
+						edited |= ImGui::CheckboxFlags("Explosion", &flags, rage::CF_EXPLOSION_TYPE);
+						edited |= ImGui::CheckboxFlags("Pickup", &flags, rage::CF_PICKUP_TYPE);
+						edited |= ImGui::CheckboxFlags("Foliage", &flags, rage::CF_FOLIAGE_TYPE);
+						edited |= ImGui::CheckboxFlags("Forklift Forks", &flags, rage::CF_FORKLIFT_FORKS_TYPE);
+						ImGui::TableNextColumn();
+						edited |= ImGui::CheckboxFlags("Test Weapon", &flags, rage::CF_WEAPON_TEST);
+						edited |= ImGui::CheckboxFlags("Test Camera", &flags, rage::CF_CAMERA_TEST);
+						edited |= ImGui::CheckboxFlags("Test AI", &flags, rage::CF_AI_TEST);
+						edited |= ImGui::CheckboxFlags("Test Script", &flags, rage::CF_SCRIPT_TEST);
+						edited |= ImGui::CheckboxFlags("Test Wheel", &flags, rage::CF_WHEEL_TEST);
+						edited |= ImGui::CheckboxFlags("Glass", &flags, rage::CF_GLASS_TYPE);
+						edited |= ImGui::CheckboxFlags("River", &flags, rage::CF_RIVER_TYPE);
+						edited |= ImGui::CheckboxFlags("Smoke", &flags, rage::CF_SMOKE_TYPE);
+						edited |= ImGui::CheckboxFlags("Unsmashed", &flags, rage::CF_UNSMASHED_TYPE);
+						edited |= ImGui::CheckboxFlags("Stair Slope", &flags, rage::CF_STAIR_SLOPE_TYPE);
+						edited |= ImGui::CheckboxFlags("Deep Surface", &flags, rage::CF_DEEP_SURFACE_TYPE);
+
+						ImGui::PopStyleVar(); // ItemSpacing
+						ImGui::PopFont();
+
+						ImGui::EndTable();
+						return edited;
+					};
+
+				bool changed = false;
+
+				ImGui::Text("Type Flags:");
+				changed |= collisionFlagEditor("TYPE_FLAGS", modelTune.BoundTune.TypeFlags);
+				ImGui::Text("Include Flags:");
+				changed |= collisionFlagEditor("INCLUDE_FLAGS", modelTune.BoundTune.IncludeFlags);
+
+				if (changed)
+				{
+					rage::phBoundComposite* composite = GetDrawable()->GetBound()->AsComposite();
+					for (int i = 0; i < GetBoundAttrCount(nodeIndex); i++)
+			{
+						u16 boundIndex = GetDrawableMap().SceneNodeToBound[nodeIndex][i];
+						composite->SetTypeFlags(boundIndex, modelTune.BoundTune.TypeFlags);
+						composite->SetIncludeFlags(boundIndex, modelTune.BoundTune.IncludeFlags);
+					}
+				}
 
 				ImGui::EndTabItem();
 			}

@@ -3,6 +3,8 @@
 #include "common/types.h"
 #include "rage/math/vec.h"
 
+#define AM_COL32(R,G,B,A) (((u32)(A)<<24) | ((u32)(B)<<16) | ((u32)(G)<<8) | ((u32)(R)<<0))
+
 namespace rageam::graphics
 {
 	union ColorU32;

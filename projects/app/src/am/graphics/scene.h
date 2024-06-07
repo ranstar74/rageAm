@@ -228,6 +228,7 @@ namespace rageam::graphics
 			m_WorldMatrix = rage::Mat44V::Identity();
 		}
 
+		virtual u32 GetNameHash() const = 0;
 		virtual ConstString GetName() const = 0;
 		virtual SceneMesh* GetMesh() const = 0;
 		virtual SceneLight* GetLight() const = 0;

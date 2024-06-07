@@ -137,6 +137,7 @@ namespace rageam::graphics
 
 		ufbx_node* m_UNode;
 
+		u32							m_NameHash;
 		amUniquePtr<SceneMeshFbx>	m_Mesh;
 		amUniquePtr<SceneLightFbx>	m_Light;
 		//rage::Mat44V				m_LocalMatrix;
@@ -151,6 +152,7 @@ namespace rageam::graphics
 	public:
 		SceneNodeFbx(Scene* scene, SceneNode* parent, u16 index, ufbx_node* uNode);
 
+		u32 GetNameHash() const override { return m_NameHash;}
 		ConstString GetName() const override { return m_UNode->name.data; }
 		SceneMesh* GetMesh() const override { return m_Mesh.get(); }
 		SceneLight* GetLight() const override { return m_Light.get(); }

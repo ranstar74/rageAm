@@ -126,6 +126,7 @@ namespace rageam::graphics
 		friend class SceneGl;
 
 		ConstString m_Name; // From m_Node->name, for easier debugging
+		u32 m_NameHash;
 		cgltf_node* m_Node;
 		SceneNodeGl* m_Parent;
 		amUniquePtr<SceneMeshGl> m_Mesh;
@@ -140,6 +141,7 @@ namespace rageam::graphics
 	public:
 		SceneNodeGl(SceneGl* scene, u16 index, SceneNodeGl* parent, cgltf_node* glNode, const cgltf_data* glData);
 
+		u32 GetNameHash() const override { return m_NameHash; }
 		ConstString GetName() const override { return m_Name; }
 		SceneMesh* GetMesh() const override { return m_Mesh.get(); }
 		SceneLight* GetLight() const override { return m_Light.get(); }

@@ -375,6 +375,8 @@ rageam::graphics::SceneNodeFbx::SceneNodeFbx(Scene* scene, SceneNode* parent, u1
 
 	if (m_UNode->light)
 		m_Light = std::make_unique<SceneLightFbx>(scene, this, m_UNode->light);
+
+	m_NameHash = Hash(m_UNode->name.data);
 }
 
 bool rageam::graphics::SceneNodeFbx::HasSkin() const

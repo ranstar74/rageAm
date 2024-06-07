@@ -317,6 +317,8 @@ rageam::graphics::SceneNodeGl::SceneNodeGl(SceneGl* scene, u16 index, SceneNodeG
 		//for (cgltf_size i = 0; i < jointCount; i++)
 		//	m_InverseBindMatrices.Add(matrices[i]);
 	}
+
+	m_NameHash = Hash(glNode->name);
 }
 
 u16 rageam::graphics::SceneNodeGl::GetBoneCount() const

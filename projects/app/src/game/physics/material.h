@@ -8,6 +8,7 @@
 #pragma once
 
 #include "common/types.h"
+#include "rage/grcore/color.h"
 #include "rage/physics/material.h"
 
 enum
@@ -149,20 +150,26 @@ enum VfxDisturbanceType
  */
 struct gtaMaterialId
 {
-	u64 Id;
+	union
+	{
+		struct
+		{
+			u64 Id           : 8;  // >> 0  & 0xFF
+			u64 ProceduralId : 8;  // >> 8  & 0xFF
+			u64 RoomId       : 5;  // >> 16 & 0x1F
+			u64 PedDensity   : 3;  // >> 21 & 0x7
+			u64 PolyFlags    : 32; // >> 24 & 0xFFFF
+			u64 Color        : 8;  // >> 40 & 0xFF
+		};
+		u64 Packed;
+	};
 
-	gtaMaterialId(u64 id) { Id = id; }
+	gtaMaterialId(u64 packed) { Packed = packed; }
 
-	u64 GetId()			  const { return Id & 0xFF; } // phMaterialMgr::Id
-	int GetProceduralId() const { return static_cast<int>(Id >> 8 & 0xFF); }
-	int GetRoomId()		  const { return static_cast<int>(Id >> 16 & 0x1F); }
-	int GetPedDensity()   const { return static_cast<int>(Id >> 21 & 0x7); }
-	int GetPolyFlags()	  const { return static_cast<int>(Id >> 24 & 0xFFFF); }
-	int GetColor()		  const { return static_cast<int>(Id >> 40 & 0xFF); }
-
-	operator u64() const { return Id; }
-	gtaMaterialId& operator=(u64 id) { Id = id; return *this; }
+	operator u64() const { return Packed; }
+	gtaMaterialId& operator=(u64 packed) { Packed = packed; return *this; }
 };
+static_assert(sizeof gtaMaterialId == 8);
 
 struct phMaterialGta : rage::phMaterial
 {
@@ -185,4 +192,260 @@ struct phMaterialGta : rage::phMaterial
 	{
 		Type = 1; // GTA_MATERIAL
 	}
+};
+
+// This is not part of the game, those colors are taken from CW/Sollumz
+// Synced with materials.dat
+
+struct gtaMaterialInfo
+{
+	ConstString    DisplayName;
+	rage::ColorU32 Color;
+};
+
+struct gtaMaterialCategory
+{
+	ConstString        DisplayName;
+	int                StartIndex;
+	int                LastIndex;
+	rage::atArray<int> SplitIndices; // When we need to put separator in UI
+};
+
+static inline gtaMaterialCategory g_MaterialCategories[] =
+{ // Taken directly from materials.dat
+	{ "Default", 0, 0 },
+	{ "Hard Terrain", 1, 17 },
+	{ "Loose Terrain", 18, 45, { 25 /* ICE */, 31 /* GRAVEL_SMALL */ } },
+	{ "Vegetation", 46, 54 },
+	{ "Metals", 55, 68 },
+	{ "Woods", 69, 80 },
+	{ "Man-made", 81, 111 },
+	{ "Glass", 112, 115 },
+	{ "Vehicles", 116, 124, { 120 /* CAR_GLASS_WEAK */ }},
+	{ "Liquids", 125, 128 },
+	{ "Misc", 129, 130 },
+	{ "Projtex", 131, 132 },
+	{ "VFX Specific (Particles)", 133, 134 },
+	{ "VFX Specific (Explosions)", 135, 136 },
+	{ "Physics", 137, 149 },
+	{ "Natural Motion", 150, 171 },
+	{ "New", 172, 176 },
+	{ "Temp", 177, 212, },
+};
+
+static inline gtaMaterialInfo g_MaterialInfo[] =
+{
+	{ "Default", rage::ColorU32(255, 0, 255, 255) },
+	{ "Concrete", rage::ColorU32(145, 145, 145, 255) },
+	{ "Concrete Pothole", rage::ColorU32(145, 145, 145, 255) },
+	{ "Concrete Dusty", rage::ColorU32(145, 140, 130, 255) },
+	{ "Tarmac", rage::ColorU32(90, 90, 90, 255) },
+	{ "Tarmac Painted", rage::ColorU32(90, 90, 90, 255) },
+	{ "Tarmac Pothole", rage::ColorU32(70, 70, 70, 255) },
+	{ "Rumble Strip", rage::ColorU32(90, 90, 90, 255) },
+	{ "Breeze Block", rage::ColorU32(145, 145, 145, 255) },
+	{ "Rock", rage::ColorU32(185, 185, 185, 255) },
+	{ "Rock Mossy", rage::ColorU32(185, 185, 185, 255) },
+	{ "Stone", rage::ColorU32(185, 185, 185, 255) },
+	{ "Cobblestone", rage::ColorU32(185, 185, 185, 255) },
+	{ "Brick", rage::ColorU32(195, 95, 30, 255) },
+	{ "Marble", rage::ColorU32(195, 155, 145, 255) },
+	{ "Paving Slab", rage::ColorU32(200, 165, 130, 255) },
+	{ "Sandstone Solid", rage::ColorU32(215, 195, 150, 255) },
+	{ "Sandstone Brittle", rage::ColorU32(205, 180, 120, 255) },
+	{ "Sand Loose", rage::ColorU32(235, 220, 190, 255) },
+	{ "Sand Compact", rage::ColorU32(250, 240, 220, 255) },
+	{ "Sand Wet", rage::ColorU32(190, 185, 165, 255) },
+	{ "Sand Track", rage::ColorU32(250, 240, 220, 255) },
+	{ "Sand Underwater", rage::ColorU32(135, 130, 120, 255) },
+	{ "Sand Dry Deep", rage::ColorU32(110, 100, 85, 255) },
+	{ "Sand Wet Deep", rage::ColorU32(110, 100, 85, 255) },
+	{ "Ice", rage::ColorU32(200, 250, 255, 255) },
+	{ "Ice Tarmac", rage::ColorU32(200, 250, 255, 255) },
+	{ "Snow Loose", rage::ColorU32(255, 255, 255, 255) },
+	{ "Snow Compact", rage::ColorU32(255, 255, 255, 255) },
+	{ "Snow Deep", rage::ColorU32(255, 255, 255, 255) },
+	{ "Snow Tarmac", rage::ColorU32(255, 255, 255, 255) },
+	{ "Gravel Small", rage::ColorU32(255, 255, 255, 255) },
+	{ "Gravel Large", rage::ColorU32(255, 255, 255, 255) },
+	{ "Gravel Deep", rage::ColorU32(255, 255, 255, 255) },
+	{ "Gravel Train Track", rage::ColorU32(145, 140, 130, 255) },
+	{ "Dirt Track", rage::ColorU32(175, 160, 140, 255) },
+	{ "Mud Hard", rage::ColorU32(175, 160, 140, 255) },
+	{ "Mud Pothole", rage::ColorU32(105, 95, 75, 255) },
+	{ "Mud Soft", rage::ColorU32(105, 95, 75, 255) },
+	{ "Mud Underwater", rage::ColorU32(75, 65, 50, 255) },
+	{ "Mud Deep", rage::ColorU32(105, 95, 75, 255) },
+	{ "Marsh", rage::ColorU32(105, 95, 75, 255) },
+	{ "Marsh Deep", rage::ColorU32(105, 95, 75, 255) },
+	{ "Soil", rage::ColorU32(105, 95, 75, 255) },
+	{ "Clay Hard", rage::ColorU32(160, 160, 160, 255) },
+	{ "Clay Soft", rage::ColorU32(160, 160, 160, 255) },
+	{ "Grass Long", rage::ColorU32(130, 205, 75, 255) },
+	{ "Grass", rage::ColorU32(130, 205, 75, 255) },
+	{ "Grass Short", rage::ColorU32(130, 205, 75, 255) },
+	{ "Hay", rage::ColorU32(240, 205, 125, 255) },
+	{ "Bushes", rage::ColorU32(85, 160, 30, 255) },
+	{ "Twigs", rage::ColorU32(115, 100, 70, 255) },
+	{ "Leaves", rage::ColorU32(70, 100, 50, 255) },
+	{ "Woodchips", rage::ColorU32(115, 100, 70, 255) },
+	{ "Tree Bark", rage::ColorU32(115, 100, 70, 255) },
+	{ "Metal Solid Small", rage::ColorU32(155, 180, 190, 255) },
+	{ "Metal Solid Medium", rage::ColorU32(155, 180, 190, 255) },
+	{ "Metal Solid Large", rage::ColorU32(155, 180, 190, 255) },
+	{ "Metal Hollow Small", rage::ColorU32(155, 180, 190, 255) },
+	{ "Metal Hollow Medium", rage::ColorU32(155, 180, 190, 255) },
+	{ "Metal Hollow Large", rage::ColorU32(155, 180, 190, 255) },
+	{ "Metal Chainlink Small", rage::ColorU32(155, 180, 190, 255) },
+	{ "Metal Chainlink Large", rage::ColorU32(155, 180, 190, 255) },
+	{ "Metal Corrugated Iron", rage::ColorU32(155, 180, 190, 255) },
+	{ "Metal Grille", rage::ColorU32(155, 180, 190, 255) },
+	{ "Metal Railing", rage::ColorU32(155, 180, 190, 255) },
+	{ "Metal Duct", rage::ColorU32(155, 180, 190, 255) },
+	{ "Metal Garage Door", rage::ColorU32(155, 180, 190, 255) },
+	{ "Metal Manhole", rage::ColorU32(155, 180, 190, 255) },
+	{ "Wood Solid Small", rage::ColorU32(155, 130, 95, 255) },
+	{ "Wood Solid Medium", rage::ColorU32(155, 130, 95, 255) },
+	{ "Wood Solid Large", rage::ColorU32(155, 130, 95, 255) },
+	{ "Wood Solid Polished", rage::ColorU32(155, 130, 95, 255) },
+	{ "Wood Floor Dusty", rage::ColorU32(165, 145, 110, 255) },
+	{ "Wood Hollow Small", rage::ColorU32(170, 150, 125, 255) },
+	{ "Wood Hollow Medium", rage::ColorU32(170, 150, 125, 255) },
+	{ "Wood Hollow Large", rage::ColorU32(170, 150, 125, 255) },
+	{ "Wood Chipboard", rage::ColorU32(170, 150, 125, 255) },
+	{ "Wood Old Creaky", rage::ColorU32(155, 130, 95, 255) },
+	{ "Wood High Density", rage::ColorU32(155, 130, 95, 255) },
+	{ "Wood Lattice", rage::ColorU32(155, 130, 95, 255) },
+	{ "Ceramic", rage::ColorU32(220, 210, 195, 255) },
+	{ "Roof Tile", rage::ColorU32(220, 210, 195, 255) },
+	{ "Roof Felt", rage::ColorU32(165, 145, 110, 255) },
+	{ "Fibreglass", rage::ColorU32(255, 250, 210, 255) },
+	{ "Tarpaulin", rage::ColorU32(255, 250, 210, 255) },
+	{ "Plastic", rage::ColorU32(255, 250, 210, 255) },
+	{ "Plastic Hollow", rage::ColorU32(240, 230, 185, 255) },
+	{ "Plastic High Density", rage::ColorU32(255, 250, 210, 255) },
+	{ "Plastic Clear", rage::ColorU32(255, 250, 210, 255) },
+	{ "Plastic Hollow Clear", rage::ColorU32(240, 230, 185, 255) },
+	{ "Plastic High Density Clear", rage::ColorU32(255, 250, 210, 255) },
+	{ "Fibreglass Hollow", rage::ColorU32(240, 230, 185, 255) },
+	{ "Rubber", rage::ColorU32(70, 70, 70, 255) },
+	{ "Rubber Hollow", rage::ColorU32(70, 70, 70, 255) },
+	{ "Linoleum", rage::ColorU32(205, 150, 80, 255) },
+	{ "Laminate", rage::ColorU32(170, 150, 125, 255) },
+	{ "Carpet Solid", rage::ColorU32(250, 100, 100, 255) },
+	{ "Carpet Solid Dusty", rage::ColorU32(255, 135, 135, 255) },
+	{ "Carpet Floorboard", rage::ColorU32(250, 100, 100, 255) },
+	{ "Cloth", rage::ColorU32(250, 100, 100, 255) },
+	{ "Plaster Solid", rage::ColorU32(145, 145, 145, 255) },
+	{ "Plaster Brittle", rage::ColorU32(225, 225, 225, 255) },
+	{ "Cardboard Sheet", rage::ColorU32(120, 115, 95, 255) },
+	{ "Cardboard Box", rage::ColorU32(120, 115, 95, 255) },
+	{ "Paper", rage::ColorU32(230, 225, 220, 255) },
+	{ "Foam", rage::ColorU32(230, 235, 240, 255) },
+	{ "Feather Pillow", rage::ColorU32(230, 230, 230, 255) },
+	{ "Polystyrene", rage::ColorU32(255, 250, 210, 255) },
+	{ "Leather", rage::ColorU32(250, 100, 100, 255) },
+	{ "Tvscreen", rage::ColorU32(115, 125, 125, 255) },
+	{ "Slatted Blinds", rage::ColorU32(255, 250, 210, 255) },
+	{ "Glass Shoot Through", rage::ColorU32(205, 240, 255, 255) },
+	{ "Glass Bulletproof", rage::ColorU32(115, 125, 125, 255) },
+	{ "Glass Opaque", rage::ColorU32(205, 240, 255, 255) },
+	{ "Perspex", rage::ColorU32(205, 240, 255, 255) },
+	{ "Car Metal", rage::ColorU32(255, 255, 255, 255) },
+	{ "Car Plastic", rage::ColorU32(255, 255, 255, 255) },
+	{ "Car Softtop", rage::ColorU32(250, 100, 100, 255) },
+	{ "Car Softtop Clear", rage::ColorU32(250, 100, 100, 255) },
+	{ "Car Glass Weak", rage::ColorU32(210, 245, 245, 255) },
+	{ "Car Glass Medium", rage::ColorU32(210, 245, 245, 255) },
+	{ "Car Glass Strong", rage::ColorU32(210, 245, 245, 255) },
+	{ "Car Glass Bulletproof", rage::ColorU32(210, 245, 245, 255) },
+	{ "Car Glass Opaque", rage::ColorU32(210, 245, 245, 255) },
+	{ "Water", rage::ColorU32(55, 145, 230, 255) },
+	{ "Blood", rage::ColorU32(205, 5, 5, 255) },
+	{ "Oil", rage::ColorU32(80, 65, 65, 255) },
+	{ "Petrol", rage::ColorU32(70, 100, 120, 255) },
+	{ "Fresh Meat", rage::ColorU32(255, 55, 20, 255) },
+	{ "Dried Meat", rage::ColorU32(185, 100, 85, 255) },
+	{ "Emissive Glass", rage::ColorU32(205, 240, 255, 255) },
+	{ "Emissive Plastic", rage::ColorU32(255, 250, 210, 255) },
+	{ "Vfx Metal Electrified", rage::ColorU32(155, 180, 190, 255) },
+	{ "Vfx Metal Water Tower", rage::ColorU32(155, 180, 190, 255) },
+	{ "Vfx Metal Steam", rage::ColorU32(155, 180, 190, 255) },
+	{ "Vfx Metal Flame", rage::ColorU32(155, 180, 190, 255) },
+	{ "Phys No Friction", rage::ColorU32(0, 0, 0, 255) },
+	{ "Phys Golf Ball", rage::ColorU32(0, 0, 0, 255) },
+	{ "Phys Tennis Ball", rage::ColorU32(0, 0, 0, 255) },
+	{ "Phys Caster", rage::ColorU32(0, 0, 0, 255) },
+	{ "Phys Caster Rusty", rage::ColorU32(0, 0, 0, 255) },
+	{ "Phys Car Void", rage::ColorU32(0, 0, 0, 255) },
+	{ "Phys Ped Capsule", rage::ColorU32(0, 0, 0, 255) },
+	{ "Phys Electric Fence", rage::ColorU32(0, 0, 0, 255) },
+	{ "Phys Electric Metal", rage::ColorU32(0, 0, 0, 255) },
+	{ "Phys Barbed Wire", rage::ColorU32(0, 0, 0, 255) },
+	{ "Phys Pooltable Surface", rage::ColorU32(155, 130, 95, 255) },
+	{ "Phys Pooltable Cushion", rage::ColorU32(155, 130, 95, 255) },
+	{ "Phys Pooltable Ball", rage::ColorU32(255, 250, 210, 255) },
+	{ "Buttocks", rage::ColorU32(0, 0, 0, 255) },
+	{ "Thigh Left", rage::ColorU32(0, 0, 0, 255) },
+	{ "Shin Left", rage::ColorU32(0, 0, 0, 255) },
+	{ "Foot Left", rage::ColorU32(0, 0, 0, 255) },
+	{ "Thigh Right", rage::ColorU32(0, 0, 0, 255) },
+	{ "Shin Right", rage::ColorU32(0, 0, 0, 255) },
+	{ "Foot Right", rage::ColorU32(0, 0, 0, 255) },
+	{ "Spine0", rage::ColorU32(0, 0, 0, 255) },
+	{ "Spine1", rage::ColorU32(0, 0, 0, 255) },
+	{ "Spine2", rage::ColorU32(0, 0, 0, 255) },
+	{ "Spine3", rage::ColorU32(0, 0, 0, 255) },
+	{ "Clavicle Left", rage::ColorU32(0, 0, 0, 255) },
+	{ "Upper Arm Left", rage::ColorU32(0, 0, 0, 255) },
+	{ "Lower Arm Left", rage::ColorU32(0, 0, 0, 255) },
+	{ "Hand Left", rage::ColorU32(0, 0, 0, 255) },
+	{ "Clavicle Right", rage::ColorU32(0, 0, 0, 255) },
+	{ "Upper Arm Right", rage::ColorU32(0, 0, 0, 255) },
+	{ "Lower Arm Right", rage::ColorU32(0, 0, 0, 255) },
+	{ "Hand Right", rage::ColorU32(0, 0, 0, 255) },
+	{ "Neck", rage::ColorU32(0, 0, 0, 255) },
+	{ "Head", rage::ColorU32(0, 0, 0, 255) },
+	{ "Animal Default", rage::ColorU32(0, 0, 0, 255) },
+	{ "Car Engine", rage::ColorU32(255, 255, 255, 255) },
+	{ "Puddle", rage::ColorU32(55, 145, 230, 255) },
+	{ "Concrete Pavement", rage::ColorU32(145, 145, 145, 255) },
+	{ "Brick Pavement", rage::ColorU32(195, 95, 30, 255) },
+	{ "Phys Dynamic Cover Bound", rage::ColorU32(0, 0, 0, 255) },
+	{ "Vfx Wood Beer Barrel", rage::ColorU32(155, 130, 95, 255) },
+	{ "Wood High Friction", rage::ColorU32(155, 130, 95, 255) },
+	{ "Rock Noinst", rage::ColorU32(185, 185, 185, 255) },
+	{ "Bushes Noinst", rage::ColorU32(85, 160, 30, 255) },
+	{ "Metal Solid Road Surface", rage::ColorU32(155, 180, 190, 255) },
+	{ "Stunt Ramp Surface", rage::ColorU32(155, 180, 190, 255) },
+	{ "Temp 01", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 02", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 03", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 04", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 05", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 06", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 07", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 08", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 09", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 10", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 11", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 12", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 13", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 14", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 15", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 16", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 17", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 18", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 19", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 20", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 21", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 22", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 23", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 24", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 25", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 26", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 27", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 28", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 29", rage::ColorU32(255, 0, 255, 255) },
+	{ "Temp 30", rage::ColorU32(255, 0, 255, 255) },
 };

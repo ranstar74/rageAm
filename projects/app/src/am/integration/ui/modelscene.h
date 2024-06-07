@@ -80,12 +80,13 @@ namespace rageam::integration
 		bool					 m_ResetUIAfterCompiling = false; // We don't want to reset UI when just recompiling drawable
 		file::Path				 m_LoadedName;
 
-		auto GetDrawable()					const { return m_Context.Drawable.Get(); }
-		auto GetDrawableMap()				const -> const asset::DrawableAssetMap&;
-		auto GetMeshAttr(u16 nodeIndex)		const -> rage::grmModel*;
-		auto GetBoneAttr(u16 nodeIndex)		const -> rage::crBoneData*;
-		auto GetBoundAttr(u16 nodeIndex)	const -> rage::phBound*;
-		auto GetLightAttr(u16 nodeIndex)	const -> CLightAttr*;
+		auto GetDrawable()									const { return m_Context.Drawable.Get(); }
+		auto GetDrawableMap()								const -> const asset::DrawableAssetMap&;
+		auto GetMeshAttr(u16 nodeIndex)						const -> rage::grmModel*;
+		auto GetBoneAttr(u16 nodeIndex)						const -> rage::crBoneData*;
+		auto GetBoundAttr(u16 nodeIndex, u16 arrayIndex)	const -> rage::phBound*;
+		auto GetBoundAttrCount(u16 nodeIndex)				const -> int;
+		auto GetLightAttr(u16 nodeIndex)					const -> CLightAttr*;
 
 		void CreateArchetypeDefAndSpawnGameEntity();
 		// Spawns entity and resets scene state

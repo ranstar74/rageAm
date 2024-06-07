@@ -9,6 +9,7 @@
 
 #include "am/types.h"
 #include "rage/math/mathv.h"
+#include "scene.h"
 
 namespace rageam::graphics
 {
@@ -24,8 +25,9 @@ namespace rageam::graphics
 
 	struct Primitive
 	{
-		PrimitiveType Type;
-		AABB		  AABB;
+		SceneGeometry* Geometry; // Geometry this primitive was matched from
+		PrimitiveType  Type;
+		AABB		   AABB;
 		union
 		{
 			// Triangle topology
@@ -58,6 +60,7 @@ namespace rageam::graphics
 
 		Primitive()
 		{
+			Geometry = nullptr;
 			Type = PrimitiveInvalid;
 			Capsule = {}; // Supress compiler warnings
 		}
@@ -114,24 +117,35 @@ namespace rageam::graphics
 		// Sphere has the highest polygon count: Blender & 3DS Max create sphere with 960 tris
 		constexpr int	MAX_PRIMITIVE_TRIS = 4096;
 		constexpr int	MAX_PRIMITIVE_INDICES = MAX_PRIMITIVE_TRIS * 3;
-		constexpr float PRIMITIVE_MAX_ERROR = 0.01f;  // Maximum allowed error (deviation) from expected value
-		constexpr float PRIMITIVE_MAX_DISTSQ = 0.01f; // Maximum allowed squared deviation from expected position
+		constexpr float PRIMITIVE_MAX_ERROR = 0.001f; // Maximum allowed error (deviation) from expected value
+		constexpr float PRIMITIVE_MAX_ERROR_PRECISE = 0.000001f; // Maximum allowed error (deviation) from expected value
+		constexpr float PRIMITIVE_MAX_DISTSQ = 0.005f; // Maximum allowed squared deviation from expected position
 		// Volume can be quite off because of polygon imperfections, allow higher error here
-		constexpr float PRIMITIVE_VOLUME_MAX_ERROR = 0.9f;
+		constexpr float PRIMITIVE_VOLUME_MAX_ERROR = 0.005f;
 		if (indexCount == 0 || indexCount > MAX_PRIMITIVE_INDICES)
 			return false;
 
-		auto almostEquals =		  [](float a, float b) { return rage::AlmostEquals(a, b, PRIMITIVE_MAX_ERROR); };
-		auto almostEqualsDist =   [](float a, float b) { return rage::AlmostEquals(a, b, PRIMITIVE_MAX_DISTSQ); };
-		auto almostEqualsVolume = [](float a, float b) { return rage::AlmostEquals(a, b, PRIMITIVE_VOLUME_MAX_ERROR); };
+		// To make sure that our fixed errors are not affected by size of the shape
+		// PRIMITIVE_MAX_ERROR doesn't scale because it's mostly for comparing normals, angles and such
+		float shapeSize = bb.Min.DistanceTo(bb.Max).Get();
+		float maxDistSqError = PRIMITIVE_MAX_DISTSQ * shapeSize;
+		float maxVolumeError = PRIMITIVE_VOLUME_MAX_ERROR * shapeSize * shapeSize * shapeSize;
 
-		auto getTriNormal = [&](u16 triIndex)
-			{
-				Vec3V v1 = points[indices[triIndex * 3 + 0]];
-				Vec3V v2 = points[indices[triIndex * 3 + 1]];
-				Vec3V v3 = points[indices[triIndex * 3 + 2]];
-				return GetTriNormal(v1, v2, v3);
-			};
+		auto almostEquals =		   [&](float a, float b) { return rage::AlmostEquals(a, b, PRIMITIVE_MAX_ERROR); };
+		auto almostEqualsPrecise = [&](float a, float b) { return rage::AlmostEquals(a, b, PRIMITIVE_MAX_ERROR_PRECISE); };
+		auto almostEqualsDist =    [&](float a, float b) { return rage::AlmostEquals(a, b, maxDistSqError); };
+		auto almostEqualsVolume =  [&](float a, float b) { return rage::AlmostEquals(a, b, maxVolumeError); };
+		auto computeMeshVolume =   [&] { return ComputeMeshVolume(points, indices, indexCount); };
+
+		// Pre-compute all polygon normals, they're used pretty often (especially in cylinder detection)
+		auto normals = std::unique_ptr<Vec3V[]>(new Vec3V[polyCount]);
+		for (int i= 0; i < polyCount; i++)
+		{
+			Vec3V v1 = points[indices[i * 3 + 0]];
+			Vec3V v2 = points[indices[i * 3 + 1]];
+			Vec3V v3 = points[indices[i * 3 + 2]];
+			normals[i] = GetTriNormal(v1, v2, v3);
+		}
 
 		auto getTriHypotenuse = [&](u16 triIndex, Vec3V& outV1, Vec3V& outV2)
 			{
@@ -154,13 +168,13 @@ namespace rageam::graphics
 			int polygon2 = -1;
 
 			// Angle between box normals is either 0°, 90° or 180°
-			Vec3V refNormal = getTriNormal(0);
+			Vec3V refNormal = normals[0];
 			int num0 = 0;
 			int num90 = 0;
 			int num180 = 0;
 			for (int i = 1; i < 12; i++)
 			{
-				Vec3V normal = getTriNormal(i);
+				Vec3V normal = normals[i];
 				float dot = refNormal.Dot(normal).Get();
 				if (almostEquals(dot, 1.0f))
 				{
@@ -195,7 +209,14 @@ namespace rageam::graphics
 				if (vert0.DistanceToSquared(vert1) != vert2.DistanceToSquared(vert3))
 					isValidDiagonals = false; // Diagonals arent the same length
 				else if (vert0.DistanceToSquared(vert3) != vert1.DistanceToSquared(vert2))
-					isValidDiagonals = false; // Diagonals are not parallel
+					isValidDiagonals = false; // Diagonals are not lying on the same plane
+
+				// Make sure that diagonals are crossed
+				// TODO: This might be true for box without crossed opposite edges, this is usually case with handmade mesh
+				Vec3V v01 = (vert1 - vert0).Normalized();
+				Vec3V v23 = (vert3 - vert2).Normalized();
+				if (v01.IsParallel(v23))
+					isValidDiagonals = false;
 
 				if (isValidDiagonals)
 				{
@@ -241,23 +262,6 @@ namespace rageam::graphics
 			}
 		}
 
-		// Sphere: Distance between all of the points must be equal
-		if (allDistancesAreEqual)
-		{
-			// Ensure that shape is indeed a sphere by comparing volume, this will cull
-			// half spheres, planes, cylinders, and other shapes with all points equally distanced from the center
-			float radius = sqrtf(distancesFromCenterSq[0]);
-			float volume = ComputeMeshVolume(points, indices, indexCount);
-			float expectedVolume = 4.0f / 3.0f * rage::PI * powf(radius, 3);
-			if (almostEqualsVolume(volume, expectedVolume))
-			{
-				outPrimitive.Type = PrimitiveSphere;
-				outPrimitive.Sphere.Center = center;
-				outPrimitive.Sphere.Radius = radius;
-				return true;
-			}
-		}
-
 		// Cylinder: We have to find normal of bottom or top face,
 		// we know for sure that only top & bottom faces share many vertices on
 		// the same plane, while on cylinder body there are 2 triangles per plane
@@ -265,7 +269,7 @@ namespace rageam::graphics
 		bool  cylinderIsValid = false;
 		for (int i = 0; i < polyCount; i++)
 		{
-			Vec3V normal = getTriNormal(i);
+			Vec3V normal = normals[i];
 			// Find at least 3 triangles on the same plane
 			int matchCount = 0;
 			for (int j = 0; j < polyCount; j++)
@@ -274,8 +278,9 @@ namespace rageam::graphics
 					continue;
 
 				// Check if we found polygon with the same normal
-				Vec3V otherNormal = getTriNormal(j);
-				if (!almostEquals(normal.Dot(otherNormal).Get(), 1.0f))
+				// Use precise here because cylinder top is flat
+				Vec3V otherNormal = normals[j];
+				if (!almostEqualsPrecise(normal.Dot(otherNormal).Get(), 1.0f))
 					continue;
 
 				// Check if we found more than 2 polygons to make sure we're on top or bottom face
@@ -311,6 +316,7 @@ namespace rageam::graphics
 				// Skip point in the center of the face (it might not exist at all, depending on topology)
 				Vec3V toPoint = Vec3V(points[j] - center).NormalizedEstimate();
 				float toPointDot = cylinderNormal.Dot(toPoint).Get();
+				// Use precise comparison here to support really narrow cylinders
 				if (almostEquals(toPointDot, 1.0f) || almostEquals(toPointDot, -1.0f))
 					continue;
 
@@ -333,23 +339,27 @@ namespace rageam::graphics
 				prevDistanceSq = distanceSq;
 			}
 
+			// This might happen even if cylinder is valid but it's to narrow so almostEquals dot check fails
+			if (nonCenterPointIndex == -1)
+				nonCenterPointIndex = false;
+
 			// If still valid, because it might have failed on circle equality check
 			if (cylinderIsValid && vertexCount1 == vertexCount2)
 			{
 				// Project random point on the cylinder normal (it's gonna be any point on top or bottom plane)
 				// on the normal to get point exactly in the center, we'll get radius this way)
-				Vec3V point = points[nonCenterPointIndex] - center;
-				Vec3V projectedPoint = point.Project(cylinderNormal);
+				Vec3V point = points[nonCenterPointIndex];
+				Vec3V projectedPoint = center + (point - center).Project(cylinderNormal);
 				float halfHeight = center.DistanceTo(projectedPoint).Get();
 				float radius = point.DistanceTo(projectedPoint).Get();
 
 				float volumeExpected = rage::PI * radius * radius * halfHeight * 2;
-				float volume = ComputeMeshVolume(points, indices, indexCount);
+				float volume = computeMeshVolume();
 				if (almostEqualsVolume(volume, volumeExpected))
 				{
 					outPrimitive.Type = PrimitiveCylinder;
 					outPrimitive.Cylinder.Center = center;
-					outPrimitive.Cylinder.Radius = radius;;
+					outPrimitive.Cylinder.Radius = radius;
 					outPrimitive.Cylinder.HalfHeight = halfHeight;
 					outPrimitive.Cylinder.Direction = cylinderNormal;
 					return true;
@@ -364,19 +374,21 @@ namespace rageam::graphics
 		Vec3V   capsuleNormal = capsuleToTop.Normalized();
 		// Those are 'centres' of capsule half spheres, placed as if they were full spheres
 		Vec3V   capsuleToHalfSphereBase1 = Vec3V(points[minDistanceFromCenterIndex] - center).Project(capsuleNormal);
-		Vec3V   capsuleToHalfSphereBase2 = center - capsuleToHalfSphereBase1;
+		Vec3V   capsuleToHalfSphereBase2 = -capsuleToHalfSphereBase1;
 		ScalarV capsuleHeight = capsuleToHalfSphereBase1.DistanceTo(capsuleToHalfSphereBase2);
-		ScalarV capsuleRadiusSq = capsuleToHalfSphereBase1.DistanceToSquared(capsuleToTop);
+		ScalarV capsuleRadiusSq = rage::Min( // We don't know which center is closer to top so take minimum distance
+				capsuleToHalfSphereBase1.DistanceToSquared(capsuleToTop).Get(),
+				capsuleToHalfSphereBase2.DistanceToSquared(capsuleToTop).Get());
 		bool    capsuleIsValid = true;
 		for (int i = 0; i < pointCount; i++)
 		{
 			Vec3V   point = points[i] - center;
-			ScalarV radiusSq;
-			if (point.Dot(capsuleNormal) >= 0.0f)
-				radiusSq = point.DistanceToSquared(capsuleToHalfSphereBase1);
-			else
-				radiusSq = point.DistanceToSquared(capsuleToHalfSphereBase2);
-
+			// Less expensive and safer than point.Dot(capsuleNormal) < 0.0f
+			ScalarV radiusSq = rage::Min(
+				point.DistanceToSquared(capsuleToHalfSphereBase1).Get(),
+				point.DistanceToSquared(capsuleToHalfSphereBase2).Get()
+			);
+			
 			// We are not dealing with capsule, this is not a half sphere
 			if (!almostEqualsDist(radiusSq.Get(), capsuleRadiusSq.Get()))
 			{
@@ -390,7 +402,7 @@ namespace rageam::graphics
 			float radius = capsuleRadiusSq.Sqrt().Get();
 			float height = capsuleHeight.Get();
 			float volumeExpected = rage::PI * radius * radius * (4.0f / 3.0f * radius + height);
-			float volume = ComputeMeshVolume(points, indices, indexCount);
+			float volume = computeMeshVolume();
 			if (almostEqualsVolume(volume, volumeExpected))
 			{
 				outPrimitive.Type = PrimitiveCapsule;
@@ -402,6 +414,48 @@ namespace rageam::graphics
 			}
 		}
 
+		// Sphere: Distance between all of the points must be equal
+		if (allDistancesAreEqual)
+		{
+			// Ensure that shape is indeed a sphere by comparing volume, this will cull
+			// half spheres, planes, cylinders, and other shapes with all points equally distanced from the center
+			float radius = sqrtf(distancesFromCenterSq[0]);
+			float volume = computeMeshVolume();
+			float expectedVolume = 4.0f / 3.0f * rage::PI * powf(radius, 3);
+			if (almostEqualsVolume(volume, expectedVolume))
+			{
+				outPrimitive.Type = PrimitiveSphere;
+				outPrimitive.Sphere.Center = center;
+				outPrimitive.Sphere.Radius = radius;
+				return true;
+			}
+		}
+
 		return false;
 	}
+
+	inline bool MatchPrimitive(SceneGeometry* geom, Primitive& outPrimitive)
+	{
+		outPrimitive.Geometry = geom;
+
+		u32 vertexCount = geom->GetVertexCount();
+		u32 indexCount = geom->GetIndexCount();
+
+		SceneData indices;
+		SceneData vertices;
+		geom->GetIndices(indices);
+		geom->GetAttribute(vertices, POSITION, 0);
+
+		// The fact that mesh uses 32 bit indices tells us that it is extremely high poly and can't be matched to primitive
+		if (indices.Format != DXGI_FORMAT_R16_UINT)
+		{
+			// This will make MatchPrimitive early return with false detection result
+			// Don't return from this function without calling MatchPrimitive because it will create PrimitiveMesh
+			indexCount = INT32_MAX;
+		}
+
+		return MatchPrimitive(
+			geom->GetAABB(), vertices.GetBufferAs<Vec3S>(), vertexCount, indices.GetBufferAs<u16>(), indexCount, outPrimitive);
+	}
 }
+ 
