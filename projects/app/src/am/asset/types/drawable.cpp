@@ -322,12 +322,12 @@ void rageam::asset::LightTune::InitFromSceneLight(const graphics::SceneNode* lig
 	FalloffExponent = 32;
 	ConeOuterAngle = rage::RadToDeg(sceneLight->GetOuterConeAngle());
 	ConeInnerAngle = rage::RadToDeg(sceneLight->GetInnerConeAngle());
-	Flags = LF_ENABLE_SHADOWS;
+	Flags = LIGHTFLAG_USE_SHADOWS;
 	TimeFlags = LIGHT_TIME_ALWAYS_MASK;
 	CoronaZBias = 0.1;
 	CoronaSize = 5.0f;
 	Intensity = 75.0f;
-	CapsuleLength = 1.0f;
+	CapsuleLength = 4.0f;
 	ShadowNearClip = 0.01;
 	CullingPlaneNormal = { 0, 1, 0 };
 	CullingPlaneOffset = 1;
