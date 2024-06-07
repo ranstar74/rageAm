@@ -76,7 +76,8 @@ struct gmAddress
 	gmAddress GetAt(s32 offset) const { return Value != 0 ? Value + offset : 0; }
 	gmAddress GetRef(s32 offset = 0) const { return Value != 0 ? Value + offset + 4 + *(s32*)(Value + offset) : 0; }
 	gmAddress GetCall() const { return GetRef(1); }
-
+	gmAddress Deref(s32 offset = 0) const { return *(u64*)(Value + offset); }
+	
 	template<typename T>
 	T To() const { return (T)Value; }
 
