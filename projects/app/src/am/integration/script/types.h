@@ -80,10 +80,10 @@ public:
 
 using scrVector = rage::Vector3;
 
-struct scrThreadId			: scrHandle<> {};
-struct scrCameraIndex		: scrHandle<int, -1> {};
-struct scrObjectIndex		: scrHandle<> {};
-struct scrShapetestIndex	: scrHandle<> {};
-struct scrBlipIndex			: scrObjectIndex {};
-struct scrPedIndex			: scrObjectIndex {};
-struct scrEntityIndex		: scrObjectIndex {};
+struct scrThreadId			: scrHandle<> { using scrHandle::scrHandle; };
+struct scrCameraIndex		: scrHandle<int, -1> { using scrHandle::scrHandle; };
+struct scrObjectIndex		: scrHandle<> { using scrHandle::scrHandle; };
+struct scrShapetestIndex	: scrHandle<> { using scrHandle::scrHandle; };
+struct scrBlipIndex			: scrObjectIndex { using scrObjectIndex::scrObjectIndex; };
+struct scrPedIndex			: scrObjectIndex { using scrObjectIndex::scrObjectIndex; };
+struct scrEntityIndex		: scrObjectIndex { using scrObjectIndex::scrObjectIndex; };

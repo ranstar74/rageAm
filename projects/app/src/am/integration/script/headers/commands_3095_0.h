@@ -719,4 +719,71 @@ inline void scrDeleteObject(scrObjectIndex& index)
 	s_Handler(info);
 }
 
+inline void scrSetEntityQuaternion(scrObjectIndex entityIndex, const rage::QuatV& rot)
+{
+	using namespace rageam::integration;
+	static scrSignature s_Handler = scrLookupHandler(0xF425E0B05426E088);
+	scrValue params[5];
+	params[0].Int = entityIndex.Get();
+	params[1].Float = rot.X();
+	params[2].Float = rot.Y();
+	params[3].Float = rot.Z();
+	params[4].Float = rot.W();
+	scrInfo info;
+	info.ResultPtr = nullptr;
+	info.ParamCount = 5;
+	info.Params = params;
+	s_Handler(info);
+}
+
+inline bool scrHasModelLoaded(u32 modelIndex)
+{
+	using namespace rageam::integration;
+	static scrSignature s_Handler = scrLookupHandler(0x6252BC0DD8A320DB);
+	int result;
+	scrValue params[1];
+	params[0].Uns = modelIndex;
+	scrInfo info;
+	info.ResultPtr = (scrValue*)&result;
+	info.ParamCount = 1;
+	info.Params = params;
+	s_Handler(info);
+	return result;
+}
+
+inline void scrRequestModel(u32 modelIndex)
+{
+	using namespace rageam::integration;
+	static scrSignature s_Handler = scrLookupHandler(0xEC9DAA34BBB4658C);
+	scrValue params[1];
+	params[0].Uns = modelIndex;
+	scrInfo info;
+	info.ResultPtr = nullptr;
+	info.ParamCount = 1;
+	info.Params = params;
+	s_Handler(info);
+}
+
+inline scrObjectIndex scrCreateVehicle(u32 model, scrVector coors, float heading = 0.0f, bool registerAsNetworkObject = true, bool scriptHostObject = true, bool ignoreGroundCheck = false)
+{
+	using namespace rageam::integration;
+	static scrSignature s_Handler = scrLookupHandler(0x5779387E956077A6);
+	scrObjectIndex result;
+	scrValue params[8];
+	params[0].Uns = model;
+	params[1].Float = coors.X;
+	params[2].Float = coors.Y;
+	params[3].Float = coors.Z;
+	params[4].Float = heading;
+	params[5].Int = registerAsNetworkObject;
+	params[6].Int = scriptHostObject;
+	params[7].Int = ignoreGroundCheck;
+	scrInfo info;
+	info.ResultPtr = (scrValue*)&result;
+	info.ParamCount = 8;
+	info.Params = params;
+	s_Handler(info);
+	return result;
+}
+
 #endif

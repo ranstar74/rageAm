@@ -613,6 +613,23 @@ inline void scrSetEntityRotation(scrObjectIndex entityIndex, const scrVector& ro
 	s_Handler(info);
 }
 
+inline void scrSetEntityQuaternion(scrObjectIndex entityIndex, const rage::QuatV& rot)
+{
+	using namespace rageam::integration;
+	static scrSignature s_Handler = scrLookupHandler(0x03F4139102BA4AFC);
+	scrValue params[5];
+	params[0].Int = entityIndex.Get();
+	params[1].Float = rot.X();
+	params[2].Float = rot.Y();
+	params[3].Float = rot.Z();
+	params[4].Float = rot.W();
+	scrInfo info;
+	info.ResultPtr = nullptr;
+	info.ParamCount = 5;
+	info.Params = params;
+	s_Handler(info);
+}
+
 inline void scrSetEntityAsMissionEntity(scrObjectIndex entityIndex, bool scriptHostObject = true, bool grabFromOtherScript = false)
 {
 	using namespace rageam::integration;
@@ -717,6 +734,72 @@ inline void scrDeleteObject(scrObjectIndex& index)
 	info.ParamCount = 1;
 	info.Params = params;
 	s_Handler(info);
+}
+
+inline bool scrHasModelLoaded(u32 modelIndex)
+{
+	using namespace rageam::integration;
+	static scrSignature s_Handler = scrLookupHandler(0x0152aa00fa3130f1);
+	int result;
+	scrValue params[1];
+	params[0].Uns = modelIndex;
+	scrInfo info;
+	info.ResultPtr = (scrValue*)&result;
+	info.ParamCount = 1;
+	info.Params = params;
+	s_Handler(info);
+	return result;
+}
+
+inline void scrRequestModel(u32 modelIndex)
+{
+	using namespace rageam::integration;
+	static scrSignature s_Handler = scrLookupHandler(0xd69a0c3662175e68);
+	scrValue params[1];
+	params[0].Uns = modelIndex;
+	scrInfo info;
+	info.ResultPtr = nullptr;
+	info.ParamCount = 1;
+	info.Params = params;
+	s_Handler(info);
+}
+
+inline scrObjectIndex scrCreateVehicle(u32 model, scrVector coors, float heading = 0.0f, bool registerAsNetworkObject = true, bool scriptHostObject = true, bool ignoreGroundCheck = false)
+{
+	using namespace rageam::integration;
+	static scrSignature s_Handler = scrLookupHandler(0xba715a7beba5a1f9);
+	scrObjectIndex result;
+	scrValue params[8];
+	params[0].Uns = model;
+	params[1].Float = coors.X;
+	params[2].Float = coors.Y;
+	params[3].Float = coors.Z;
+	params[4].Float = heading;
+	params[5].Int = registerAsNetworkObject;
+	params[6].Int = scriptHostObject;
+	params[7].Int = ignoreGroundCheck;
+	scrInfo info;
+	info.ResultPtr = (scrValue*)&result;
+	info.ParamCount = 8;
+	info.Params = params;
+	s_Handler(info);
+	return result;
+}
+
+inline scrObjectIndex scrGetVehiclePedIsIn(scrPedIndex ped, bool considerEnteringAsInVehicle = false)
+{
+	using namespace rageam::integration;
+	static scrSignature s_Handler = scrLookupHandler(0xB3FF0049C1FD38EC);
+	scrObjectIndex result;
+	scrValue params[2];
+	params[0].Int = ped;
+	params[1].Int = considerEnteringAsInVehicle;
+	scrInfo info;
+	info.ResultPtr = (scrValue*)&result;
+	info.ParamCount = 2;
+	info.Params = params;
+	s_Handler(info);
+	return result;
 }
 
 #endif
