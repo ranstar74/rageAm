@@ -1,8 +1,9 @@
-#include "testbed.h"
+﻿#include "testbed.h"
 
 #include "am/asset/factory.h"
 #include "am/asset/ui/assetwindowfactory.h"
 #include "am/graphics/geomprimitives.h"
+#include "am/gizmo/gizmo.h"
 #include "am/graphics/image/imagecache.h"
 #include "am/integration/memory/hook.h"
 #include "am/ui/imglue.h"
@@ -10,6 +11,16 @@
 #include "helpers/format.h"
 #include "rage/physics/bounds/optimizedbvh.h"
 #include "am/graphics/scene.h"
+#include "am/graphics/shapetest.h"
+#include "am/integration/gamedrawlists.h"
+#include "am/integration/im3d.h"
+#include "am/integration/script/core.h"
+#include "am/system/datetime.h"
+#include "am/ui/extensions.h"
+#include "easy/profiler.h"
+#include "game/viewport.h"
+#include "rage/grcore/txd.h"
+#include "rage/paging/builder/builder.h"
 
 #ifdef AM_INTEGRATED
 #include "am/integration/ui/modelscene.h"
@@ -29,14 +40,17 @@
 void rageam::ui::TestbedApp::OnStart()
 {
 #ifdef AM_INTEGRATED
+
+
 	// Scene::ConstructFor(L"D:/quick.ws/prop_towercrane_02a.ydr");
 
 	// Collision tests
-	Scene::DefaultSpawnPosition = Vec3V(-4.1, 76.1, 7.4);
-	//Scene::DefaultSpawnPosition = Vec3V(-1234.7, -1135.6, 7);
+	Scene::DefaultSpawnPosition = Vec3V(-4.1, 76.1, 7.7);
+	// Scene::DefaultSpawnPosition = Vec3V(-1234.7, -1135.6, 7);
 	GetUI()->FindAppByType<integration::StarBar>()->FocusCameraOnScene = false;
 
-	Scene::ConstructFor(L"D:/quick.ws/cols.idr");
+	// Scene::ConstructFor(L"D:/quick.ws/col_testbed.idr");
+	Scene::ConstructFor(L"D:/quick.ws/lights_testbed.idr");
 	// Scene::ConstructFor(L"D:/quick.ws/prop_towercrane_02a.ydr");
 #endif
 }
@@ -45,13 +59,127 @@ void rageam::ui::TestbedApp::OnRender()
 {
 	ImGui::Begin("rageAm Testbed");
 
+	//Vec3V rayPos, rayDir;
+	//CViewport::GetWorldMouseRay(rayPos, rayDir);
+	//Vec3V conePos = Vec3V(-4.4, 71.4, 8.4);
+	//Vec3V coneDir = Vec3V(0, 0, 1.0f);
+	//float coneRadius = 1.57f;
+	//float coneHeight = 1.0f;
+
+	//u32 col = graphics::ShapeTest::RayIntersectsCone(
+	//	rayPos, rayDir, conePos, coneDir, /*rage::DegToRad(coneRadius)*/coneRadius, coneHeight)
+	//	? graphics::COLOR_RED : graphics::COLOR_WHITE;
+	//auto& dl = rageam::integration::GameDrawLists::GetInstance()->Overlay;
+	//dl.DrawLine(conePos, conePos + coneDir * coneHeight, col, graphics::COLOR_GREEN);
+
+	// TODO: 'Capturing' text with icon + animation
+	// TODO: Shouldn't be in testbed!
+#ifdef AM_EASYPROFILER
+	static bool s_ProfilerEnabled = false;
+	if (ImGui::Button(s_ProfilerEnabled ? "Stop Profiler " : "Start Profiler"))
+	{
+		s_ProfilerEnabled = !s_ProfilerEnabled;
+
+		if (s_ProfilerEnabled)
+		{
+			EASY_PROFILER_ENABLE;
+			AM_TRACEF(L"Profiler: started profiling...");
+		}
+		else
+		{
+			EASY_PROFILER_DISABLE;
+
+			DateTime time = DateTime::Now();
+
+			char formattedTime[32];
+			time.Format(formattedTime, std::size(formattedTime), "yyyy-MM-dd_HH-mm-ss.prof");
+
+			wchar_t profileName[128];
+			swprintf_s(profileName, std::size(profileName), L"profile_%hs", formattedTime);
+
+			file::WPath profilesFolder = DataManager::GetProfilesFolder();
+			file::WPath profilePath = profilesFolder / profileName;
+
+			CreateDirectoryW(profilesFolder, NULL);
+			profiler::dumpBlocksToFile(file::PathConverter::WideToUtf8(profilePath));
+
+			AM_TRACEF(L"Profiler: dumped to %ls", profileName);
+		}
+	}
+#endif
+
+#if 0
+#ifdef AM_INTEGRATED
+	if (ImGui::CollapsingHeader("Gizmo"/*, ImGuiTreeNodeFlags_DefaultOpen*/))
+	{
+		ImGui::Indent();
+
+		static const Vec3V DEFAULT_TRANSFORM = Vec3V(-4.1, 76.1, 8.0);
+		static Mat44V TRANSFORM = Mat44V::Translation(DEFAULT_TRANSFORM);
+
+		static bool s_Translation = true;
+		static bool s_Local = true;
+
+		auto gizmoManager = gizmo::GizmoManager::GetInstance();
+
+		float width = GImGui->FontSize * 6;
+		SlGui::ToggleButton("Debug", gizmoManager->DebugInfo);
+		SlGui::ToggleButton("Translation", s_Translation);
+		if (SlGui::ToggleButton("Local", s_Local)) 
+			gizmoManager->Orientation = s_Local ? gizmo::GizmoLocal : gizmo::GizmoWorld;
+
+		SlGui::ToggleButton("Overlay", integration::GameDrawLists::GetInstance()->Gizmo.NoDepth);
+
+		gizmo::GizmoManager::GetInstance()->Orientation = gizmo::GizmoLocal;
+		bool manipulated;
+		if (s_Translation)
+			manipulated = gizmo::Translate("Scene Model", TRANSFORM);
+		else 
+			manipulated = gizmo::Rotate("Scene Model", TRANSFORM);
+
+		Scene* scene = Scene::GetCurrent();
+		if (scene)
+		{
+			QuatV rotation = QuatV::FromTransform(TRANSFORM);
+			scene->SetPosition(TRANSFORM.Pos);
+			scene->SetRotation(rotation);
+		}
+
+		if (ImGui::Button("Reset Trans"))
+		{
+			TRANSFORM = Mat44V::Translation(DEFAULT_TRANSFORM);
+		}
+
+		ImGui::Unindent();
+	}
+#endif
+
+	if (ImGui::Button("Zlib"))
+	{
+		Timer timer = Timer::StartNew();
+		rage::grcTextureDictionary* dict;
+		dict = new rage::grcTextureDictionary();
+		rage::pgRscBuilder::Load(&dict, "C:/Users/falco/Desktop/xs_propint3_detail_03_txd.ytd", 13);
+		dict = new rage::grcTextureDictionary();
+		rage::pgRscBuilder::Load(&dict, "C:/Users/falco/Desktop/xs_x18intmod_txd.ytd", 13);
+		dict = new rage::grcTextureDictionary();
+		rage::pgRscBuilder::Load(&dict, "C:/Users/falco/Desktop/globalroads+hi.ytd", 13);
+		dict = new rage::grcTextureDictionary();
+		rage::pgRscBuilder::Load(&dict, "C:/Users/falco/Desktop/xs_combined_dystopian_03.ytd", 13);
+		// delete dict;
+		timer.Stop();
+		AM_TRACEF("Time: %llums", timer.GetElapsedMilliseconds());
+	}
+#endif
+
 	ImGlue* ui = GetUI();
 	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 4.0f);
 	ImGui::SliderInt("Font Size", &ui->FontSize, 8, 24);
 
+#if 0
 	if (ImGui::Button("Primitive Detection"))
 	{
-		graphics::ScenePtr scene = graphics::SceneFactory::LoadFrom(L"C:/Users/falco/Desktop/spheres.glb");
+		graphics::ScenePtr scene = graphics::SceneFactory::LoadFrom(L"C:/Users/falco/Desktop/capsule.glb");
 		Timer timer = Timer::StartNew();
 		u16 nodeCount = scene->GetNodeCount();
 		for (u16 i = 0; i < nodeCount; i++)
@@ -72,6 +200,7 @@ void rageam::ui::TestbedApp::OnRender()
 
 				graphics::Primitive primitive;
 				// MatchPrimitive(positions.GetBufferAs<Vec3S>(), geom->GetVertexCount(), indices.GetBufferAs<u16>(), geom->GetIndexCount(), primitive);
+				MatchPrimitive(geom, primitive);
 
 				AM_TRACEF("%s:%i -> %s", node->GetName(), k, Enum::GetName(primitive.Type));
 			}
@@ -161,6 +290,7 @@ void rageam::ui::TestbedApp::OnRender()
 		AssetPtr txd = AssetFactory::LoadFromPath(QUICK_ITD_PATH);
 		AssetWindowFactory::OpenNewOrFocusExisting(txd);
 	}
+#endif
 
 	if (ImGui::CollapsingHeader("ImageCache", ImGuiTreeNodeFlags_DefaultOpen))
 	{
