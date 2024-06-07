@@ -1668,7 +1668,6 @@ void rageam::asset::DrawableAsset::CreateBound() const
 		// Add bound to map
 		CompiledDrawableMap->SceneNodeToBound[node->GetIndex()].Add(i);
 
-		CompiledDrawableMap->SceneNodeToBound[node->GetIndex()].Add(i);
 		rage::Mat44V transform = node->GetWorldTransform();
 
 		// Cylinder & Capsule primitives are special cases and we have to align UP axis manually
