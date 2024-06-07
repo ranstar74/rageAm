@@ -63,8 +63,18 @@ void rageam::SymbolResolver::Load()
 	// Don't use GetCurrentProcess() because it returns fake handle and it causes issues when calling from different threads...
 	sm_Process = OpenProcess(PROCESS_ALL_ACCESS, TRUE, GetCurrentProcessId());
 
+	wchar_t workingDirectory[MAX_PATH];
+	wchar_t moduleFileName[MAX_PATH];
+	GetCurrentDirectoryW(MAX_PATH, workingDirectory);
+	GetModuleFileNameW(GetCurrentModule(), moduleFileName, MAX_PATH);
+
+	file::WPath searchPath;
+	searchPath += workingDirectory;
+	searchPath += L";";
+	searchPath += file::WPath(moduleFileName).GetParentDirectory();
+	
 	SymSetOptions(AM_DEBUG_ONLY(SYMOPT_DEBUG | ) SYMOPT_LOAD_LINES);
-	if (!AM_VERIFY(SymInitialize(sm_Process, NULL, TRUE),
+	if (!AM_VERIFY(SymInitializeW(sm_Process, searchPath, TRUE),
 		"StackTracer::LoadSymbols() -> Failed to load symbols, last error: %x", GetLastError()))
 		return;
 
