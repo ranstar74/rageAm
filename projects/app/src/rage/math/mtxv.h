@@ -9,6 +9,7 @@
 
 #include "quatv.h"
 #include "vecv.h"
+#include <easy/profiler.h>
 
 namespace rage
 {
@@ -33,6 +34,13 @@ namespace rage
 			{
 				Vec4V R[4];
 			};
+			struct
+			{
+				float _11, _12, _13, _14;
+				float _21, _22, _23, _24;
+				float _31, _32, _33, _34;
+				float _41, _42, _43, _44;
+			};
 		};
 
 		Mat44V()
@@ -44,10 +52,19 @@ namespace rage
 		}
 		Mat44V(const DirectX::XMMATRIX& m) { M = m; }
 
-		Mat44V Multiply(const Mat44V& other) const { return XMMatrixMultiply(M, other.M); }
-		Mat44V Inverse() const { return XMMatrixInverse(NULL, M); }
+		Mat44V Multiply(const Mat44V& other) const
+		{
+			EASY_BLOCK("Mat44V::Multiply");
+			return XMMatrixMultiply(M, other.M);
+		}
+		Mat44V Inverse() const
+		{
+			EASY_BLOCK("Mat44V::Inverse");
+			return XMMatrixInverse(NULL, M);
+		}
 		bool Decompose(Vec3V* translation, Vec3V* scale, QuatV* rotation) const
 		{
+			EASY_BLOCK("Mat44V::Decompose");
 			Vec3V t, s;
 			QuatV r;
 			bool result = XMMatrixDecompose(&s.M, &r.M, &t.M, M);
@@ -59,7 +76,11 @@ namespace rage
 
 		Mat44V operator!() const { return Inverse(); }
 		Mat44V operator*(const Mat44V& other) const { return Multiply(other); }
-		Mat44V& operator*=(const Mat44V& other) { M = XMMatrixMultiply(M, other.M); return *this; }
+		Mat44V& operator*=(const Mat44V& other)
+		{
+			EASY_BLOCK("Mat44V::operator*=");
+			M = XMMatrixMultiply(M, other.M); return *this;
+		}
 
 		static Mat44V FromNormalPos(const Vec3V& pos, const Vec3V& normal)
 		{
@@ -74,8 +95,24 @@ namespace rage
 			m.Pos = Vec4V(pos, 1.0f);
 			return m;
 		}
+
+		static Mat44V LookAt(const Vec3V& pos, const Vec3V& dir, const Vec3V& up = VEC_UP)
+		{
+			Vec3V right = dir.Cross(up);
+			if (dir.Dot(up) > 0.9995f) // Fix orientation when normal is aligned with up
+				right = VEC_RIGHT;
+			Vec3V newUp = right.Cross(dir).Normalized();
+			Mat44V m;
+			m.Front = Vec4V(dir, 0.0f);
+			m.Right = Vec4V(right, 0.0f);
+			m.Up = Vec4V(newUp, 0.0f);
+			m.Pos = Vec4V(pos, 1.0f);
+			return m;
+		}
+
 		static Mat44V Transform(const Vec3V& scale, const QuatV& rotation, const Vec3V& translation)
 		{
+			EASY_BLOCK("Mat44V::Transform");
 			return DirectX::XMMatrixTransformation(
 				S_ZERO, QUAT_IDENTITY, scale,
 				S_ZERO, rotation,
@@ -92,8 +129,9 @@ namespace rage
 		{
 			Mat44V m;
 			m.R[0].SetX(scale.X());
-			m.R[1].SetX(scale.Y());
-			m.R[2].SetX(scale.Z());
+			m.R[1].SetY(scale.Y());
+			m.R[2].SetZ(scale.Z());
+			m.R[3].SetW(1.0f);
 			return m;
 		}
 		static Mat44V Rotation(const QuatV& rotation) { return DirectX::XMMatrixRotationQuaternion(rotation.M); }
@@ -150,6 +188,15 @@ namespace rage
 			m.R[1] = M_IDENTITY_R1;
 			m.R[2] = M_IDENTITY_R2;
 			return m;
+		}
+
+		Mat34V& operator=(const Mat34V& mat)
+		{
+			R[0] = mat.R[0];
+			R[1] = mat.R[1];
+			R[2] = mat.R[2];
+			R[3] = mat.R[3];
+			return *this;
 		}
 	};
 }

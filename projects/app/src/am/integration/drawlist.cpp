@@ -93,7 +93,7 @@ void rageam::integration::DrawList::DrawLine_Unsafe(
 	rage::Vec3V pt1 = p1.Transform(mtx);
 	rage::Vec3V pt2 = p2.Transform(mtx);
 	rage::Vector4 col1v = col1.ToVec4();
-	rage::Vector4 col2v = col1.ToVec4();
+	rage::Vector4 col2v = col2.ToVec4();
 
 	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(pt1, col1v);
 	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(pt2, col2v);
@@ -159,8 +159,7 @@ void rageam::integration::DrawList::DrawTriFill_Unsafe(
 	return DrawTriFill_Unsafe(p1.Transform(mtx), p2.Transform(mtx), p3.Transform(mtx), col1, col2, col3);
 }
 
-void rageam::integration::DrawList::DrawQuadFill_Unsafe(
-	const Vec3V& p1, const Vec3V& p2, const Vec3V& p3, const Vec3V& p4, ColorU32 col, const Mat44V& mtx)
+void rageam::integration::DrawList::DrawQuadFill_Unsafe(const Vec3V& p1, const Vec3V& p2, const Vec3V& p3, const Vec3V& p4, ColorU32 col)
 {
 	if (col.A == 0)
 		return;
@@ -173,17 +172,23 @@ void rageam::integration::DrawList::DrawQuadFill_Unsafe(
 	Vec3V n2 = TriNormal(p2, p3, p4);
 	Vec3V n = (n1 + n2) * rage::S_HALF; // Average
 
-	u32 startVertex = m_Lines.VTXBuffer.Size;
-	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(p1, colVec, n);
-	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(p2, colVec, n);
-	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(p3, colVec, n);
-	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(p4, colVec, n);
-	m_Lines.IDXBuffer.Indices[m_Lines.IDXBuffer.Size++] = startVertex + 0;
-	m_Lines.IDXBuffer.Indices[m_Lines.IDXBuffer.Size++] = startVertex + 1;
-	m_Lines.IDXBuffer.Indices[m_Lines.IDXBuffer.Size++] = startVertex + 2;
-	m_Lines.IDXBuffer.Indices[m_Lines.IDXBuffer.Size++] = startVertex + 0;
-	m_Lines.IDXBuffer.Indices[m_Lines.IDXBuffer.Size++] = startVertex + 3;
-	m_Lines.IDXBuffer.Indices[m_Lines.IDXBuffer.Size++] = startVertex + 2;
+	u32 startVertex = m_Tris.VTXBuffer.Size;
+	m_Tris.VTXBuffer.Vertices[m_Tris.VTXBuffer.Size++] = Vertex(p1, colVec, n);
+	m_Tris.VTXBuffer.Vertices[m_Tris.VTXBuffer.Size++] = Vertex(p2, colVec, n);
+	m_Tris.VTXBuffer.Vertices[m_Tris.VTXBuffer.Size++] = Vertex(p3, colVec, n);
+	m_Tris.VTXBuffer.Vertices[m_Tris.VTXBuffer.Size++] = Vertex(p4, colVec, n);
+	m_Tris.IDXBuffer.Indices[m_Tris.IDXBuffer.Size++] = startVertex + 0;
+	m_Tris.IDXBuffer.Indices[m_Tris.IDXBuffer.Size++] = startVertex + 2;
+	m_Tris.IDXBuffer.Indices[m_Tris.IDXBuffer.Size++] = startVertex + 1;
+	m_Tris.IDXBuffer.Indices[m_Tris.IDXBuffer.Size++] = startVertex + 2;
+	m_Tris.IDXBuffer.Indices[m_Tris.IDXBuffer.Size++] = startVertex + 0;
+	m_Tris.IDXBuffer.Indices[m_Tris.IDXBuffer.Size++] = startVertex + 3;
+}
+
+void rageam::integration::DrawList::DrawQuadFill_Unsafe(
+	const Vec3V& p1, const Vec3V& p2, const Vec3V& p3, const Vec3V& p4, ColorU32 col, const Mat44V& mtx)
+{
+	DrawQuadFill_Unsafe(p1.Transform(mtx), p2.Transform(mtx), p3.Transform(mtx), p4.Transform(mtx), col);
 }
 
 void rageam::integration::DrawList::EndFrame()
@@ -234,6 +239,20 @@ void rageam::integration::DrawList::DrawLine(const rage::Vec3V& p1, const rage::
 	DrawLine(p1, p2, tl_Transform, col, col);
 }
 
+void rageam::integration::DrawList::DrawLineFast(const Vec3V& p1, const Vec3V& p2, ColorU32 col)
+{
+	EASY_BLOCK("DrawList::DrawLineFast");
+	if (col.A == 0)
+		return;
+
+	if (!VerifyBufferFitLine())
+		return;
+
+	rage::Vector4 colv = col.ToVec4();
+	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(p1, colv);
+	m_Lines.VTXBuffer.Vertices[m_Lines.VTXBuffer.Size++] = Vertex(p2, colv);
+}
+
 void rageam::integration::DrawList::DrawAABB(const rage::spdAABB& bb, const rage::Mat44V& mtx, ColorU32 col)
 {
 	std::unique_lock lock(m_Mutex);
@@ -271,10 +290,10 @@ void rageam::integration::DrawList::DrawQuad(
 	rage::Vec3V br = pos + tangent * extentX - biNormal * extentY;
 
 	std::unique_lock lock(m_Mutex);
-	DrawLine_Unsafe(tr, tl, col);
-	DrawLine_Unsafe(tl, bl, col);
-	DrawLine_Unsafe(bl, br, col);
-	DrawLine_Unsafe(br, tr, col);
+	DrawLine_Unsafe(tr, tl, tl_Transform, col);
+	DrawLine_Unsafe(tl, bl, tl_Transform, col);
+	DrawLine_Unsafe(bl, br, tl_Transform, col);
+	DrawLine_Unsafe(br, tr, tl_Transform, col);
 }
 
 void rageam::integration::DrawList::DrawCircle(
@@ -288,6 +307,10 @@ void rageam::integration::DrawList::DrawCircle(
 	float startAngle,
 	float angle)
 {
+	EASY_BLOCK("DrawList::DrawCircle");
+	Vec3V front;
+	CViewport::GetCamera(&front, 0, 0, 0);
+
 	static constexpr int NUM_SEGMENTS = 48;
 	float SEGMENT_STEP = angle / NUM_SEGMENTS;
 
@@ -303,7 +326,7 @@ void rageam::integration::DrawList::DrawCircle(
 
 		// Transform coordinate on circle plane
 		rage::Vec3V point = pos + tangent * cos * radius + biNormal * sin * radius;
-
+		
 		// Draw second half with different color
 		ColorU32 col = i > (NUM_SEGMENTS / 2) ? col2 : col1;
 
@@ -436,6 +459,32 @@ void rageam::integration::DrawList::DrawCylinder(float radius, float halfExtent,
 	DrawLine(extentTo + rage::VEC_RIGHT * radius, extentFrom + rage::VEC_RIGHT * radius, color);
 	DrawLine(extentTo - rage::VEC_FRONT * radius, extentFrom - rage::VEC_FRONT * radius, color);
 	DrawLine(extentTo - rage::VEC_RIGHT * radius, extentFrom - rage::VEC_RIGHT * radius, color);
+}
+
+void rageam::integration::DrawList::DrawAlignedBox(const Vec3V& center, const Vec3V& extent, ColorU32 col)
+{
+	DrawAABB(AABB(center - extent, center + extent), col);
+}
+
+void rageam::integration::DrawList::DrawAlignedBoxFill(const Vec3V& center, const Vec3V& extent, ColorU32 col)
+{
+	rage::spdAABB bb(center - extent, center + extent);
+	rage::Mat44V& mtx = tl_Transform;
+	// Top Face
+	DrawTriFill_Unsafe(bb.TTL(), bb.TBL(), bb.TTR(), col, col, col, mtx);
+	DrawTriFill_Unsafe(bb.TBL(), bb.TBR(), bb.TTR(), col, col, col, mtx);
+	// Bottom Face
+	DrawTriFill_Unsafe(bb.BTL(), bb.BBL(), bb.BTR(), col, col, col, mtx);
+	DrawTriFill_Unsafe(bb.BBL(), bb.BBR(), bb.BTR(), col, col, col, mtx);
+	// Side Faces
+	DrawTriFill_Unsafe(bb.BBL(), bb.TBL(), bb.BTL(), col, col, col, mtx);
+	DrawTriFill_Unsafe(bb.BTL(), bb.TBL(), bb.TTL(), col, col, col, mtx);
+	DrawTriFill_Unsafe(bb.BTL(), bb.TTL(), bb.BTR(), col, col, col, mtx);
+	DrawTriFill_Unsafe(bb.BTR(), bb.TTL(), bb.TTR(), col, col, col, mtx);
+	DrawTriFill_Unsafe(bb.BTR(), bb.TBR(), bb.BBR(), col, col, col, mtx);
+	DrawTriFill_Unsafe(bb.BTR(), bb.TTR(), bb.TBR(), col, col, col, mtx);
+	DrawTriFill_Unsafe(bb.BBR(), bb.TBR(), bb.TBL(), col, col, col, mtx);
+	DrawTriFill_Unsafe(bb.BBL(), bb.BBR(), bb.TBL(), col, col, col, mtx);
 }
 
 void rageam::integration::DrawList::DrawTriFill(const Vec3V& p1, const Vec3V& p2, const Vec3V& p3, ColorU32 col1, ColorU32 col2, ColorU32 col3, const Mat44V& mtx)
@@ -770,12 +819,20 @@ void rageam::integration::DrawListExecutor::Execute(DrawList& drawList)
 			.ToFunc<pVoid(bool unused)>();
 		ID3D11DepthStencilView* depthBuffer = (ID3D11DepthStencilView*) getTargetView(getDepthBuffer(false), 0, 0);
 
-		// We render to our MSAA back-buffer because buffer that's set in
-		// CVisualEffects::RenderMarkers is not g buffer and don't have multisampling
-		float clearColor[] = { 0, 0, 0, 0 };
-		ID3D11RenderTargetView* backbufRt = m_BackbufMsRt.Get();
-		context->OMSetRenderTargets(1, &backbufRt, depthBuffer);
-		context->ClearRenderTargetView(backbufRt, clearColor);
+		if (!drawList.WriteOnlyDepth)
+		{
+			// We render to our MSAA back-buffer because buffer that's set in
+			// CVisualEffects::RenderMarkers is not g buffer and don't have multisampling
+			float clearColor[] = { 0, 0, 0, 0 };
+			ID3D11RenderTargetView* backbufRt = m_BackbufMsRt.Get();
+			context->OMSetRenderTargets(1, &backbufRt, depthBuffer);
+			context->ClearRenderTargetView(backbufRt, clearColor);
+		}
+		else
+		{
+			// No RT view, just depth
+			context->OMSetRenderTargets(0, nullptr, depthBuffer);
+		}
 
 		if (drawList.Wireframe)
 			context->RSSetState(m_RSWireframe.Get());

@@ -61,6 +61,11 @@ namespace rageam::graphics
 			const rage::Vec3V& planePos, const rage::Vec3V& planeNormal,
 			rage::Vec3V& outPoint);
 
+		static bool LineSegmentIntersectsPlane(
+			const rage::Vec3V& p1, const rage::Vec3V& p2,
+			const rage::Vec3V& planePos, const rage::Vec3V& planeNormal,
+			rage::Vec3V& outPoint);
+
 		// RayIntersectsDisk
 		static bool RayIntersectsCircle(
 			const rage::Vec3V& rayPos, const rage::Vec3V& rayDir,
@@ -73,5 +78,14 @@ namespace rageam::graphics
 			const rage::Vec3V& extentFrom, const rage::Vec3V& extentTo,
 			const rage::ScalarV& radius,
 			rage::ScalarV* outDistance = nullptr);
+
+		static bool RayIntersectsCone(
+			const rage::Vec3V& rayPos, const rage::Vec3V& rayDir,
+			const rage::Vec3V& basePos, const rage::Vec3V& dirToTip,
+			const rage::ScalarV& radius,
+			const rage::ScalarV& height,
+			rage::ScalarV* outDistance = nullptr,
+			rage::Vec3V* outNormal = nullptr,
+			rage::Vec3V* outPoint = nullptr);
 	};
 }

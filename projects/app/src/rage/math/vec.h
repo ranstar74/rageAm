@@ -41,6 +41,17 @@ namespace rage
 			AM_UNREACHABLE("Vector2::operator[] -> Index %u is invalid.", index);
 #endif
 		}
+
+		Vector2 operator+(const Vector2& other) const { return Vector2(X + other.X, Y + other.Y); }
+		Vector2 operator-(const Vector2& other) const { return Vector2(X - other.X, Y - other.Y); }
+		Vector2& operator+=(const Vector2& other) { X += other.X; Y += other.Y; return *this; }
+		Vector2& operator-=(const Vector2& other) { X -= other.X; Y -= other.Y; return *this; }
+		Vector2 operator*(const Vector2& other) const { return Vector2(X * other.X, Y * other.Y); }
+		Vector2 operator/(const Vector2& other) const { return Vector2(X / other.X, Y / other.Y); }
+		Vector2& operator*=(const Vector2& other) { X *= other.X; Y *= other.Y; return *this; }
+		Vector2& operator/=(const Vector2& other) { X /= other.X; Y /= other.Y; return *this; }
+
+		Vector2 operator-() const { return Vector2(-X, -Y); }
 	};
 
 	struct Vector3

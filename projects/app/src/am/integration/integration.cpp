@@ -211,6 +211,7 @@ rageam::integration::GameIntegration::GameIntegration()
 	m_ComponentMgr = std::make_unique<ComponentManager>();
 	m_GameDrawLists = std::make_unique<GameDrawLists>();
 	m_OutlineRender = std::make_unique<graphics::OutlineRender>();
+	m_GizmoManager = std::make_unique<gizmo::GizmoManager>();
 
 	// Detour for drawing grmShader outlines
 	s_Addr_grmShader_DrawInternal = gmAddress::Scan(
@@ -267,14 +268,20 @@ void rageam::integration::GameIntegration::Update()
 	m_OutlineRender->NewFrame();
 
 	System::GetInstance()->Update();
+
 	// Render UI and update all components
 	ui::ImGlue* ui = ui::ImGlue::GetInstance();
 	ui->Lock();
 	if (ui->BeginFrame())
 	{
+		auto gizmoManager = gizmo::GizmoManager::GetInstance();
+		gizmoManager->BeginFrame();
+
 		m_ComponentMgr->UpdateAll();
 		ui->UpdateApps();
 		m_GameDrawLists->EndFrame();
+
+		gizmoManager->EndFrame();
 		// ui->EndFrame will be called by render thread
 	}
 	ui->Unlock();

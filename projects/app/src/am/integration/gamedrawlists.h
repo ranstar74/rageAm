@@ -35,6 +35,7 @@ namespace rageam::integration
 		DrawList GameUnlit;
 		DrawList Overlay;
 		DrawList CollisionMesh;
+		DrawList Gizmo;
 	};
 }
 #endif

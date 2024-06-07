@@ -5,6 +5,8 @@
 #include "memory/address.h"
 #include "memory/hook.h"
 
+#include <easy/profiler.h>
+
 namespace
 {
 	std::atomic_bool s_ShuttingDown;
@@ -47,12 +49,16 @@ rageam::integration::GameDrawLists::GameDrawLists() :
 	Game("Game", 0x1000, 0x1000),
 	GameUnlit("Game Unlit", 0x1000, 0x1000),
 	Overlay("Overlay (Foreground)", 0x1000, 0x1000),
-	CollisionMesh("Collision Mesh", 0x10000, 0x10000) // Collision need much larger buffer
+	CollisionMesh("Collision Mesh", 0x10000, 0x10000), // Collision need much larger buffer
+	Gizmo("Gizmo", 0x1000, 0x1000)
 {
 	GameUnlit.Unlit = true;
 	Overlay.NoDepth = true;
 	Overlay.Unlit = true;
 	CollisionMesh.Wireframe = true;
+	Gizmo.NoDepth = true;
+	Gizmo.BackfaceCull = false;
+	Gizmo.Unlit = true; // TODO: For now, plane gizmo have shading issues on back side because of shading
 
 	s_RenderMarkersAddr = gmAddress::Scan(
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
@@ -73,17 +79,21 @@ rageam::integration::GameDrawLists::~GameDrawLists()
 
 void rageam::integration::GameDrawLists::EndFrame()
 {
+	EASY_BLOCK("GameDrawLists::EndFrame");
 	Game.EndFrame();
 	GameUnlit.EndFrame();
 	Overlay.EndFrame();
 	CollisionMesh.EndFrame();
+	Gizmo.EndFrame();
 }
 
 void rageam::integration::GameDrawLists::ExecuteAll()
 {
+	EASY_BLOCK("GameDrawLists::ExecuteAll");
 	m_Executor.Execute(Game);
 	m_Executor.Execute(GameUnlit);
 	m_Executor.Execute(Overlay);
 	m_Executor.Execute(CollisionMesh);
+	m_Executor.Execute(Gizmo);
 }
 #endif

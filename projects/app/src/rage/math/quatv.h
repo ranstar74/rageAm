@@ -1,7 +1,7 @@
 //
 // File: quatv.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
@@ -19,22 +19,13 @@ namespace rage
 		QuatV(float x, float y, float z, float w) { M = DirectX::XMVectorSet(x, y, z, w); }
 		QuatV(__m128 m) { M = m; }
 
-		Vec3V ToEuler() const
-		{
-			Vec3V euler;
-			Vec3V axis;
-			float angle;
-			axis = VEC_RIGHT;
-			DirectX::XMQuaternionToAxisAngle(&axis.M, &angle, M);
-			euler.SetX(angle);
-			axis = VEC_FRONT;
-			DirectX::XMQuaternionToAxisAngle(&axis.M, &angle, M);
-			euler.SetY(angle);
-			axis = VEC_UP;
-			DirectX::XMQuaternionToAxisAngle(&axis.M, &angle, M);
-			euler.SetZ(angle);
-			return euler;
-		}
+		bool IsIdentity() const;
+
+		Vec3V ToEuler() const;
+
+		static QuatV RotationNormal(const Vec3V& normal, float angle);
+		static QuatV FromEuler(const Vec3V& euler);
+		static QuatV FromTransform(const Mat44V& matrix);
 	};
 
 	static const QuatV QUAT_IDENTITY = { 0.0f, 0.0f, 0.0f, 1.0f };

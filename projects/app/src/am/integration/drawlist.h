@@ -97,6 +97,7 @@ namespace rageam::integration
 		Vec3V TriNormal(const Vec3V& v1, const Vec3V& v2, const Vec3V& v3) const;
 		void DrawTriFill_Unsafe(const Vec3V& p1, const Vec3V& p2, const Vec3V& p3, ColorU32 col1, ColorU32 col2, ColorU32 col3);
 		void DrawTriFill_Unsafe(const Vec3V& p1, const Vec3V& p2, const Vec3V& p3, ColorU32 col1, ColorU32 col2, ColorU32 col3, const Mat44V& mtx);
+		void DrawQuadFill_Unsafe(const Vec3V& p1, const Vec3V& p2, const Vec3V& p3, const Vec3V& p4, ColorU32 col);
 		void DrawQuadFill_Unsafe(const Vec3V& p1, const Vec3V& p2, const Vec3V& p3, const Vec3V& p4, ColorU32 col, const Mat44V& mtx);
 
 	public:
@@ -106,6 +107,7 @@ namespace rageam::integration
 		bool Unlit = false;
 		bool Wireframe = false;
 		bool BackfaceCull = true;
+		bool WriteOnlyDepth = false;
 
 		// Uses 3D polygons facing camera to simulate effect, thickness is measured in world units
 		// static inline float LineThickness = 0.003f;
@@ -124,6 +126,7 @@ namespace rageam::integration
 		void DrawLine(const Vec3V& p1, const Vec3V& p2, const Mat44V& mtx, ColorU32 col);
 		void DrawLine(const Vec3V& p1, const Vec3V& p2, ColorU32 col1, ColorU32 col2);
 		void DrawLine(const Vec3V& p1, const Vec3V& p2, ColorU32 col);
+		void DrawLineFast(const Vec3V& p1, const Vec3V& p2, ColorU32 col);
 		void DrawAABB(const AABB& bb, const Mat44V& mtx, ColorU32 col);
 		void DrawAABB(const AABB& bb, ColorU32 col) { DrawAABB(bb, tl_Transform, col); }
 		void DrawQuad(
@@ -160,6 +163,7 @@ namespace rageam::integration
 			const ScalarV& radius,
 			ColorU32 col,
 			float startAngle = 0.0f, float angle = rage::PI2);
+
 		// Draws sphere using 3 aligned axes
 		void DrawSphere(const Mat44V& mtx, ColorU32 color, float radius);
 		void DrawSphere(ColorU32 color, float radius);
@@ -169,7 +173,10 @@ namespace rageam::integration
 		void DrawCylinder(float radius, const Vec3V& normal, const Vec3V& extentFrom, const Vec3V& extentTo, ColorU32 color);
 		void DrawCylinder(float radius, float halfExtent, ColorU32 color);
 
+		void DrawAlignedBox(const Vec3V& center, const Vec3V& extent, ColorU32 col);
+
 		// --- Fill ---
+		void DrawAlignedBoxFill(const Vec3V& center, const Vec3V& extent, ColorU32 col);
 
 		void DrawTriFill(const Vec3V& p1, const Vec3V& p2, const Vec3V& p3, ColorU32 col1, ColorU32 col2, ColorU32 col3, const Mat44V& mtx);
 		void DrawTriFill(const Vec3V& p1, const Vec3V& p2, const Vec3V& p3, ColorU32 col, const Mat44V& mtx);
@@ -177,6 +184,34 @@ namespace rageam::integration
 		void DrawTriFill(const Vec3V& p1, const Vec3V& p2, const Vec3V& p3, ColorU32 col);
 		void DrawQuadFill(const Vec3V& p1, const Vec3V& p2, const Vec3V& p3, const Vec3V& p4, ColorU32 col, const Mat44V& mtx);
 		void DrawQuadFill(const Vec3V& p1, const Vec3V& p2, const Vec3V& p3, const Vec3V& p4, ColorU32 col);
+
+		//				// TODO: DrawSphereFill
+		//				constexpr int NUM_SEGMENTS = 6;
+		//				constexpr float THETA_PER_STEP = 1.0f / static_cast<float>(NUM_SEGMENTS) * rage::PI2;
+		//				constexpr float THETA_PER_STEP2 = 1.0f / static_cast<float>(NUM_SEGMENTS) * rage::PI;
+		//				auto getSpherePoint = [](int xSeg, int ySeg, int zSeg)
+		//				{
+		//					float x = cos(static_cast<float>(xSeg) * THETA_PER_STEP);
+		//					float y = sin(static_cast<float>(ySeg) * THETA_PER_STEP);
+		//					float z = cos(static_cast<float>(zSeg) * THETA_PER_STEP2);
+		//					float r = sin(static_cast<float>(zSeg) * THETA_PER_STEP2);
+		//					return Vec3V(x * r, y * r, z);
+		//				};
+		//				for (int height = 0; height < NUM_SEGMENTS - 1; height++)
+		//				{
+		//					for (int base = 0; base < NUM_SEGMENTS; base++)
+		//					{
+		//						Vec3V p1 = getSpherePoint(base,     base,     height);
+		//						Vec3V p2 = getSpherePoint(base,     base,     height + 1);
+		//						Vec3V p3 = getSpherePoint(base + 1, base + 1, height + 1);
+		//						dl.DrawTriFill(p2, p1, p3, graphics::COLOR_WHITE);
+		//						if (height != 0 && height != NUM_SEGMENTS - 1) // Only single triangle for top & bottom
+		//						{
+		//							Vec3V p4 = getSpherePoint(base + 1, base + 1, height);
+		//							dl.DrawTriFill(p4, p3, p1, graphics::COLOR_WHITE);
+		//						}
+		//					}
+		//				}};
 	};
 
 	class DrawListExecutor

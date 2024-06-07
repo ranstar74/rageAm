@@ -12,6 +12,7 @@
 #include "am/system/singleton.h"
 #include "am/system/ptr.h"
 #include "am/graphics/outlinerender.h"
+#include "am/gizmo/gizmobase.h"
 
 namespace rageam::integration
 {
@@ -43,6 +44,7 @@ namespace rageam::integration
 		amUPtr<ComponentManager>        m_ComponentMgr;
 		amUPtr<GameDrawLists>           m_GameDrawLists;
 		amUPtr<graphics::OutlineRender> m_OutlineRender;
+		amUPtr<gizmo::GizmoManager>     m_GizmoManager;
 
 	public:
 		GameIntegration();

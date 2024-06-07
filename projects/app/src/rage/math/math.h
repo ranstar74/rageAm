@@ -18,6 +18,24 @@ namespace rage
 
 	static bool AlmostEquals(float a, float b, float maxDelta = 0.01f) { return abs(a - b) <= maxDelta; }
 
+	static float Wrapf(float value, float min, float max)
+	{
+		float v = value - min;
+		float r = max - min;
+		v = fmodf(v, r);
+		if (v < min) v += r;
+		return v + min;
+	}
+
+	static int Wrap(int value, int min, int max)
+	{
+		int v = value - min;
+		int r = max - min;
+		v %= r;
+		if (v < min) v += r;
+		return v + min;
+	}
+
 	template<typename T>
 	static const T& Max(const T& left, const T& right) { return left >= right ? left : right; }
 

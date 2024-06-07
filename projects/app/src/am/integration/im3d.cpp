@@ -1,6 +1,5 @@
 #include "im3d.h"
 
-#include "ImGuizmo.h"
 #include "imgui_internal.h"
 #include "am/graphics/shapetest.h"
 #include "am/ui/imglue.h"
@@ -8,12 +7,9 @@
 #include "rage/grcore/device.h"
 #include "am/integration/script/core.h"
 
-#define GUIZMO_MTX(mtx) ((float*)&mtx)
-
 constexpr ImU32 bgColor = IM_COL32(0, 0, 0, 170);
 
 static inline bool s_CenterNext = false;
-static inline bool s_WorldGizmoMode = true;
 
 auto GetDrawList()
 {
@@ -35,7 +31,7 @@ bool Im3D::WorldToScreen(const ImVec3V& worldPos, ImVec2& screenPos)
 	vec += rage::Vec4V(0.5f, 0.5f, 1.0f, 1.0f);
 	vec.SetY(1.0f - vec.Y());
 	vec *= rage::Vec4V(static_cast<float>(width), static_cast<float>(height), 1.0f, 1.0f);
-
+	
 	screenPos = ImVec2(vec.X(), vec.Y());
 
 	// With viewports, we have to shift coordinates to position of main viewport (game window)
@@ -51,6 +47,11 @@ bool Im3D::WorldToScreen(const ImVec3V& worldPos, ImVec2& screenPos)
 	}
 
 	return !isCulled;
+}
+
+bool Im3D::ShouldDrawText()
+{
+	return true; // TODO: Check if pause menu is open
 }
 
 void Im3D::CenterNext()
@@ -131,103 +132,6 @@ void Im3D::TextBgColored(const ImVec3V& pos, u32 col, ConstString fmt, ...)
 	TextBgV(pos, fmt, args);
 	ImGui::PopStyleColor();
 	va_end(args);
-}
-
-void Im3D::SetGizmoUseWorld(bool world)
-{
-	s_WorldGizmoMode = world;
-}
-
-bool Im3D::GetGizmoUseWorld()
-{
-	return s_WorldGizmoMode;
-}
-
-bool Im3D::GizmoTrans(ImMat44V& mtx)
-{
-	return Manipulate(
-		GUIZMO_MTX(CViewport::GetViewMatrix()),
-		GUIZMO_MTX(CViewport::GetProjectionMatrix()),
-		ImGuizmo::TRANSLATE,
-		ImGuizmo::WORLD,
-		GUIZMO_MTX(mtx));
-}
-
-bool Im3D::Gizmo(ImMat44V& mtx, ImMat44V& delta, ImGuizmo::OPERATION op)
-{
-	return Manipulate(
-		GUIZMO_MTX(CViewport::GetViewMatrix()),
-		GUIZMO_MTX(CViewport::GetProjectionMatrix()),
-		op,
-		s_WorldGizmoMode ? ImGuizmo::WORLD : ImGuizmo::LOCAL,
-		GUIZMO_MTX(mtx),
-		GUIZMO_MTX(delta));
-}
-
-bool Im3D::GizmoTrans(ImVec3V& translation)
-{
-	rage::Mat44V mtx(DirectX::XMMatrixTranslationFromVector(translation));
-	bool moved = GizmoTrans(mtx);
-	mtx.Decompose(&translation, nullptr, nullptr);
-	return moved;
-}
-
-bool Im3D::GizmoTrans(ImVec3& translation)
-{
-	ImVec3V translationV = translation;
-	bool moved = GizmoTrans(translationV);
-	translation = translationV;
-	return moved;
-}
-
-bool Im3D::GizmoBehaviour(bool& isDragging, const ImVec3V& planePos, const ImVec3V& planeNormal, ImVec3V& moveDelta, ImVec3V& startPos, ImVec3V& dragPos)
-{
-	static bool s_IsDragging = false;
-	static ImVec2 s_DragStartPos;
-
-	isDragging = false;
-
-	int mouse = ImGuiMouseButton_Left;
-	bool mouseDown = ImGui::IsMouseDown(mouse);
-
-	if (!s_IsDragging && !mouseDown)
-		return false;
-
-	ImVec2 mousePos = ImGui::GetMousePos();
-
-	if (ImGui::IsMouseClicked(mouse, false))
-	{
-		s_IsDragging = true;
-		s_DragStartPos = mousePos;
-	}
-
-	// Get world mouse rays for where mouse position was at start of dragging & now
-	rage::Vec3V mouseRayPos, mouseRayDir;
-	CViewport::GetWorldRayFromScreen(mouseRayPos, mouseRayDir, mousePos.x, mousePos.y);
-	rage::Vec3V startMouseRayPos, startMouseRayDir;
-	CViewport::GetWorldRayFromScreen(startMouseRayPos, startMouseRayDir, s_DragStartPos.x, s_DragStartPos.y);
-
-	// Cast rays on to dragging plane
-	rage::Vec3V mouseOnPlane;
-	rage::Vec3V startMouseOnPlane;
-	rageam::graphics::ShapeTest::RayIntersectsPlane(mouseRayPos, mouseRayDir, planePos, planeNormal, mouseOnPlane);
-	rageam::graphics::ShapeTest::RayIntersectsPlane(startMouseRayPos, startMouseRayDir, planePos, planeNormal, startMouseOnPlane);
-
-	// Im3D::Text(mouseOnPlane, "#1");
-	// Im3D::Text(startMouseOnPlane, "#2");
-
-	dragPos = mouseOnPlane;
-	startPos = startMouseOnPlane;
-	moveDelta = mouseOnPlane - startMouseOnPlane;
-	isDragging = s_IsDragging;
-
-	if (!mouseDown) // Finished dragging
-	{
-		s_IsDragging = false;
-		isDragging = false;
-		return true;
-	}
-	return false; // Still dragging
 }
 
 bool Im3D::Begin(const ImVec3V& startPos, bool background)

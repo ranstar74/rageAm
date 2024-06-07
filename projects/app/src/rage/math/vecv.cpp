@@ -115,6 +115,19 @@ void rage::Vec3V::TangentAndBiNormal(Vec3V& outTangent, Vec3V& outBiNormal) cons
 	outBiNormal = Cross(outTangent);
 }
 
+rage::Vec3V rage::Vec3V::Tangent() const
+{
+	// Pick vector that's not aligned with 'this'
+	if (Dot(VEC_RIGHT).Abs().AlmostEqual(S_ONE))
+		return Cross(VEC_FRONT).Normalized();
+	return Cross(VEC_RIGHT).Normalized();
+}
+
+rage::Vec3V rage::Vec3V::BiNormal() const
+{
+	return Tangent().Cross(M);
+}
+
 bool rage::Vec3V::IsParallel(const Vec3V& to) const
 {
 	return Dot(to).Abs().AlmostEqual(S_ONE);
@@ -137,6 +150,13 @@ rage::Vec3V rage::Vec3V::Transform(const Mat44V& mtx) const
 	return temp;
 }
 
+rage::Vec3V rage::Vec3V::TransformNormal(const Mat44V& mtx) const
+{
+	Mat44V copy = mtx;
+	copy.Pos = Vec4V(0, 0, 0, 1);
+	return Transform(copy).Normalized();
+}
+
 rage::Vec4V rage::Vec3V::Transform4(const Mat44V& mtx) const
 {
 	return XMVector3Transform(M, mtx.M);
@@ -150,6 +170,16 @@ rage::Vec3V rage::Vec3V::Rotate(const Vec3V& axis, float angle) const
 rage::Vec3V rage::Vec3V::Rotate(const QuatV& rotation) const
 {
 	return DirectX::XMVector3Rotate(M, rotation.M);
+}
+
+rage::Vec3V rage::Vec3V::ToDegrees() const
+{
+	return operator*(S_RAD2DEG);
+}
+
+rage::Vec3V rage::Vec3V::ToRadians() const
+{
+	return operator*(S_DEG2RAD);
 }
 
 bool rage::Vec3V::AlmostEqual(const Vec3V& other) const

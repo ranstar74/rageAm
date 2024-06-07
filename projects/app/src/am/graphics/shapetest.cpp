@@ -1,5 +1,8 @@
 #include "shapetest.h"
 
+#include "rage/math/math.h"
+#include "rage/math/mathv.h"
+
 void rageam::graphics::ShapeTest::ClosestPointOnPlane(
 	const rage::Vec3V& rayPos, const rage::Vec3V& rayDir,
 	const rage::Vec3V& planePos, const rage::Vec3V& planeNormal,
@@ -57,7 +60,7 @@ bool rageam::graphics::ShapeTest::RayIntersectsTriangle(
 	float& outDistance)
 {
 	//Source: Fast Minimum Storage Ray / Triangle Intersection
-	//Reference: http://www.cs.virginia.edu/~gfx/Courses/2003/ImageSynthesis/papers/Acceleration/Fast%20MinimumStorage%20RayTriangle%20Intersection.pdf
+	//Reference: http://www.cdirirginia.edu/~gfx/Courses/2003/ImageSynthesis/papers/Acceleration/Fast%20MinimumStorage%20RayTriangle%20Intersection.pdf
 
 	outDistance = 0.0f;
 
@@ -160,6 +163,25 @@ bool rageam::graphics::ShapeTest::RayIntersectsPlane(
 	return true;
 }
 
+bool rageam::graphics::ShapeTest::LineSegmentIntersectsPlane(
+	const rage::Vec3V& p1, const rage::Vec3V& p2,
+	const rage::Vec3V& planePos, const rage::Vec3V& planeNormal, 
+	rage::Vec3V& outPoint)
+{
+	rage::Vec3V dir = (p2 - p1).Normalized();
+
+	rage::Vec3V point;
+	rage::ScalarV hitDistance;
+	if (!RayIntersectsPlane(p1, dir, planePos, planeNormal, point))
+		return false;
+
+	if (hitDistance > rage::S_ONE)
+		return false;
+
+	outPoint = p1 + dir * hitDistance;
+	return true;
+}
+
 bool rageam::graphics::ShapeTest::RayIntersectsCircle(
 	const rage::Vec3V& rayPos, const rage::Vec3V& rayDir,
 	const rage::Vec3V& circlePos, const rage::Vec3V& circleNormal,
@@ -222,4 +244,59 @@ bool rageam::graphics::ShapeTest::RayIntersectsCapsule(
 		}
 	}
 	return false;
+}
+
+bool rageam::graphics::ShapeTest::RayIntersectsCone(
+	const rage::Vec3V& rayPos, const rage::Vec3V& rayDir,
+	const rage::Vec3V& basePos, const rage::Vec3V& dirToTip, 
+	const rage::ScalarV& radius,
+	const rage::ScalarV& height,
+	rage::ScalarV* outDistance,
+	rage::Vec3V* outNormal,
+	rage::Vec3V* outPoint)
+{
+	// I coudln't find working 'pure' algorithm,
+	// it seems that most popular ray-tracers use triangle tests for cone too
+
+	// Test bounding sphere first
+	if (!RayIntersectsSphere(rayPos, rayDir, basePos, radius))
+		return false;
+
+	rage::Vec3V tangent, binormal;
+	dirToTip.TangentAndBiNormal(tangent, binormal);
+
+	rage::Vec3V tipPos = basePos + dirToTip * height;
+
+	static constexpr int MAX_SEGMENTS = 32;
+	static constexpr float STEP = rage::PI2 / static_cast<float>(MAX_SEGMENTS);
+	rage::Vec3V prevPoint;
+	rage::Vec3V closestPrevPoint;
+	rage::Vec3V closestPoint;
+	float closestDist = INFINITY;
+	for (int i = 0; i <= MAX_SEGMENTS; i++)
+	{
+		float t = static_cast<float>(i) * STEP;
+		float cos = cosf(t);
+		float sin = sinf(t);
+		rage::Vec3V point = basePos + tangent * cos * radius + binormal * sin * radius;
+		if (i != 0)
+		{
+			float dist;
+			if (RayIntersectsTriangle(rayPos, rayDir, prevPoint, point, tipPos, dist) && dist < closestDist)
+			{
+				closestDist = dist;
+				closestPoint = point;
+				closestPrevPoint = point;
+			}
+		}
+		prevPoint = point;
+	}
+
+	if (closestDist == INFINITY)
+		return false;
+
+	if (outDistance) *outDistance = closestDist;
+	if (outNormal) *outNormal = GetTriNormal(closestPrevPoint, closestPoint, tipPos);
+	if (outPoint) *outPoint = rayPos + rayDir * closestDist;
+	return true;
 }

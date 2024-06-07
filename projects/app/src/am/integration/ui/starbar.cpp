@@ -13,6 +13,9 @@
 #include "am/integration/script/extensions.h"
 #include "am/uiapps/explorer/explorer.h"
 #include "am/integration/memory/hook.h"
+#include "am/gizmo/gizmotranslation.h"
+#include "am/gizmo/gizmorotation.h"
+#include "am/gizmo/gizmoscale.h"
 
 namespace
 {
@@ -89,6 +92,9 @@ void rageam::integration::StarBar::OnStart()
 	g_timeCycle = timeCycle.GetRef(3).To<char*>();
 #endif
 	Hook::Create(updateBaseLights, aImpl_Lights_UpdateBaseLights, &gImpl_Lights_UpdateBaseLights);
+
+	// Set default gizmo type to translation
+	gizmo::GizmoManager::GetInstance()->DefaultInfo = GIZMO_GET_INFO(gizmo::GizmoTranslation);
 }
 
 void rageam::integration::StarBar::OnRender()
@@ -188,16 +194,37 @@ void rageam::integration::StarBar::OnRender()
 	if (!m_CameraEnabled) ImGui::EndDisabled();
 	ImGui::PopStyleVar(1); // DisabledAlpha
 
-	// World / Local gizmo switch
-	// ImGui::Separator();
-	bool        useWorld = Im3D::GetGizmoUseWorld();
-	ConstString worldStr = ICON_AM_WORLD" World";
-	ConstString localStr = ICON_AM_LOCAL" World";
-	if (SlGui::ToggleButton(useWorld ? worldStr : localStr, useWorld))
-		Im3D::SetGizmoUseWorld(useWorld);
+	auto gizmoManager = gizmo::GizmoManager::GetInstance();
+
+	ImGui::Separator(); // GIZMOS
+	// Move / Rotate buttons
+	bool moveActive = GIZMO->DefaultInfo == GIZMO_GET_INFO(gizmo::GizmoTranslation);
+	bool rotateActive = GIZMO->DefaultInfo == GIZMO_GET_INFO(gizmo::GizmoRotation);
+	if (SlGui::ToggleButton(ICON_AM_MOVE_GIZMO"", moveActive) || ImGui::IsKeyPressed(ImGuiKey_G, false))
+		GIZMO->DefaultInfo = GIZMO_GET_INFO(gizmo::GizmoTranslation);
+	ImGui::ToolTip("Select and Move (G)");
+	if (SlGui::ToggleButton(ICON_AM_ROTATE_GIZMO"", rotateActive) || ImGui::IsKeyPressed(ImGuiKey_R, false))
+		GIZMO->DefaultInfo = GIZMO_GET_INFO(gizmo::GizmoRotation);
+	ImGui::ToolTip("Select and Rotate (R)");
+	// World / Local orientation switch
+	bool useWorld = gizmoManager->Orientation == gizmo::GizmoWorld;
+	ConstString worldStr = ICON_AM_ORIENTATION_GLOBAL" Global";
+	ConstString localStr = ICON_AM_ORIENTATION_LOCAL " Local";
+	bool dummy = false; // So menu button never glows and acts like toggle
+	ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0, 0));
+	if (SlGui::ToggleButton(useWorld ? worldStr : localStr, dummy, ImVec2(GImGui->FontSize * 4.5f, 0)))
+	{
+		useWorld = !useWorld;
+		gizmoManager->Orientation = useWorld ? gizmo::GizmoWorld : gizmo::GizmoLocal;
+	}
+	ImGui::PopStyleVar(); // ButtonTextAlign
 	ImGui::ToolTip("Show edit gizmos in world or local space");
 	if (ImGui::IsKeyPressed(ImGuiKey_Period, false)) // Hotkey switch
-		Im3D::SetGizmoUseWorld(!useWorld);
+	{
+		useWorld = !useWorld;
+		gizmoManager->Orientation = useWorld ? gizmo::GizmoWorld : gizmo::GizmoLocal;
+	}
+	ImGui::Separator();
 
 	// Explorer
 	ui::WindowPtr explorer = ui->GetExisting<ui::Explorer>();

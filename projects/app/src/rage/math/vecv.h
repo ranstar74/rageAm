@@ -138,6 +138,8 @@ namespace rage
 		Vec3V Reflect(const Vec3V& normal) const { return DirectX::XMVector3Reflect(M, normal.M); }
 		Vec3V Project(const Vec3V& normal) const;
 		void TangentAndBiNormal(Vec3V& outTangent, Vec3V& outBiNormal) const;
+		Vec3V Tangent() const;
+		Vec3V BiNormal() const;
 		bool IsParallel(const Vec3V& to) const;
 
 		Vec3V Reciprocal() const { return DirectX::XMVectorReciprocal(M); }
@@ -151,12 +153,16 @@ namespace rage
 		Vec3V Max(const Vec3V& other) const;
 
 		Vec3V Transform(const Mat44V& mtx) const;
+		Vec3V TransformNormal(const Mat44V& mtx) const;
 		Vec4V Transform4(const Mat44V& mtx) const;
 
 		Vec3V Rotate(const Vec3V& axis, float angle) const;
 		Vec3V Rotate(const QuatV& rotation) const;
 
 		Vec3V Abs() const { return DirectX::XMVectorAbs(M); }
+
+		Vec3V ToDegrees() const;
+		Vec3V ToRadians() const;
 
 		Vec3V& operator=(const Vec3V& other) { M = other.M; return *this; }
 
@@ -268,6 +274,7 @@ namespace rage
 	static const ScalarV S_ZERO = { 0.0f };
 	static const ScalarV S_ONE = { 1.0f };
 	static const ScalarV S_TWO = { 2.0f };
+	static const ScalarV S_FOUR = { 4.0f };
 	static const ScalarV S_HALF = { 0.5f };
 	static const ScalarV S_QUARTER = { 0.25f };
 	static const ScalarV S_PI = { 3.14159265358979323846f };
@@ -276,6 +283,8 @@ namespace rage
 	static const ScalarV S_MAX = { INFINITY };
 	static const ScalarV S_MIN = { -INFINITY };
 	static const ScalarV S_EPSION = { 0.000001f };
+	static const ScalarV S_DEG2RAD = { 1.0f / 180.0f * 3.14159265358979323846f };
+	static const ScalarV S_RAD2DEG = { 1.0f / 3.14159265358979323846f * 180.0f };
 
 	static const Vec3V VEC_X = { 1.0f, 0.0f, 0.0f };
 	static const Vec3V VEC_Y = { 0.0f, 1.0f, 0.0f };
