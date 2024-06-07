@@ -149,6 +149,9 @@ namespace rage
 		void SetPrivateData() override;
 		bool CopyTo(grcImage* image, bool invert) override;
 
+		bool LockRect(int layer, int mipLevel, grcTextureLock& lock, grcLockFlags lockFlags) override;
+		void UnlockRect(grcTextureLock& lock) override;
+
 		// NOTE: data might be NULL!
 		pVoid GetBackingStore() const { return m_BackingStore; }
 	};

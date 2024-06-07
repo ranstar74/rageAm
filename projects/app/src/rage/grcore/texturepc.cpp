@@ -3,6 +3,7 @@
 #include "am/graphics/image/image.h"
 #include "am/graphics/dxgi_utils.h"
 #include "am/graphics/render.h"
+#include "am/integration/memory/address.h"
 
 GUID TextureBackPointerGuid = { 0x637C4F8D, 0x7724, 0x436D, 0x0B2, 0x0D1, 0x49, 0x12, 0x5B, 0x3A, 0x2A, 0x25 };
 
@@ -740,4 +741,18 @@ void rage::grcTextureDX11::SetPrivateData()
 bool rage::grcTextureDX11::CopyTo(grcImage* image, bool invert)
 {
 	AM_UNREACHABLE("grcTextureDX11::CopyTo() -> Not implemented.");
+}
+
+bool rage::grcTextureDX11::LockRect(int layer, int mipLevel, grcTextureLock& lock, grcLockFlags lockFlags)
+{
+	static auto fn = gmAddress::Scan("4C 89 4C 24 20 44 89 44 24 18 89 54 24 10 48 89 4C 24 08 48 83 EC 38 C6 44 24 28", "rage::grcTextureDX11::LockRect")
+		.ToFunc<bool(grcTexture*, int, int, grcTextureLock&, grcLockFlags)>();
+	return fn(this, layer, mipLevel, lock, lockFlags);
+}
+
+void rage::grcTextureDX11::UnlockRect(grcTextureLock& lock)
+{
+	static auto fn = gmAddress::Scan("44 88 44 24 18 48 89 54 24 10 48 89 4C 24 08 56 57 48 83 EC 78 C6", "rage::grcTextureDX11::UnlockRect_Internal")
+		.ToFunc<bool(grcTexture*, grcTextureLock&, bool)>();
+	fn(this, lock, false /* allowContextLocks */);
 }
