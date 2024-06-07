@@ -220,7 +220,13 @@ void rage::grcVertexFormatInfo::FromEffect(grcEffect* effect, bool skinned)
 	ConstString techniqueName = skinned ? TECHNIQUE_DRAWSKINNED : TECHNIQUE_DRAW;
 
 	grcEffectTechnique* technique = effect->GetTechnique(techniqueName);
-	AM_ASSERT(technique, "VertexDeclaration::FromEffect() -> Effect '%s' is don't have draw technique!", effect->GetName());
+	// There are effects like water_poolenv that don't have default draw technique
+	if (!technique)
+	{
+		technique = effect->GetTechnique(grcHandle(0)); // The first one
+		AM_DEBUGF("VertexDeclaration::FromEffect() -> Unable to find default draw technique in '%s', falling back to '%s'", effect->GetName(), technique->m_Name);
+	}
+	AM_ASSERT(technique, "VertexDeclaration::FromEffect() -> Effect '%s' don't have draw technique!", effect->GetName());
 
 	grcVertexProgram* vs = effect->GetVS(technique);
 	AM_ASSERT(technique, "VertexDeclaration::FromEffect() -> Effect '%s' %s technique has NULL vertex shader!", effect->GetName(), techniqueName);
