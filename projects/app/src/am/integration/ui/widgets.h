@@ -16,7 +16,7 @@ namespace rageam::integration::widgets // rage-specific extensions for ImGui
 		if (ImGui::CheckboxFlags("Drop Shadow", &drawMask, 1 << rage::RB_MODEL_SHADOW)) maskChanged = true;
 
 		ImGui::Text("Reflects in:");
-		if (ImGui::CheckboxFlags("Surface (paraboloid)", &drawMask, 1 << rage::RB_MODEL_REFLECTION_PARABOLOID)) maskChanged = true;
+		if (ImGui::CheckboxFlags("Surface", &drawMask, 1 << rage::RB_MODEL_REFLECTION_PARABOLOID)) maskChanged = true;
 		if (ImGui::CheckboxFlags("Mirror", &drawMask, 1 << rage::RB_MODEL_REFLECTION_MIRROR)) maskChanged = true;
 		if (ImGui::CheckboxFlags("Water", &drawMask, 1 << rage::RB_MODEL_REFLECTION_WATER))	maskChanged = true;
 
