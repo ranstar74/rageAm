@@ -1,8 +1,8 @@
 # rageAm for GTA V
 
-### Join us [discord](https://discord.gg/tn5NXB8zFd) to get releases and most actual development information
+### Join our [discord](https://discord.gg/tn5NXB8zFd) to download releases, and get the most up-to-date development information
 
-This is a library / toolkit that is focused on realtime development without need to reboot game every time.
+This library / toolkit is focused on realtime development without the need to reboot the game every time.
 
 How it works? See here https://www.youtube.com/watch?v=-uz1p3hUxSo
 
