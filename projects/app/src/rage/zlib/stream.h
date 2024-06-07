@@ -1,16 +1,48 @@
 //
 // File: stream.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
 #pragma once
 
-#include "zlib.h"
-
 #include "common/types.h"
 #include "am/system/asserts.h"
+
+#if defined AM_ZLIB
+#include "zlib.h"
+typedef z_stream zStream_t;
+typedef Bytef* zBuffer_t;
+#define Z_DEFLATE_INIT2 deflateInit2
+#define Z_DEFLATE_END deflateEnd
+#define Z_DEFLATE deflate
+#define Z_INFLATE_INIT2 inflateInit2
+#define Z_INFLATE_END inflateEnd
+#define Z_INFLATE inflate
+#elif defined AM_ZLIB_NG
+#include "zlib-ng.h"
+typedef zng_stream zStream_t;
+typedef Bytef* zBuffer_t;
+#define Z_DEFLATE_INIT2 zng_deflateInit2
+#define Z_DEFLATE_END zng_deflateEnd
+#define Z_DEFLATE zng_deflate
+#define Z_INFLATE_INIT2 zng_inflateInit2
+#define Z_INFLATE_END zng_inflateEnd
+#define Z_INFLATE zng_inflate
+#elif defined AM_MINIZ
+#include "miniz.h"
+typedef mz_stream zStream_t;
+typedef Bytef* zBuffer_t;
+#define Z_DEFLATE_INIT2 mz_deflateInit2
+#define Z_DEFLATE_END mz_deflateEnd
+#define Z_DEFLATE mz_deflate
+#define Z_INFLATE_INIT2 mz_inflateInit2
+#define Z_INFLATE_END mz_inflateEnd
+#define Z_INFLATE mz_inflate
+#else
+#error No ZLIB Library is specified
+#endif
 
 static constexpr int ZLIB_WINDOW_BITS = -15;
 static constexpr int ZLIB_COMPRESSION_LEVEL = 5;
@@ -20,20 +52,15 @@ class zLibCompressor
 {
 	static constexpr u32 COMPRESS_BUFFER_SIZE = 0x1000;
 
-	using TBuffer = Bytef*;
-	using TStream = z_stream;
-
-	TBuffer m_Buffer;
-	u32		m_BufferSize;
-	bool	m_OwnBuffer;
-
-	bool	m_Started = false;
-
-	TStream	m_Stream{};
+	zBuffer_t m_Buffer;
+	zStream_t m_Stream = {};
+	u32       m_BufferSize;
+	bool      m_OwnBuffer;
+	bool      m_Started = false;
 
 	void Init()
 	{
-		int status = deflateInit2(&m_Stream,
+		int status = Z_DEFLATE_INIT2(&m_Stream,
 			ZLIB_COMPRESSION_LEVEL,
 			Z_DEFLATED,
 			ZLIB_WINDOW_BITS,
@@ -57,7 +84,7 @@ public:
 	// Initializes compressor with user-specified temporary buffer where all compressed data will be written to.
 	zLibCompressor(pVoid buffer, u32 bufferSize)
 	{
-		m_Buffer = static_cast<TBuffer>(buffer);
+		m_Buffer = static_cast<zBuffer_t>(buffer);
 		m_BufferSize = bufferSize;
 		m_OwnBuffer = false;
 
@@ -67,8 +94,8 @@ public:
 	~zLibCompressor()
 	{
 		if (m_OwnBuffer) delete[] m_Buffer;
-
-		deflateEnd(&m_Stream);
+		
+		Z_DEFLATE_END(&m_Stream);
 	}
 
 	/**
@@ -84,7 +111,7 @@ public:
 	{
 		if (!m_Started)
 		{
-			m_Stream.next_in = static_cast<TBuffer>(data);
+			m_Stream.next_in = static_cast<zBuffer_t>(data);
 			m_Stream.avail_in = dataSize;
 			m_Started = true;
 		}
@@ -92,7 +119,7 @@ public:
 		m_Stream.next_out = m_Buffer;
 		m_Stream.avail_out = m_BufferSize;
 
-		int status = deflate(&m_Stream, Z_SYNC_FLUSH);
+		int status = Z_DEFLATE(&m_Stream, Z_SYNC_FLUSH);
 
 		AM_ASSERT(status >= 0, "zLibCompressor::Compress() -> Failed with status %i", status);
 
@@ -121,22 +148,19 @@ public:
 
 class zLibDecompressor
 {
-	using TBuffer = Bytef*;
-	using TStream = z_stream;
+	bool      m_Started = false;
+	zStream_t m_Stream = {};
 
-	bool	m_Started = false;
-
-	TStream	m_Stream{};
 public:
 	zLibDecompressor()
 	{
-		int status = inflateInit2(&m_Stream, ZLIB_WINDOW_BITS);
+		int status = Z_INFLATE_INIT2(&m_Stream, ZLIB_WINDOW_BITS);
 		AM_ASSERT(status >= 0, "zLibDecompressor() -> Init failed with status %i", status);
 	}
 
 	~zLibDecompressor()
 	{
-		inflateEnd(&m_Stream);
+		Z_INFLATE_END(&m_Stream);
 	}
 
 	/**
@@ -154,18 +178,18 @@ public:
 	{
 		if (!m_Started)
 		{
-			m_Stream.next_out = static_cast<TBuffer>(bufferOut);
+			m_Stream.next_out = static_cast<zBuffer_t>(bufferOut);
 			m_Stream.avail_out = bufferOutSize;
 			m_Started = true;
 		}
 
 		if (m_Stream.avail_in == 0)
 		{
-			m_Stream.next_in = static_cast<TBuffer>(bufferIn);
+			m_Stream.next_in = static_cast<zBuffer_t>(bufferIn);
 			m_Stream.avail_in = bufferInSize;
 		}
 
-		int status = inflate(&m_Stream, Z_SYNC_FLUSH);
+		int status = Z_INFLATE(&m_Stream, Z_SYNC_FLUSH);
 
 		AM_ASSERT(status >= 0, "zLibDecompressor::Decompress() -> Failed with status %i", status);
 

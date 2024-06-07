@@ -135,6 +135,13 @@ end
 project "rageAm"
 	debugdir "bin/%{cfg.buildcfg}" -- Work directory
 
+	local configName = ""
+	filter { "configurations:Debug" }
+		configName = "Debug"
+	filter { "configurations:Release" }
+		configName = "Release"
+	filter()
+	
 	-- Integrated: DLL
 	filter { "platforms:" .. platform_integrated }
 		kind "SharedLib"
@@ -180,6 +187,14 @@ project "rageAm"
 	defines { "AM_DEFAULT_DATA_DIR=" .. "LR\"(" .. (os.realpath("data")) .. ")\"" }
 	defines { "AM_DATA_DIR=L\"data\"" }
 	
+	-- Keep zlib-ng for now because it is the fastest
+	-- defines { "AM_ZLIB" }
+	-- include_vendors { "zlib" };
+	-- defines { "AM_MINIZ" }
+	-- include_vendors { "miniz" }
+	defines { "AM_ZLIB_NG" }
+	include_vendors { "zlib-ng" };
+	
 	include_vendors {
 		"slgui", -- ImGui
 		"imguizmo",
@@ -187,7 +202,6 @@ project "rageAm"
 		"tinyxml2",
 		"minhook",
 		"freetype",
-		"zlib",
 		"magic_enum",
 		"cgltf",
 		"ufbx",
