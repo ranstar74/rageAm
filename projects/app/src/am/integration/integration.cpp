@@ -15,6 +15,7 @@
 
 #include <backends/imgui_impl_win32.h>
 #include <imgui_internal.h>
+#include <easy/profiler.h>
 
 namespace
 {
@@ -34,6 +35,8 @@ void InitializeFromGameThread()
 
 	(void) SetThreadDescription(GetCurrentThread(), L"[RAGE] Game Thread");
 	rageam::ThreadInfo::GetInstance()->SetIsMainThread();
+
+	EASY_THREAD("Game Thread");
 
 	// Must be called from a thread with game allocator in TLS
 	rageam::integration::scrInit();
@@ -63,6 +66,8 @@ bool CApp_GameUpdate_aImpl()
 {
 	InitializeFromGameThread();
 
+	EASY_BLOCK("Game Update", profiler::colors::Black);
+
 	// We can't shut down until every component was released
 	auto componentManager = rageam::integration::ComponentManager::GetInstance();
 	bool canShutDown = !componentManager->HasAnythingToUpdate();
@@ -91,6 +96,7 @@ void aImpl_grcDevice_EndFrame()
 	static bool s_Initialized = false;
 	if (!s_Initialized)
 	{
+		EASY_THREAD("Render Thread");
 		(void) SetThreadDescription(GetCurrentThread(), L"[RAGE] Render Thread");
 		rageam::ThreadInfo::GetInstance()->SetIsRenderThread();
 		s_Initialized = true;
@@ -246,6 +252,8 @@ rageam::integration::GameIntegration::~GameIntegration()
 
 void rageam::integration::GameIntegration::GPUEndFrame()
 {
+	EASY_BLOCK("End Frame");
+
 	// Window stuff must be updated from owner thread,
 	// nothing bad will happen if we do it right here, before presenting image
 	graphics::Window::GetInstance()->Update();
@@ -257,11 +265,14 @@ void rageam::integration::GameIntegration::GPUEndFrame()
 
 void rageam::integration::GameIntegration::EarlyUpdate() const
 {
+	EASY_BLOCK("am Early Update", profiler::colors::color(55, 0, 180));
 	m_ComponentMgr->EarlyUpdateAll();
 }
 
 void rageam::integration::GameIntegration::Update()
 {
+	EASY_BLOCK("am Update", profiler::colors::color(100, 0, 240));
+
 	// Update called before building new game draw lists, release all old unused textures
 	asset::HotDrawable::RemoveTexturesFromRenderThread(false);
 
@@ -289,6 +300,7 @@ void rageam::integration::GameIntegration::Update()
 
 void rageam::integration::GameIntegration::LateUpdate() const
 {
+	EASY_BLOCK("am Update", profiler::colors::color(1, 135, 135));
 	m_ComponentMgr->LateUpdateAll();
 }
 
