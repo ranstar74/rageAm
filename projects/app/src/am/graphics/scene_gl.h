@@ -59,7 +59,12 @@ namespace rageam::graphics
 		ConstString m_SpecularMap = nullptr;
 		ConstString m_NormalMap = nullptr;
 
-		ConstString GetGlTextureName(const cgltf_texture* texture) const { return texture->image->name; }
+		ConstString GetGlTextureName(const cgltf_texture* texture) const
+		{
+			if (!texture->image || !texture->image->name)
+				return "";
+			return texture->image->name;
+		}
 
 		void ScanTextures();
 
