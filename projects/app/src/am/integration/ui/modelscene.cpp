@@ -103,7 +103,7 @@ void rageam::integration::ModelScene::CreateArchetypeDefAndSpawnGameEntity()
 	m_ArchetypeDef->AssetName = ASSET_NAME_HASH;
 	m_ArchetypeDef->PhysicsDictionary = ASSET_NAME_HASH;
 	m_ArchetypeDef->LodDist = lodDistance;
-	m_ArchetypeDef->Flags = FLAG_IS_TYPE_OBJECT | FLAG_IS_FIXED | FLAG_HAS_ANIM;
+	m_ArchetypeDef->Flags = FLAG_IS_TYPE_OBJECT | FLAG_IS_FIXED;
 
 	//m_GameEntity.Create(m_Context.Drawable, m_ArchetypeDef, GetScenePosition());
 	//m_DrawableRender.Create();
@@ -128,11 +128,13 @@ void rageam::integration::ModelScene::OnDrawableCompiled()
 	for (bool& v : m_SceneNodeToCanBeSelectedInViewport)
 		v = true;
 
+	if (m_ResetUIAfterCompiling)
 	{
 		m_SelectedNodeIndex = -1;
 		m_SelectedNodeAttr = SceneNodeAttr_None;
 		LightEditor.Reset();
 		MaterialEditor.Reset();
+		m_ResetUIAfterCompiling = false;
 	}
 
 	CreateArchetypeDefAndSpawnGameEntity();
@@ -193,11 +195,16 @@ void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::Scen
 		bool selected = m_SelectedNodeIndex == nodeIndex;
 		bool toggled;
 		treeOpened = SlGui::GraphTreeNode(treeNodeName, selected, toggled, treeNodeFlags);
-		if (selected)
+		if (selected && m_SelectedNodeIndex != nodeIndex)
+		{
 			m_SelectedNodeIndex = nodeIndex;
+			LightEditor.SelectLight(GetDrawableMap().SceneNodeToLightAttr[nodeIndex]);
+		}
 
 		if (ImGui::IsItemHovered())
 			m_HoveredNodeIndex = nodeIndex;
+
+		// TODO: Attr buttons are no longer needed?
 
 		// Attribute buttons
 		auto attrButton = [&](pVoid attrData, eSceneNodeAttr attr, ConstString icon, ImU32 col)
@@ -205,7 +212,9 @@ void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::Scen
 				if (!attrData)
 					return false;
 				ImGui::SameLine();
+				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 2)); // Big padding offsets node below
 				bool pressed = SlGui::IconButton(icon, col, &bgColor);
+				ImGui::PopStyleVar();
 				if (pressed)
 				{
 					m_SelectedNodeIndex = nodeIndex;
@@ -219,7 +228,7 @@ void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::Scen
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 4));
 		// Mesh
 		rage::grmModel* grmModel = GetMeshAttr(nodeIndex);
-		if (attrButton(grmModel, SceneNodeAttr_Mesh, ICON_AM_MESH, IM_COL32(9, 178, 139, 255))) // Green color
+		if (attrButton(grmModel, SceneNodeAttr_Mesh, /*ICON_AM_MESH*/ICON_AM_MESH_DATA, IM_COL32(9, 178, 139, 255))) // Green color
 		{
 
 		}
@@ -237,7 +246,7 @@ void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::Scen
 			if (attrButton(bound, SceneNodeAttr_Collision, ICON_AM_COLLIDER, IM_COL32(178, 255, 89, 255)))
 			{
 
-		}
+			}
 		}
 		// Light
 		CLightAttr* lightAttr = GetLightAttr(nodeIndex);
@@ -265,12 +274,11 @@ void rageam::integration::ModelScene::DrawSceneGraphRecurse(const graphics::Scen
 	if (model) // Might be NULL if node is dummy
 	{
 		bool isModelVisible = model->IsSubDrawBucketFlagSet(rage::RB_MODEL_DEFAULT);
-		// Make hidden icon a little bit dimmer
-		ImU32 visibilityColor = isModelVisible ? IM_COL32_WHITE : IM_COL32(125, 125, 125, 255);
-		if (SlGui::IconButton(ICON_AM_EYE_ON, visibilityColor))
+		if (SlGui::IconButton(isModelVisible ? ICON_AM_HIDE_OFF : ICON_AM_HIDE_ON))
 		{
 			model->SetSubDrawBucketFlags(1 << rage::RB_MODEL_DEFAULT, !isModelVisible);
 		}
+		ImGui::ToolTip("Toggle whether object is drawn in viewport.");
 	}
 
 	// Draw children
@@ -314,11 +322,11 @@ void rageam::integration::ModelScene::DrawSceneGraph(const graphics::SceneNode* 
 			if (modelHandle.Index != u16(-1))
 			{
 				auto& models = GetDrawable()->GetLodGroup().GetLod(modelHandle.Lod)->GetModels();
-			for (u16 i = 0; i < models.GetSize(); i++)
-			{
+				for (u16 i = 0; i < models.GetSize(); i++)
+				{
 					models[i]->SetOutline(modelHandle.Index == i);
+				}
 			}
-		}
 		}
 		ImGui::EndTable();
 	}
@@ -347,19 +355,20 @@ void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex)
 			if (m_JustSelectedNodeAttr == attrType)
 				flags = ImGuiTabItemFlags_SetSelected;
 
-			return ImGui::BeginTabItem(icon, 0, flags);
+			// return ImGui::BeginTabItem(icon, 0, flags);
+			return ImGui::CollapsingHeader(icon, ImGuiTreeNodeFlags_DefaultOpen);
 		};
 
 	bool opened = true;
 	if (ImGui::Begin(title, &opened))
 	{
-		if (ImGui::BeginTabBar("PROPERTIES_TAB_BAR"))
+		if (1 || ImGui::BeginTabBar("PROPERTIES_TAB_BAR"))
 		{
 			// Node Properties
-			if (ImGui::BeginTabItem("Common"))
+			if (ImGui::CollapsingHeader(ICON_AM_OBJECT_DATA" Common", ImGuiTreeNodeFlags_DefaultOpen) /*beginAttrTabItem((void*)0x10, *//*ImGui::BeginTabItem("Common")*/)
 			{
 				if (ImGui::Checkbox("Force create bone", &modelTune.CreateBone))
-					m_AssetTuneChanged = true;
+					m_NeedRecompileDrawable = true;
 				ImGui::SameLine();
 				ImGui::HelpMarker(
 					"Note: we are referring to scene objects as 'Nodes'\n"
@@ -374,28 +383,24 @@ void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex)
 					"- Game entities can be attached to a bone (including ropes and cameras)\n"
 					"- Animation (requires YCD or scripting)\n");
 
-				// TODO: We can create physical material for regular materials
-				// TODO: Shouldn't be visible if already a collider
-				if (ImGui::Checkbox("Force create collider", &modelTune.UseAsBound))
-					m_AssetTuneChanged = true;
-
-				ImGui::EndTabItem();
+				// ImGui::EndTabItem();
 			}
 
 			// Mesh
 			rage::grmModel* grmModel = GetMeshAttr(nodeIndex);
-			if (beginAttrTabItem(grmModel, SceneNodeAttr_Mesh, ICON_AM_MESH" Mesh"))
+			if (beginAttrTabItem(grmModel, SceneNodeAttr_Mesh, /*ICON_AM_MESH*/ ICON_AM_MESH_DATA" Mesh"))
+			// SlGui::CategoryText(ICON_AM_MESH" Mesh");
 			{
 				u32 modelDrawMask = grmModel->GetSubDrawBucketMask();
 				if (widgets::SubDrawMaskEditor(modelDrawMask))
 					grmModel->SetSubDrawBucketMask(modelDrawMask);
 
-				ImGui::EndTabItem();
+				// ImGui::EndTabItem();
 			}
 
 			// Bone
 			rage::crBoneData* crBoneData = GetBoneAttr(nodeIndex);
-			if (beginAttrTabItem(crBoneData, SceneNodeAttr_Bone, ICON_AM_BONE" Bone"))
+			if (beginAttrTabItem(crBoneData, SceneNodeAttr_Bone, /*ICON_AM_BONE*/" Bone"))
 			{
 				// TODO: Edit bone tune
 				// asset::DrawableBoneTune = m_Drawable
@@ -422,7 +427,7 @@ void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex)
 				ImGui::DragFloat3("Scale", (float*)&scale, 0.1f, -INFINITY, INFINITY, "%g");
 				ImGui::EndDisabled();
 
-				ImGui::EndTabItem();
+				// ImGui::EndTabItem();
 			}
 
 			// Collision
@@ -496,28 +501,29 @@ void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex)
 				{
 					rage::phBoundComposite* composite = GetDrawable()->GetBound()->AsComposite();
 					for (int i = 0; i < GetBoundAttrCount(nodeIndex); i++)
-			{
+					{
 						u16 boundIndex = GetDrawableMap().SceneNodeToBound[nodeIndex][i];
 						composite->SetTypeFlags(boundIndex, modelTune.BoundTune.TypeFlags);
 						composite->SetIncludeFlags(boundIndex, modelTune.BoundTune.IncludeFlags);
 					}
 				}
 
-				ImGui::EndTabItem();
+				// ImGui::EndTabItem();
 			}
 
 			//// Light
+			// TODO: ...
 			//CLightAttr* lightAttr = GetLightAttr(nodeIndex);
 			//if (beginAttrTabItem(lightAttr, SceneNodeAttr_Light, ICON_AM_LIGHT" Light"))
 			//{
 			//	if (ImGui::Button("Select"))
 			//	{
-			//		m_LightEditor.SelectLight(m_DrawableSceneMap.SceneNodeToLightAttr[nodeIndex]);
+			////		m_LightEditor.SelectLight(m_DrawableSceneMap.SceneNodeToLightAttr[nodeIndex]);
 			//	}
 			//	ImGui::EndTabItem();
 			//}
 
-			ImGui::EndTabBar();
+			// ImGui::EndTabBar();
 		}
 	}
 	ImGui::End();
@@ -620,6 +626,15 @@ void rageam::integration::ModelScene::DrawDrawableUI()
 			ImGui::EndTabItem();
 		}
 
+		/*
+		if (ImGui::BeginTabItem("Archetype"))
+		{
+			
+
+			ImGui::EndTabItem();
+		}
+		*/
+
 		ImGui::EndTabBar();
 	}
 
@@ -631,7 +646,7 @@ void rageam::integration::ModelScene::DrawDrawableUI()
 
 void rageam::integration::ModelScene::OnRender()
 {
-	m_AssetTuneChanged = false;
+	m_NeedRecompileDrawable = false;
 
 	UpdateHotDrawableAndContext();
 
@@ -667,6 +682,13 @@ void rageam::integration::ModelScene::OnRender()
 				ui::AssetAsyncCompiler::GetInstance()->CompileAsync(m_Context.DrawableAsset->GetDirectoryPath());
 			}
 			ImGui::ToolTip("Compiles asset to native binary format.");
+
+			if (ImGui::MenuItem(ICON_AM_REFRESH" Respawn"))
+			{
+				DestroyEntity();
+				CreateArchetypeDefAndSpawnGameEntity();
+			}
+			ImGui::ToolTip("Respawns the game entity.");
 
 			//if (ImGui::MenuItem(ICON_AM_BALL" Materials"))
 			//{
@@ -726,8 +748,16 @@ void rageam::integration::ModelScene::OnRender()
 	}
 
 	// Recompile drawable after changing tune
-	if (m_AssetTuneChanged)
+	if (m_NeedRecompileDrawable)
 	{
+		// We save all existing changes (materials/lights) to temp asset config and re-compile drawable using it
+		m_Context.DrawableAsset->ParseFromGame(m_Context.Drawable.Get());
+		m_HotDrawable->LoadAndCompileAsync(true);
+
+		/*m_Context.DrawableAsset->SaveConfig(true);
+
+		m_Context.DrawableAsset->RemoveConfig(true);*/
+
 		//// We must save existing changes (materials/lights)
 		//m_Context.DrawableAsset->ParseFromGame(m_Context.Drawable.get());
 
@@ -763,8 +793,12 @@ void rageam::integration::ModelScene::Unload(bool keepHotDrawable)
 	m_CompilerMessages.Clear();
 	m_CompilerProgress = 0.0;
 
-	m_DrawableStats = {};
-	m_Context = {};
+	// m_DrawableStats = {};
+	// m_Context = {};
+
+	m_Context.EntityPtr = nullptr;
+	m_Context.EntityHandle = 0;
+	m_Context.EntityWorld = Mat44V::Identity();
 
 	DestroyEntity();
 

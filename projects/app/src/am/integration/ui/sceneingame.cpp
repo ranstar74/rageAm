@@ -10,7 +10,7 @@ void rageam::integration::SceneInGame::TrySetEntityPosition(const Vec3V& pos)
 		m_GameEntity->SetPosition(pos);
 }
 
-void rageam::integration::SceneInGame::TrySetEntityRotation(const Vec3V& angle)
+void rageam::integration::SceneInGame::TrySetEntityRotation(const QuatV& angle)
 {
 	if (m_GameEntity)
 		m_GameEntity->SetRotation(angle);
@@ -43,7 +43,7 @@ void rageam::integration::SceneInGame::DestroyEntity()
 	m_GameEntity = nullptr;
 }
 
-const rage::Vec3V& rageam::integration::SceneInGame::GetRotation() const
+const rage::QuatV& rageam::integration::SceneInGame::GetRotation() const
 {
 	return m_CachedRotation;
 }
@@ -62,7 +62,7 @@ void rageam::integration::SceneInGame::SetPosition(const Vec3V& pos)
 	TrySetEntityPosition(pos);
 }
 
-void rageam::integration::SceneInGame::SetRotation(const Vec3V& angle)
+void rageam::integration::SceneInGame::SetRotation(const QuatV& angle)
 {
 	m_CachedRotation = angle;
 	TrySetEntityRotation(angle);

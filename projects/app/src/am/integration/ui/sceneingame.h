@@ -1,6 +1,7 @@
 #pragma once
 
 #ifdef AM_INTEGRATED
+
 #include "am/integration/components/drawablerender.h"
 #include "am/integration/updatecomponent.h"
 #include "am/integration/gameentity.h"
@@ -17,10 +18,10 @@ namespace rageam::integration
 		ComponentOwner<DrawableRender> m_DrawableRender;
 		ComponentOwner<GameEntity>	   m_GameEntity;
 		Vec3V						   m_CachedPosition = rage::VEC_ORIGIN; // Used when model is loading
-		Vec3V						   m_CachedRotation = rage::VEC_ZERO;
+		QuatV						   m_CachedRotation = rage::QUAT_IDENTITY;
 
 		void TrySetEntityPosition(const Vec3V& pos);
-		void TrySetEntityRotation(const Vec3V& angle);
+		void TrySetEntityRotation(const QuatV& angle);
 
 	protected:
 		void CreateEntity(ConstString name, const gtaDrawablePtr& drawable, const amPtr<CBaseArchetypeDef>& archetypeDef);
@@ -30,12 +31,13 @@ namespace rageam::integration
 		SceneInGame() = default;
 		~SceneInGame() override { DestroyEntity(); }
 
-		const Vec3V& GetRotation() const override;
+		const QuatV& GetRotation() const override;
 		const Vec3V& GetPosition() const override;
 		void         SetPosition(const Vec3V& pos) override;
-		void         SetRotation(const Vec3V& angle) override;
+		void         SetRotation(const QuatV& angle) override;
 		void         FocusCamera() override;
 		GameEntity*  GetEntity() const { return m_GameEntity.Get(); }
+		gtaDrawable* GetGtaDrawable() const { return m_Drawable.Get(); }
 	};
 }
 #endif

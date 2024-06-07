@@ -77,7 +77,7 @@ namespace rageam::integration
 		SmallList<string>		 m_CompilerMessages;
 		double					 m_CompilerProgress = 0.0;
 		std::mutex				 m_CompilerMutex;
-		bool					 m_AssetTuneChanged = false;		 // Set by UI to post reload request on the end of frame
+		bool					 m_NeedRecompileDrawable = false;		 // Set by UI to post reload request on the end of frame
 		bool					 m_ResetUIAfterCompiling = false; // We don't want to reset UI when just recompiling drawable
 		file::Path				 m_LoadedName;
 		List<bool>				 m_SceneNodeToCanBeSelectedInViewport;
@@ -115,6 +115,8 @@ namespace rageam::integration
 		// Unloads currently loaded scene and destroys spawned drawable
 		void Unload(bool keepHotDrawable = false);
 		void LoadFromPath(ConstWString path) override;
+
+		asset::HotDrawable* GetHotDrawable() const { return m_HotDrawable.get(); }
 
 		LightEditor		LightEditor;
 		MaterialEditor	MaterialEditor;
