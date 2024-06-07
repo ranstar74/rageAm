@@ -23,6 +23,7 @@
 #include <implot.h>
 #include <imgui_internal.h>
 #include <misc/freetype/imgui_freetype.h>
+#include <easy/profiler.h>
 
 void ImGui::PushFont(ImFonts font)
 {
@@ -501,6 +502,7 @@ rageam::ui::ImGlue::~ImGlue()
 
 bool rageam::ui::ImGlue::BeginFrame()
 {
+	EASY_BLOCK("ImGlue::BeginFrame");
 	std::unique_lock lock(m_Mutex);
 
 #ifdef AM_INTEGRATED
@@ -555,6 +557,7 @@ bool rageam::ui::ImGlue::BeginFrame()
 
 bool rageam::ui::ImGlue::UpdateApps()
 {
+	EASY_BLOCK("ImGlue::UpdateApps");
 	std::unique_lock lock(m_Mutex);
 
 	Timer timer = Timer::StartNew();
@@ -572,6 +575,7 @@ bool rageam::ui::ImGlue::UpdateApps()
 	for (amUniquePtr<App>& app : m_Apps)
 	{
 		m_LastUpdatedApp = app.get();
+		EASY_BLOCK(app->GetDebugName(), profiler::colors::color(0, 126, 52));
 		app->Tick(onlyUpdate);
 	}
 	AM_INTEGRATED_ONLY(scrEnd());
@@ -595,6 +599,7 @@ bool rageam::ui::ImGlue::UpdateApps()
 
 void rageam::ui::ImGlue::EndFrame() AM_STANDALONE_ONLY(const)
 {
+	EASY_BLOCK("ImGlue::EndFrame");
 	std::unique_lock lock(m_Mutex);
 
 	if (ImGetAssertWasThrown())

@@ -5,6 +5,8 @@
 #include "am/integration/ui/modelscene.h"
 #endif
 
+#include <easy/profiler.h>
+
 void rageam::ui::Scene::TryOpenPendingSceneWindow()
 {
 	if (String::IsNullOrEmpty(sm_PendingScenePath))
@@ -13,6 +15,8 @@ void rageam::ui::Scene::TryOpenPendingSceneWindow()
 	// Old scene is still valid...
 	if (!sm_OpenedSceneWeakRef.expired())
 		return;
+
+	EASY_BLOCK("Scene::TryOpenPendingSceneWindow");
 
 	WindowManager* windows = GetUI()->Windows;
 	Scene* newScene = nullptr;

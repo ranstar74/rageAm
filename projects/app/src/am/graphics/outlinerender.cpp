@@ -141,6 +141,8 @@ void rageam::graphics::OutlineRender::NewFrame()
 
 void rageam::graphics::OutlineRender::EndFrame()
 {
+	EASY_BLOCK("OutlineRender::EndFrame");
+
 	// Backup state
 	DXCONTEXT->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, m_OldRTs, &m_OldDepthStencilView);
 	DXCONTEXT->OMGetBlendState(&m_OldBlendState, m_OldBlendFactor, &m_OldSampleMask);

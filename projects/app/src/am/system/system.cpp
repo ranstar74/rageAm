@@ -132,10 +132,6 @@ void rageam::System::Destroy()
 	AM_INTEGRATED_ONLY(Hook::Shutdown());
 	AM_INTEGRATED_ONLY(m_AddressCache = nullptr);
 
-#ifdef AM_EASYPROFILER
-	profiler::dumpBlocksToFile("session.prof");
-#endif
-
 	rage::SystemHeap::Shutdown();
 
 	m_Initialized = false;
@@ -151,7 +147,6 @@ void rageam::System::Init(bool withUI)
 	m_ThreadInfo.SetIsRenderThread();
 #endif
 	
-	EASY_PROFILER_ENABLE;
 	AM_STANDALONE_ONLY(EASY_THREAD("Main Thread"));
 
 	// Core
@@ -199,5 +194,6 @@ void rageam::System::Init(bool withUI)
 
 void rageam::System::Update() const
 {
+	EASY_BLOCK("System::Update");
 	if (m_ImageCache) m_ImageCache->DeleteOldEntries();
 }

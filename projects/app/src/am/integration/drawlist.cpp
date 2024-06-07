@@ -83,6 +83,7 @@ void rageam::integration::DrawList::IndexBuffer::Bind() const
 void rageam::integration::DrawList::DrawLine_Unsafe(
 	const rage::Vec3V& p1, const rage::Vec3V& p2, const rage::Mat44V& mtx, ColorU32 col1, ColorU32 col2)
 {
+	EASY_BLOCK("DrawList::DrawLine_Unsafe");
 	if (col1.A == 0 && col2.A == 0)
 		return;
 

@@ -3,9 +3,12 @@
 #ifdef AM_INTEGRATED
 
 #include "script/core.h"
+#include <easy/profiler.h>
 
 void rageam::integration::ComponentManager::RemoveAbortedComponents()
 {
+	EASY_BLOCK("ComponentManager::RemoveAbortedComponents");
+
 	m_UpdateComponents.AddRange(m_UpdateComponentsToAdd);
 	m_UpdateComponentsToAdd.Destroy();
 
@@ -38,6 +41,8 @@ void rageam::integration::ComponentManager::RemoveAbortedComponents()
 
 void rageam::integration::ComponentManager::EarlyUpdateAll()
 {
+	EASY_BLOCK("ComponentManager::EarlyUpdateAll");
+
 	m_UpdateStage = UpdateStage_Early;
 
 	scrBegin();
@@ -58,6 +63,8 @@ void rageam::integration::ComponentManager::EarlyUpdateAll()
 
 void rageam::integration::ComponentManager::UpdateAll()
 {
+	EASY_BLOCK("ComponentManager::UpdateAll");
+
 	m_UpdateStage = UpdateStage_SafeArea;
 
 	scrBegin();
@@ -69,6 +76,8 @@ void rageam::integration::ComponentManager::UpdateAll()
 
 void rageam::integration::ComponentManager::LateUpdateAll()
 {
+	EASY_BLOCK("ComponentManager::LateUpdateAll");
+
 	m_UpdateStage = UpdateStage_Late;
 
 	scrBegin();

@@ -56,6 +56,13 @@ namespace rageam
 			return shadersFolder;
 		}
 
+		// data/profiles
+		static const file::WPath& GetProfilesFolder()
+		{
+			static file::WPath profilerFolder = GetDataFolder() / L"profiles";
+			return profilerFolder;
+		}
+
 		// Gets path to RageAm data folder, this folder contains logs, icons, fonts
 		static const file::WPath& GetDataFolder()
 		{
