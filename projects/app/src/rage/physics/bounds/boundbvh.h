@@ -29,7 +29,7 @@ namespace rage
 
 	public:
 		phBoundBVH();
-		phBoundBVH(const atArray<Vector3>& vertices, const atArray<phPrimitive>& primitives);
+		phBoundBVH(const atArray<Vector3>& vertices, const atArray<phPrimitive>& primitives, int numMaterials = 1);
 		phBoundBVH(const datResource& rsc);
 
 		// Do not use GetPolygon function! BVH allows all sort of primitives

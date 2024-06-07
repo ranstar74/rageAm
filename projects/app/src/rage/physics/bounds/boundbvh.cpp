@@ -11,9 +11,11 @@ rage::phBoundBVH::phBoundBVH()
 	ZeroMemory(m_Pad, sizeof m_Pad);
 }
 
-rage::phBoundBVH::phBoundBVH(const atArray<Vector3>& vertices, const atArray<phPrimitive>& primitives)
+rage::phBoundBVH::phBoundBVH(const atArray<Vector3>& vertices, const atArray<phPrimitive>& primitives, int numMaterials)
 	: phBoundBVH()
 {
+	AM_ASSERTS(numMaterials >= 1);
+
 	int vertexCount = vertices.GetSize();
 	int primCount = primitives.GetSize();
 
@@ -28,10 +30,9 @@ rage::phBoundBVH::phBoundBVH(const atArray<Vector3>& vertices, const atArray<phP
 	m_NumPolygons = primCount;
 	m_NumVertices = vertexCount;
 
-	// TODO: Materials...
-	m_NumMaterials = 1;
-	m_Materials = new u64[1]{ 56 };
-	m_PolygonToMaterial = new u8[m_NumPolygons]{ 0 };
+	m_NumMaterials = numMaterials;
+	m_Materials = new u64[numMaterials] { 0 };
+	m_PolygonToMaterial = new u8[m_NumPolygons] { 0 };
 
 	// Compress & set vertices
 	for (u32 i = 0; i < vertexCount; i++)
