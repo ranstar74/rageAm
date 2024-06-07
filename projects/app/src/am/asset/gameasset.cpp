@@ -110,6 +110,12 @@ bool rageam::asset::AssetBase::SaveConfig(bool temp) const
 	return true;
 }
 
+void rageam::asset::AssetBase::RemoveConfig(bool temp) const
+{
+	const file::WPath& configPath = GetConfigPath(temp);
+	DeleteFileW(configPath);
+}
+
 rageam::asset::AssetSource::AssetSource(AssetBase* parent, ConstWString filePath)
 {
 	m_Parent = parent;

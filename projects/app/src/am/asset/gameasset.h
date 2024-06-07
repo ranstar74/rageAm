@@ -77,6 +77,7 @@ namespace rageam::asset
 		bool LoadConfig(bool temp = false);
 		// Saves asset configuration file to "config.xml".
 		bool SaveConfig(bool temp = false) const;
+		void RemoveConfig(bool temp) const;
 		// Useful when some data needs to be set only on config creation
 		bool HasSavedConfig() const { return m_HasSavedConfig; }
 
