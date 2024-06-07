@@ -70,6 +70,18 @@ namespace rage
 	};
 	typedef fwAssetStore<fwFragment, fwFragmentDef> fwFragmentStore;
 
+	struct fwBoundDef
+	{
+		phBound*     Object;
+		atHashString Name;
+		u16          RefCount;
+		u16          Padding        : 13;
+		u16          IsDummy        : 1;
+		u16          IsDependency   : 1;
+		u16          HasRiverBounds : 1;
+	};
+	typedef fwAssetStore<phBound, fwBoundDef> fwStaticBoundsStore;
+
 	struct fwMapTypesDef : fwAssetDef<fwMapTypesContents>
 	{
 		static constexpr int MAX_TYPE_DEPS = 8;
@@ -98,6 +110,7 @@ namespace rage
 	typedef fwAssetStore<fwMapTypesContents, fwMapTypesDef> fwMapTypesStore;
 
 	inline auto GetStore(ConstString fileExtension) { return strStreamingModuleMgr::GetModule(fileExtension); }
+	inline auto GetBoundStore()    { return static_cast<fwStaticBoundsStore*>(GetStore("ybn")); }
 	inline auto GetTxdStore()      { return static_cast<fwTxdStore*>(GetStore("ytd")); }
 	inline auto GetDrawableStore() { return static_cast<fwDrawableStore*>(GetStore("ydr")); }
 	inline auto GetDwdStore()      { return static_cast<fwDwdStore*>(GetStore("ydd")); }

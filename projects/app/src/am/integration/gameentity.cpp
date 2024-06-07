@@ -19,6 +19,20 @@ void rageam::integration::GameEntity::Spawn()
 	// Add extra ref to prevent entity deleting pointer on destruction
 	dwStore->AddRef(m_DrawableSlot);
 
+	// Register static collision
+	rage::fwStaticBoundsStore* boundStore = rage::GetBoundStore();
+	const rage::phBoundPtr& bound = m_Drawable->GetBound();
+	if (bound)
+	{
+		m_CollisionSlot = boundStore->AddSlot(m_ArchetypeDef->PhysicsDictionary);
+		boundStore->Set(m_CollisionSlot, bound.Get());
+		boundStore->AddRef(m_CollisionSlot);
+	}
+	else
+	{
+		m_CollisionSlot = rage::INVALID_STR_INDEX;
+	}
+
 	// Create and register archetype
 	m_Archetype = std::make_unique<CBaseModelInfo>();
 	m_Archetype->InitArchetypeFromDefinition(rage::INVALID_STR_INDEX/*m_MapTypesSlot*/, m_ArchetypeDef.get(), true);
@@ -111,13 +125,25 @@ bool rageam::integration::GameEntity::OnAbort()
 	m_Archetype->SetIsStreamedArchetype(true); // Set streamed archetype flag back
 	m_Archetype = nullptr;
 
+	// Bound
+	rage::fwStaticBoundsStore* boundStore = rage::GetBoundStore();
+	if (m_CollisionSlot != rage::INVALID_STR_INDEX)
+	{
+		int boundRefs = boundStore->GetNumRefs(m_CollisionSlot);
+		AM_ASSERT(boundRefs == 1, "GameEntity::OnAbort() -> Ref mismatch on bound (%i), can't delete...", boundRefs);
+		boundStore->RemoveRefWithoutDelete(m_CollisionSlot);
+		boundStore->Set(m_CollisionSlot, nullptr);
+		boundStore->RemoveSlot(m_CollisionSlot);
+		m_CollisionSlot = rage::INVALID_STR_INDEX;
+	}
+
 	// Drawable
 	rage::fwDrawableStore* dwStore = rage::GetDrawableStore();
 	// We added ref in Spawn() to not let the game remove drawable object,
 	// use RemoveRefWithoutDelete to just decrement ref count, although it doesn't matter at this point
 	{
 		int dwRefs = dwStore->GetNumRefs(m_DrawableSlot);
-		AM_ASSERT(dwRefs == 1, "GameEntity::OnAbort() -> Ref mismatch (%i), can't delete...", dwRefs);
+		AM_ASSERT(dwRefs == 1, "GameEntity::OnAbort() -> Ref mismatch on drawable (%i), can't delete...", dwRefs);
 		dwStore->RemoveRefWithoutDelete(m_DrawableSlot);
 	}
 	dwStore->Set(m_DrawableSlot, nullptr);
@@ -163,12 +189,12 @@ rageam::integration::GameEntity::GameEntity(ConstString name, const gtaDrawableP
 #endif
 }
 
-void rageam::integration::GameEntity::SetRotation(const rage::Vec3V& angle) const
+void rageam::integration::GameEntity::SetRotation(const rage::QuatV& angle) const
 {
 	if (!m_EntityHandle.IsValid())
 		return;
 
-	scrSetEntityRotation(m_EntityHandle, angle);
+	scrSetEntityQuaternion(m_EntityHandle, angle);
 }
 
 void rageam::integration::GameEntity::SetPosition(const rage::Vec3V& pos)

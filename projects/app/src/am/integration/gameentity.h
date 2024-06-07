@@ -29,6 +29,7 @@ namespace rageam::integration
 		Vec3V                       m_DefaultPos;
 		Vec3V						m_CachedPosition;
 
+		rage::strLocalIndex         m_CollisionSlot;
 		rage::strLocalIndex         m_DrawableSlot;
 		pVoid                       m_Entity = nullptr; // rage::fwEntity
 		scrObjectIndex              m_EntityHandle;
@@ -45,7 +46,7 @@ namespace rageam::integration
 	public:
 		GameEntity(ConstString name, const gtaDrawablePtr& drawable, const amPtr<rage::fwArchetypeDef>& archetypeDef, const Vec3V& pos);
 
-		void           SetRotation(const rage::Vec3V& angle) const;
+		void           SetRotation(const rage::QuatV& angle) const;
 		void           SetPosition(const Vec3V& pos);
 		const Vec3V&   GetPosition()		const { return m_CachedPosition; }
 		const Mat44V&  GetWorldTransform()	const { return m_EntityWorld; }
