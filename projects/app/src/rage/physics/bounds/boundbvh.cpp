@@ -1,5 +1,7 @@
 #include "boundbvh.h"
 
+#include "am/integration/memory/address.h"
+
 rage::phBoundBVH::phBoundBVH()
 {
 	m_Type = PH_BOUND_BVH;
@@ -188,4 +190,18 @@ void rage::phBoundBVH::BuildBVH()
 		std::swap(primitiveDatas[newPolyIndex], primitiveDatas[oldToNew[newPolyIndex]]);
 		std::swap(oldToNew[newPolyIndex], oldToNew[oldPolyIndex]);
 	}
+}
+
+void rage::phBoundBVH::CullSpherePolys(phBoundCuller& culler, const Vec3V& sphereCenter, const ScalarV& sphereRadius) const
+{
+	static auto fn = gmAddress::Scan("0F 14 84 24 80 00 00 00", "rage::phBoundBVH::CullSpherePolys+0xE1")
+		.GetAt(-0xE1).ToFunc<void (const phBoundBVH*, phBoundCuller&, const Vec3V&, const ScalarV&)>();
+	return fn(this, culler, sphereCenter, sphereRadius);
+}
+
+void rage::phBoundBVH::CullOBBPolys(phBoundCuller& culler, const Mat34V& boxMatrix, const Vec3V& boxHalfExtents) const
+{
+	static auto fn = gmAddress::Scan("0F 29 44 24 30 48 8B 84 24 10 0A 00 00", "rage::phBoundBVH::CullOBBPolys+0x5A")
+		.GetAt(-0x5A).ToFunc<void(const phBoundBVH*, phBoundCuller&, const Mat34V&, const Vec3V&)>();
+	return fn(this, culler, boxMatrix, boxHalfExtents);
 }

@@ -12,6 +12,8 @@
 
 namespace rage
 {
+	class phBoundCuller;
+
 	/**
 	 * \brief Spatial accelerated bound container.
 	 * The BVH is built once and never again, because it is quite expensive operation.
@@ -37,5 +39,8 @@ namespace rage
 		void BuildBVH();
 
 		phOptimizedBvh* GetBVH() const { return m_BVH.Get(); }
+
+		virtual void CullSpherePolys(phBoundCuller& culler, const Vec3V& sphereCenter, const ScalarV& sphereRadius) const;
+		virtual void CullOBBPolys(phBoundCuller& culler, const Mat34V& boxMatrix, const Vec3V& boxHalfExtents) const;
 	};
 }
