@@ -279,6 +279,12 @@ void rageam::ui::FolderView::UpdateEntryOpening()
 		return;
 	}
 
+	if (m_DoubleClickedEntry->IsAsset())
+	{
+		AssetWindowFactory::OpenNewOrFocusExisting(m_DoubleClickedEntry->GetAsset());
+		return;
+	}
+
 	// Last handler, don't reset m_DoubleClickedEntry here because TreeView will need it
 	if (m_DoubleClickedEntry && m_DoubleClickedEntry->IsDirectory())
 	{
