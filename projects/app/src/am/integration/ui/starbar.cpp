@@ -256,21 +256,6 @@ void rageam::integration::StarBar::OnRender()
 		scrSetTimeFloat(time);
 	}
 
-	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 5.0f);
-	if (ImGui::DragFloat("Rot", &m_SceneRotation, 1, 0, 0, "%.1f"))
-	{
-		// TODO: Wrap function
-		m_SceneRotation = fmodf(m_SceneRotation, 360.0f);
-		if (m_SceneRotation < 0.0f)
-			m_SceneRotation += 360.0f;
-	}
-	ImGui::ToolTip("Scene rotation around vertical axis.");
-	// We do this check to apply rotation even if scene was re-created
-	if (scene && !rage::AlmostEquals(scene->GetRotation().Z(), m_SceneRotation))
-	{
-		scene->SetRotation(Vec3V(0, 0, m_SceneRotation));
-	}
-
 	static constexpr ConstString OPTIONS_POPUP = "OPTIONS_POPUP";
 	if (SlGui::MenuButton(ICON_AM_FLAGS" Options"))
 		ImGui::OpenPopup(OPTIONS_POPUP);
