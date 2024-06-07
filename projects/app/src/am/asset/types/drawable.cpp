@@ -688,7 +688,7 @@ rageam::List<rageam::asset::DrawableAsset::SplittedGeometry> rageam::asset::Draw
 	graphics::VertexBufferEditor sceneVertexBuffer(decl);
 	sceneVertexBuffer.Init(totalVertexCount);
 	sceneVertexBuffer.SetFromGeometry(sceneGeometry);
-	if (!sceneVertexBuffer.IsSet(graphics::COLOR, 0))
+	if (decl.FindAttribute(graphics::COLOR, 0) && !sceneVertexBuffer.IsSet(graphics::COLOR, 0))
 	{
 		sceneVertexBuffer.SetColorSingle(0, graphics::COLOR_WHITE);
 		AM_WARNINGF(
