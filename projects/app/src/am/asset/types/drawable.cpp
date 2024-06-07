@@ -529,7 +529,7 @@ void rageam::asset::LodGroupTune::Deserialize(const XmlHandle& node)
 		float next = LodThreshold[i + 1];
 
 		if (next >= current)
-			return;
+			break;
 
 		AM_WARNINGF("LOD %i distance threshold (%g) is less than previos LOD %i (%g), clamping value...",
 			i + 1, next, i, current);
