@@ -284,6 +284,20 @@ rage::phBoundPolyhedron::phBoundPolyhedron(const datResource& rsc) : phBound(rsc
 	}
 }
 
+void rage::phBoundPolyhedron::SetVertexColor(int index)
+{
+	AM_ASSERTS(m_VertexAttributes);
+	AM_ASSERTS(index < m_NumPolygons);
+	m_VertexAttributes[index];
+}
+
+u32 rage::phBoundPolyhedron::GetVertexColor(int index)
+{
+	AM_ASSERTS(m_VertexAttributes);
+	AM_ASSERTS(index < m_NumPolygons);
+	return m_VertexAttributes[index];
+}
+
 void rage::phBoundPolyhedron::DecompressPoly(const phPolygon& poly, Vec3V& v1, Vec3V& v2, Vec3V& v3, bool shrunk) const
 {
 	v1 = DecompressVertex(poly.GetVertexIndex(0), shrunk);
@@ -684,9 +698,6 @@ rage::phBoundGeometry::phBoundGeometry(const spdAABB& bb, const Vector3* vertice
 {
 	AM_ASSERT(indexCount % 3 == 0, "phBoundGeometry::phBoundGeometry() -> Non triangle mesh with %u indices", indexCount);
 
-	// TODO: Concave check
-	// TODO: Init function
-
 	u32 polyCount = indexCount / 3;
 
 	m_CompressedVertices = new CompressedVertex[vertexCount];
@@ -694,10 +705,19 @@ rage::phBoundGeometry::phBoundGeometry(const spdAABB& bb, const Vector3* vertice
 	m_NumPolygons = polyCount;
 	m_NumVertices = vertexCount;
 
-	// TODO: Materials...
+	// Vertex colors
+	/* TODO: Are they even used by game? Same question for material colors
+	m_NumPerVertexAttributes = 1;
+	m_VertexAttributes = new u32[m_NumVertices] { 0 };
+	for (u32 i = 0; i < vertexCount; i++)
+		m_VertexAttributes[i] = 0x32383AFF;
+	*/
+
+	// At the moment we don't do any mesh grouping,
+	// all meshes are split by materials so we don't need more than 1 material per bound
 	m_NumMaterials = 1;
-	m_Materials = new u64[1]{ 56 };
-	m_PolygonToMaterial = new u8[m_NumPolygons]{ 0 };
+	m_Materials = new u64[1] { phMaterialMgr::DEFAULT_MATERIAL_ID };
+	m_PolygonToMaterial = new u8[m_NumPolygons] { 0 };
 
 	SetBoundingBox(bb.Min, bb.Max);
 

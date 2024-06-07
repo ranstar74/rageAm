@@ -79,13 +79,13 @@ namespace rage
 		pgCArray<CompressedVertex> m_CompressedShrunkVertices;
 		u8                         m_Unused0;
 		u8                         m_Unused1;
-		u8                         m_NumPerVertexAttributes;
+		u8                         m_NumPerVertexAttributes; // Only 1 is supported by GTA
 		u16                        m_NumShrunkVertices;
 		pgCArray<phPolygon>        m_Polygons;
 		Vec3V                      m_UnQuantizeFactor;
 		Vec3V                      m_BoundingBoxCenter;
 		pgCArray<CompressedVertex> m_CompressedVertices;
-		pgCArray<u32>              m_VertexAttributes;  // Unused
+		pgCArray<u32>              m_VertexAttributes;  // AKA vertex colors. Used to block rain?
 		u32*                       m_OctantIndexCounts; // Number of vertices in each octant
 		u32**                      m_OctantIndices;     // Vertex indices in each octant
 		u32                        m_NumVertices;
@@ -121,6 +121,9 @@ namespace rage
 	public:
 		phBoundPolyhedron();
 		phBoundPolyhedron(const datResource& rsc);
+
+		void SetVertexColor(int index);
+		u32  GetVertexColor(int index);
 
 		phPolygon& GetPolygon(u16 i) const { return m_Polygons.Get()[i]; }
 		void  DecompressPoly(const phPolygon& poly, Vec3V& v1, Vec3V& v2, Vec3V& v3, bool shrunk = false) const;
@@ -190,7 +193,7 @@ namespace rage
 		int               GetNumMaterials() const override { return m_NumMaterials; }
 		phMaterial*       GetMaterial(int partIndex) const override;
 		void              SetMaterial(phMaterialMgr::Id materialId, int partIndex) override;
-		phMaterialMgr::Id GetMaterialIdFromPartIndexAndComponent(int partIndex, int boundIndex = -1) const override;
+		phMaterialMgr::Id GetMaterialIdFromPartIndexAndComponent(int partIndex, int boundIndex = BOUND_PARTS_ALL) const override;
 
 		void CalculateExtents() override;
 
