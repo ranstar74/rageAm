@@ -8,6 +8,7 @@
 #pragma once
 
 #include "am/system/asserts.h"
+#include "helpers/win32.h"
 
 #include <MinHook.h>
 
