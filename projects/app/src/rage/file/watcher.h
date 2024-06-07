@@ -5,7 +5,6 @@
 #include "rage/atl/string.h"
 #include "rage/file/device.h"
 #include "rage/file/iterator.h"
-#include "zlib.h"
 #include "rage/atl/datahash.h"
 
 namespace rage
