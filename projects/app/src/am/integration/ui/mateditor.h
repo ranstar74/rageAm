@@ -178,6 +178,7 @@ namespace rageam::integration
 
 		void DrawMaterialVariables();
 		void DrawMaterialOptions() const;
+		void DrawPhysicsOptions() const;
 
 		// Saves given variable value
 		void StoreMaterialValue(u16 materialIndex, u16 varIndex);

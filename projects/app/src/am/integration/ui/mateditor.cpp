@@ -13,6 +13,9 @@
 #include "am/ui/imglue.h"
 #include "am/ui/slwidgets.h"
 
+#include "game/physics/material.h"
+#include "rage/physics/bounds/boundcomposite.h"
+
 void rageam::integration::ShaderUIConfig::Load()
 {
 	CleanUp();
@@ -1377,6 +1380,184 @@ void rageam::integration::MaterialEditor::DrawMaterialOptions() const
 		material->SetDrawBucketMask(drawBucketMask);
 }
 
+void rageam::integration::MaterialEditor::DrawPhysicsOptions() const
+{
+	// TODO: ProceduralId, RoomId, PedDensity
+
+	rage::phBound* rootBound = m_Context->Drawable->GetBound().Get();
+	asset::DrawableAssetMap& map = *m_Context->DrawableAsset->CompiledDrawableMap;
+	asset::MaterialTune* materialTune = GetSelectedMaterialTune();
+	gtaMaterialId physMatId = materialTune->PhysicalMaterialId;
+
+	bool materialChanged = false;
+
+	// Material ID picker
+	rage::phMaterialMgr* physMatMgr = rage::phMaterialMgr::GetInstance();
+	int materialCount = (int) physMatMgr->GetNumMaterials();
+	int materialIndex = (int) physMatId.Id;
+	ImGui::AlignTextToFramePadding();
+	ImGui::Text("ID: ");
+	ImGui::SameLine(0, 1);
+	ImGui::SetNextItemWidth(GImGui->FontSize * 2.5f);
+	if (ImGui::InputInt("###ID_SLIDER", &materialIndex, 0, 0, ImGuiInputTextFlags_AutoSelectAll))
+	{
+		materialChanged = true;
+		materialIndex = ImClamp(materialIndex, 0, materialCount - 1);
+	}
+	if (ImGui::AddSubButtons("###ID_ADDSUB", materialIndex, 0, materialCount - 1))
+		materialChanged = true;
+	ImGui::SameLine(0, 1);
+	static bool s_JustList = false;
+	SlGui::ToggleButton(ICON_AM_LIST_VIEW, s_JustList);
+	ImGui::ToolTip("Display all physics materials in single list.");
+	// Picker with categories
+	ImGui::SameLine(0, 1);
+	if (ImGui::BeginCombo("###ID_COMBO", g_MaterialInfo[materialIndex].DisplayName, ImGuiComboFlags_HeightLarge))
+	{
+		for (gtaMaterialCategory& materialCategory : g_MaterialCategories)
+		{
+			// Special case, not in any category (used only for default)
+			bool hasCategory = materialCategory.StartIndex != materialCategory.LastIndex;
+
+			// For list mode we simply don't display categories
+			if (s_JustList)
+				hasCategory = false;
+
+			bool isCategorySelected = // Material index must be within category range
+				materialIndex >= materialCategory.StartIndex &&
+				materialIndex <= materialCategory.LastIndex;
+
+			if (isCategorySelected)
+			{
+				ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(75, 165, 255, 255));
+				ImGui::PushStyleColor(ImGuiCol_Decoration, IM_COL32(75, 165, 255, 255));
+				ImGui::PushFont(ImFont_Medium);
+			}
+			bool openedCategory = !hasCategory || ImGui::BeginMenu(materialCategory.DisplayName);
+			if (isCategorySelected)
+			{
+				ImGui::PopStyleColor(2);
+				ImGui::PopFont();
+				// For some reason ImGui resets font stack on opening new menu, we have
+				// to push regular font and pop it later, otherwise it will crash on drawing font in menu item
+				if (openedCategory)
+					ImGui::PushFont(ImFont_Regular);
+			}
+			if (!openedCategory)
+				continue;
+
+			for (int i = materialCategory.StartIndex; i <= materialCategory.LastIndex; i++)
+			{
+				if (!s_JustList && materialCategory.SplitIndices.Contains(i))
+					ImGui::Separator();
+
+				bool materialSelected = materialIndex == i;
+
+				if (materialSelected) { ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(75, 165, 255, 255)); ImGui::PushFont(ImFont_Medium); }
+				if (ImGui::MenuItem(g_MaterialInfo[i].DisplayName)) { materialIndex = i; materialChanged = true; }
+				if (materialSelected) { ImGui::PopStyleColor(); ImGui::PopFont(); }
+
+				if (materialSelected)
+				{
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+
+			if (hasCategory)
+				ImGui::EndMenu();
+
+			if (isCategorySelected)
+				ImGui::PopFont();
+		}
+		ImGui::EndMenu();
+	}
+
+	// Extra data
+	int proceduralId = physMatId.ProceduralId;
+	int roomId = physMatId.RoomId;
+	int pedDensity = physMatId.PedDensity;
+	int color = physMatId.Color;
+	if (ImGui::BeginTable("###EXTRAS_TABLE", 2))
+	{
+		ImGui::TableSetupColumn("#1", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("#2", ImGuiTableColumnFlags_WidthFixed);
+
+		ImGui::TableNextColumn();
+		ImGui::SetNextItemWidth(GImGui->FontSize * 2.5f);
+		if (ImGui::InputInt("Procedural ID", &proceduralId, 0, 0, ImGuiInputTextFlags_AutoSelectAll)) materialChanged = true;
+		ImGui::SetNextItemWidth(GImGui->FontSize * 2.5f);
+		if (ImGui::InputInt("Room ID", &roomId, 0, 0, ImGuiInputTextFlags_AutoSelectAll)) materialChanged = true;
+
+		ImGui::TableNextColumn();
+		ImGui::SetNextItemWidth(GImGui->FontSize * 2.5f);
+		if (ImGui::InputInt("Ped Density", &pedDensity, 0, 0, ImGuiInputTextFlags_AutoSelectAll)) materialChanged = true;
+		ImGui::SetNextItemWidth(GImGui->FontSize * 2.5f);
+		if (ImGui::InputInt("Color", &color, 0, 0, ImGuiInputTextFlags_AutoSelectAll)) materialChanged = true;
+
+		proceduralId = ImClamp(proceduralId, 0, 255);
+		roomId = ImClamp(roomId, 0, 31);
+		pedDensity = ImClamp(pedDensity, 0, 7);
+		color = ImClamp(color, 0, 255);
+	}
+	ImGui::EndTable();
+
+	// Flags (POLYFLAG_###)
+	int materialFlags = (int) physMatId.PolyFlags;
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(1, 1));
+	if (ImGui::BeginTable("###FLAGS_TABLE", 2))
+	{
+		ImGui::TableSetupColumn("#1", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("#2", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableNextColumn();
+		materialChanged |= ImGui::CheckboxFlags("Stairs", &materialFlags, POLYFLAG_STAIRS);
+		materialChanged |= ImGui::CheckboxFlags("Not Climbable", &materialFlags, POLYFLAG_NOT_CLIMBABLE);
+		materialChanged |= ImGui::CheckboxFlags("See Through", &materialFlags, POLYFLAG_SEE_THROUGH);
+		materialChanged |= ImGui::CheckboxFlags("Shot Through", &materialFlags, POLYFLAG_SHOOT_THROUGH);
+		materialChanged |= ImGui::CheckboxFlags("Not Cover", &materialFlags, POLYFLAG_NOT_COVER);
+		materialChanged |= ImGui::CheckboxFlags("Walkable Path", &materialFlags, POLYFLAG_WALKABLE_PATH);
+		materialChanged |= ImGui::CheckboxFlags("No Cam Collision", &materialFlags, POLYFLAG_NO_CAM_COLLISION);
+		materialChanged |= ImGui::CheckboxFlags("Shot Through FX", &materialFlags, POLYFLAG_SHOOT_THROUGH_FX);
+		ImGui::TableNextColumn();
+		materialChanged |= ImGui::CheckboxFlags("No Decal", &materialFlags, POLYFLAG_NO_DECAL);
+		materialChanged |= ImGui::CheckboxFlags("No Navmesh", &materialFlags, POLYFLAG_NO_NAVMESH);
+		materialChanged |= ImGui::CheckboxFlags("No Ragdoll", &materialFlags, POLYFLAG_NO_RAGDOLL);
+		materialChanged |= ImGui::CheckboxFlags("No PTFX", &materialFlags, POLYFLAG_NO_PTFX);
+		materialChanged |= ImGui::CheckboxFlags("Too Steep For Player", &materialFlags, POLYFLAG_TOO_STEEP_FOR_PLAYER);
+		materialChanged |= ImGui::CheckboxFlags("No Network Spawn", &materialFlags, POLYFLAG_NO_NETWORK_SPAWN);
+		materialChanged |= ImGui::CheckboxFlags("No Cam Collision Allow Clipping", &materialFlags, POLYFLAG_NO_CAM_COLLISION_ALLOW_CLIPPING);
+	}
+	ImGui::EndTable();
+	ImGui::PopStyleVar(); // ItemSpacing
+
+	if (materialChanged)
+	{
+		physMatId.Id = materialIndex;
+		physMatId.PolyFlags = materialFlags;
+		physMatId.ProceduralId = proceduralId;
+		physMatId.RoomId = roomId;
+		physMatId.PedDensity = pedDensity;
+		physMatId.Color = color;
+
+		materialTune->PhysicalMaterialId = physMatId;
+
+		// Set new material to all bounds
+		auto& boundMaterialHandles = map.SceneMaterialToBounds[m_SelectedMaterialIndex];
+		for (auto& boundMaterialHandle : boundMaterialHandles)
+		{
+			if (rootBound->GetShapeType() == rage::PH_BOUND_COMPOSITE)
+			{
+				rage::phBoundComposite* composite = reinterpret_cast<rage::phBoundComposite*>(rootBound);
+				rage::phBound* bound = composite->GetBound(boundMaterialHandle.BoundIndex).Get();
+				bound->SetMaterial(physMatId, boundMaterialHandle.MaterialIndex);
+			}
+			else
+			{
+				rootBound->SetMaterial(physMatId, boundMaterialHandle.MaterialIndex);
+			}
+		}
+	}
+}
+
 void rageam::integration::MaterialEditor::StoreMaterialValue(u16 materialIndex, u16 varIndex)
 {
 	rage::grmShader* material = GetShaderGroup()->GetShader(materialIndex);
@@ -1652,6 +1833,12 @@ void rageam::integration::MaterialEditor::Render()
 						if (ImGui::BeginTabItem("Options"))
 						{
 							DrawMaterialOptions();
+							ImGui::EndTabItem();
+						}
+
+						if (ImGui::BeginTabItem("Physics"))
+						{
+							DrawPhysicsOptions();
 							ImGui::EndTabItem();
 						}
 
