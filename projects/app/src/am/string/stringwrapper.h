@@ -244,6 +244,9 @@ public:
 	 */
 	bool Equals(StringWrapper other, bool ignoreCase = false)
 	{
+		if (!m_Str || !other.m_Str)
+			return false;
+
 		u32 i = 0;
 		while (true)
 		{
