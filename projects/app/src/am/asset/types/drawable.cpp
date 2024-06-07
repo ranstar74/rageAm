@@ -2095,6 +2095,11 @@ void rageam::asset::DrawableAsset::Refresh()
 	if (!RefreshSceneFile())
 		return;
 
+	u64 sceneModifyTime = file::GetFileModifyTime(GetScenePath());
+	if (m_SceneFileTime == sceneModifyTime)
+		return;
+	m_SceneFileTime = sceneModifyTime;
+
 	graphics::SceneLoadOptions sceneLoadOptions = {};
 	sceneLoadOptions.SkipMeshData = true; // We need only metadata to refresh
 
