@@ -31,13 +31,13 @@ void SlGui::EndToolWindow()
 	ImGui::End();
 }
 
-bool SlGui::ToggleButton(ConstString text, bool& isActive)
+bool SlGui::ToggleButton(ConstString text, bool& isActive, const ImVec2& size)
 {
 	float alpha = GImGui->Style.Alpha * (isActive ? 1.0f : 0.8f);
 	ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
 	// Make inactive toggle buttons gray, easier to understand
 	ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBg));
-	bool pressed = MenuButton(text);
+	bool pressed = MenuButton(text, size);
 	if (pressed) isActive = !isActive;
 	ImGui::PopStyleVar();
 	ImGui::PopStyleColor();
@@ -54,10 +54,10 @@ bool SlGui::ToggleButton(ConstString text, bool& isActive)
 	return pressed;
 }
 
-bool SlGui::MenuButton(ConstString text)
+bool SlGui::MenuButton(ConstString text, const ImVec2& size)
 {
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1);
-	bool pressed = ImGui::Button(text);
+	bool pressed = ImGui::Button(text, size);
 	ImGui::PopStyleVar(1);
 	return pressed;
 }
@@ -1036,6 +1036,92 @@ void SlGui::CategoryText(const char* text)
 	ImVec2 lineMax = ImVec2(max.x, lineMin.y + lineWidth);
 	ImRect lineRect(lineMin, lineMax);
 	ImGui::RenderFrame(lineRect, ImGradient(ImVec4(1, 1, 1, 0.55f), ImVec4(1, 1, 1, 0.1f)), 1, 0, ImGuiAxis_X);
+}
+
+bool SlGui::Category(const char* label, bool defaultOpen)
+{
+	ImGuiWindow* window = ImGui::GetCurrentWindow();
+	if (window->SkipItems)
+		return false;
+
+	const ImGuiStyle& style = GImGui->Style;
+	ImVec2 textSize = ImGui::CalcTextSize(label);
+	ImVec2 min = window->DC.CursorPos;
+	ImVec2 max = ImVec2(window->WorkRect.Max.x, min.y + ImGui::GetFrameHeight());
+	ImRect bb = ImRect(min, max);
+	ImGuiID id = window->GetID(label);
+
+	bool isOpen = window->DC.StateStorage->GetBool(id, defaultOpen);
+
+	ImGui::ItemSize(bb.GetSize());
+	if (!ImGui::ItemAdd(bb, id))
+		return isOpen;
+
+	bool hovered, held;
+	bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held);
+	bool toggled = false;
+
+	if (pressed)
+	{
+		toggled = true;
+	}
+	if (GImGui->NavId == id && GImGui->NavMoveDir == ImGuiDir_Left && isOpen)
+	{
+		toggled = true;
+		ImGui::NavClearPreferredPosForAxis(ImGuiAxis_X);
+		ImGui::NavMoveRequestCancel();
+	}
+	if (GImGui->NavId == id && GImGui->NavMoveDir == ImGuiDir_Right && !isOpen)
+	{
+		toggled = true;
+		ImGui::NavClearPreferredPosForAxis(ImGuiAxis_X);
+		ImGui::NavMoveRequestCancel();
+	}
+
+	if (toggled)
+	{
+		isOpen = !isOpen;
+		window->DC.StateStorage->SetBool(id, isOpen);
+		GImGui->LastItemData.StatusFlags |= ImGuiItemStatusFlags_ToggledOpen;
+	}
+
+	ImVec2 pad = style.FramePadding;
+
+	// Draw arrow
+	ImVec2 arrowMin = min;
+	ImVec2 arrowMax = ImVec2(min.x + GImGui->FontSize, max.y);
+	ImU32 arrowCol = ImGui::GetColorU32(hovered ? ImGuiCol_TextDisabled : ImGuiCol_Text);
+	ImGui::RenderArrow(window->DrawList, arrowMin, arrowCol, isOpen ? ImGuiDir_Down : ImGuiDir_Right);
+
+	// Draw label
+	ImVec2 textMin = ImVec2(arrowMax.x + pad.x, arrowMin.y);
+	ImVec2 textMax = textMin + textSize;
+	ImU32  textCol = ImGui::GetColorU32(ImGuiCol_Text);
+	window->DrawList->AddText(textMin, textCol, label);
+
+	// Draw line
+	constexpr float lineWidth = 1.0f;
+	ImVec2 lineMin = ImVec2(
+		textMax.x + ImGui::GetFrameHeight() * 0.25f, // Right after text ends with small padding
+		textMin.y + (textMax.y - textMin.y) / 2.0f); // Centered Y
+	ImVec2 lineMax = ImVec2(max.x, lineMin.y + lineWidth);
+	ImRect lineRect(lineMin, lineMax);
+	ImGui::RenderFrame(lineRect, ImGradient(ImVec4(1, 1, 1, 0.55f), ImVec4(1, 1, 1, 0.1f)), 1, 0, ImGuiAxis_X);
+
+	return isOpen;
+}
+
+void SlGui::BeginCompact()
+{
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(1, 1));
+	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(1, 1));
+	ImGui::PushFont(ImFont_Small);
+}
+
+void SlGui::EndCompact()
+{
+	ImGui::PopFont();
+	ImGui::PopStyleVar(2);
 }
 
 void SlGui::ColorEditGradient(ConstString name, ImGradient& gradient, ImGuiColorEditFlags flags)

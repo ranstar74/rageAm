@@ -34,6 +34,7 @@ namespace rageam::integration
 		static inline bool Skeleton = true;
 		static inline bool BoneTags = true;
 		static inline bool Collision = true;
+		static inline bool LightNames = false;
 
 		// Bounding box / sphere
 		static inline u32 BoundingOutlineColor = graphics::ColorU32(30, 160, 55, 240);

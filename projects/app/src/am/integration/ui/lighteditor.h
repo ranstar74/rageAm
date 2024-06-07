@@ -1,7 +1,7 @@
 //
 // File: lighteditor.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
@@ -10,31 +10,118 @@
 #ifdef AM_INTEGRATED
 
 #include "am/graphics/shapetest.h"
+#include "am/gizmo/gizmobase.h"
 #include "game/drawable.h"
 
 namespace rageam::integration
 {
-	class DrawList;
-	// TODO: Add color filling for light outlines so it's easier to see where light ends
-	// TODO: Bitmap hit detection (how to allow user to select small light that's inside of larger one? larger one is always in front)
-	// TODO: We should add IsSphereVisible in viewport to quickly cull out outlines
-	// TODO: Color filling for cull plane (different color on both sides)
-
-	struct ModelSceneContext;
-
-	enum eGimzoMode
+	struct LightDrawContext
 	{
-		GIZMO_None,
-		GIZMO_Translate,
-		GIZMO_Rotate,
+		rage::Vec3V   CamFront, CamRight, CamUp;
+		graphics::Ray WorldMouseRay;
+		rage::Mat44V  LightWorld;
+		rage::Mat44V  LightBind;
+		rage::Mat44V  LightLocal;
+		rage::Mat44V  LightBoneWorld;
+		CLightAttr*   Light;
 	};
+
+	class LightGizmo : public gizmo::Gizmo
+	{
+		CLightAttr m_StartLightState;
+
+	protected:
+		static constexpr float TARGET_BOX_EXTENT = 0.35f;
+		static constexpr float TARGET_BOX_EXTENT_RADIUS = 0.55f;
+		static constexpr u32 COLOR_DEFAULT = AM_COL32(220, 185, 5, 120);
+		static constexpr u32 COLOR_HOVERED = AM_COL32(225, 220, 10, 200);
+		static constexpr u32 COLOR_SELECTED = AM_COL32(225, 220, 10, 255);
+	public:
+		void OnStart(const gizmo::GizmoContext& context) override;
+		void OnCancel(const gizmo::GizmoContext& context) override;
+		bool DynamicScale() const override { return false; }
+
+		LightDrawContext& GetLightContext(const gizmo::GizmoContext& context) const { return context.GetUserData<LightDrawContext>(); }
+
+		enum
+		{
+			Light_None,
+
+			PointLight_Sphere,
+			PointLight_Edge,
+
+			SpotLight_None,
+			SpotLight_HemisphereCone,
+			SpotLight_Target,
+
+			CapsuleLight_Capsule,
+			CapsuleLight_Extent1, // -Dir
+			CapsuleLight_Extent2, // +Dir
+		};
+	};
+
+	class LightGizmo_Point : public LightGizmo
+	{
+	public:
+		bool CanSelect(gizmo::GizmoHandleID handle) const override { return handle == PointLight_Sphere; }
+		void Draw(const gizmo::GizmoContext& context) override;
+		void Manipulate(const gizmo::GizmoContext& context, Vec3V& outOffset, Vec3V& outScale, QuatV& outRotation) override;
+		List<gizmo::HitResult> HitTest(const gizmo::GizmoContext& context) override;
+
+		GIZMO_DECLARE_INFO;
+	};
+
+	class LightGizmo_Spot : public LightGizmo
+	{
+		static constexpr float TARGET_BOX_OFFSET = TARGET_BOX_EXTENT * 2.0f;
+
+	public:
+		bool CanSelect(gizmo::GizmoHandleID handle) const override
+		{
+			return handle == SpotLight_HemisphereCone || handle ==  SpotLight_Target;
+		}
+		void Draw(const gizmo::GizmoContext& context) override;
+		void Manipulate(const gizmo::GizmoContext& context, Vec3V& outOffset, Vec3V& outScale, QuatV& outRotation) override;
+		List<gizmo::HitResult> HitTest(const gizmo::GizmoContext& context) override;
+
+		// Gets point at end of the light in direction where it points
+		static Vec3V GetTargetPointLocal(const LightDrawContext& lightContext);
+		static Vec3V GetTargetPointWorld(const LightDrawContext& lightContext);
+		static void  SetTargetPointLocal(const LightDrawContext& lightContext, const Vec3V& targetPoint);
+
+		GIZMO_DECLARE_INFO;
+	};
+
+	class LightGizmo_Capsule : public LightGizmo
+	{
+
+	public:
+		bool CanSelect(gizmo::GizmoHandleID handle) const override
+		{
+			return
+				handle == CapsuleLight_Capsule || 
+				handle == CapsuleLight_Extent1 ||
+				handle == CapsuleLight_Extent2;
+		}
+		void Draw(const gizmo::GizmoContext& context) override;
+		void Manipulate(const gizmo::GizmoContext& context, Vec3V& outOffset, Vec3V& outScale, QuatV& outRotation) override;
+		List<gizmo::HitResult> HitTest(const gizmo::GizmoContext& context) override;
+
+		GIZMO_DECLARE_INFO;
+	};
+
+	class DrawList;
+	struct ModelSceneContext;
 
 	class LightEditor
 	{
+		static constexpr ConstString LIGHT_OUTLINE_GIZMO_FORMAT = "Light_Outline%i";
+		static constexpr ConstString LIGHT_TRANSFORM_GIZMO_FORMAT = "Light_Transform%i";
+		static constexpr ConstString LIGHT_TARGET_TRANSFORM_GIZMO_FORMAT = "Light_TargetTransform%i";
+
 		ModelSceneContext*	m_SceneContext;
 		int					m_SelectedLight = -1;
 		int					m_HoveredLight = -1;
-		int					m_GizmoMode = GIZMO_None;
 		bool				m_SelectionFreezed = false;
 
 		// We freeze selecting during cull plane editing, so save state
@@ -46,42 +133,9 @@ namespace rageam::integration
 		// gives user ability to freely rotate/move plane
 		rage::Mat44V		m_CullPlane;
 
-		// -- Custom gizmos --
-
-		bool				m_UsingPointFalloffGizmo = false;
-
-		struct LightDrawContext
-		{
-			rage::Vec3V		CamFront, CamRight, CamUp;
-			graphics::Ray	WorldMouseRay;
-			rage::Mat44V	LightWorld;
-			rage::Mat44V	LightBind;
-			rage::Mat44V	LightLocal;
-			rage::Mat44V	LightBoneWorld;
-			CLightAttr*		Light;
-			u16				LightIndex;
-			bool			IsSelected;
-			u32				PrimaryColor;
-			u32				SecondaryColor;
-			u32				CulledColor;
-		};
-
 		void SetCullPlaneFromLight(const LightDrawContext& ctx);
 
-		u32 GetOutlinerColor(bool isSelected, bool isHovered, bool isPrimary) const;
-
-		// Light outline draw list
-		DrawList& GetDrawList() const;
-
-		// Tests if screen mouse cursor intersects with light bounding sphere
-		graphics::ShapeHit ProbeLightSphere(const LightDrawContext& ctx) const;
-
-		graphics::ShapeHit DrawOutliner_Point(const LightDrawContext& ctx) const;
-		graphics::ShapeHit DrawOutliner_Spot(const LightDrawContext& ctx) const;
-		graphics::ShapeHit DrawOutliner_Capsule(const LightDrawContext& ctx) const;
-		graphics::ShapeHit DrawOutliner(const LightDrawContext& ctx) const;
-
-		bool DrawPointLightFalloffGizmo(const LightDrawContext& ctx);
+		//bool DrawPointLightFalloffGizmo(const LightDrawContext& ctx);
 		void DrawCullPlaneEditGizmo(const LightDrawContext& ctx);
 
 		// Light bind transforms world light position into local
@@ -92,11 +146,7 @@ namespace rageam::integration
 			rage::Mat44V& lightLocal,
 			rage::Mat44V& lightBoneWorld) const;
 
-		int GetImGuizmoOperation() const;
 		void DrawLightUI(const LightDrawContext& ctx);
-		void DrawLightTransformGizmo(const LightDrawContext& ctx) const;
-		void DrawCustomGizmos(const LightDrawContext& ctx);
-		void SelectGizmoMode();
 
 	public:
 		LightEditor(ModelSceneContext* sceneContext);
@@ -107,10 +157,7 @@ namespace rageam::integration
 		void SelectLight(s32 index);
 
 		// Reset state for new entity
-		void Reset()
-		{
-			SelectLight(-1);
-		}
+		void Reset();
 
 		enum OutlineModes
 		{

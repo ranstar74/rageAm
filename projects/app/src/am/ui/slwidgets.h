@@ -104,8 +104,8 @@ namespace SlGui
 	void EndHorizontal();
 	bool BeginToolWindow(ConstString text);
 	void EndToolWindow();
-	bool ToggleButton(ConstString text, bool& isActive);
-	bool MenuButton(ConstString text);
+	bool ToggleButton(ConstString text, bool& isActive, const ImVec2& size = ImVec2(0, 0));
+	bool MenuButton(ConstString text, const ImVec2& size = ImVec2(0, 0));
 	bool IconButton(ConstString text, ImU32 color = IM_COL32_WHITE, const ImU32* bgColor = nullptr);
 	bool Begin(ConstString name, bool* open = 0, ImGuiWindowFlags flags = 0);
 	void End();
@@ -130,6 +130,10 @@ namespace SlGui
 	void TableHeader(const char* label);
 
 	void CategoryText(const char* text);
+	bool Category(const char* label, bool defaultOpen = true);
+
+	void BeginCompact();
+	void EndCompact();
 
 	void ColorEditGradient(ConstString name, ImGradient& gradient, ImGuiColorEditFlags flags = 0);
 

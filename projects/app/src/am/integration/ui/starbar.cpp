@@ -319,6 +319,7 @@ void rageam::integration::StarBar::OnRender()
 			if (!DrawableRender::Skeleton) ImGui::BeginDisabled();
 			ImGui::Checkbox("Bone Tags", &DrawableRender::BoneTags);
 			if (!DrawableRender::Skeleton) ImGui::EndDisabled();
+			ImGui::Checkbox("Light Names", &DrawableRender::LightNames);
 		}
 		if (!DrawableRender::IsVisible) ImGui::EndDisabled();
 
