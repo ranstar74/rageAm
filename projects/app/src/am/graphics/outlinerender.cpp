@@ -6,7 +6,8 @@
 #include "render.h"
 #include "am/integration/memory/address.h"
 #include "am/integration/memory/hook.h"
-#include "helpers/dx11.h"
+#include "rage/grm/model.h"
+#include "rage/grm/shadergroup.h"
 
 void rageam::graphics::OutlineRender::CreateDeviceObjects()
 {
@@ -23,13 +24,11 @@ void rageam::graphics::OutlineRender::CreateDeviceObjects()
 	m_GeomColor = DX11::CreateTexture("Outline GBuffer", CreateTexture_RenderTarget, m_Width, m_Height, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
 	m_GeomColorView = DX11::CreateTextureView("Outline GBuffer View", m_GeomColor);
 	m_GeomColorRT = DX11::CreateRenderTargetView("Outline GBuffer RT", m_GeomColor);
-
-	ColorU32 white = COLOR_WHITE;
-	amComPtr<ID3D11Texture2D> whiteTex = DX11::CreateTexture("Outline White", CreateTexture_Default, 1, 1, 1, DXGI_FORMAT_R8G8B8A8_UNORM, &white);
-	m_WhiteTexView = DX11::CreateTextureView("Outline White View", whiteTex);
 }
 
 // This function is called in grcDevice::DrawIndexed, DrawPrimitive, DrawVertices, so always before drawing vertex buffer
+
+ID3D11ShaderResourceView* s_Views[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT] = {};
 gmAddress sAddr_grcDevice_SetUpPriorToDraw;
 void (*gImpl_grcDevice_SetUpPriorToDraw)(int drawMode);
 void aImpl_grcDevice_SetUpPriorToDraw(int drawMode)
@@ -41,13 +40,46 @@ void aImpl_grcDevice_SetUpPriorToDraw(int drawMode)
 	auto outlineRender = rageam::graphics::OutlineRender::GetInstance();
 	if (outlineRender->IsRenderingOutline())
 	{
-		ID3D11ShaderResourceView* overrideView = outlineRender->GetWhiteTexture();;
+		ID3D11ShaderResourceView* overrideView = outlineRender->GetWhiteTexture();
+
+		// Store current textures so we can restore them later
+		ID3D11ShaderResourceView* currentView;
+		DXCONTEXT->PSGetShaderResources(0, 1, &currentView);
+		// Don't overwrite s_Views if white texture is already set, because we'd loose original texture
+		if (currentView != overrideView)
+		{
+			DXCONTEXT->PSGetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, s_Views);
+			// Game holds reference on them already, release all now
+			for (ID3D11ShaderResourceView* view : s_Views)
+				SAFE_RELEASE(view);
+		}
+		SAFE_RELEASE(currentView);
+
 		DXCONTEXT->PSSetShaderResources(0, 1, &overrideView);
+	}
+}
+
+gmAddress s_Addr_grmShader_DrawInternal;
+void (*gImpl_grmShader_DrawInternal)(void* self, int drawType, void* model, u32 geom, bool restoreState);
+void aImpl_grmShader_DrawInternal(rage::grmShader* self, int drawType, rage::grmModel* model, u32 geom, bool restoreState)
+{
+	gImpl_grmShader_DrawInternal(self, drawType, model, geom, restoreState);
+
+	if (self->GetDrawBucketMask() & (1 << rage::RB_MODEL_OUTLINE) || model->HasOutline())
+	{
+		rageam::graphics::OutlineRender::GetInstance()->Begin();
+		gImpl_grmShader_DrawInternal(self, drawType, model, geom, restoreState);
+		rageam::graphics::OutlineRender::GetInstance()->End();
 	}
 }
 
 rageam::graphics::OutlineRender::OutlineRender()
 {
+	ColorU32 white = COLOR_WHITE;
+	amComPtr<ID3D11Texture2D> whiteTex = DX11::CreateTexture("Outline White", CreateTexture_Default, 1, 1, 1, DXGI_FORMAT_R8G8B8A8_UNORM, &white);
+	m_WhiteTexView = DX11::CreateTextureView("Outline White View", whiteTex);
+
+	// Detour for overriding texture
 	sAddr_grcDevice_SetUpPriorToDraw = gmAddress::Scan(
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
 		"89 4C 24 08 48 83 EC 68 E8 ?? ?? ?? ?? C7 44 24 34 00 00 00 00", "rage::grcDevice::SetUpPriorToDraw");
@@ -55,11 +87,21 @@ rageam::graphics::OutlineRender::OutlineRender()
 		"E8 ?? ?? ?? ?? 85 DB 74 45", "rage::grcDevice::SetUpPriorToDraw").GetCall();
 #endif
 	Hook::Create(sAddr_grcDevice_SetUpPriorToDraw, aImpl_grcDevice_SetUpPriorToDraw, &gImpl_grcDevice_SetUpPriorToDraw);
+
+	// Detour for drawing grmShader outlines
+	s_Addr_grmShader_DrawInternal = gmAddress::Scan(
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+		"44 8A 44 24 60 8B 54 24 48", "rage::grmShader::DrawInternal+0x1A").GetAt(-0x1A);
+#else
+		"7C D5 48 83 25", "rage::grmShader::DrawInternal+0x60").GetAt(-0x60);
+#endif
+	Hook::Create(s_Addr_grmShader_DrawInternal, aImpl_grmShader_DrawInternal, &gImpl_grmShader_DrawInternal);
 }
 
 rageam::graphics::OutlineRender::~OutlineRender()
 {
 	Hook::Remove(sAddr_grcDevice_SetUpPriorToDraw);
+	Hook::Remove(s_Addr_grmShader_DrawInternal);
 }
 
 void rageam::graphics::OutlineRender::NewFrame()
@@ -166,6 +208,16 @@ void rageam::graphics::OutlineRender::End()
 	for (auto& rt : m_OldRTs) SAFE_RELEASE(rt);
 	SAFE_RELEASE(m_OldBlendState);
 	SAFE_RELEASE(m_OldDepthStencilView);
+
+	// Reset old textures view because game still may use them to draw other models with those textures
+	ID3D11ShaderResourceView* currentView;
+	DXCONTEXT->PSGetShaderResources(0, 1, &currentView);
+	if (currentView == m_WhiteTexView.Get())
+	{
+		DXCONTEXT->PSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, s_Views);
+		ZeroMemory(s_Views, sizeof s_Views);
+	}
+	SAFE_RELEASE(currentView);
 
 	m_RenderingOutline = false;
 	m_Began = false;

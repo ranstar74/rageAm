@@ -200,20 +200,6 @@ void rageam::integration::GameIntegration::AntiDebugFixes() const
 #endif
 }
 
-gmAddress s_Addr_grmShader_DrawInternal;
-void (*gImpl_grmShader_DrawInternal)(void* self, int drawType, void* model, u32 geom, bool restoreState);
-void aImpl_grmShader_DrawInternal(rage::grmShader* self, int drawType, rage::grmModel* model, u32 geom, bool restoreState)
-{
-	gImpl_grmShader_DrawInternal(self, drawType, model, geom, restoreState);
-
-	if (self->GetDrawBucketMask() & (1 << rage::RB_MODEL_OUTLINE) || model->HasOutline())
-	{
-		rageam::graphics::OutlineRender::GetInstance()->Begin();
-		gImpl_grmShader_DrawInternal(self, drawType, model, geom, restoreState);
-		rageam::graphics::OutlineRender::GetInstance()->End();
-	}
-}
-
 rageam::integration::GameIntegration::GameIntegration()
 {
 	AntiDebugFixes();
