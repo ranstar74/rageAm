@@ -30,6 +30,12 @@ rage::phBound::phBound(const datResource& rsc)
 
 }
 
+rage::phBoundComposite* rage::phBound::AsComposite()
+{
+	AM_ASSERTS(m_Type == PH_BOUND_COMPOSITE);
+	return reinterpret_cast<phBoundComposite*>(this);
+}
+
 rage::Vec3V rage::phBound::ComputeAngularInertia(float mass) const
 {
 	return m_VolumeDistribution * mass;

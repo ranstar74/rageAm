@@ -18,6 +18,7 @@
 namespace rage
 {
 	class phOptimizedBvh;
+	class phBoundComposite;
 
 	static constexpr int BOUND_PARTS_ALL = -1;
 
@@ -67,6 +68,8 @@ namespace rage
 	public:
 		phBound();
 		phBound(const datResource& rsc);
+
+		phBoundComposite* AsComposite();
 
 		Vec3V ComputeAngularInertia(float mass) const;
 		float GetVolume() const;
