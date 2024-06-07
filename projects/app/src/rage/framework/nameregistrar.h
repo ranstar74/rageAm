@@ -360,7 +360,13 @@ namespace rage
 		u32	GetSize() const { return m_BucketCount; }
 		u32 GetNumUsedSlots() const { return m_UsedSlotCount; }
 
-		[[nodiscard]] TValue& operator[](const TKey& key) const { return Get(key); }
+		[[nodiscard]] TValue& operator[](const TKey& key)
+		{
+			TValue* existingValue = TryGet(key);
+			if (existingValue)
+				return *existingValue;
+			return Insert(key, {});
+		}
 
 		fwNameRegistrar& operator=(const fwNameRegistrar& other) // NOLINT(bugprone-unhandled-self-assignment)
 		{
