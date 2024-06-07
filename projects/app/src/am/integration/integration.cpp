@@ -219,22 +219,13 @@ rageam::integration::GameIntegration::GameIntegration()
 	m_OutlineRender = std::make_unique<graphics::OutlineRender>();
 	m_GizmoManager = std::make_unique<gizmo::GizmoManager>();
 
-	// Detour for drawing grmShader outlines
-	s_Addr_grmShader_DrawInternal = gmAddress::Scan(
-#if APP_BUILD_2699_16_RELEASE_NO_OPT
-		"44 8A 44 24 60 8B 54 24 48", "rage::grmShader::DrawInternal+0x1A").GetAt(-0x1A);
-#else
-		"7C D5 48 83 25", "rage::grmShader::DrawInternal+0x60").GetAt(-0x60);
-#endif
-	Hook::Create(s_Addr_grmShader_DrawInternal, aImpl_grmShader_DrawInternal, &gImpl_grmShader_DrawInternal);
-
 	HookGameThread();
 	HookRenderThread();
 }
 
 rageam::integration::GameIntegration::~GameIntegration()
 {
-	Hook::Remove(s_Addr_grmShader_DrawInternal);
+
 
 	s_ShuttingDownEndFrame = true;
 	while (s_ShuttingDownEndFrame) {}
