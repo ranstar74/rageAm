@@ -24,7 +24,16 @@ public:
 	gtaDrawable() = default;
 	// ReSharper disable once CppPossiblyUninitializedMember
 	gtaDrawable(const rage::datResource& rsc) : rmcDrawable(rsc) {}
-	gtaDrawable(const gtaDrawable& other) : rmcDrawable(other) {}
+	gtaDrawable(const gtaDrawable& other) : rmcDrawable(other)
+	{
+		m_Lights = other.m_Lights;
+		if (rage::pgRscCompiler::GetCurrent())
+			m_TintData.Snapshot(other.m_TintData);
+		else
+			m_TintData.Snapshot(other.m_TintData);
+		// TODO: phBound need snapshot function!
+		// m_Bound.Snapshot(other.m_Bound);
+	}
 	~gtaDrawable() override {}
 
 	u16 GetLightCount() const { return m_Lights.GetSize(); }
