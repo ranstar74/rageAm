@@ -391,6 +391,10 @@ namespace rage
 		template<typename TSize>
 		void Copy(const pgCArray& other, TSize elementCount)
 		{
+			// Nothing to copy...
+			if (elementCount == 0)
+				return;
+
 			Alloc(elementCount);
 			for (TSize i = 0; i < elementCount; ++i)
 			{
