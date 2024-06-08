@@ -117,7 +117,9 @@ void rage::grmShaderGroup::CopyToContainer(grmShaderGroup* containerInst) const
 		for (grcInstanceVar& var : containerInst->m_Shaders[i]->GetTextureIterator())
 		{
 			ConstString textureName = var.GetTexture()->GetName();
-			grcTexture* newTexture = containerInst->m_EmbedTextures->Find(textureName);
+			grcTexture* newTexture = nullptr;
+			if (m_EmbedTextures)
+				newTexture = containerInst->m_EmbedTextures->Find(textureName);
 			// Texture is not embed dictionary, referenced externally, we must use grcTextureReference
 			if (!newTexture)
 			{
