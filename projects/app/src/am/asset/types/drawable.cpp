@@ -460,7 +460,7 @@ void rageam::asset::LightTune::Deserialize(const XmlHandle& node)
 
 	auto scanHex = [](ConstString str) -> u32
 		{
-			float val = 0;
+			u32 val = 0;
 			AM_ASSERT(sscanf_s(str, "%X", &val) > 0, "LightTune::Deserialize() -> Failed to parse hex value '%s'", str);
 			return val;
 		};
@@ -476,7 +476,7 @@ void rageam::asset::LightTune::Deserialize(const XmlHandle& node)
 	XML_GET_CHILD_VALUE(node, Intensity);
 	XML_GET_CHILD_VALUE(node, Falloff);
 	XML_GET_CHILD_VALUE(node, FalloffExponent);
-	node.GetChild("CullingPlaneNormal").SetValue(CullingPlaneNormal);
+	node.GetChild("CullingPlaneNormal").GetValue(CullingPlaneNormal);
 	XML_GET_CHILD_VALUE(node, CullingPlaneOffset);
 	XML_GET_CHILD_VALUE(node, ShadowBlur);
 	XML_GET_CHILD_VALUE(node, ShadowNearClip);
