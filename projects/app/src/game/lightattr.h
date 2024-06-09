@@ -14,9 +14,15 @@
 
 // see CLightAttr::TimeFlags
 
-static constexpr u32 LIGHT_TIME_NIGHT_MASK = (1 << 12) - 1;
+static constexpr u32 LIGHT_TIME_FIRST_HALF_MASK = (1 << 12) - 1;
+static constexpr u32 LIGHT_TIME_SECOND_HALF_MASK = ((1 << 24) - 1) ^ LIGHT_TIME_FIRST_HALF_MASK;
+static constexpr u32 LIGHT_TIME_ALWAYS_MASK = LIGHT_TIME_FIRST_HALF_MASK | LIGHT_TIME_SECOND_HALF_MASK;
+// 20:00 - 06:00
+static constexpr u32 LIGHT_TIME_NIGHT_MASK =
+	(1 << 20) | (1 << 21) | (1 << 22) | (1 << 23) |
+	(1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5);
+// 06:00 - 20:00
 static constexpr u32 LIGHT_TIME_DAY_MASK = ((1 << 24) - 1) ^ LIGHT_TIME_NIGHT_MASK;
-static constexpr u32 LIGHT_TIME_ALWAYS_MASK = LIGHT_TIME_NIGHT_MASK | LIGHT_TIME_DAY_MASK;
 
 enum eLightType : u8
 {

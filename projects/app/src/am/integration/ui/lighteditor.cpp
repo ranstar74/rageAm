@@ -641,10 +641,10 @@ void rageam::integration::LightEditor::DrawLightUI(const LightDrawContext& ctx)
 		if (SlGui::Category(ICON_AM_TIME" Time Options", false))
 		{
 			ImGui::CheckboxFlags("Always", &light->TimeFlags, LIGHT_TIME_ALWAYS_MASK);
-			// ImGui::SameLine();
-			ImGui::CheckboxFlags("Night (00:00 - 12:00)", &light->TimeFlags, LIGHT_TIME_NIGHT_MASK);
-			ImGui::SameLine();
-			ImGui::CheckboxFlags("Day (12:00 - 00:00)", &light->TimeFlags, LIGHT_TIME_DAY_MASK);
+			ImGui::CheckboxFlags("Night (20:00 - 06:00)", &light->TimeFlags, LIGHT_TIME_NIGHT_MASK);
+			ImGui::CheckboxFlags("Day (06:00 - 20:00)", &light->TimeFlags, LIGHT_TIME_DAY_MASK);
+			ImGui::CheckboxFlags("First Half (00:00 - 12:00)", &light->TimeFlags, LIGHT_TIME_FIRST_HALF_MASK);
+			ImGui::CheckboxFlags("Second Half (12:00 - 00:00)", &light->TimeFlags, LIGHT_TIME_SECOND_HALF_MASK);
 
 			if (SlGui::CollapsingHeader("Show All"))
 			{
