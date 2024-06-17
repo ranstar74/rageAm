@@ -7,6 +7,7 @@
 #include "am/integration/im3d.h"
 #include "am/integration/script/core.h"
 #include "am/integration/script/extensions.h"
+#include "am/integration/keyboardlayout.h"
 #include "rage/framework/pool.h"
 #include "imgui_internal.h"
 
@@ -197,8 +198,24 @@ void rageam::integration::FreeCamera::OnUpdate()
 
 	// Movement
 	rage::Vec3V move = rage::S_ZERO;
-	move += m_Front * (ImGui::GetKeyData(ImGuiKey_W)->AnalogValue - ImGui::GetKeyData(ImGuiKey_S)->AnalogValue);
-	move += m_Right * (ImGui::GetKeyData(ImGuiKey_D)->AnalogValue - ImGui::GetKeyData(ImGuiKey_A)->AnalogValue);
+
+	ImGuiKey upKey = ImGuiKey_W;
+	ImGuiKey downKey = ImGuiKey_S;
+	ImGuiKey rightKey = ImGuiKey_D;
+	ImGuiKey leftKey = ImGuiKey_A;
+
+	switch (GetCurrentKeyboardLayout())
+	{
+		case KeyboardLayout_AZERTY:
+			upKey = ImGuiKey_Z;
+			leftKey = ImGuiKey_Q;
+			break;
+		default:
+			break;
+	}
+
+	move += m_Front * (ImGui::GetKeyData(upKey)->AnalogValue - ImGui::GetKeyData(downKey)->AnalogValue);
+	move += m_Right * (ImGui::GetKeyData(rightKey)->AnalogValue - ImGui::GetKeyData(leftKey)->AnalogValue);
 	rage::ScalarV moveMag = move.LengthSquared();
 	if (moveMag > rage::S_EPSION) // Check if we have any input at all
 	{
