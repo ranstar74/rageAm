@@ -621,6 +621,10 @@ void rageam::integration::DrawListExecutor::CreateBackbuf()
 {
 	ID3D11Device* device = graphics::RenderGetDevice();
 
+	u32 sampleCount = m_SampleCount;
+	if (sampleCount == 0)
+		sampleCount = 1; // 0 is not valid for DX11
+
 	D3D11_TEXTURE2D_DESC texDesc = {};
 	texDesc.Width = m_ScreenWidth;
 	texDesc.Height = m_ScreenHeight;
@@ -630,12 +634,12 @@ void rageam::integration::DrawListExecutor::CreateBackbuf()
 	texDesc.MipLevels = 1;
 	texDesc.ArraySize = 1;
 	texDesc.SampleDesc.Quality = 0;
-	texDesc.SampleDesc.Count = m_SampleCount;
+	texDesc.SampleDesc.Count = sampleCount;
 	texDesc.CPUAccessFlags = 0;
 	texDesc.MiscFlags = 0;
 	AM_ASSERT_STATUS(device->CreateTexture2D(&texDesc, nullptr, &m_BackbufMs));
 
-	if (m_SampleCount > 1)
+	if (sampleCount > 1)
 	{
 		D3D11_RENDER_TARGET_VIEW_DESC rtDesc;
 		rtDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -759,8 +763,6 @@ void rageam::integration::DrawListExecutor::Execute(DrawList& drawList)
 		m_ScreenWidth = width;
 		m_ScreenHeight = height;
 		m_SampleCount = sampleCount;
-		if (m_SampleCount == 0)
-			m_SampleCount = 1; // 0 is not valid for DX11
 
 		AM_DEBUGF("DrawListExecutor -> Creating backbuf for %ux%u and %u samples", 
 			m_ScreenWidth, m_ScreenHeight, m_SampleCount);
