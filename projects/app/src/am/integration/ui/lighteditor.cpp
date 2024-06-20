@@ -12,6 +12,8 @@
 #include "am/gizmo/gizmotranslation.h"
 #include "am/integration/script/core.h"
 
+#include <stb_sprintf.h>
+
 GIZMO_INITIALIZE_INFO(rageam::integration::LightGizmo_Point, "Point Light");
 GIZMO_INITIALIZE_INFO(rageam::integration::LightGizmo_Spot, "Spot Light");
 GIZMO_INITIALIZE_INFO(rageam::integration::LightGizmo_Capsule, "Capsule Light");
