@@ -91,6 +91,12 @@ namespace rageam::file
 			u32 length = StringWrapper(m_Buffer).Length();
 			s32 avail = TSize - length;
 
+			if (length == 0)
+			{
+				Append(token, tokenLength);
+				return;
+			}
+
 			if (length > 1) // Move cursor to last symbol
 				cursor += length - 1;
 
