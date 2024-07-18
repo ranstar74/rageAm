@@ -9,6 +9,8 @@
 
 #include "gizmobase.h"
 
+#ifdef AM_INTEGRATED
+
 namespace rageam::gizmo
 {
 	// TODO: Not finished
@@ -43,3 +45,5 @@ namespace rageam::gizmo
 		};
 	};
 }
+
+#endif

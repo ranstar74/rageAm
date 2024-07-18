@@ -1,5 +1,7 @@
 #include "gizmoscale.h"
 
+#ifdef AM_INTEGRATED
+
 GIZMO_INITIALIZE_INFO(rageam::gizmo::GizmoScale, "Scale");
 
 void rageam::gizmo::GizmoScale::Draw(const GizmoContext& context)
@@ -71,3 +73,5 @@ rageam::List<rageam::gizmo::HitResult> rageam::gizmo::GizmoScale::HitTest(const 
 {
 	return {};
 }
+
+#endif

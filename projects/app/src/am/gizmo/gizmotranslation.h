@@ -7,6 +7,8 @@
 //
 #pragma once
 
+#ifdef AM_INTEGRATED
+
 #include "gizmobase.h"
 
 namespace rageam::gizmo
@@ -47,3 +49,5 @@ namespace rageam::gizmo
 		};
 	};
 }
+
+#endif

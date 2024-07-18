@@ -11,9 +11,13 @@
 #include "gizmorotation.h"
 #include "gizmoscale.h"
 
+#ifdef AM_INTEGRATED
+
 namespace rageam::gizmo
 {
 	inline bool Translate(ConstString id, Mat44V& inOutTransform) { return GIZMO_MANIPULATE(id, inOutTransform, GizmoTranslation); }
 	inline bool Scale(ConstString id, Mat44V& inOutTransform)	  { return GIZMO_MANIPULATE(id, inOutTransform, GizmoScale); }
 	inline bool Rotate(ConstString id, Mat44V& inOutTransform)	  { return GIZMO_MANIPULATE(id, inOutTransform, GizmoRotation); }
 }
+
+#endif

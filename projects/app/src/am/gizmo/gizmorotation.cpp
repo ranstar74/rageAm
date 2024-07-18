@@ -1,5 +1,7 @@
 #include "gizmorotation.h"
 
+#ifdef AM_INTEGRATED
+
 #include "am/graphics/shapetest.h"
 #include "am/integration/im3d.h"
 #include "am/ui/extensions.h"
@@ -183,3 +185,5 @@ rageam::List<rageam::gizmo::HitResult> rageam::gizmo::GizmoRotation::HitTest(con
 
 	return hits;
 }
+
+#endif

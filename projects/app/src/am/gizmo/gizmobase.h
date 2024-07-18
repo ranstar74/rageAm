@@ -7,6 +7,8 @@
 //
 #pragma once
 
+#ifdef AM_INTEGRATED
+
 #include "am/system/nullable.h"
 #include "am/integration/gamedrawlists.h"
 #include "am/graphics/color.h"
@@ -354,3 +356,5 @@ namespace rageam::gizmo
 #define GIZMO rageam::gizmo::GizmoManager::GetInstance()
 
 #define GIZMO_GET_INFO(type) &type::Info
+
+#endif
