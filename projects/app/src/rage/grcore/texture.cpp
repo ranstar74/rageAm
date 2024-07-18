@@ -36,8 +36,12 @@ rage::grcTexture::grcTexture(const datResource& rsc)
 
 rage::grcTexture* rage::grcTexture::Place(const datResource& rsc, grcTexture* that)
 {
-	AM_ASSERT(that->GetResourceType() == TEXTURE_NORMAL, "grcTexture::Place() -> Only normal texture type is currently supported!");
+	AM_ASSERT(that->GetResourceType() == TEXTURE_NORMAL || that->GetResourceType() == TEXTURE_REFERENCE, 
+		"grcTexture::Place() -> Invalid resource type '%i'", that->GetResourceType());
+	if (that->GetResourceType() == TEXTURE_NORMAL)
 	return new (that) grcTextureDX11(rsc);
+	else
+		return new (that) grcTextureReference(rsc);
 }
 
 rage::grcTexture* rage::grcTexture::Snapshot(pgSnapshotAllocator* allocator, grcTexture* from)
