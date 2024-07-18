@@ -17,6 +17,7 @@
 
 namespace rage
 {
+	class grcTextureDX11;
 	class grcImage;
 	class grcEffect;
 	struct grcEffectVar;
@@ -166,6 +167,8 @@ namespace rage
 		grcTexture(const datResource& rsc);
 
 		IMPLEMENT_REF_COUNTER(grcTexture);
+
+		grcTextureDX11* ToDX11();
 
 		static grcTexture* Place(const datResource& rsc, grcTexture* that);
 		static grcTexture* Snapshot(pgSnapshotAllocator* allocator, grcTexture* from);

@@ -1,6 +1,6 @@
 #include "texture.h"
-
 #include "texturepc.h"
+#include "texturereference.h"
 
 rage::grcTexture::grcTexture(eTextureType type, ConstString name)
 {
@@ -34,12 +34,18 @@ rage::grcTexture::grcTexture(const datResource& rsc)
 
 }
 
+rage::grcTextureDX11* rage::grcTexture::ToDX11()
+{
+	AM_ASSERTS(GetResourceType() == TEXTURE_NORMAL);
+	return reinterpret_cast<rage::grcTextureDX11*>(this);
+}
+
 rage::grcTexture* rage::grcTexture::Place(const datResource& rsc, grcTexture* that)
 {
 	AM_ASSERT(that->GetResourceType() == TEXTURE_NORMAL || that->GetResourceType() == TEXTURE_REFERENCE, 
 		"grcTexture::Place() -> Invalid resource type '%i'", that->GetResourceType());
 	if (that->GetResourceType() == TEXTURE_NORMAL)
-	return new (that) grcTextureDX11(rsc);
+		return new (that) grcTextureDX11(rsc);
 	else
 		return new (that) grcTextureReference(rsc);
 }
