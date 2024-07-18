@@ -317,6 +317,7 @@ namespace rage
 	{
 		int Handle;
 
+		explicit grcHandle() { Handle = 0; }
 		explicit grcHandle(u16 index) { Handle = index + 1; }
 
 		bool IsValid() const { return Handle > 0; }
@@ -329,7 +330,7 @@ namespace rage
 
 		bool operator!() const { return IsNull(); }
 
-		static grcHandle Null() { return grcHandle(0); }
+		static grcHandle Null() { return grcHandle(); }
 	};
 
 	/**
