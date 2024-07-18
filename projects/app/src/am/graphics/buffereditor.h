@@ -135,6 +135,41 @@ namespace rageam::graphics
 		VertexBufferEditor(const rage::grcVertexFormatInfo& vtxInfo);
 		~VertexBufferEditor();
 
+		void InitFromExisting(u32 vertexCount, void* buffer)
+		{
+			AM_ASSERTS(!m_Buffer);
+			m_Buffer = (CharArray) buffer;
+			m_OwnBufferMemory = false;
+			m_VertexCount = vertexCount;
+		}
+
+		template<typename T>
+		T& GetAttribute(u32 vertexIndex, u64 vertexOffset)
+		{
+			return *reinterpret_cast<T*>(m_Buffer + GetBufferOffset(vertexIndex, vertexOffset));
+		}
+
+		template<typename T>
+		T& GetAttribute(u32 vertexIndex, VertexSemantic semantic, u32 semanticIndex)
+		{
+			const VertexAttribute* attr = m_Decl.FindAttribute(semantic, semanticIndex);
+			AM_ASSERTS(attr != nullptr);
+			return GetAttribute<T>(vertexIndex, attr->Offset);
+		}
+
+		// Converts attribute to 'channel' array
+		template<typename TIn, typename TOut>
+		List<TOut> GetAttributeArray(VertexSemantic semantic, u32 semanticIndex)
+		{
+			List<TOut> array;
+			array.Reserve(m_VertexCount);
+			const VertexAttribute* attr = m_Decl.FindAttribute(semantic, semanticIndex);
+			AM_ASSERTS(attr != nullptr);
+			for (u32 i = 0; i < m_VertexCount; i++)
+				array.Add(TOut(GetAttribute<TIn>(i, attr->Offset)));
+			return array;
+		}
+
 		// Computes total vertex buffer in bytes
 		u64 ComputeBufferSize() const { return (u64)m_VertexCount * (u64)m_Decl.Stride; }
 
