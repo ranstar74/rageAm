@@ -108,26 +108,51 @@ project "Launcher"
 function setup_game_build_version()
 	-- 2699.16 Release (Built from source code)
 	filter { "options:gamebuild=2699_16_RELEASE_NO_OPT" }
+		defines { "APP_BUILD_ID=1" }
 		defines { "APP_BUILD_2699_16_RELEASE=1" }
 		defines { "APP_BUILD_2699_16_RELEASE_NO_OPT=1" } -- Includes APP_BUILD_2699_16_RELEASE, but higher priority
 		defines { "APP_BUILD_STRING=\"2699.16 Dev\"" }
 	
 	-- 2699.16 Master
 	filter { "options:gamebuild=2699_16" }
+		defines { "APP_BUILD_ID=1" }
 		defines { "APP_BUILD_2699_16=1" }
 		defines { "APP_BUILD_STRING=\"2699.16 Master\"" }
 	
 	-- 3095.0
 	filter { "options:gamebuild=3095_0" }
+		defines { "APP_BUILD_ID=2" }
 		defines { "APP_BUILD_3095_0=1" }
 		defines { "USE_RAGE_RTTI" } -- 2802+
 		defines { "APP_BUILD_STRING=\"3095.0 Master\"" }
 	
 	-- 3179.0
 	filter { "options:gamebuild=3179_0" }
+		defines { "APP_BUILD_ID=3" }
 		defines { "APP_BUILD_3179_0=1" }
 		defines { "USE_RAGE_RTTI" } -- 2802+
 		defines { "APP_BUILD_STRING=\"3179.0 Master\"" }
+	
+	-- 3258.0
+	filter { "options:gamebuild=3258_0" }
+		defines { "APP_BUILD_ID=4" }
+		defines { "APP_BUILD_3258_0=1" }
+		defines { "USE_RAGE_RTTI" } -- 2802+
+		defines { "APP_BUILD_STRING=\"3258.0 Master\"" }
+		
+	-- 3274.0
+	filter { "options:gamebuild=3274_0" }
+		defines { "APP_BUILD_ID=5" }
+		defines { "APP_BUILD_3274_0=1" }
+		defines { "USE_RAGE_RTTI" } -- 2802+
+		defines { "APP_BUILD_STRING=\"3274.0 Master\"" }
+	
+	-- Defines for comparison
+	defines { "APP_BUILD_ID_2699_16=1" }
+	defines { "APP_BUILD_ID_3095_0=2" }
+	defines { "APP_BUILD_ID_3179_0=3" }
+	defines { "APP_BUILD_ID_3258_0=4" }
+	defines { "APP_BUILD_ID_3274_0=5" }
 	
 	filter {}
 end

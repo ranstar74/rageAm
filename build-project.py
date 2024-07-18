@@ -9,6 +9,8 @@ class GameBuild:
         self.exe = exe
 
 gameBuilds = [ # Keep names the same size for table alignment
+    GameBuild("3274.0  Master          ", "3274_0",                 "GTA5.exe",               "-"),
+    GameBuild("3258.0  Master          ", "3258_0",                 "GTA5.exe",               "-"),
     GameBuild("3179.0  Master          ", "3179_0",                 "GTA5.exe",               "-"),
     GameBuild("3095.0  Master          ", "3095_0",                 "GTA5.exe",               "-"),
     GameBuild("2699.16 Master          ", "2699_16",                "GTA5.exe",               "-"),
@@ -16,7 +18,7 @@ gameBuilds = [ # Keep names the same size for table alignment
 ]
 
 projectTypes = [
-    "vs2022", "vs2019", "vs2017", "vs2015",
+    "vs2022", "vs2019", # "vs2017", "vs2015",
 ]
 
 def inputYes(str = ""):
