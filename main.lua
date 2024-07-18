@@ -229,6 +229,7 @@ project "rageAm"
 		"magic_enum",
 		"cgltf",
 		"ufbx",
+		"fbxsdk",
 		"hwbreakpoint",
 		"stb_image",
 		"stb_sprintf",
