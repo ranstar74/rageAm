@@ -22,8 +22,10 @@ struct IXml
 // Defines static instance with default values, we need that to export only modified fields
 #define XML_DEFINE(type) static const type& GetDefault() { static type s_Default; return s_Default; } MACRO_END
 
+#define XML_COMPARE(var) GetDefault().var != var
+
 #ifdef XML_EXPORT_ONLY_MODIFIED_VALUES
-#define XML_COMPARE_DEFAULT(var) GetDefault().var != var
+#define XML_COMPARE_DEFAULT(var) XML_COMPARE(var)
 #else
 #define XML_COMPARE_DEFAULT(var) true
 #endif
@@ -39,15 +41,40 @@ struct IXml
 // Same as XML_GET_ATTR but throws exception if value is not specified
 #define XML_GET_ATTR_R(node, var) node.GetAttribute(#var, var, false)
 
+// Gets child sets value
+// <Node>
+//     <var>Value<var/>
+// </Node>
+#define XML_GET_CHILD_VALUE(node, var) node.GetChild(#var).GetValue(var)
 // Adds child and sets 'Value' attribute
 // <Node>
 //     <var Value="var.Value" />
 // </Node>
-#define XML_SET_CHILD_VALUE(node, var) if(XML_COMPARE_DEFAULT(var)) node.AddChild(#var).SetTheValueAttribute(var)
+#define XML_SET_CHILD_VALUE_ATTR(node, var) if(XML_COMPARE_DEFAULT(var)) node.AddChild(#var).SetTheValueAttribute(var)
 // Gets child's 'Value' attribute, ignores if value is not specified
 // <Node>
 //     <var Value="var.Value" />
 // </Node>
-#define XML_GET_CHILD_VALUE(node, var) node.GetChild(#var).GetTheValueAttribute(var, true)
+#define XML_GET_CHILD_VALUE_ATTR(node, var) node.GetChild(#var).GetTheValueAttribute(var, true)
 // Same as XML_GET_CHILD_VALUE but throws exception if value is not specified
-#define XML_GET_CHILD_VALUE_R(node, var) node.GetChild(#var).GetTheValueAttribute(var, true)
+#define XML_GET_CHILD_VALUE_ATTR_R(node, var) node.GetChild(#var).GetTheValueAttribute(var, false)
+
+// ==
+// Same as above, but ignore default values
+// ==
+// Adds child and sets value
+// <Node>
+//     <var>Value<var/>
+// </Node>
+#define XML_SET_CHILD_VALUE_IGNORE_DEF(node, var) if(XML_COMPARE(var)) node.AddChild(#var).SetValue(var)
+// Adds attribute with value
+// <Node var="var.Value" />
+#define XML_SET_ATTR_IGNORE_DEF(node, var) if(XML_COMPARE(var)) node.SetAttribute(#var, var)
+// Adds child and sets 'Value' attribute
+// <Node>
+//     <var Value="var.Value" />
+// </Node>
+#define XML_SET_CHILD_VALUE_ATTR_IGNORE_DEF(node, var) if(XML_COMPARE(var)) node.AddChild(#var).SetTheValueAttribute(var)
+
+#define XML_GET_CHILD_VALUE_FLAGS(node, var, func) if (!node.GetChild(#var).IsNull()) var = func(node.GetChild(#var).GetText())
+#define XML_SET_CHILD_VALUE_FLAGS_IGNORE_DEF(node, var, func) if(XML_COMPARE(var)) node.AddChild(#var).SetValue(func(var))

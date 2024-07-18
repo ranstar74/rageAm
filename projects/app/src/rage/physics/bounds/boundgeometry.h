@@ -123,7 +123,7 @@ namespace rage
 		phBoundPolyhedron(const datResource& rsc);
 
 		void SetVertexColor(int index);
-		u32  GetVertexColor(int index);
+		u32  GetVertexColor(int index) const;
 
 		phPolygon& GetPolygon(u16 i) const { return m_Polygons.Get()[i]; }
 		void  DecompressPoly(const phPolygon& poly, Vec3V& v1, Vec3V& v2, Vec3V& v3, bool shrunk = false) const;
@@ -190,6 +190,9 @@ namespace rage
 		void SetCentroidOffset(const Vec3V& offset) override;
 		void ShiftCentroidOffset(const Vec3V& offset) override;
 
+		int				  GetPolygonMaterial(int partIndex) const { AM_ASSERTS(partIndex < m_NumPolygons); return m_PolygonToMaterial[partIndex]; }
+		u32			      GetMaterialColor(int partIndex) const { AM_ASSERTS(partIndex < m_NumMaterialColors); return m_MaterialColors[partIndex]; }
+		int				  GetNumMaterialColors() const { return m_NumMaterialColors; }
 		int               GetNumMaterials() const override { return m_NumMaterials; }
 		phMaterial*       GetMaterial(int partIndex) const override;
 		void              SetMaterial(phMaterialMgr::Id materialId, int partIndex) override;

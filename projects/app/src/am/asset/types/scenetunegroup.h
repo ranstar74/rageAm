@@ -24,6 +24,7 @@ namespace rageam::asset
 		void Serialize(XmlHandle& node) const override { XML_SET_ATTR(node, Name); }
 		void Deserialize(const XmlHandle& node) override { XML_GET_ATTR(node, Name); }
 
+		virtual bool ShouldRemoveNodeIfEmpty() const { return true; }
 		virtual amPtr<SceneTune> Clone() const = 0;
 	};
 	using SceneTunePtr = amPtr<SceneTune>;

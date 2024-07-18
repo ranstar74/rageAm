@@ -11,6 +11,7 @@
 #include "am/system/enum.h"
 #include "rage/atl/string.h"
 #include "rage/math/vec.h"
+#include "am/types.h"
 
 #define XML_ATTRIBUTE_VALUE "Value"
 
@@ -67,6 +68,13 @@ public:
 	XmlHandle(const XmlHandle& other);
 	bool IsNull() const { return m_Element == nullptr; }
 	TinyElement Get() const { return m_Element; }
+
+	void RemoveIfEmpty(const ConstString* ignoreAtts, int ignoreAttsCount);
+	void RemoveIfEmpty_IgnoreName()
+	{
+		ConstString s = "Name";
+		RemoveIfEmpty(&s, 1);
+	}
 
 	u32 GetChildCount(ConstString name = nullptr) const;
 
@@ -226,11 +234,64 @@ public:
 		SetAttribute(XML_ATTRIBUTE_VALUE, buffer);
 	}
 
-	// Utils for inner text with other types
-
 #define XML_VEC2_FMT "%g %g"
 #define XML_VEC3_FMT "%g %g %g"
 #define XML_VEC4_FMT "%g %g %g %g"
+
+	void SetTheValueAttribute(const rage::spdAABB& value)
+	{
+		const rage::Vec3V& min = value.Min;
+		const rage::Vec3V& max = value.Max;
+		SetAttribute("Min", FormatTemp(XML_VEC3_FMT, min.X(), min.Y(), min.Z()));
+		SetAttribute("Max", FormatTemp(XML_VEC3_FMT, max.X(), max.Y(), max.Z()));
+	}
+
+	void SetTheValueAttribute(const rage::spdSphere& value)
+	{
+		const rage::Vec3V& center = value.GetCenter();
+		const rage::ScalarV& radius = value.GetRadius();
+		SetAttribute("Center", FormatTemp(XML_VEC3_FMT, center.X(), center.Y(), center.Z()));
+		SetAttribute("Radius", FormatTemp("%g", radius.Get()));
+	}
+
+	void GetTheValueAttribute(rage::spdAABB& value, bool allowNull = false) const
+	{
+		bool ok = true;
+		ConstString min, max;
+		if (!GetAttribute("Min", min)) ok = false;
+		if (!GetAttribute("Max", max)) ok = false;
+		if (!ok)
+		{
+			if (allowNull)
+				return;
+			throw XmlException(FormatTemp("Min or Max is not specified in bounding box"), m_LastElementLine);
+		}
+		rage::Vector3 mins, maxs;
+		Assert(sscanf_s(GetText(), XML_VEC3_FMT, &mins.X, &mins.Y, &mins.Z) != 0, "Unable to parse AABB Min");
+		Assert(sscanf_s(GetText(), XML_VEC3_FMT, &maxs.X, &maxs.Y, &maxs.Z) != 0, "Unable to parse AABB Max");
+		value = { mins, maxs };
+	}
+
+	void GetTheValueAttribute(rage::spdSphere& value, bool allowNull = false) const
+	{
+		bool ok = true;
+		ConstString center, radius;
+		if (!GetAttribute("Center", center)) ok = false;
+		if (!GetAttribute("Radius", radius)) ok = false;
+		if (!ok)
+		{
+			if (allowNull)
+				return;
+			throw XmlException(FormatTemp("Center or Radius is not specified in bounding sphere"), m_LastElementLine);
+		}
+		rage::Vector3 centers;
+		float radiusf;
+		Assert(sscanf_s(GetText(), XML_VEC3_FMT, &centers.X, &centers.Y, &centers.Z) != 0, "Unable to parse Sphere Center");
+		Assert(sscanf_s(GetText(), "%g", &radiusf) != 0, "Unable to parse Sphere Radius");
+		value = { centers, radiusf };
+	}
+
+	// Utils for inner text with other types
 
 	void SetValue(ConstString v) const { SetText(v); }
 	void SetValue(const rage::Vector2& v) const { SetText(FormatTemp(XML_VEC2_FMT, v.X, v.Y)); }

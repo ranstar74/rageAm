@@ -9,6 +9,8 @@ void rageam::asset::SceneTuneGroupBase::Serialize(XmlHandle& node) const
 	{
 		XmlHandle xTune = xTunes.AddChild("Item");
 		tune->Serialize(xTune);
+		if (tune->ShouldRemoveNodeIfEmpty())
+			xTune.RemoveIfEmpty_IgnoreName();
 	}
 }
 

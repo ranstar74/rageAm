@@ -263,6 +263,7 @@ void rage::grmModel::SortForTessellation(const grmShaderGroup* shaderGroup)
 	}
 
 	atArray<SortedGeometry> temp;
+	temp.InitFromResourceConstructor();
 	temp.Reserve(m_GeometryCount);
 
 	u16 tesselatedCount = 0;

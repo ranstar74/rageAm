@@ -17,6 +17,20 @@ namespace rage
 	static constexpr float ONE_THIRD = 1.0f / 3.0f;
 
 	static bool AlmostEquals(float a, float b, float maxDelta = 0.01f) { return abs(a - b) <= maxDelta; }
+	static bool AlmostEquals(const float* lhs, const float* rhs, int count)
+	{
+		for (int i = 0; i < count; i++)
+		{
+			if (!AlmostEquals(lhs[i], rhs[i]))
+				return false;
+		}
+		return true;
+	}
+
+	static float Lerp(float from, float to, float by)
+	{
+		return from + (to - from) * by;
+	}
 
 	static float Wrapf(float value, float min, float max)
 	{

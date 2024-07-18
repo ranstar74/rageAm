@@ -27,7 +27,7 @@ namespace rage
 			T		m_Items[Capacity] = {};
 			char	m_Dummy;
 		};
-		TSize		m_Size;
+		TSize		m_Size = 0;
 
 		void VerifyBufferCanFitNext() const
 		{

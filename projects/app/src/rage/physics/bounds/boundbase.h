@@ -71,6 +71,9 @@ namespace rage
 
 		phBoundComposite* AsComposite();
 
+		float GetMargin() const { return m_Margin; }
+		void  SetMargin(float m) { m_Margin = m; }
+
 		Vec3V ComputeAngularInertia(float mass) const;
 		float GetVolume() const;
 		void  SetCGOffset(const Vec3V& offset);

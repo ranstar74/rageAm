@@ -43,6 +43,24 @@ namespace rageam::graphics
 
 		template<typename T>
 		T* GetBufferAs() { return reinterpret_cast<T*>(Buffer); }
+
+		template<typename T>
+		amUPtr<T[]> Copy(int count)
+		{
+			amUPtr<T[]> copy = amUPtr<T[]>(new T[count]);
+			memcpy(copy.get(), Buffer, sizeof(T) * count);
+			return copy;
+		}
+
+		template<typename TDest, typename TSource>
+		amUPtr<TDest[]> CopyCast(int count)
+		{
+			amUPtr<TDest[]> copy = amUPtr<TDest[]>(new TDest[count]);
+			TSource* source = GetBufferAs<TSource>();
+			for (int i = 0; i < count; i++)
+				copy[i] = TDest(source[i]);
+			return copy;
+		}
 	};
 
 	class SceneHandle
@@ -87,7 +105,7 @@ namespace rageam::graphics
 
 		virtual bool IsDefault() const { return false; }
 
-		bool HasTextureInSlot(eMaterialTexture texture) const { return GetTextureName(texture); }
+		bool HasTextureInSlot(eMaterialTexture texture) const { return !String::IsNullOrEmpty(GetTextureName(texture)); }
 	};
 	struct SceneMaterialHashFn
 	{
@@ -135,9 +153,18 @@ namespace rageam::graphics
 
 		virtual const rage::spdAABB& GetAABB() const = 0;
 
+		u32 GetTriCount() const { return GetIndexCount() / 3; }
+
 		bool HasSkin() const;
 		SceneMesh* GetParentMesh() const { return m_Mesh; }
 		SceneNode* GetParentNode() const;
+
+		// Helper functions
+
+		u16 GetIndexU16(int index) const { SceneData data; GetIndices(data); return data.GetBufferAs<u16>()[index]; }
+		Vec3S& GetPosition(int index) const { SceneData data; GetAttribute(data, POSITION, 0); return data.GetBufferAs<Vec3S>()[index]; }
+		Vec3S& GetNormal(int index) const { SceneData data; GetAttribute(data, NORMAL, 0); return data.GetBufferAs<Vec3S>()[index]; }
+		Vec2S& GetTexCoord(int index, int semantic = 0) const { SceneData data; GetAttribute(data, TEXCOORD, semantic); return data.GetBufferAs<Vec2S>()[index]; }
 	};
 
 	/**

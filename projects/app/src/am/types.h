@@ -15,6 +15,9 @@
 
 namespace rageam
 {
+	template<typename T, u32 capacity>
+	using FixedArray = rage::atFixedArray<T, capacity>;
+
 	// Dynamic array with 32 bit index
 	template<typename T>
 	using List = rage::atArray<T, u32>;

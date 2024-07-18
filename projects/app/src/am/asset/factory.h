@@ -33,7 +33,7 @@ namespace rageam::asset
 		static void Shutdown();
 
 		static AssetPtr LoadFromPath(const file::WPath& path, bool tempConfig = false);
-		// Converts compiled game asset to asset
+		// Converts compiled game asset to asset // TODO:
 		static AssetPtr ParseFromPath(const file::WPath& path);
 
 		template<typename TAsset>
@@ -41,6 +41,8 @@ namespace rageam::asset
 		{
 			return std::dynamic_pointer_cast<TAsset>(LoadFromPath(path, tempConfig));
 		}
+
+		static file::WPath MakeAssetConfigPath(const file::WPath& path, bool tempConfig = false);
 
 		static bool IsAsset(const file::WPath& path);
 

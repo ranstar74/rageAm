@@ -43,6 +43,11 @@ rageam::asset::AssetPtr rageam::asset::AssetFactory::ParseFromPath(const file::W
 	AM_UNREACHABLE("AssetFactory::ParseFromPath() -> Not implemented.");
 }
 
+rageam::file::WPath rageam::asset::AssetFactory::MakeAssetConfigPath(const file::WPath& path, bool tempConfig)
+{
+	return path / (tempConfig ? ASSET_CONFIG_NAME_TEMP : ASSET_CONFIG_NAME);
+}
+
 bool rageam::asset::AssetFactory::IsAsset(const file::WPath& path)
 {
 	return TryGetDefinition(path) != nullptr;

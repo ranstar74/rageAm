@@ -81,6 +81,8 @@ namespace rage
 
 		Vector3 operator-() const { return Vector3(-X, -Y, -Z); }
 
+		bool operator==(const Vector3& other) const = default;
+
 		void FromArray(const float* arr) { X = arr[0]; Y = arr[1]; Z = arr[2]; }
 		void ToArray(float* arr) const { arr[0] = X; arr[1] = Y; arr[2] = Z; }
 

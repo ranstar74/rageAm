@@ -122,6 +122,7 @@ rage::phBound* rage::phBound::Place(const datResource& rsc, phBound* that)
 		case PH_BOUND_CAPSULE:	 return new (that) phBoundCapsule(rsc);
 		case PH_BOUND_GEOMETRY:	 return new (that) phBoundGeometry(rsc);
 		case PH_BOUND_COMPOSITE: return new (that) phBoundComposite(rsc);
+		case PH_BOUND_BVH:		 return new (that) phBoundBVH(rsc);
 
 		default:
 			AM_UNREACHABLE("phBound::Place() -> Type %u is not supported.", that->m_Type);
@@ -138,6 +139,7 @@ rage::phBound* rage::phBound::CreateOfType(phBoundType type)
 	case PH_BOUND_CAPSULE:	 return new phBoundCapsule();
 	case PH_BOUND_GEOMETRY:	 return new phBoundGeometry();
 	case PH_BOUND_COMPOSITE: return new phBoundComposite();
+	case PH_BOUND_BVH:		 return new phBoundBVH();
 
 		default:
 			AM_UNREACHABLE("phBound::CreateOfType() -> Type %u is not supported.", type);

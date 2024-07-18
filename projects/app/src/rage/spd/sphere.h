@@ -46,5 +46,10 @@ namespace rage
 			Vec3V offsetToNewCenter = to * centre / Max(0.001f, dist);
 			return spdSphere(GetCenter() + offsetToNewCenter, newRadius);
 		}
+
+		bool operator==(const spdSphere& other) const
+		{
+			return CenterAndRadius.AlmostEqual(other.CenterAndRadius);
+		}
 	};
 }

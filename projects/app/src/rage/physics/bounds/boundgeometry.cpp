@@ -291,7 +291,7 @@ void rage::phBoundPolyhedron::SetVertexColor(int index)
 	m_VertexAttributes[index];
 }
 
-u32 rage::phBoundPolyhedron::GetVertexColor(int index)
+u32 rage::phBoundPolyhedron::GetVertexColor(int index) const
 {
 	AM_ASSERTS(m_VertexAttributes);
 	AM_ASSERTS(index < m_NumPolygons);
@@ -688,9 +688,11 @@ rage::phBoundGeometry::phBoundGeometry()
 }
 
 // ReSharper disable once CppPossiblyUninitializedMember
-rage::phBoundGeometry::phBoundGeometry(const datResource& rsc): phBoundPolyhedron(rsc)
+rage::phBoundGeometry::phBoundGeometry(const datResource& rsc) : phBoundPolyhedron(rsc)
 {
-
+	rsc.Fixup(m_PolygonToMaterial);
+	rsc.Fixup(m_SecondSurfaceVertexDisplacements);
+	rsc.Fixup(m_Materials);
 }
 
 rage::phBoundGeometry::phBoundGeometry(const spdAABB& bb, const Vector3* vertices, const u16* indices, u32 vertexCount, u32 indexCount)

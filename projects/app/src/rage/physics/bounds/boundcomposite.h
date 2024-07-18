@@ -54,6 +54,11 @@ namespace rage
 		CollisionFlags GetTypeFlags(u16 index);
 		CollisionFlags GetIncludeFlags(u16 index);
 
+		// Sometimes composite has no include flags, game interprets it like all flags are set both for type and include (0xFFFFFFFF)
+		bool HasTypeAndIncludeFlags() const { return m_TypeAndIncludeFlags != nullptr; }
+
+		int GetBoundIndex(const phBound* bound) const;
+
 		void		  SetMatrix(u16 index, const Mat44V& mtx);
 		const Mat44V& GetMatrix(u16 index);
 

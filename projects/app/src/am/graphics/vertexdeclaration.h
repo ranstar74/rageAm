@@ -37,6 +37,13 @@ namespace rageam::graphics
 		return VertexSemantic(grcSemantic); // Fully matches so simply cast
 	}
 
+	inline ConstString FormatSemanticName(VertexSemantic semantic, int index)
+	{
+		static char buffer[32];
+		sprintf_s(buffer, 32, "%s%i", rage::VertexSemanticName[semantic], index);
+		return buffer;
+	}
+
 	struct VertexAttribute
 	{
 		VertexSemantic	Semantic;
@@ -61,6 +68,13 @@ namespace rageam::graphics
 		{
 			Stride = 0;
 			GrcInfo = vertexInfo;
+
+			InitFromGrcInfo();
+		}
+		VertexDeclaration(const rage::grcFvf* fvf)
+		{
+			Stride = 0;
+			GrcInfo = rage::grcVertexDeclaration::CreateFromFvf(*fvf);
 
 			InitFromGrcInfo();
 		}

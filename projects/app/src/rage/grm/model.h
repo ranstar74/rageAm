@@ -99,7 +99,27 @@ namespace rage
 		const spdAABB& GetCombinedBoundingBox() const;
 		const spdAABB& GetGeometryBoundingBox(u16 geometryIndex) const;
 
-		const grmGeometries& GetGeometries() { return m_Geometries; }
+		grmGeometries& GetGeometries() { return m_Geometries; }
+
+		u32 ComputeTotalVertexCount() const
+		{
+			u32 vertexCount = 0;
+			for (auto& geometry : m_Geometries)
+				vertexCount += geometry->GetVertexCount();
+			return vertexCount;
+		}
+
+		u32 ComputeTotalPolygonCount() const
+		{
+			u32 polyCount = 0;
+			for (auto& geometry : m_Geometries)
+			{
+				u32 indexCount = geometry->GetIndexCount();
+				AM_ASSERT(indexCount % 3 == 0, "grmModel::GetTotalPolygonCount() -> Expected tri topology!");
+				polyCount += geometry->GetIndexCount() / 3;
+			}
+			return polyCount;
+		}
 
 		u16 GetMaterialIndex(u16 geometryIndex) const;
 		void SetMaterialIndex(u16 geometryIndex, u16 materialIndex) const;

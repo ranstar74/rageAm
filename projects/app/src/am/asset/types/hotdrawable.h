@@ -180,6 +180,8 @@ namespace rageam::asset
 
 		rage::grcTexture* LookupTexture(ConstString name) const;
 
+		const auto& GetAsset() const { return m_Asset; }
+
 		// All removed textures are added in single list and removed on the end of the frame to prevent
 		// removing textures that are still currently in draw list
 		static void RemoveTexturesFromRenderThread(bool forceAll);

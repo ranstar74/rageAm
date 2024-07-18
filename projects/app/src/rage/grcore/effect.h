@@ -691,6 +691,8 @@ namespace rage
 		grcHandle           LookupTechnique(u32 hash);
 		grcHandle           LookupTechnique(ConstString name) { return LookupTechnique(atStringHash(name)); }
 
+		u32 GetDcl() const { return m_Dcl; }
+
 		grcVertexProgram* GetVS(const grcEffectTechnique* technique)
 		{
 			return &m_VertexPrograms[technique->m_Passes[0].VS];

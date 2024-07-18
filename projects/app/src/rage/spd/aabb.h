@@ -138,5 +138,10 @@ namespace rage
 			outVertices[6] = TBR();
 			outVertices[7] = TTR();
 		}
+
+		bool operator==(const spdAABB& other) const
+		{
+			return Min.AlmostEqual(other.Min) && Max.AlmostEqual(other.Max);
+		}
 	};
 }

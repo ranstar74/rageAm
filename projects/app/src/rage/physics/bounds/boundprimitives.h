@@ -71,7 +71,7 @@ namespace rage
 		Vec3V GetHalfExtents() const { return m_BoundingBoxMax - m_CentroidOffset; }
 		float GetRadius() const { return GetHalfExtents().X(); }
 		float GetHalfHeight() const { return GetHalfExtents().Y(); }
-		float GetHeight() const { return m_BoundingBoxMax.X - m_BoundingBoxMin.X; }
+		float GetHeight() const { return m_BoundingBoxMax.Y - m_BoundingBoxMin.Y; }
 	};
 
 	class phBoundCapsule : public phBoundPrimitive
@@ -84,6 +84,8 @@ namespace rage
 		phBoundCapsule(const datResource& rsc);
 
 		void CalculateExtents() override;
+
+		float GetHalfLenght() const;
 
 		float GetHalfHeight() const { return m_CapsuleHalfHeight; }
 		float GetRadius() const { return m_Margin; }

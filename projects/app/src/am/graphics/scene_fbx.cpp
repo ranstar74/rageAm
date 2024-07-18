@@ -47,7 +47,7 @@ u32 rageam::graphics::SceneGeometryFbx::ComputeVertexCount() const
 	u32 indexCount = m_UMesh->num_triangles * 3;
 	BitArray processedVerts;
 	processedVerts.Allocate(indexCount);
-
+	
 	u32 totalNumVerts = 0;
 	for (u32& faceIndex : m_UMeshMat->face_indices)
 	{
@@ -181,6 +181,7 @@ void rageam::graphics::SceneGeometryFbx::TriangulateAndBuildAttributes()
 			if (m_UMesh->vertex_position.exists)
 			{
 				rage::Vec3V pos = UVecToV(ufbx_get_vertex_vec3(&m_UMesh->vertex_position, vertIndex));
+				// pos /= 100.0f; // Centimeters - Meters
 				m_PositionBound = m_PositionBound.AddPoint(pos); // Extend bounding box to new position
 				m_Positions[currentVertex] = pos;
 			}

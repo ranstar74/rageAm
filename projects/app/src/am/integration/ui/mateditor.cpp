@@ -1387,7 +1387,7 @@ void rageam::integration::MaterialEditor::DrawPhysicsOptions() const
 	rage::phBound* rootBound = m_Context->Drawable->GetBound().Get();
 	asset::DrawableAssetMap& map = *m_Context->DrawableAsset->CompiledDrawableMap;
 	asset::MaterialTune* materialTune = GetSelectedMaterialTune();
-	gtaMaterialId physMatId = materialTune->PhysicalMaterialId;
+	gtaMaterialId physMatId = materialTune->PhysicalMaterial;
 
 	bool materialChanged = false;
 
@@ -1538,22 +1538,14 @@ void rageam::integration::MaterialEditor::DrawPhysicsOptions() const
 		physMatId.PedDensity = pedDensity;
 		physMatId.Color = color;
 
-		materialTune->PhysicalMaterialId = physMatId;
+		materialTune->PhysicalMaterial = physMatId;
 
 		// Set new material to all bounds
 		auto& boundMaterialHandles = map.SceneMaterialToBounds[m_SelectedMaterialIndex];
 		for (auto& boundMaterialHandle : boundMaterialHandles)
 		{
-			if (rootBound->GetShapeType() == rage::PH_BOUND_COMPOSITE)
-			{
-				rage::phBoundComposite* composite = reinterpret_cast<rage::phBoundComposite*>(rootBound);
-				rage::phBound* bound = composite->GetBound(boundMaterialHandle.BoundIndex).Get();
-				bound->SetMaterial(physMatId, boundMaterialHandle.MaterialIndex);
-			}
-			else
-			{
-				rootBound->SetMaterial(physMatId, boundMaterialHandle.MaterialIndex);
-			}
+			rage::phBound* bound = map.GetBoundFromAbsoluteIndex(rootBound, boundMaterialHandle.AbsoluteBoundIndex);
+			bound->SetMaterial(physMatId, boundMaterialHandle.MaterialIndex);
 		}
 	}
 }

@@ -170,6 +170,14 @@ namespace rage
 			Destroy();
 		}
 
+		// Hack used to initialize temp array duruing resource building
+		void InitFromResourceConstructor()
+		{
+			m_Items = nullptr;
+			m_Capacity = 0;
+			m_Size = 0;
+		}
+
 		/*
 		 *	------------------ Initializers / Destructors ------------------
 		 */

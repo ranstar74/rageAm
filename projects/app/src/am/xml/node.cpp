@@ -56,6 +56,37 @@ XmlHandle::XmlHandle(const XmlHandle& other)
 	m_Element = other.m_Element;
 }
 
+void XmlHandle::RemoveIfEmpty(const ConstString* ignoreAtts, int ignoreAttsCount)
+{
+	int attrCount = 0;
+	auto attr = m_Element->FirstAttribute();
+	while (attr)
+	{
+		ConstString attrName = attr->Name();
+		attr = attr->Next();
+
+		// Check if attribute must be ignored
+		bool ignore = false;
+		for (int i = 0; i < ignoreAttsCount; i++)
+		{
+			if (String::Equals(attrName, ignoreAtts[i]))
+			{
+				ignore = true;
+				break;
+			}
+		}
+
+		if (!ignore)
+			attrCount++;
+	}
+
+	if (m_Element->FirstChild() || attrCount > 0)
+		return;
+
+	m_Element->Parent()->DeleteChild(m_Element);
+	m_Element = nullptr;
+}
+
 u32 XmlHandle::GetChildCount(ConstString name) const
 {
 	u32 count = 0;

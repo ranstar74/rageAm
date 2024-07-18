@@ -1,7 +1,7 @@
 //
 // File: drawable.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
@@ -15,6 +15,7 @@
 #include "game/drawable.h"
 #include "am/types.h"
 #include "am/graphics/geomprimitives.h"
+#include "drawablemap.h"
 
 #include <any>
 
@@ -62,6 +63,36 @@ namespace rageam::asset
 	};
 	using DrawableTxdSet = HashSet<DrawableTxd, DrawableTxdHashFn>;
 
+	// RB_MODEL_#, used in grmModel and grmShader
+	struct BucketFlags : IXml
+	{
+		bool CastShadows = true;
+		bool ReflectionsParaboloid = true;
+		bool ReflectionsMirror = true;
+		bool ReflectionsWater = true;
+
+		void Serialize(XmlHandle& node) const override;
+		void Deserialize(const XmlHandle& node) override;
+
+		void ApplyToMask(u32& mask) const
+		{
+			if (CastShadows)		   mask |= 1 << rage::RB_MODEL_SHADOW;
+			if (ReflectionsParaboloid) mask |= 1 << rage::RB_MODEL_REFLECTION_PARABOLOID;
+			if (ReflectionsMirror)	   mask |= 1 << rage::RB_MODEL_REFLECTION_MIRROR;
+			if (ReflectionsWater)	   mask |= 1 << rage::RB_MODEL_REFLECTION_WATER;
+		}
+
+		void SetFromMask(u32 mask)
+		{
+			CastShadows			  = mask & 1 << rage::RB_MODEL_SHADOW;
+			ReflectionsParaboloid = mask & 1 << rage::RB_MODEL_REFLECTION_PARABOLOID;
+			ReflectionsMirror	  = mask & 1 << rage::RB_MODEL_REFLECTION_MIRROR;
+			ReflectionsWater	  = mask & 1 << rage::RB_MODEL_REFLECTION_WATER;
+		}
+
+		XML_DEFINE(BucketFlags);
+	};
+
 	struct MaterialTune : SceneTune
 	{
 		XML_DEFINE(MaterialTune);
@@ -83,7 +114,7 @@ namespace rageam::asset
 			Unsupported = -1,
 		};
 
-		inline static constexpr eParamType grcEffectVarTypeToParamType[] =
+		static constexpr eParamType grcEffectVarTypeToParamType[] =
 		{
 			None,			// NONE
 			Unsupported,	// INT
@@ -124,8 +155,12 @@ namespace rageam::asset
 
 		string		Effect;
 		u8			DrawBucket = 0;
+		BucketFlags RenderBucketFlags = {};
 		List<Param>	Params;
-		u64			PhysicalMaterialId = rage::phMaterialMgr::DEFAULT_MATERIAL_ID;
+		u64			PhysicalMaterial = rage::phMaterialMgr::DEFAULT_MATERIAL_ID;
+		// Temp flag during serialization to skip params/effect/drawbucket
+		bool		UsedInBound = false;
+		bool		UsedInModel = false;
 
 		MaterialTune() = default;
 		MaterialTune(ConstString name, ConstString shaderName = DEFAULT_SHADER)
@@ -135,8 +170,8 @@ namespace rageam::asset
 		}
 		MaterialTune(const MaterialTune& other) = default;
 
-		void Deserialize(const XmlHandle& node) override;
 		void Serialize(XmlHandle& node) const override;
+		void Deserialize(const XmlHandle& node) override;
 
 		// Finds effect from ShaderHash
 		rage::grcEffect* LookupEffect() const;
@@ -150,6 +185,8 @@ namespace rageam::asset
 		// Attempts to match texture name from material to 'DiffuseSampler' or 'SpecSampler' effect params
 		void SetTextureNamesFromSceneMaterial(const graphics::SceneMaterial* sceneMaterial);
 
+		// Don't remove material tune if we have only node with name attribute because we parse physical material from the name
+		bool ShouldRemoveNodeIfEmpty() const override { return false; }
 		SceneTunePtr Clone() const override { return std::make_shared<MaterialTune>(*this); }
 	};
 
@@ -169,42 +206,18 @@ namespace rageam::asset
 		MaterialTuneGroup(const MaterialTuneGroup& other) = default;
 	};
 
-	struct ModelTune : SceneTune
+	struct ModelTune : IXml
 	{
-		bool CreateBone = false;		// Force create bone from the node
-		bool EnableShadows = true;
-		bool ShowInReflections = true;
-		struct
-		{
-			u32  IncludeFlags = rage::CF_ALL;
-			u32  TypeFlags =
-				rage::CF_MAP_TYPE_MOVER |
-				rage::CF_MAP_TYPE_HORSE |
-				rage::CF_MAP_TYPE_COVER |
-				rage::CF_MAP_TYPE_WEAPON |
-				rage::CF_MAP_TYPE_VEHICLE;
-		} BoundTune;
+		AABB		BoundingBox = {};
+		BucketFlags RenderBucketFlags = {};
 
 		void Serialize(XmlHandle& node) const override;
 		void Deserialize(const XmlHandle& node) override;
 
-		SceneTunePtr Clone() const override { return std::make_shared<ModelTune>(*this); }
+		XML_DEFINE(ModelTune);
 	};
 
-	struct ModelTuneGroup : SceneTuneGroup<ModelTune>
-	{
-		int IndexOf(const graphics::Scene* scene, ConstString itemName) const override;
-
-		SceneTunePtr CreateTune() const override;
-		SceneTunePtr CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const override;
-
-		ConstString  GetItemName(graphics::Scene* scene, u16 itemIndex) const override;
-		u16          GetItemCount(graphics::Scene* scene) const override;
-
-		ConstString GetName() const override { return "Models"; }
-	};
-
-	struct LightTune : SceneTune
+	struct LightTune : IXml
 	{
 		enum LightType { Point = 1, Spot = 2, Capsule = 4, };
 
@@ -252,12 +265,76 @@ namespace rageam::asset
 		void InitFromSceneLight(const graphics::SceneNode* lightNode);
 		void FromLightAttr(const CLightAttr* attr);
 
-		SceneTunePtr Clone() const override { return std::make_shared<LightTune>(*this); }
+		XML_DEFINE(LightTune);
 	};
 
-	struct LightTuneGroup : SceneTuneGroup<LightTune>
+	struct BoneTune : IXml
 	{
-		int	IndexOf(const graphics::Scene* scene, ConstString itemName) const override;
+		bool ForceCreate;
+		u32  DOFs;
+		u16  Tag;
+
+		void Serialize(XmlHandle& node) const override;
+		void Deserialize(const XmlHandle& node) override;
+
+		XML_DEFINE(BoneTune);
+	};
+
+	struct CollisionTune : IXml
+	{
+		// Keep flags 0 because game handles them as all flags set
+		static constexpr u32 DEFAULT_INCLUDE_FLAGS = 0;
+		static constexpr u32 DEFAULT_TYPE_FLAGS = 0;
+
+		enum class ShapeType // Fully matches graphics::PrimitiveType, just exists for naming without prefix
+		{
+			Auto,
+			Mesh,
+			Box,
+			Sphere,
+			Cylinder,
+			Capsule,
+		};
+
+		ShapeType Type = ShapeType::Auto; // Forced type for bound. If auto is set, primitive matching will be used;
+		AABB      BoundingBox;
+		Sphere    BoundingSphere;
+		u32       TypeFlags = DEFAULT_TYPE_FLAGS;
+		u32       IncludeFlags = DEFAULT_INCLUDE_FLAGS;
+		float     Margin = rage::PH_DEFAULT_MARGIN;
+		Vec3S     CGOffset;
+		Vec3S     VolumeDistribution;
+		float     Volume = 0.0f;
+
+		void Serialize(XmlHandle& node) const override;
+		void Deserialize(const XmlHandle& node) override;
+
+		XML_DEFINE(CollisionTune);
+	};
+
+	struct NodeTune : SceneTune
+	{
+		ModelTune     Model;
+		BoneTune      Bone;
+		CollisionTune Collision;
+		LightTune     Light;
+		// Used only serialization
+		bool		  HasModel;
+		bool		  HasBone;
+		bool		  HasCollision;
+		bool		  HasLight;
+
+		void Serialize(XmlHandle& node) const override;
+		void Deserialize(const XmlHandle& node) override;
+
+		SceneTunePtr Clone() const override { return std::make_shared<NodeTune>(*this); }
+
+		XML_DEFINE(NodeTune);
+	};
+
+	struct NodeTuneGroup : SceneTuneGroup<NodeTune>
+	{
+		int IndexOf(const graphics::Scene* scene, ConstString itemName) const override;
 
 		SceneTunePtr CreateTune() const override;
 		SceneTunePtr CreateDefaultTune(graphics::Scene* scene, u16 itemIndex) const override;
@@ -265,90 +342,39 @@ namespace rageam::asset
 		ConstString  GetItemName(graphics::Scene* scene, u16 itemIndex) const override;
 		u16          GetItemCount(graphics::Scene* scene) const override;
 
-		ConstString GetName() const override { return "Lights"; }
-
-		LightTuneGroup() = default;
-		LightTuneGroup(const LightTuneGroup& other) = default;
-	};
-
-	struct LodGroupTune : IXml
-	{
-		string			FileName;
-		ModelTuneGroup	Models;
-		float			LodThreshold[MAX_LOD] = { 30, 60, 90, 120 };
-		bool			AutoGenerateLods = false; // TODO: We need some 3D mesh processing library
-
-		LodGroupTune() = default;
-		LodGroupTune(const LodGroupTune& other) = default;
-
-		void Serialize(XmlHandle& node) const override;
-		void Deserialize(const XmlHandle& node) override;
+		ConstString GetName() const override { return "Nodes"; }
 	};
 
 	struct DrawableTune : IXml
 	{
-		file::WPath       SceneFileName;
+		// bool			  DefaultBVH = false;
+		// bool			  AutoGenerateLods = false;
+
+		float			  LodThreshold[MAX_LOD] = { 30, 60, 90, 120 };
+		AABB			  BoundingBox;
+		Sphere			  BoundingSphere;
+		NodeTuneGroup     Nodes;
 		MaterialTuneGroup Materials;
-		LightTuneGroup    Lights;
-		LodGroupTune      Lods;
-		bool			  DefaultBVH = false; // All collision bounds are placed in BVH, no composite is created
 
 		DrawableTune() = default;
 		DrawableTune(const DrawableTune& other) = default;
 
 		void Serialize(XmlHandle& node) const override;
 		void Deserialize(const XmlHandle& node) override;
-	};
 
-	/**
-	 * \brief Maps 3D scene data to compiled gta drawable.
-	 */
-	struct DrawableAssetMap
-	{
-		// SceneNode -> ### can be NULL
-		// grmShader/grmModel/CLightAttr ALWAYS map to a valid scene index
-		// BoneToSceneNode MAY map to NULL index for autogenerated root bone
-		// SceneNode links to multiple bounds for each SceneMesh' geometry
-		// SceneMaterial links to multiple bounds that use this material
-
-		struct ModelHandle { u16 Lod, Index; };
-		// Defines index of material in phBoundGeometry::m_Materials
-		// MaterialIndex is -1 for all other primitive bound types
-		// Bound index is index in composite, or -1 if there's no composite
-		struct BoundMaterialHandle { int BoundIndex; int MaterialIndex; };
-
-		// Material might be used in multiple bounds
-		using MaterialBounds = SmallList<BoundMaterialHandle>;
-
-		SmallList<SmallList<u16>> SceneNodeToBound;			// graphics::SceneNode		-> rage::phBound[]
-		SmallList<ModelHandle>	  SceneNodeToModel;			// graphics::SceneNode		-> rage::grmModel
-		SmallList<u16>			  SceneNodeToBone;			// graphics::SceneNode		-> rage::crBoneData
-		SmallList<u16>			  SceneMaterialToShader;	// graphics::SceneMaterial	-> rage::grmShader
-		SmallList<MaterialBounds> SceneMaterialToBounds;	// graphics::SceneMaterial  -> rage::phBound::GetMaterial(..., i)
-		SmallList<u16>			  SceneNodeToLightAttr;		// graphics::SceneLight		-> CLightAttr
-
-		SmallList<u16>			  ModelToSceneNode;			// rage::grmModel			-> graphics::SceneNode
-		SmallList<u16>			  BoundToSceneNode;			// rage::phBound			-> graphics::SceneNode
-		SmallList<u16>			  BoneToSceneNode;			// rage::crBoneData			-> graphics::SceneNode
-		SmallList<u16>			  ShaderToSceneMaterial;	// rage::grmShader			-> graphics::SceneMaterial
-		SmallList<u16>			  LightAttrToSceneNode;		// CLightAttr				-> graphics::SceneLight
-
-		rage::grmModel*   GetModelFromScene(rage::rmcDrawable* drawable, u16 sceneNodeIndex) const;
-		rage::crBoneData* GetBoneFromScene(const rage::rmcDrawable* drawable, u16 sceneNodeIndex) const;
-		rage::phBound*    GetBoundFromScene(const gtaDrawable* drawable, u16 sceneNodeIndex, u16 arrayIndex) const;
-		u16				  GetBoundCountFromScene(const gtaDrawable* drawable, u16 sceneNodeIndex) const;
-		CLightAttr*       GetLightFromScene(gtaDrawable* drawable, u16 sceneNodeIndex) const;
+		XML_DEFINE(DrawableTune);
 	};
 
 	class DrawableAsset : public GameRscAsset<gtaDrawable>
 	{
 		// Path's used only if loaded from xml
 
-		file::WPath			m_EmbedDictPath;	 // By default (e.g. for 'bender.idr') will be 'bender.idr/bender.itd'
-		TxdAssetPtr			m_EmbedDictTune;
-		graphics::ScenePtr	m_Scene;
-		u64					m_SceneFileTime = 0; // To reload scene on compiling if it was modified
-		DrawableTune		m_DrawableTune;
+		file::WPath        m_EmbedDictPath; // By default (e.g. for 'bender.idr') will be 'bender.idr/bender.itd'
+		TxdAssetPtr        m_EmbedDictTune;
+		graphics::ScenePtr m_Scene;
+		u64                m_SceneFileTime = 0; // To reload scene on compiling if it was modified
+		file::WPath		   m_ScenePath;
+		DrawableTune       m_DrawableTune;
 
 		// Fields below used only during conversion
 
@@ -383,6 +409,8 @@ namespace rageam::asset
 		// Key is SceneNode index
 		List<rage::grmModel*>		m_NodeToModel;
 		List<rage::crBoneData*>		m_NodeToBone;
+
+		int m_BoundCounter = 0;
 
 		// Looks up effect (shader) for every material and caches them in m_EffectCache
 		bool CacheEffects();
@@ -449,13 +477,13 @@ namespace rageam::asset
 		// Creates collision bounds from node mesh geometries, geometries are usually split by material
 		// May return empty array if no primitives were created from the node (for example node has no mesh or invalid topology)
 		// Outputs bound of types: phBoundBox, phBoundSphere, phBoundCylinder, phBoundCapsule, phBoundGeometry
-		List<CreatedBoundInfo> CreateBoundsFromNode(int boundIndex, graphics::SceneNode* node) const;
-		CreatedBoundInfo CreateBvhFromNode(int boundIndex, graphics::SceneNode* node) const;
+		List<CreatedBoundInfo> CreateBoundsFromNode(int boundIndex, graphics::SceneNode* node);
+		CreatedBoundInfo CreateBvhFromNode(int boundIndex, graphics::SceneNode* node);
 		ColType GetNodeColType(const graphics::SceneNode* sceneNode) const;
 		bool IsColIdentifierNode(const graphics::SceneNode* sceneNode) const;
 		bool IsBvhIdentifierNode(const graphics::SceneNode* sceneNode) const;
 		bool IsCollisionNode(const graphics::SceneNode* sceneNode) const { return GetNodeColType(sceneNode) != ColNone; }
-		void CreateBound() const;
+		void CreateBound();
 
 		// Transforms model bounding boxes using SceneNode matrix
 		// We do this as user-friendly solution to non-zero transform (XForm in 3DS Max)
@@ -491,7 +519,7 @@ namespace rageam::asset
 		DrawableAsset(const DrawableAsset& other);
 
 		bool CompileToGame(gtaDrawable* ppOutGameFormat) override;
-		void ParseFromGame(gtaDrawable* object) override;
+		void ParseFromGame(gtaDrawable* drawable) override;
 		void Refresh() override;
 
 		void RefreshTunesFromScene();
@@ -520,9 +548,9 @@ namespace rageam::asset
 		DrawableTune& GetDrawableTune() { return m_DrawableTune; }
 
 		// File to the scene 3D model file, might be empty
-		file::WPath GetScenePath() const { return GetDirectoryPath() / m_DrawableTune.SceneFileName; }
+		file::WPath GetScenePath() const { return GetDirectoryPath() / m_ScenePath; }
 		// NOTE: There's no checks if path is valid or not, used only by hot reload currently
-		void		SetScenePath(const file::WPath& path) { m_DrawableTune.SceneFileName = path.GetFileName(); }
+		void		SetScenePath(const file::WPath& path) { m_ScenePath = path.GetFileName(); }
 
 		// Only to be used if asset was compiled successfully!
 		amUPtr<DrawableAssetMap> CompiledDrawableMap;

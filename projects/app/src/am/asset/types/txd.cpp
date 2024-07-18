@@ -13,7 +13,7 @@
 void rageam::asset::TextureOptions::SerializeChanged(const XmlHandle& node, const TextureOptions& options) const
 {
 #define TEX_SET_IF_CHANGED(field) \
-	if (options.CompressorOptions.field != CompressorOptions.field) XML_SET_CHILD_VALUE(node, CompressorOptions.field);
+	if (options.CompressorOptions.field != CompressorOptions.field) XML_SET_CHILD_VALUE_ATTR(node, CompressorOptions.field);
 
 	TEX_SET_IF_CHANGED(Format);
 	TEX_SET_IF_CHANGED(MipFilter);
@@ -33,34 +33,34 @@ void rageam::asset::TextureOptions::SerializeChanged(const XmlHandle& node, cons
 
 void rageam::asset::TextureOptions::Serialize(XmlHandle& node) const
 {
-	XML_SET_CHILD_VALUE(node, CompressorOptions.Format);
-	XML_SET_CHILD_VALUE(node, CompressorOptions.MipFilter);
-	XML_SET_CHILD_VALUE(node, CompressorOptions.Quality);
-	XML_SET_CHILD_VALUE(node, CompressorOptions.MaxResolution);
-	XML_SET_CHILD_VALUE(node, CompressorOptions.GenerateMipMaps);
-	XML_SET_CHILD_VALUE(node, CompressorOptions.Brightness);
-	XML_SET_CHILD_VALUE(node, CompressorOptions.Contrast);
-	XML_SET_CHILD_VALUE(node, CompressorOptions.CutoutAlpha);
-	XML_SET_CHILD_VALUE(node, CompressorOptions.CutoutAlphaThreshold);
-	XML_SET_CHILD_VALUE(node, CompressorOptions.AlphaTestCoverage);
-	XML_SET_CHILD_VALUE(node, CompressorOptions.AlphaTestThreshold);
-	XML_SET_CHILD_VALUE(node, CompressorOptions.AllowRecompress);
+	XML_SET_CHILD_VALUE_ATTR(node, CompressorOptions.Format);
+	XML_SET_CHILD_VALUE_ATTR(node, CompressorOptions.MipFilter);
+	XML_SET_CHILD_VALUE_ATTR(node, CompressorOptions.Quality);
+	XML_SET_CHILD_VALUE_ATTR(node, CompressorOptions.MaxResolution);
+	XML_SET_CHILD_VALUE_ATTR(node, CompressorOptions.GenerateMipMaps);
+	XML_SET_CHILD_VALUE_ATTR(node, CompressorOptions.Brightness);
+	XML_SET_CHILD_VALUE_ATTR(node, CompressorOptions.Contrast);
+	XML_SET_CHILD_VALUE_ATTR(node, CompressorOptions.CutoutAlpha);
+	XML_SET_CHILD_VALUE_ATTR(node, CompressorOptions.CutoutAlphaThreshold);
+	XML_SET_CHILD_VALUE_ATTR(node, CompressorOptions.AlphaTestCoverage);
+	XML_SET_CHILD_VALUE_ATTR(node, CompressorOptions.AlphaTestThreshold);
+	XML_SET_CHILD_VALUE_ATTR(node, CompressorOptions.AllowRecompress);
 }
 
 void rageam::asset::TextureOptions::Deserialize(const XmlHandle& node)
 {
-	XML_GET_CHILD_VALUE(node, CompressorOptions.Format);
-	XML_GET_CHILD_VALUE(node, CompressorOptions.MipFilter);
-	XML_GET_CHILD_VALUE(node, CompressorOptions.Quality);
-	XML_GET_CHILD_VALUE(node, CompressorOptions.MaxResolution);
-	XML_GET_CHILD_VALUE(node, CompressorOptions.GenerateMipMaps);
-	XML_GET_CHILD_VALUE(node, CompressorOptions.Brightness);
-	XML_GET_CHILD_VALUE(node, CompressorOptions.Contrast);
-	XML_GET_CHILD_VALUE(node, CompressorOptions.CutoutAlpha);
-	XML_GET_CHILD_VALUE(node, CompressorOptions.CutoutAlphaThreshold);
-	XML_GET_CHILD_VALUE(node, CompressorOptions.AlphaTestCoverage);
-	XML_GET_CHILD_VALUE(node, CompressorOptions.AlphaTestThreshold);
-	XML_GET_CHILD_VALUE(node, CompressorOptions.AllowRecompress);
+	XML_GET_CHILD_VALUE_ATTR(node, CompressorOptions.Format);
+	XML_GET_CHILD_VALUE_ATTR(node, CompressorOptions.MipFilter);
+	XML_GET_CHILD_VALUE_ATTR(node, CompressorOptions.Quality);
+	XML_GET_CHILD_VALUE_ATTR(node, CompressorOptions.MaxResolution);
+	XML_GET_CHILD_VALUE_ATTR(node, CompressorOptions.GenerateMipMaps);
+	XML_GET_CHILD_VALUE_ATTR(node, CompressorOptions.Brightness);
+	XML_GET_CHILD_VALUE_ATTR(node, CompressorOptions.Contrast);
+	XML_GET_CHILD_VALUE_ATTR(node, CompressorOptions.CutoutAlpha);
+	XML_GET_CHILD_VALUE_ATTR(node, CompressorOptions.CutoutAlphaThreshold);
+	XML_GET_CHILD_VALUE_ATTR(node, CompressorOptions.AlphaTestCoverage);
+	XML_GET_CHILD_VALUE_ATTR(node, CompressorOptions.AlphaTestThreshold);
+	XML_GET_CHILD_VALUE_ATTR(node, CompressorOptions.AllowRecompress);
 }
 
 rageam::asset::TextureTune::TextureTune(AssetBase* parent, ConstWString fileName) : AssetSource(parent, fileName)

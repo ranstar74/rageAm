@@ -49,6 +49,10 @@ void rage::phBoundComposite::SetBound(u16 index, const phBoundPtr& bound)
 
 void rage::phBoundComposite::SetTypeFlags(u16 index, CollisionFlags flags)
 {
+	// Game simply doesn't allocate flags array in such cases and set all flags by default,
+	// but for us it's easier to simply set all flags here...
+	if (flags == 0) flags = CF_ALL;
+
 	AssertWithinArray(index);
 	m_TypeAndIncludeFlags[index].Type = flags;
 	m_OwnedTypeAndIncludeFlags[index].Type = flags;
@@ -56,6 +60,9 @@ void rage::phBoundComposite::SetTypeFlags(u16 index, CollisionFlags flags)
 
 void rage::phBoundComposite::SetIncludeFlags(u16 index, CollisionFlags flags)
 {
+	// See comment in SetTypeFlags
+	if (flags == 0) flags = CF_ALL;
+
 	AssertWithinArray(index);
 	m_TypeAndIncludeFlags[index].Include = flags;
 	m_OwnedTypeAndIncludeFlags[index].Include = flags;
@@ -71,6 +78,17 @@ rage::CollisionFlags rage::phBoundComposite::GetIncludeFlags(u16 index)
 {
 	AssertWithinArray(index);
 	return m_TypeAndIncludeFlags[index].Include;
+}
+
+int rage::phBoundComposite::GetBoundIndex(const phBound* bound) const
+{
+	// Array of pointers... we can't use std::distance
+	for (u16 i = 0; i < m_NumBounds; i++)
+	{
+		if (m_Bounds[i].Get() == bound)
+			return i;
+	}
+	return -1;
 }
 
 void rage::phBoundComposite::SetMatrix(u16 index, const Mat44V& mtx)

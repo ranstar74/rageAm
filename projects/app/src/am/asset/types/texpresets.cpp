@@ -6,19 +6,19 @@
 
 void rageam::asset::TexturePreset::Serialize(XmlHandle& node) const
 {
-	XML_SET_CHILD_VALUE(node, Name);
-	XML_SET_CHILD_VALUE(node, Rule);
-	XML_SET_CHILD_VALUE(node, RuleArgument);
+	XML_SET_CHILD_VALUE_ATTR(node, Name);
+	XML_SET_CHILD_VALUE_ATTR(node, Rule);
+	XML_SET_CHILD_VALUE_ATTR(node, RuleArgument);
 	XmlHandle xOptions = node.AddChild("Options");
 	Options.Serialize(xOptions);
 }
 
 void rageam::asset::TexturePreset::Deserialize(const XmlHandle& node)
 {
-	XML_GET_CHILD_VALUE(node, Name);
-	XML_GET_CHILD_VALUE(node, Rule);
+	XML_GET_CHILD_VALUE_ATTR(node, Name);
+	XML_GET_CHILD_VALUE_ATTR(node, Rule);
 	if (Rule != TexturePresetRule::Default)
-		XML_GET_CHILD_VALUE(node, RuleArgument);
+		XML_GET_CHILD_VALUE_ATTR(node, RuleArgument);
 	XmlHandle xOptions = node.GetChild("Options");
 	Options.Deserialize(xOptions);
 }

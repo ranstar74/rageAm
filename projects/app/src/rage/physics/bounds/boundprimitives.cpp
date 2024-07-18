@@ -136,3 +136,8 @@ void rage::phBoundCapsule::CalculateExtents()
 	m_VolumeDistribution.SetXYZ(CalculateCapsuleAngularInertia(1.0f, radius, height));
 	m_VolumeDistribution.SetW(CalculateCapsuleVolume(radius, height));
 }
+
+float rage::phBoundCapsule::GetHalfLenght() const
+{
+	return m_RadiusAroundCentroid - m_Margin;
+}

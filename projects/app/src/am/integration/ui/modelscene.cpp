@@ -318,13 +318,18 @@ void rageam::integration::ModelScene::DrawSceneGraph(const graphics::SceneNode* 
 		// Show outline for hovered node
 		if (m_HoveredNodeIndex != -1)
 		{
-			const auto& modelHandle = GetDrawableMap().SceneNodeToModel[m_HoveredNodeIndex];
-			if (modelHandle.Index != u16(-1))
+			auto& map = GetDrawableMap();
+			int modelLod = map.SceneNodeToLOD[m_HoveredNodeIndex];
+			if (modelLod != -1)
 			{
-				auto& models = GetDrawable()->GetLodGroup().GetLod(modelHandle.Lod)->GetModels();
-				for (u16 i = 0; i < models.GetSize(); i++)
+				u16 modelIndex = map.SceneNodeToModel[modelLod][m_HoveredNodeIndex];
+				if (modelIndex != u16(-1))
 				{
-					models[i]->SetOutline(modelHandle.Index == i);
+					auto& models = GetDrawable()->GetLodGroup().GetLod(modelLod)->GetModels();
+					for (u16 i = 0; i < models.GetSize(); i++)
+					{
+						models[i]->SetOutline(modelIndex == i);
+					}
 				}
 			}
 		}
@@ -341,7 +346,7 @@ void rageam::integration::ModelScene::DrawSkeletonGraph()
 void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex)
 {
 	graphics::SceneNode* sceneNode = m_Context.DrawableAsset->GetScene()->GetNode(nodeIndex);
-	asset::ModelTune& modelTune = *m_Context.DrawableAsset->GetDrawableTune().Lods.Models.Get(nodeIndex);
+	asset::NodeTune& nodeTune = *m_Context.DrawableAsset->GetDrawableTune().Nodes.Get(nodeIndex);
 
 	ConstString title = ImGui::FormatTemp(
 		"%s Properties###DRAWABLE_ATTR_PROPERTIES", sceneNode->GetName());
@@ -367,7 +372,7 @@ void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex)
 			// Node Properties
 			if (ImGui::CollapsingHeader(ICON_AM_OBJECT_DATA" Common", ImGuiTreeNodeFlags_DefaultOpen) /*beginAttrTabItem((void*)0x10, *//*ImGui::BeginTabItem("Common")*/)
 			{
-				if (ImGui::Checkbox("Force create bone", &modelTune.CreateBone))
+				if (ImGui::Checkbox("Force create bone", &nodeTune.Bone.ForceCreate))
 					m_NeedRecompileDrawable = true;
 				ImGui::SameLine();
 				ImGui::HelpMarker(
@@ -493,9 +498,9 @@ void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex)
 				bool changed = false;
 
 				ImGui::Text("Type Flags:");
-				changed |= collisionFlagEditor("TYPE_FLAGS", modelTune.BoundTune.TypeFlags);
+				changed |= collisionFlagEditor("TYPE_FLAGS", nodeTune.Collision.TypeFlags);
 				ImGui::Text("Include Flags:");
-				changed |= collisionFlagEditor("INCLUDE_FLAGS", modelTune.BoundTune.IncludeFlags);
+				changed |= collisionFlagEditor("INCLUDE_FLAGS", nodeTune.Collision.IncludeFlags);
 
 				if (changed)
 				{
@@ -503,8 +508,8 @@ void rageam::integration::ModelScene::DrawNodePropertiesUI(u16 nodeIndex)
 					for (int i = 0; i < GetBoundAttrCount(nodeIndex); i++)
 					{
 						u16 boundIndex = GetDrawableMap().SceneNodeToBound[nodeIndex][i];
-						composite->SetTypeFlags(boundIndex, modelTune.BoundTune.TypeFlags);
-						composite->SetIncludeFlags(boundIndex, modelTune.BoundTune.IncludeFlags);
+						composite->SetTypeFlags(boundIndex, nodeTune.Collision.TypeFlags);
+						composite->SetIncludeFlags(boundIndex, nodeTune.Collision.IncludeFlags);
 					}
 				}
 
