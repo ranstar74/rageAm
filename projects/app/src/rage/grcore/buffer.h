@@ -137,6 +137,7 @@ namespace rage
 
 		const grcFvf* GetVertexFormat() const;
 		u32			  GetVertexCount() const { return m_VertexCount; }
+		pVoid		  GetVertexData() const { return m_VertexData; }
 	};
 
 	class grcVertexBufferD3D11 : public grcVertexBuffer
@@ -189,6 +190,7 @@ namespace rage
 		grcIndexBuffer(const grcIndexBuffer& other);
 
 		u32 GetIndexCount() const { return m_IndexCountAndFlags & IDX_COUNT_MASK; }
+		u16* GetIndexData() const { return m_IndexData; }
 	};
 
 	class grcIndexBufferD3D11 : public grcIndexBuffer
