@@ -253,6 +253,18 @@ namespace rageam::graphics::DXGI
 		return totalNumBlocksY * totalNumBlocksX * 16;
 	}
 
+	inline u32 ComputeSizeWithMips(int width, int height, int mipCount, DXGI_FORMAT format)
+	{
+		u32 size = 0;
+		for (int i = 0; i < mipCount; i++)
+		{
+			int w = width >> i;
+			int h = height >> i;
+			size += ComputeSlicePitch(w, h, format);
+		}
+		return size;
+	}
+
 	inline DXGI_FORMAT ToTypeless(DXGI_FORMAT fmt)
 	{
 		switch (static_cast<int>(fmt))

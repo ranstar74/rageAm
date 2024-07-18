@@ -756,3 +756,14 @@ void rage::grcTextureDX11::UnlockRect(grcTextureLock& lock)
 		.ToFunc<bool(grcTexture*, grcTextureLock&, bool)>();
 	fn(this, lock, false /* allowContextLocks */);
 }
+
+void rage::grcTextureDX11::ExportToDDS(ConstWString path) const
+{
+	if (!m_BackingStore)
+	{
+		AM_ERRF("grcTextureDX11::ExportToDDS() -> No pixel data to export! %ls", path);
+		return;
+	}
+
+	rageam::graphics::ImageWriteDDS(path, m_Width, m_Height, m_MipCount, GetDXGIFormat(), m_BackingStore);
+}

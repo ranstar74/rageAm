@@ -206,6 +206,7 @@ namespace rageam::graphics
 	// NOTE: Data must be in RGBA U32 or RGB U24 format (hasAlpha param)! If quality is 100.0, lossless format is used
 	bool ImageWriteWebp(ConstWString path, int w, int h, pVoid data, bool hasAlpha, float quality = 100.0f);
 	bool ImageWriteDDS(ConstWString path, int w, int h, int mips, ImagePixelFormat fmt, pVoid data);
+	bool ImageWriteDDS(ConstWString path, int w, int h, int mips, DXGI_FORMAT fmt, pVoid data);
 
 	bool ImageReadStb(ConstWString path, int& w, int& h, ImagePixelFormat& fmt, bool onlyMeta, PixelDataOwner* pixels);
 	// Decoded format is always RGBA

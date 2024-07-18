@@ -1,5 +1,6 @@
 #include "image.h"
 
+#include "am/graphics/dxgi_utils.h"
 #include "am/graphics/render.h"
 #include "am/file/fileutils.h"
 #include "am/file/pathutils.h"
@@ -455,6 +456,83 @@ bool rageam::graphics::ImageWriteDDS(ConstWString path, int w, int h, int mips, 
 	}
 
 	u32 dataSize = ImageComputeTotalSizeWithMips(w, h, mips, fmt);
+	if (!file::WriteFileSteam(data, dataSize, fs.Get()))
+	{
+		AM_ERRF("WriteImageDDS() -> Failed to write pixel data");
+		return false;
+	}
+
+	return true;
+}
+
+// Same as above, just for DXGI_FORMAT
+bool rageam::graphics::ImageWriteDDS(ConstWString path, int w, int h, int mips, DXGI_FORMAT fmt, pVoid data)
+{
+	file::FSHandle fs = file::OpenFileStream(path, L"wb");
+	if (!fs)
+	{
+		AM_ERRF("WriteImageDDS() -> Failed to open file for writing");
+		return false;
+	}
+
+	if (!file::WriteFileSteam("DDS ", 4, fs.Get()))
+	{
+		AM_ERRF("WriteImageDDS() -> Failed to write magic number");
+		return false;
+	}
+
+	DDS_HEADER header = {};
+	header.dwSize = sizeof DDS_HEADER;
+	header.dwFlags = DDSD_CAPS | DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_MIPMAPCOUNT | DDSD_LINEARSIZE;
+	header.dwWidth = w;
+	header.dwHeight = h;
+	header.dwMipMapCount = mips;
+	header.dwCaps = DDSCAPS_TEXTURE;
+	header.dwPitchOrLinearSize = DXGI::ComputeRowPitch(w, fmt);
+
+	header.ddspf.dwSize = sizeof DDS_PIXELFORMAT;
+	header.ddspf.dwFlags = DDPF_FOURCC;
+	if (fmt == DXGI_FORMAT_BC1_UNORM || 
+		fmt == DXGI_FORMAT_BC2_UNORM ||
+		fmt == DXGI_FORMAT_BC3_UNORM ||
+		fmt == DXGI_FORMAT_BC4_UNORM ||
+		fmt == DXGI_FORMAT_BC5_UNORM)
+	{
+		if (fmt == DXGI_FORMAT_BC1_UNORM) header.ddspf.dwFourCC = FOURCC('D', 'X', 'T', '1');
+		if (fmt == DXGI_FORMAT_BC2_UNORM) header.ddspf.dwFourCC = FOURCC('D', 'X', 'T', '2');
+		if (fmt == DXGI_FORMAT_BC3_UNORM) header.ddspf.dwFourCC = FOURCC('D', 'X', 'T', '5');
+		if (fmt == DXGI_FORMAT_BC4_UNORM) header.ddspf.dwFourCC = FOURCC('A', 'T', 'I', '1');
+		if (fmt == DXGI_FORMAT_BC5_UNORM) header.ddspf.dwFourCC = FOURCC('A', 'T', 'I', '2');
+
+		if (!file::WriteFileSteam(&header, sizeof DDS_HEADER, fs.Get()))
+		{
+			AM_ERRF("WriteImageDDS() -> Failed to write header");
+			return false;
+		}
+	}
+	else
+	{
+		header.ddspf.dwFourCC = FOURCC('D', 'X', '1', '0');
+
+		DDS_HEADER_DXT10 header10 = {};
+		header10.dxgiFormat = fmt;
+		header10.resourceDimension = D3D10_RESOURCE_DIMENSION_TEXTURE2D;
+		header10.arraySize = 1;
+
+		if (!file::WriteFileSteam(&header, sizeof DDS_HEADER, fs.Get()))
+		{
+			AM_ERRF("WriteImageDDS() -> Failed to write header");
+			return false;
+		}
+
+		if (!file::WriteFileSteam(&header10, sizeof DDS_HEADER_DXT10, fs.Get()))
+		{
+			AM_ERRF("WriteImageDDS() -> Failed to write DX10 header");
+			return false;
+		}
+	}
+
+	u32 dataSize = DXGI::ComputeSizeWithMips(w, h, mips, fmt);
 	if (!file::WriteFileSteam(data, dataSize, fs.Get()))
 	{
 		AM_ERRF("WriteImageDDS() -> Failed to write pixel data");

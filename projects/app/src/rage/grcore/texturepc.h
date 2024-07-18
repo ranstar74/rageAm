@@ -154,5 +154,7 @@ namespace rage
 
 		// NOTE: data might be NULL!
 		pVoid GetBackingStore() const { return m_BackingStore; }
+
+		void ExportToDDS(ConstWString path) const;
 	};
 }
