@@ -415,7 +415,11 @@ namespace rage
 		u16	GetTextureCount() const { return m_TextureCount; }
 
 		u32  GetDrawBucketMask() const { return m_DrawBucketMask; }
-		void SetDrawBucketMask(u32 mask) { m_DrawBucketMask = mask; }
+		void SetDrawBucketMask(u32 mask)
+		{
+			m_DrawBucketMask = mask;
+			m_DrawBucket = m_DrawBucketMask.GetDrawBucket();
+		}
 
 		u8   GetDrawBucket() const { return m_DrawBucket; }
 		void SetDrawBucket(u8 bucket)
