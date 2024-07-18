@@ -75,6 +75,9 @@ namespace rage
 			if (toggle) Mask |= TESSELLATION_BIT;
 		}
 
+		bool IsFlagSet(grcRenderBucketTypes flag) const { return Mask & 1 << flag; }
+		void SetFlag(grcRenderBucketTypes flag) { Mask |= 1 << flag; }
+
 		// Checks if this render mask satisfies target
 		bool Match(grcDrawMask passed) const
 		{
