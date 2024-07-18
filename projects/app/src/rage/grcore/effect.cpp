@@ -383,9 +383,12 @@ rage::grcInstanceData::grcInstanceData(const datResource& rsc)
 		rsc.Fixup(var.Value);
 		if (var.IsTexture())
 		{
-			// TODO: Should only be done for texture reference... textures are already placed in embed dictionary
-			// grcTexture* texture = var.GetValuePtr<grcTexture>();
-			// grcTexture::Place(rsc, texture);
+			// Should only be done for texture references, other textures are already placed in embed/external dictionary
+			grcTexture* texture = var.GetValuePtr<grcTexture>();
+			if (texture->GetResourceType() == TEXTURE_REFERENCE)
+			{
+				grcTexture::Place(rsc, texture);
+			}
 		}
 	}
 
