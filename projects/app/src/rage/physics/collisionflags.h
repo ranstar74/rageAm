@@ -9,6 +9,8 @@
 
 #include "common/types.h"
 
+#include "am/system/enum.h"
+
 namespace rage
 {
 	// In source code, flags are stored in ArchetypeFlags namespace and have GTA_ prefix,
@@ -49,11 +51,15 @@ namespace rage
 		CF_SMOKE_TYPE           = 1 << 28,
 		CF_UNSMASHED_TYPE       = 1 << 29,
 		CF_STAIR_SLOPE_TYPE     = 1 << 30,
-		CF_DEEP_SURFACE_TYPE    = 1 << 31,
+		CF_DEEP_SURFACE_TYPE    = 1 << 31u,
 
 		CF_ALL					= (1 << 32) - 1,
 	};
 	using CollisionFlags = u32;
+
+	inline ConstString ToString(eCollisionFlags e);
+	inline bool FromString(ConstString str, eCollisionFlags& e);
+	IMPLEMENT_FLAGS_TO_STRING(eCollisionFlags, "CF_");
 
 	// Compilations of the above type flags into type sets
 
@@ -105,4 +111,88 @@ namespace rage
 		CF_BASIC_ATTACHMENT_INCLUDE_TYPES = CF_WEAPON_TEST | CF_PROJECTILE_TYPE | CF_EXPLOSION_TYPE,
 		CF_BASIC_ATTACHMENT_AND_CAMERA_INCLUDE_TYPES = CF_BASIC_ATTACHMENT_INCLUDE_TYPES | CF_CAMERA_TEST
 	};
+
+	ConstString ToString(eCollisionFlags e)
+	{
+		switch (e)
+		{
+		case CF_NONE: return "CF_NONE";
+		case CF_UNUSED: return "CF_UNUSED";
+		case CF_MAP_TYPE_WEAPON: return "CF_MAP_TYPE_WEAPON";
+		case CF_MAP_TYPE_MOVER: return "CF_MAP_TYPE_MOVER";
+		case CF_MAP_TYPE_HORSE: return "CF_MAP_TYPE_HORSE";
+		case CF_MAP_TYPE_COVER: return "CF_MAP_TYPE_COVER";
+		case CF_MAP_TYPE_VEHICLE: return "CF_MAP_TYPE_VEHICLE";
+		case CF_VEHICLE_NON_BVH_TYPE: return "CF_VEHICLE_NON_BVH_TYPE";
+		case CF_VEHICLE_BVH_TYPE: return "CF_VEHICLE_BVH_TYPE";
+		case CF_BOX_VEHICLE_TYPE: return "CF_BOX_VEHICLE_TYPE";
+		case CF_PED_TYPE: return "CF_PED_TYPE";
+		case CF_RAGDOLL_TYPE: return "CF_RAGDOLL_TYPE";
+		case CF_HORSE_TYPE: return "CF_HORSE_TYPE";
+		case CF_HORSE_RAGDOLL_TYPE: return "CF_HORSE_RAGDOLL_TYPE";
+		case CF_OBJECT_TYPE: return "CF_OBJECT_TYPE";
+		case CF_ENVCLOTH_OBJECT_TYPE: return "CF_ENVCLOTH_OBJECT_TYPE";
+		case CF_PLANT_TYPE: return "CF_PLANT_TYPE";
+		case CF_PROJECTILE_TYPE: return "CF_PROJECTILE_TYPE";
+		case CF_EXPLOSION_TYPE: return "CF_EXPLOSION_TYPE";
+		case CF_PICKUP_TYPE: return "CF_PICKUP_TYPE";
+		case CF_FOLIAGE_TYPE: return "CF_FOLIAGE_TYPE";
+		case CF_FORKLIFT_FORKS_TYPE: return "CF_FORKLIFT_FORKS_TYPE";
+		case CF_WEAPON_TEST: return "CF_WEAPON_TEST";
+		case CF_CAMERA_TEST: return "CF_CAMERA_TEST";
+		case CF_AI_TEST: return "CF_AI_TEST";
+		case CF_SCRIPT_TEST: return "CF_SCRIPT_TEST";
+		case CF_WHEEL_TEST: return "CF_WHEEL_TEST";
+		case CF_GLASS_TYPE: return "CF_GLASS_TYPE";
+		case CF_RIVER_TYPE: return "CF_RIVER_TYPE";
+		case CF_SMOKE_TYPE: return "CF_SMOKE_TYPE";
+		case CF_UNSMASHED_TYPE: return "CF_UNSMASHED_TYPE";
+		case CF_STAIR_SLOPE_TYPE: return "CF_STAIR_SLOPE_TYPE";
+		case CF_DEEP_SURFACE_TYPE: return "CF_DEEP_SURFACE_TYPE";
+		case CF_ALL: return "CF_ALL";
+		}
+		AM_UNREACHABLE("Failed to convert eCollisionFlags (%i)", e);
+	}
+
+	bool FromString(ConstString str, eCollisionFlags& e)
+	{
+		u32 key = atStringHash(str);
+		switch (key)
+		{
+		case atStringHash("CF_NONE"): e = CF_NONE; return true;
+		case atStringHash("CF_UNUSED"): e = CF_UNUSED; return true;
+		case atStringHash("CF_MAP_TYPE_WEAPON"): e = CF_MAP_TYPE_WEAPON; return true;
+		case atStringHash("CF_MAP_TYPE_MOVER"): e = CF_MAP_TYPE_MOVER; return true;
+		case atStringHash("CF_MAP_TYPE_HORSE"): e = CF_MAP_TYPE_HORSE; return true;
+		case atStringHash("CF_MAP_TYPE_COVER"): e = CF_MAP_TYPE_COVER; return true;
+		case atStringHash("CF_MAP_TYPE_VEHICLE"): e = CF_MAP_TYPE_VEHICLE; return true;
+		case atStringHash("CF_VEHICLE_NON_BVH_TYPE"): e = CF_VEHICLE_NON_BVH_TYPE; return true;
+		case atStringHash("CF_VEHICLE_BVH_TYPE"): e = CF_VEHICLE_BVH_TYPE; return true;
+		case atStringHash("CF_BOX_VEHICLE_TYPE"): e = CF_BOX_VEHICLE_TYPE; return true;
+		case atStringHash("CF_PED_TYPE"): e = CF_PED_TYPE; return true;
+		case atStringHash("CF_RAGDOLL_TYPE"): e = CF_RAGDOLL_TYPE; return true;
+		case atStringHash("CF_HORSE_TYPE"): e = CF_HORSE_TYPE; return true;
+		case atStringHash("CF_HORSE_RAGDOLL_TYPE"): e = CF_HORSE_RAGDOLL_TYPE; return true;
+		case atStringHash("CF_OBJECT_TYPE"): e = CF_OBJECT_TYPE; return true;
+		case atStringHash("CF_ENVCLOTH_OBJECT_TYPE"): e = CF_ENVCLOTH_OBJECT_TYPE; return true;
+		case atStringHash("CF_PLANT_TYPE"): e = CF_PLANT_TYPE; return true;
+		case atStringHash("CF_PROJECTILE_TYPE"): e = CF_PROJECTILE_TYPE; return true;
+		case atStringHash("CF_EXPLOSION_TYPE"): e = CF_EXPLOSION_TYPE; return true;
+		case atStringHash("CF_PICKUP_TYPE"): e = CF_PICKUP_TYPE; return true;
+		case atStringHash("CF_FOLIAGE_TYPE"): e = CF_FOLIAGE_TYPE; return true;
+		case atStringHash("CF_FORKLIFT_FORKS_TYPE"): e = CF_FORKLIFT_FORKS_TYPE; return true;
+		case atStringHash("CF_WEAPON_TEST"): e = CF_WEAPON_TEST; return true;
+		case atStringHash("CF_CAMERA_TEST"): e = CF_CAMERA_TEST; return true;
+		case atStringHash("CF_AI_TEST"): e = CF_AI_TEST; return true;
+		case atStringHash("CF_SCRIPT_TEST"): e = CF_SCRIPT_TEST; return true;
+		case atStringHash("CF_WHEEL_TEST"): e = CF_WHEEL_TEST; return true;
+		case atStringHash("CF_GLASS_TYPE"): e = CF_GLASS_TYPE; return true;
+		case atStringHash("CF_RIVER_TYPE"): e = CF_RIVER_TYPE; return true;
+		case atStringHash("CF_SMOKE_TYPE"): e = CF_SMOKE_TYPE; return true;
+		case atStringHash("CF_UNSMASHED_TYPE"): e = CF_UNSMASHED_TYPE; return true;
+		case atStringHash("CF_STAIR_SLOPE_TYPE"): e = CF_STAIR_SLOPE_TYPE; return true;
+		case atStringHash("CF_DEEP_SURFACE_TYPE"): e = CF_DEEP_SURFACE_TYPE; return true;
+		}
+		return false;
+	}
 }

@@ -10,6 +10,8 @@
 #include "common/types.h"
 #include "rage/grcore/color.h"
 #include "rage/physics/material.h"
+#include "am/system/enum.h"
+#include "am/xml/serialize.h"
 
 enum
 {
@@ -22,9 +24,9 @@ enum
 	MTLFLAG_HEATS_TYRE		= 1 << 5, // Whether the material causes the tyre to heat up when doing a burnout
 };
 
-enum
+enum ePolyFlags
 {
-	POLYFLAG_NONE                            = 0,
+	POLYFLAG_NONE				               = 0,
 	POLYFLAG_STAIRS                          = 1 << 0,
 	POLYFLAG_NOT_CLIMBABLE                   = 1 << 1,
 	POLYFLAG_SEE_THROUGH                     = 1 << 2,
@@ -42,6 +44,9 @@ enum
 	POLYFLAG_NO_NETWORK_SPAWN                = 1 << 14,
 	POLYFLAG_NO_CAM_COLLISION_ALLOW_CLIPPING = 1 << 15,
 };
+inline ConstString ToString(ePolyFlags e);
+inline bool FromString(ConstString str, ePolyFlags& e);
+IMPLEMENT_FLAGS_TO_STRING(ePolyFlags, "POLYFLAG_");
 
 enum VfxGroup
 {
@@ -164,10 +169,39 @@ struct gtaMaterialId
 		u64 Packed;
 	};
 
+	gtaMaterialId() { Packed = 0; }
 	gtaMaterialId(u64 packed) { Packed = packed; }
+
+	void Serialize(const XmlHandle& node) const
+	{
+		XML_SET_CHILD_VALUE_ATTR_IGNORE_DEF(node, ProceduralId);
+		XML_SET_CHILD_VALUE_ATTR_IGNORE_DEF(node, RoomId);
+		XML_SET_CHILD_VALUE_ATTR_IGNORE_DEF(node, PedDensity);
+		XML_SET_CHILD_VALUE_FLAGS_IGNORE_DEF(node, PolyFlags, FlagsToString_ePolyFlags);
+	}
+
+	void Deserialize(const XmlHandle& node)
+	{
+		// We can't reference bitfields
+		int proceduralId = 0;
+		int roomId = 0;
+		int pedDensity = 0;
+		ConstString polyFlags = 0;
+		node.GetChild("ProceduralId").GetValue(proceduralId);
+		node.GetChild("RoomId").GetValue(roomId);
+		node.GetChild("PedDensity").GetValue(pedDensity);
+		node.GetChild("PolyFlags").GetValue(polyFlags);
+		if (!String::IsNullOrEmpty(polyFlags)) 
+			PolyFlags = StringToFlags_ePolyFlags(polyFlags);
+		ProceduralId = proceduralId;
+		RoomId = roomId;
+		PedDensity = pedDensity;
+	}
 
 	operator u64() const { return Packed; }
 	gtaMaterialId& operator=(u64 packed) { Packed = packed; return *this; }
+
+	XML_DEFINE(gtaMaterialId);
 };
 static_assert(sizeof gtaMaterialId == 8);
 
@@ -208,7 +242,7 @@ struct gtaMaterialCategory
 	ConstString        DisplayName;
 	int                StartIndex;
 	int                LastIndex;
-	rage::atArray<int> SplitIndices; // When we need to put separator in UI
+	rage::atArray<int> SplitIndices = {}; // When we need to put separator in UI
 };
 
 static inline gtaMaterialCategory g_MaterialCategories[] =
@@ -449,3 +483,54 @@ static inline gtaMaterialInfo g_MaterialInfo[] =
 	{ "Temp 29", rage::ColorU32(255, 0, 255, 255) },
 	{ "Temp 30", rage::ColorU32(255, 0, 255, 255) },
 };
+
+ConstString ToString(ePolyFlags e)
+{
+	switch (e)
+	{
+	case POLYFLAG_NONE: return "POLYFLAG_NONE";
+	case POLYFLAG_STAIRS: return "POLYFLAG_STAIRS";
+	case POLYFLAG_NOT_CLIMBABLE: return "POLYFLAG_NOT_CLIMBABLE";
+	case POLYFLAG_SEE_THROUGH: return "POLYFLAG_SEE_THROUGH";
+	case POLYFLAG_SHOOT_THROUGH: return "POLYFLAG_SHOOT_THROUGH";
+	case POLYFLAG_NOT_COVER: return "POLYFLAG_NOT_COVER";
+	case POLYFLAG_WALKABLE_PATH: return "POLYFLAG_WALKABLE_PATH";
+	case POLYFLAG_NO_CAM_COLLISION: return "POLYFLAG_NO_CAM_COLLISION";
+	case POLYFLAG_SHOOT_THROUGH_FX: return "POLYFLAG_SHOOT_THROUGH_FX";
+	case POLYFLAG_NO_DECAL: return "POLYFLAG_NO_DECAL";
+	case POLYFLAG_NO_NAVMESH: return "POLYFLAG_NO_NAVMESH";
+	case POLYFLAG_NO_RAGDOLL: return "POLYFLAG_NO_RAGDOLL";
+	case POLYFLAG_VEHICLE_WHEEL: return "POLYFLAG_VEHICLE_WHEEL";
+	case POLYFLAG_NO_PTFX: return "POLYFLAG_NO_PTFX";
+	case POLYFLAG_TOO_STEEP_FOR_PLAYER: return "POLYFLAG_TOO_STEEP_FOR_PLAYER";
+	case POLYFLAG_NO_NETWORK_SPAWN: return "POLYFLAG_NO_NETWORK_SPAWN";
+	case POLYFLAG_NO_CAM_COLLISION_ALLOW_CLIPPING: return "POLYFLAG_NO_CAM_COLLISION_ALLOW_CLIPPING";
+	}
+	AM_UNREACHABLE("Failed to convert ePolyFlags (%i)", e);
+}
+
+bool FromString(ConstString str, ePolyFlags& e)
+{
+	u32 key = rageam::Hash(str);
+	switch (key)
+	{
+	case rageam::Hash("POLYFLAG_NONE"): e = POLYFLAG_NONE; return true;
+	case rageam::Hash("POLYFLAG_STAIRS"): e = POLYFLAG_STAIRS; return true;
+	case rageam::Hash("POLYFLAG_NOT_CLIMBABLE"): e = POLYFLAG_NOT_CLIMBABLE; return true;
+	case rageam::Hash("POLYFLAG_SEE_THROUGH"): e = POLYFLAG_SEE_THROUGH; return true;
+	case rageam::Hash("POLYFLAG_SHOOT_THROUGH"): e = POLYFLAG_SHOOT_THROUGH; return true;
+	case rageam::Hash("POLYFLAG_NOT_COVER"): e = POLYFLAG_NOT_COVER; return true;
+	case rageam::Hash("POLYFLAG_WALKABLE_PATH"): e = POLYFLAG_WALKABLE_PATH; return true;
+	case rageam::Hash("POLYFLAG_NO_CAM_COLLISION"): e = POLYFLAG_NO_CAM_COLLISION; return true;
+	case rageam::Hash("POLYFLAG_SHOOT_THROUGH_FX"): e = POLYFLAG_SHOOT_THROUGH_FX; return true;
+	case rageam::Hash("POLYFLAG_NO_DECAL"): e = POLYFLAG_NO_DECAL; return true;
+	case rageam::Hash("POLYFLAG_NO_NAVMESH"): e = POLYFLAG_NO_NAVMESH; return true;
+	case rageam::Hash("POLYFLAG_NO_RAGDOLL"): e = POLYFLAG_NO_RAGDOLL; return true;
+	case rageam::Hash("POLYFLAG_VEHICLE_WHEEL"): e = POLYFLAG_VEHICLE_WHEEL; return true;
+	case rageam::Hash("POLYFLAG_NO_PTFX"): e = POLYFLAG_NO_PTFX; return true;
+	case rageam::Hash("POLYFLAG_TOO_STEEP_FOR_PLAYER"): e = POLYFLAG_TOO_STEEP_FOR_PLAYER; return true;
+	case rageam::Hash("POLYFLAG_NO_NETWORK_SPAWN"): e = POLYFLAG_NO_NETWORK_SPAWN; return true;
+	case rageam::Hash("POLYFLAG_NO_CAM_COLLISION_ALLOW_CLIPPING"): e = POLYFLAG_NO_CAM_COLLISION_ALLOW_CLIPPING; return true;
+	}
+	return false;
+}
