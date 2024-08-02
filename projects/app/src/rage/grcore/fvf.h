@@ -120,11 +120,12 @@ namespace rage
 		static constexpr int MAX_CHANNELS = 16; // Although format allows up to 32 (one per 32 bits), only 16 are allowed
 		static constexpr u64 FORMAT_MASK = 0xF;
 
-		u32		Channels;
-		u16		Stride;
-		bool	UseAlternativeChannels;
-		u8		ChannelCount;
-		u64		ChannelFormats;
+		u32 Channels;
+		u8  Stride;
+		u8  Flags = 0;
+		u8  UseAlternativeChannels = 0;
+		u8  ChannelCount;
+		u64 ChannelFormats;
 
 		// ----- Decoding Utils -----
 
@@ -143,6 +144,9 @@ namespace rage
 
 		void SetChannel(u8 channelBit, bool used);
 		void SetFormat(u8 channelBit, grcFormat fmt);
+
+		// grmGeometry::ComputeFVF in source code, GTAV1 in CW
+		void SetDefaultFormats();
 	};
 
 	using grcVertexElementDesc = D3D11_INPUT_ELEMENT_DESC;

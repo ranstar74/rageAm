@@ -117,6 +117,22 @@ void rage::grcFvf::SetFormat(u8 channelBit, grcFormat fmt)
 	ChannelFormats |= static_cast<u64>(fmt) << formatShift;
 }
 
+void rage::grcFvf::SetDefaultFormats()
+{
+	SetFormat(CHANNEL_POSITION, GRC_FORMAT_R32G32B32_FLOAT);
+	SetFormat(CHANNEL_BLENDWEIGHT, GRC_FORMAT_R8G8B8A8_UNORM);
+	SetFormat(CHANNEL_BLENDINDICES, GRC_FORMAT_R8G8B8A8_UNORM);
+	SetFormat(CHANNEL_NORMAL, GRC_FORMAT_R32G32B32_FLOAT);
+	SetFormat(CHANNEL_COLOR0, GRC_FORMAT_R8G8B8A8_UNORM);
+	SetFormat(CHANNEL_COLOR1, GRC_FORMAT_R8G8B8A8_UNORM);
+
+	for (int i = 0; i < CHANNEL_MAX_TEXCOORD; i++)
+		SetFormat(CHANNEL_TEXCOORD0 + i, GRC_FORMAT_R32G32_FLOAT);
+
+	for (int i = 0; i < CHANNEL_MAX_TANGENT; i++)
+		SetFormat(CHANNEL_TANGENT0 + i, GRC_FORMAT_R32G32B32A32_FLOAT);
+}
+
 bool rage::grcVertexDeclaration::DeclPair::SortCompare(const DeclPair& lhs, const DeclPair& rhs)
 {
 	return lhs.HashKey < rhs.HashKey;

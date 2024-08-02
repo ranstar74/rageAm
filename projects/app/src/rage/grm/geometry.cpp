@@ -44,7 +44,9 @@ rage::grmGeometryQB::grmGeometryQB(const datResource& rsc)
 void rage::grmGeometryQB::SetVertexData(const grmVertexData& vertexData)
 {
 	grcVertexDeclarationPtr decl = vertexData.Info.Decl;
-	const grcFvf& fvf = vertexData.Info.Fvf;
+
+	grcFvf fvf = vertexData.Info.Fvf;
+	// fvf.SetDefaultFormats(); // 'GTAV1'
 
 	m_VertexDeclaration = decl;
 	m_VertexStride = static_cast<u8>(decl->Stride);
