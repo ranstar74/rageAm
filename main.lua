@@ -84,6 +84,10 @@ newoption {
 	trigger = "testbed",
 	description = "Enables testbed UI, only for development.",
 }
+newoption { 
+	trigger = "sovietkeys",
+	description = "Internal use.",
+}
 
 workspace "rageAm"
 	configurations { "Debug", "Release" }
@@ -267,4 +271,10 @@ project "rageAm"
 	filter { "options:easyprofiler" }
 		defines { "AM_EASYPROFILER" }
 		defines { "BUILD_WITH_EASY_PROFILER" }
+	filter {}
+
+	-- Encryption
+	filter { "options:sovietkeys" }
+		defines { "AM_SOVIET_KEYS" }
+		include_vendors { "gta5aes" }
 	filter {}
