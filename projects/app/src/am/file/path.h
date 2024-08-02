@@ -18,8 +18,6 @@
 
 namespace rageam::file
 {
-#define PATH_SEPARATOR '\\'
-
 	/**
 	 * \brief Utility that helps constructing file system paths.
 	 * \remarks Internal buffer is stack-allocated array of size defined by MAX_PATH macro.
@@ -104,7 +102,7 @@ namespace rageam::file
 			{
 				++cursor;
 				--avail;
-				cursor[0] = PATH_SEPARATOR;
+				cursor[0] = Char::PathSeparator();
 			}
 			AM_ASSERT(avail >= 0, "PathBase::Append() -> Out of memory!");
 
@@ -190,9 +188,19 @@ namespace rageam::file
 				Char c = m_Buffer[i];
 
 				if (Char::IsPathSeparator(c))
+				{
 					result.m_Buffer[i] = Char::PathSeparator();
+					// Path ends with separator... remove it
+					if (!m_Buffer[i + 1])
+					{
+						result.m_Buffer[i + 1] = 0;
+						break;
+					}
+				}
 				else
+				{
 					result.m_Buffer[i] = c;
+				}
 				i++;
 
 				if (c == '\0')
@@ -203,6 +211,30 @@ namespace rageam::file
 		}
 
 		/**
+		 * \brief Converts all separators to one type.
+		 */
+		void Normalize()
+		{
+			TChar* c = m_Buffer;
+			while (*c)
+			{
+				if (Char::IsPathSeparator(*c))
+				{
+					*c = Char::PathSeparator();
+					// Path ends with separator... remove it
+					if (!c[1])
+						c[1] = '\0';
+				}
+				++c;
+			}
+		}
+
+		void ToLower()
+		{
+			StringWrapper(m_Buffer).ToLower();
+		}
+		
+		/**
 		 * \brief Performs C string format into internal buffer.
 		 */
 		void Format(TString fmt, ...)
@@ -211,6 +243,22 @@ namespace rageam::file
 			va_start(args, fmt);
 			String::FormatVA(m_Buffer, TSize, fmt, args);
 			va_end(args);
+		}
+
+		/**
+		 * \brief This is a simple implementation that only cuts 'prefix'.
+		 */
+		PathBase GetRelativePath(TCString relativeTo)
+		{
+			s32 index = ImmutableString(m_Buffer).IndexOf(relativeTo, true);
+			if (index == -1)
+				return *this;
+			PathBase result;
+			TCString cursor = m_Buffer + index + ImmutableString(relativeTo).Length();
+			if (Char::IsPathSeparator(cursor[0]))
+				++cursor;
+			String::Copy(result.m_Buffer, TSize, m_Buffer + index + ImmutableString(relativeTo).Length());
+			return result;
 		}
 
 		u32 GetBufferSize() const { return TSize; }

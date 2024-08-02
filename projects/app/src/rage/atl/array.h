@@ -221,6 +221,17 @@ namespace rage
 			m_Capacity = capacity;
 		}
 
+		void SetSize(TSize size)
+		{
+			AM_ASSERTS(size <= m_Capacity);
+			m_Size = size;
+		}
+
+		void GrowCapacity(TSize atLeast)
+		{
+			VerifyBufferCanFitOrGrow(atLeast);
+		}
+
 		/*
 		 *	------------------ Adding / Removing items ------------------
 		 */

@@ -135,7 +135,7 @@ namespace rage
 
 			// Delete without invoking TValue destructor, because otherwise destructor will be called for 
 			// item that wasn't even constructed
-			operator delete(node);
+			pgFree(node);
 		}
 
 		u32 GetHash(const TValue& value) const
@@ -549,6 +549,15 @@ namespace rage
 		u32	GetBucketCount() const { return m_BucketCount; }
 		u32 GetNumUsedSlots() const { return m_UsedSlotCount; }
 
+		// It would be a little be weird for a hash set to have operator[] accessing by value
+		[[nodiscard]] TValue& operator[](u32 key)
+		{
+			TValue* existingValue = TryGetAt(key);
+			if (existingValue)
+				return *existingValue;
+			return InsertAt(key, {});
+		}
+
 		atMap& operator=(const std::initializer_list<TValue>& list)
 		{
 			Resize(list.size());
@@ -664,6 +673,8 @@ namespace rage
 			}
 			return *this;
 		}
+
+		u32 GetKey() const { return m_Node->HashKey; }
 
 		TValue& operator*() const { return m_Node->Value; }
 		TValue& GetValue() const { return m_Node->Value; }

@@ -11,9 +11,18 @@
 #include "common/types.h"
 
 #include <Windows.h>
+#include <functional>
+
+namespace rage
+{
+	struct fiPackHeader;
+	struct datResourceInfo;
+}
 
 namespace rageam::file
 {
+	void EnumerateDirectory(ConstWString path, bool recurse, const std::function<void(const WIN32_FIND_DATAW&, ConstWString fullPath)>& findFn);
+
 	struct FileBytes
 	{
 		amPtr<char> Data;
@@ -32,9 +41,13 @@ namespace rageam::file
 
 	// Stream I/O Helpers
 	FILE* OpenFileStream(const wchar_t* path, const wchar_t* mode);
-	size_t ReadFileSteam(pVoid buffer, size_t bufferSize, size_t readSize, FILE* fs);
-	bool WriteFileSteam(pConstVoid buffer, size_t writeSize, FILE* fs);
+	size_t ReadFileStream(pVoid buffer, size_t bufferSize, size_t readSize, FILE* fs);
+	bool WriteFileStream(pConstVoid buffer, size_t writeSize, FILE* fs);
 	void CloseFileStream(FILE* file);
+
+	// Rage resource information, returns version (0 if failed to open file or magic was invalid)
+	u32 GetResourceInfo(const wchar_t* path, rage::datResourceInfo& info);
+	bool GetPackfileHeader(const wchar_t* path, rage::fiPackHeader& header);
 
 	struct FSHandle
 	{

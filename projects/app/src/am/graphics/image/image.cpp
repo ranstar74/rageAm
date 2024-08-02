@@ -402,7 +402,7 @@ bool rageam::graphics::ImageWriteDDS(ConstWString path, int w, int h, int mips, 
 		return false;
 	}
 
-	if (!file::WriteFileSteam("DDS ", 4, fs.Get()))
+	if (!file::WriteFileStream("DDS ", 4, fs.Get()))
 	{
 		AM_ERRF("WriteImageDDS() -> Failed to write magic number");
 		return false;
@@ -427,7 +427,7 @@ bool rageam::graphics::ImageWriteDDS(ConstWString path, int w, int h, int mips, 
 	{
 		header.ddspf.dwFourCC = ImagePixelFormatToFourCC[fmt];
 
-		if (!file::WriteFileSteam(&header, sizeof DDS_HEADER, fs.Get()))
+		if (!file::WriteFileStream(&header, sizeof DDS_HEADER, fs.Get()))
 		{
 			AM_ERRF("WriteImageDDS() -> Failed to write header");
 			return false;
@@ -442,13 +442,13 @@ bool rageam::graphics::ImageWriteDDS(ConstWString path, int w, int h, int mips, 
 		header10.resourceDimension = D3D10_RESOURCE_DIMENSION_TEXTURE2D;
 		header10.arraySize = 1;
 
-		if (!file::WriteFileSteam(&header, sizeof DDS_HEADER, fs.Get()))
+		if (!file::WriteFileStream(&header, sizeof DDS_HEADER, fs.Get()))
 		{
 			AM_ERRF("WriteImageDDS() -> Failed to write header");
 			return false;
 		}
 
-		if (!file::WriteFileSteam(&header10, sizeof DDS_HEADER_DXT10, fs.Get()))
+		if (!file::WriteFileStream(&header10, sizeof DDS_HEADER_DXT10, fs.Get()))
 		{
 			AM_ERRF("WriteImageDDS() -> Failed to write DX10 header");
 			return false;
@@ -456,7 +456,7 @@ bool rageam::graphics::ImageWriteDDS(ConstWString path, int w, int h, int mips, 
 	}
 
 	u32 dataSize = ImageComputeTotalSizeWithMips(w, h, mips, fmt);
-	if (!file::WriteFileSteam(data, dataSize, fs.Get()))
+	if (!file::WriteFileStream(data, dataSize, fs.Get()))
 	{
 		AM_ERRF("WriteImageDDS() -> Failed to write pixel data");
 		return false;
@@ -475,7 +475,7 @@ bool rageam::graphics::ImageWriteDDS(ConstWString path, int w, int h, int mips, 
 		return false;
 	}
 
-	if (!file::WriteFileSteam("DDS ", 4, fs.Get()))
+	if (!file::WriteFileStream("DDS ", 4, fs.Get()))
 	{
 		AM_ERRF("WriteImageDDS() -> Failed to write magic number");
 		return false;
@@ -504,7 +504,7 @@ bool rageam::graphics::ImageWriteDDS(ConstWString path, int w, int h, int mips, 
 		if (fmt == DXGI_FORMAT_BC4_UNORM) header.ddspf.dwFourCC = FOURCC('A', 'T', 'I', '1');
 		if (fmt == DXGI_FORMAT_BC5_UNORM) header.ddspf.dwFourCC = FOURCC('A', 'T', 'I', '2');
 
-		if (!file::WriteFileSteam(&header, sizeof DDS_HEADER, fs.Get()))
+		if (!file::WriteFileStream(&header, sizeof DDS_HEADER, fs.Get()))
 		{
 			AM_ERRF("WriteImageDDS() -> Failed to write header");
 			return false;
@@ -519,13 +519,13 @@ bool rageam::graphics::ImageWriteDDS(ConstWString path, int w, int h, int mips, 
 		header10.resourceDimension = D3D10_RESOURCE_DIMENSION_TEXTURE2D;
 		header10.arraySize = 1;
 
-		if (!file::WriteFileSteam(&header, sizeof DDS_HEADER, fs.Get()))
+		if (!file::WriteFileStream(&header, sizeof DDS_HEADER, fs.Get()))
 		{
 			AM_ERRF("WriteImageDDS() -> Failed to write header");
 			return false;
 		}
 
-		if (!file::WriteFileSteam(&header10, sizeof DDS_HEADER_DXT10, fs.Get()))
+		if (!file::WriteFileStream(&header10, sizeof DDS_HEADER_DXT10, fs.Get()))
 		{
 			AM_ERRF("WriteImageDDS() -> Failed to write DX10 header");
 			return false;
@@ -533,7 +533,7 @@ bool rageam::graphics::ImageWriteDDS(ConstWString path, int w, int h, int mips, 
 	}
 
 	u32 dataSize = DXGI::ComputeSizeWithMips(w, h, mips, fmt);
-	if (!file::WriteFileSteam(data, dataSize, fs.Get()))
+	if (!file::WriteFileStream(data, dataSize, fs.Get()))
 	{
 		AM_ERRF("WriteImageDDS() -> Failed to write pixel data");
 		return false;
@@ -604,7 +604,7 @@ bool rageam::graphics::ImageReadWebp(ConstWString path, int& w, int& h, ImagePix
 
 		char header[32] = {};
 
-		file::ReadFileSteam(header, sizeof header, sizeof header, fs);
+		file::ReadFileStream(header, sizeof header, sizeof header, fs);
 		file::CloseFileStream(fs);
 
 		u8* headerData = reinterpret_cast<u8*>(header);
@@ -870,7 +870,7 @@ bool rageam::graphics::ImageReadDDS(ConstWString path, int& w, int& h, int& mips
 	}
 
 	int magic = 0;
-	file::ReadFileSteam(&magic, 4, 4, fs.Get());
+	file::ReadFileStream(&magic, 4, 4, fs.Get());
 
 	if (magic != FOURCC('D', 'D', 'S', ' '))
 	{
@@ -879,7 +879,7 @@ bool rageam::graphics::ImageReadDDS(ConstWString path, int& w, int& h, int& mips
 	}
 
 	DDS_HEADER header = {};
-	if (!file::ReadFileSteam(&header, sizeof DDS_HEADER, sizeof DDS_HEADER, fs.Get()))
+	if (!file::ReadFileStream(&header, sizeof DDS_HEADER, sizeof DDS_HEADER, fs.Get()))
 	{
 		AM_ERRF("ReadImageDDS() -> Failed to read header.");
 		return false;
@@ -908,7 +908,7 @@ bool rageam::graphics::ImageReadDDS(ConstWString path, int& w, int& h, int& mips
 	if ((header.ddspf.dwFlags & DDPF_FOURCC) && header.ddspf.dwFourCC == FOURCC('D', 'X', '1', '0'))
 	{
 		DDS_HEADER_DXT10 header10 = {};
-		if (!file::ReadFileSteam(&header10, sizeof DDS_HEADER_DXT10, sizeof DDS_HEADER_DXT10, fs.Get()))
+		if (!file::ReadFileStream(&header10, sizeof DDS_HEADER_DXT10, sizeof DDS_HEADER_DXT10, fs.Get()))
 		{
 			AM_ERRF("ReadImageDDS() -> Failed to read extended DX10 header.");
 			return false;
@@ -946,7 +946,7 @@ bool rageam::graphics::ImageReadDDS(ConstWString path, int& w, int& h, int& mips
 	u32 totalSize = ImageComputeTotalSizeWithMips(w, h, mips, fmt);
 	PixelDataOwner pixelDataOwner = PixelDataOwner::AllocateWithSize(totalSize);
 
-	if (file::ReadFileSteam(pixelDataOwner.Data()->Bytes, totalSize, totalSize, fs.Get()) != totalSize)
+	if (file::ReadFileStream(pixelDataOwner.Data()->Bytes, totalSize, totalSize, fs.Get()) != totalSize)
 	{
 		AM_ERRF("ReadImageDDS() -> Failed to read pixel data, file is corrupted.");
 		return false;

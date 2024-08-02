@@ -1,7 +1,34 @@
 #include "fileutils.h"
 
 #include "am/system/asserts.h"
+#include "path.h"
 #include "helpers/win32.h"
+#include "rage/paging/resourceheader.h"
+#include "rage/file/packfile.h"
+
+void rageam::file::EnumerateDirectory(ConstWString path, bool recurse, const std::function<void(const WIN32_FIND_DATAW&, ConstWString fullPath)>& findFn)
+{
+	WPath searchPath = path;
+	searchPath /= L"*";
+
+	WIN32_FIND_DATAW findData;
+	HANDLE           findHandle = FindFirstFileW(searchPath, &findData);
+	if (findHandle == INVALID_HANDLE_VALUE)
+		return;
+
+	do
+	{
+		if (!wcscmp(findData.cFileName, L".") || !wcscmp(findData.cFileName, L"..") || findData.dwFileAttributes == INVALID_FILE_ATTRIBUTES)
+			continue;
+
+		WPath findPath = path;
+		findPath /= findData.cFileName;
+		findFn(findData, findPath);
+		if (recurse && findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+			EnumerateDirectory(findPath, true, findFn);
+	} while (FindNextFileW(findHandle, &findData));
+	FindClose(findHandle);
+}
 
 bool rageam::file::IsFileExists(const char* path)
 {
@@ -112,12 +139,12 @@ FILE* rageam::file::OpenFileStream(const wchar_t* path, const wchar_t* mode)
 	return file;
 }
 
-size_t rageam::file::ReadFileSteam(pVoid buffer, size_t bufferSize, size_t readSize, FILE* fs)
+size_t rageam::file::ReadFileStream(pVoid buffer, size_t bufferSize, size_t readSize, FILE* fs)
 {
 	return fread_s(buffer, bufferSize, sizeof(char), readSize, fs);
 }
 
-bool rageam::file::WriteFileSteam(pConstVoid buffer, size_t writeSize, FILE* fs)
+bool rageam::file::WriteFileStream(pConstVoid buffer, size_t writeSize, FILE* fs)
 {
 	return fwrite(buffer, sizeof(char), writeSize, fs) == writeSize;
 }
@@ -125,4 +152,33 @@ bool rageam::file::WriteFileSteam(pConstVoid buffer, size_t writeSize, FILE* fs)
 void rageam::file::CloseFileStream(FILE* file)
 {
 	fclose(file);
+}
+
+u32 rageam::file::GetResourceInfo(const wchar_t* path, rage::datResourceInfo& info)
+{
+	info = {};
+	FILE* stream = OpenFileStream(path, L"rb");
+	if (!stream)
+		return 0;
+	u32 version = 0;
+	rage::datResourceHeader header;
+	ReadFileStream(&header, 16, 16, stream);
+	if (header.IsValidMagic())
+	{
+		version = header.Version;
+		info = header.Info;
+	}
+	CloseFileStream(stream);
+	return version;
+}
+
+bool rageam::file::GetPackfileHeader(const wchar_t* path, rage::fiPackHeader& header)
+{
+	header = {};
+	FILE* stream = OpenFileStream(path, L"rb");
+	if (!stream)
+		return false;
+	ReadFileStream(&header, 16, 16, stream);
+	CloseFileStream(stream);
+	return header.Magic == rage::fiPackHeader::MAGIC;
 }

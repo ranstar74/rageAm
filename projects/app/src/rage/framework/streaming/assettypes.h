@@ -86,4 +86,44 @@ namespace rage
 		if (id == 32) return "yldb";
 		AM_UNREACHABLE("GetPlatformAssetExtensionByID() -> ID %u is unknown!", id);
 	}
+
+	inline bool IsResourceExtension(ConstString ext)
+	{
+		if (*ext != 'y')
+			return false;
+
+		switch (atStringHash(ext))
+		{
+		case atStringHash("ydr"):  return true;
+		case atStringHash("yft"):  return true;
+		case atStringHash("ydd"):  return true;
+		case atStringHash("ytd"):  return true;
+		case atStringHash("ycd"):  return true;
+		case atStringHash("ybn"):  return true;
+		case atStringHash("ybd"):  return true;
+		case atStringHash("ybs"):  return true;
+		case atStringHash("yld"):  return true;
+		case atStringHash("ypm"):  return true;
+		case atStringHash("yed"):  return true;
+		case atStringHash("ypt"):  return true;
+		case atStringHash("ymt"):  return true;
+		case atStringHash("ymap"): return true;
+		case atStringHash("ytyp"): return true;
+		case atStringHash("yrf"):  return true;
+		case atStringHash("ypdb"): return true;
+		case atStringHash("ynv"):  return true;
+		case atStringHash("yhn"):  return true;
+		case atStringHash("ysc"):  return true;
+		case atStringHash("yam"):  return true;
+		case atStringHash("ypl"):  return true;
+		case atStringHash("ynd"):  return true;
+		case atStringHash("yvr"):  return true;
+		case atStringHash("ywr"):  return true;
+		case atStringHash("ymf"):  return true;
+		case atStringHash("ynh"):  return true;
+		case atStringHash("yfd"):  return true;
+		case atStringHash("yldb"): return true;
+		}
+		return false;
+	}
 }

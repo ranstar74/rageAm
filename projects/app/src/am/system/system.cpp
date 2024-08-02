@@ -8,11 +8,14 @@
 #include "rage/grcore/fvf.h"
 #include "exception/handler.h"
 
-#include <easy/profiler.h>
+#include "am/crypto/cipher.h"
 
 #ifdef AM_INTEGRATED
 #include "am/integration/memory/hook.h"
 #endif
+
+#include <easy/profiler.h>
+#include <Tracy.hpp>
 
 void rageam::System::LoadDataFromXML()
 {
@@ -132,6 +135,8 @@ void rageam::System::Destroy()
 	AM_INTEGRATED_ONLY(Hook::Shutdown());
 	AM_INTEGRATED_ONLY(m_AddressCache = nullptr);
 
+	crypto::ICipher::SetInstance(nullptr);
+
 	rage::SystemHeap::Shutdown();
 
 	m_Initialized = false;
@@ -178,7 +183,15 @@ void rageam::System::Init(bool withUI)
 	// Integration must be initialized after rendering/ui, it depends on it
 	AM_INTEGRATED_ONLY(m_Integration = std::make_unique<integration::GameIntegration>());
 
+	m_FileDevice = std::make_unique<file::FileDevice>();
 	m_Initialized = true;
+
+#ifdef AM_SOVIET_KEYS
+	static crypto::GTAVSovietCipher s_Cipher;
+#else
+	static crypto::GTAVNativeCipher s_Cipher;
+#endif
+	crypto::ICipher::SetInstance(&s_Cipher);
 
 	timer.Stop();
 	AM_TRACEF("[RAGEAM] Startup time: %llu ms", timer.GetElapsedMilliseconds());
@@ -196,4 +209,5 @@ void rageam::System::Update() const
 {
 	EASY_BLOCK("System::Update");
 	if (m_ImageCache) m_ImageCache->DeleteOldEntries();
+	if (m_FileDevice) m_FileDevice->Update();
 }

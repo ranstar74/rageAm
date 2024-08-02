@@ -20,6 +20,7 @@ template<typename TString>
 class StringWrapper
 {
 	using TChar = std::remove_const_t<std::remove_pointer_t<TString>>;
+	using TCString = std::add_const_t<std::remove_pointer_t<TString>>*;
 	using Char = CharBase<TChar>;
 
 	TString m_Str;
@@ -73,7 +74,7 @@ public:
 		if (ignoreCase) for (TChar& c : table) c = Char::ToLower(c);
 
 		s32 i = 0;
-		while (m_Str[i++])
+		while (m_Str[i])
 		{
 			TChar a = m_Str[i];
 			if (ignoreCase) a = Char::ToLower(a);
@@ -82,6 +83,7 @@ public:
 			{
 				if (a == c) return i;
 			}
+			i++;
 		}
 		return -1;
 	}
@@ -160,7 +162,7 @@ public:
 	/**
 	 * \brief Gets whether this string starts with given substring.
 	 */
-	bool StartsWith(TString subString, bool ignoreCase = false)
+	bool StartsWith(TCString subString, bool ignoreCase = false)
 	{
 		u32 i = 0;
 		while (true)
@@ -183,7 +185,7 @@ public:
 	/**
 	 * \brief Gets whether this string ends with given substring.
 	 */
-	bool EndsWith(TString postfix, bool ignoreCase = false)
+	bool EndsWith(TCString postfix, bool ignoreCase = false)
 	{
 		StringWrapper expectedPostfix = postfix;
 
@@ -199,7 +201,7 @@ public:
 	/**
 	 * \brief Gets index of first (from left) occurrence of given substring in this string.
 	 */
-	s32 IndexOf(TString substring, bool ignoreCase = false)
+	s32 IndexOf(TCString substring, bool ignoreCase = false)
 	{
 		s32 i = 0;
 		while (m_Str[i])
@@ -216,7 +218,7 @@ public:
 	/**
 	 * \brief Gets index of last (from right) occurrence of given substring in this string.
 	 */
-	s32 LastIndexOf(TString substring, bool ignoreCase = false)
+	s32 LastIndexOf(TCString substring, bool ignoreCase = false)
 	{
 		s32 k = -1;
 		s32 i = 0;
@@ -310,7 +312,7 @@ public:
 	/**
 	 * \brief Gets whether this string contains given substring at least once.
 	 */
-	bool Contains(TString other, bool ignoreCase = false)
+	bool Contains(TCString other, bool ignoreCase = false)
 	{
 		return IndexOf(other, ignoreCase) != -1;
 	}
@@ -333,7 +335,7 @@ public:
 	 * \brief Compares this string with the other.
 	 * \remarks Comparison is case-sensitive, see ::Equals if you need to ignore case.
 	 */
-	bool operator==(TString other) { return Equals(StringWrapper(other)); }
+	bool operator==(TCString other) { return Equals(StringWrapper(other)); }
 
 	/**
 	 * \brief Gets view at this string at given offset.

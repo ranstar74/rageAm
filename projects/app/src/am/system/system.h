@@ -13,6 +13,7 @@
 #include "am/graphics/window.h"
 #include "am/ui/imglue.h"
 #include "threadinfo.h"
+#include "am/file/device.h"
 
 #ifdef AM_INTEGRATED
 #include "am/integration/integration.h"
@@ -63,6 +64,7 @@ namespace rageam
 		amUPtr<graphics::Render>          m_Render;
 		amUPtr<graphics::ImageCache>      m_ImageCache;
 		amUPtr<ui::ImGlue>                m_ImGlue;
+		amUPtr<file::FileDevice>		  m_FileDevice;
 		bool                              m_UseWindowRender = false;
 		bool                              m_Initialized = false;
 

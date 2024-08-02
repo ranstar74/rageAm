@@ -18,6 +18,7 @@ namespace rageam::file
 	struct FindData
 	{
 		WPath				Path;
+		WPath				Name;
 		u64					Size;
 		u32					Attributes;
 		DateTime			LastWriteTime;
@@ -79,6 +80,7 @@ namespace rageam::file
 		void GetCurrent(FindData& data) const
 		{
 			data.Path = m_SearchDirectory / m_FindData.cFileName;
+			data.Name = m_FindData.cFileName;
 			data.Attributes = m_FindData.dwFileAttributes;
 			data.Size = TODWORD64(m_FindData.nFileSizeLow, m_FindData.nFileSizeHigh);
 			data.LastWriteTime = DateTime(m_FindData.ftLastWriteTime);
