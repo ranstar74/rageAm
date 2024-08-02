@@ -34,7 +34,7 @@ namespace rage
 		u32 Read(fiHandle_t file, pVoid buffer, u32 size) override;
 		u32 ReadBulk(fiHandle_t file, u64 offset, pVoid buffer, u32 size) override;
 
-		u32 WriteOverlapped(fiHandle_t file, u64 offset, pConstVoid buffer, u32 size) override;
+		u32 WriteBulk(fiHandle_t file, u64 offset, pConstVoid buffer, u32 size) override;
 		u32 Write(fiHandle_t file, pConstVoid buffer, u32 size) override;
 
 		u64 Seek64(fiHandle_t file, s64 offset, eFiSeekWhence whence = SEEK_FILE_BEGIN) override;
@@ -61,7 +61,7 @@ namespace rage
 		u32 GetAttributes(ConstString path) override;
 		bool SetAttributes(ConstString path, u32 attributes) override;
 
-		u64 GetRootDeviceId() override { return 2; /* Whatever this means */ }
+		u64 GetRootDeviceId(ConstString fileName) override { return 2; /* HARDDRIVE */ }
 
 		ConstString GetDebugName() override { return "Local"; }
 	};

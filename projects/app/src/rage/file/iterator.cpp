@@ -2,7 +2,7 @@
 
 #include <shlwapi.h>
 
-#include "device/local.h"
+#include "local.h"
 #include "helpers/win32.h"
 
 bool rage::fiIterator::Begin()
@@ -44,7 +44,8 @@ rage::fiIterator::fiIterator(ConstString path, ConstString searchPattern, fiDevi
 {
 	m_Device = device;
 	m_Path = path;
-	m_FileSearchPath = m_Path / "*";
+	//m_FileSearchPath = m_Path / "*";
+	m_FileSearchPath = m_Path / "";
 	String::Copy(m_SearchPattern, FI_MAX_NAME, searchPattern);
 }
 

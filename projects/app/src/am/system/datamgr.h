@@ -63,6 +63,13 @@ namespace rageam
 			return profilerFolder;
 		}
 
+		// data/packcache
+		static const file::WPath& GetPackCacheFolder()
+		{
+			static file::WPath packcacheFolder = GetDataFolder() / L"packcache";
+			return packcacheFolder;
+		}
+
 		// Gets path to RageAm data folder, this folder contains logs, icons, fonts
 		static const file::WPath& GetDataFolder()
 		{

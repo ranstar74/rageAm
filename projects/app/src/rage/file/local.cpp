@@ -139,7 +139,7 @@ u32 rage::fiDeviceLocal::ReadBulk(fiHandle_t file, u64 offset, pVoid buffer, u32
 	return bytesRead;
 }
 
-u32 rage::fiDeviceLocal::WriteOverlapped(fiHandle_t file, u64 offset, pConstVoid buffer, u32 size)
+u32 rage::fiDeviceLocal::WriteBulk(fiHandle_t file, u64 offset, pConstVoid buffer, u32 size)
 {
 	OVERLAPPED overlapped{};
 	SET_OVERLAPPED_OFFSET(overlapped, offset);

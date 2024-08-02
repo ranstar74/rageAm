@@ -18,7 +18,7 @@
 
 #include "rage/file/stream.h"
 #include "helpers/format.h"
-#include "rage/file/device/local.h"
+#include "rage/file/local.h"
 
 rage::sysMemSimpleAllocator::Node::Node(u32 size)
 {

@@ -1,7 +1,7 @@
 //
 // File: device.h
 //
-// Copyright (C) 2023 ranstar74. All rights violated.
+// Copyright (C) 2023-2024 ranstar74. All rights violated.
 //
 // Part of "Rage Am" Research Project.
 //
@@ -10,6 +10,8 @@
 #include "am/file/path.h"
 #include "am/string/string.h"
 #include "common/types.h"
+
+// NOTE: 'Bias' is often used with meaning of 'Offset'; We use offset because it sounds simpler
 
 // Device-specific file handle. HANDLE for fiDeviceLocal (win-api); fiCollection::Handle for fiPackfile;
 typedef pVoid fiHandle_t;
@@ -39,6 +41,7 @@ enum eFiAttribute : u32
 
 namespace rage
 {
+	class fiPackfile;
 	struct datResourceInfo;
 
 	struct fiFindData
@@ -69,19 +72,15 @@ namespace rage
 		virtual fiHandle_t Open(ConstString path, bool isReadOnly = true) = 0;
 		virtual fiHandle_t OpenBulk(ConstString path, u64& offset) = 0;
 
-	private:
-		// Async I/O is not implemented in V, when game needs async reading (for example, resource reading),
-		// it uses separate thread and bulk read with file offsets.
-		virtual fiHandle_t OpenBulkOverlapped(ConstString path, u64& offset) { return OpenBulk(path, offset); }
-	public:
+		virtual fiHandle_t OpenBulkDrm(const char* filename, u64& offset, const void* pDrmKey) { return OpenBulk(filename, offset); }
 
-		virtual fiHandle_t CreateBulk(ConstString path) = 0;
+		virtual fiHandle_t CreateBulk(ConstString path) { return FI_INVALID_HANDLE; }
 		virtual fiHandle_t Create(ConstString path) = 0;
 
 		virtual u32 Read(fiHandle_t file, pVoid buffer, u32 size) = 0;
-		virtual u32 ReadBulk(fiHandle_t file, u64 offset, pVoid buffer, u32 size) = 0;
+		virtual u32 ReadBulk(fiHandle_t file, u64 offset, pVoid buffer, u32 size) { return -1; }
 
-		virtual u32 WriteOverlapped(fiHandle_t file, u64 offset, pConstVoid buffer, u32 size) = 0;
+		virtual u32 WriteBulk(fiHandle_t file, u64 offset, pConstVoid buffer, u32 size) { return -1; }
 		virtual u32 Write(fiHandle_t file, pConstVoid buffer, u32 size) = 0;
 
 		virtual u32 Seek(fiHandle_t file, s32 offset, eFiSeekWhence whence = SEEK_FILE_BEGIN)
@@ -113,16 +112,13 @@ namespace rage
 		// Return value & type is wrong, native implementation probably using some enumeration.
 		virtual bool Flush(fiHandle_t file) { return true; }
 
-		virtual bool Delete(ConstString path) = 0;
-		virtual bool Rename(ConstString oldPath, ConstString newPath) = 0;
+		virtual bool Delete(ConstString path) { return false; }
+		virtual bool Rename(ConstString oldPath, ConstString newPath) { return false; }
 
-		virtual bool MakeDirectory(ConstString path) = 0;
-		virtual bool UnmakeDirectory(ConstString path) = 0;
+		virtual bool MakeDirectory(ConstString path) { return false; }
+		virtual bool UnmakeDirectory(ConstString path) { return false; }
 
-	private:
-		// Not implemented / present in Release.
-		virtual u32 GetAvailableDiskSpace(ConstString) { return 0; }
-	public:
+		virtual void Sanitize(fiHandle_t handle) const { }
 
 		virtual u64	GetFileSize(ConstString path) = 0;
 		virtual u64 GetFileTime(ConstString path) = 0;
@@ -139,41 +135,25 @@ namespace rage
 			String::Copy(destination, destinationSize, path);
 		}
 
-		virtual bool SetEndOfFile(fiHandle_t file) = 0;
-
-		virtual u32	GetAttributes(ConstString path) = 0;
-
-	private:
-		// Unknown purpose, not implemented.
-		virtual bool GetUnknown0x100() { return true; }
-	public:
-
-		virtual bool SetAttributes(ConstString path, u32 attributes) = 0;
-
-		virtual u64	GetRootDeviceId() = 0;
-
-		// Im not sure what is exact purpose of those
-
+		virtual bool SetEndOfFile(fiHandle_t file) { return false; }
+		virtual u32	 GetAttributes(ConstString path) { return 0; }
+		virtual bool PrefetchDir() { return true; } // For remote device
+		virtual bool SetAttributes(ConstString path, u32 attributes) { return false; }
+		virtual u64  GetRootDeviceId(ConstString fileName) = 0;
 		virtual bool SafeRead(fiHandle_t file, pVoid buffer, u32 size);
 		virtual bool SafeWrite(fiHandle_t file, pConstVoid buffer, u32 size);
-
-		virtual u32 GetResourceInfo(ConstString path, datResourceInfo& info);
+		virtual u32  GetResourceInfo(ConstString path, datResourceInfo& info);
 
 		virtual u32 GetEncryption() { return 0; }
 		virtual u32 GetBulkOffset(ConstString path) { return 0; }
-		virtual s64 GetPhysicalSortKey() { return 0x40000000; } // I still have no idea what this is even used for
+		virtual u32 GetPhysicalSortKey(ConstString path) { return 0x40000000; /* HARDDRIVE_LSN */ }
 
-	private:
-		// Few unknown ones, return values taken from fiDeviceLocal
-
-		virtual u64 Function0x148() { return 0; }
-		virtual u64 Function0x150() { return 0; }
-		virtual fiDevice* Function0x158() { return this; }
-		virtual u64 Function0x160() { return 0; }
-	public:
+		virtual bool IsRpf() const { return false; }
+		virtual bool IsMaskingAnRpf() const { return false; } // Is this relative device holds packfile?
+		virtual fiPackfile* GetRpfDevice() { return (fiPackfile*) this; } // Get relative device from relative device
+		virtual bool IsCloud() const { return false; } // If fiDeviceCloud
 
 		virtual u32 GetPackfileIndex() { return 0; }
-
 		virtual ConstString GetDebugName() = 0;
 	};
 
