@@ -16,10 +16,10 @@ namespace rage
 	{
 		CHANNEL_POSITION = 0,
 		CHANNEL_BLENDWEIGHT = 1,
-		CHANNEL_BLENDINDICES = 2,
+		CHANNEL_BLENDINDICES = 2,	// Binding
 		CHANNEL_NORMAL = 3,
-		CHANNEL_COLOR0 = 4,
-		CHANNEL_COLOR1 = 5,
+		CHANNEL_COLOR0 = 4,			// Diffuse
+		CHANNEL_COLOR1 = 5,			// Specular
 		CHANNEL_TEXCOORD0 = 6,
 		CHANNEL_TEXCOORD1 = 7,
 		CHANNEL_TEXCOORD2 = 8,
@@ -34,6 +34,10 @@ namespace rage
 		CHANNEL_BINORMAL1 = 17,
 
 		CHANNEL_INVALID = -1,
+
+		CHANNEL_MAX_TEXCOORD = 8,
+		CHANNEL_MAX_TANGENT = 2,
+		CHANNEL_MAX_BINORMAL = 2,
 	};
 
 	inline grcVertexChannel GetFvfChannelBySemanticName(const char* semanticName, u32 semanticIndex)
