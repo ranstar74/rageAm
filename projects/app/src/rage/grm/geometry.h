@@ -82,8 +82,6 @@ namespace rage
 
 		void SetVertexData(const grmVertexData& vertexData);
 
-		virtual ~grmGeometryQB() = default;
-
 #if APP_BUILD_2699_16_RELEASE_NO_OPT
 		virtual bool Init(const mshMesh& mesh, int mtlIndex, u32 channelMask, const bool isCharClothMesh, const bool isEnvClothMesh, GeometryCreateParams* params = NULL, int extraVerts = 0) { return false; }
 #endif
@@ -94,8 +92,12 @@ namespace rage
 		virtual void Prefetch() {}
 		virtual void DrawSkinned(u64 bones)
 		{
+#if APP_BUILD_2699_16_RELEASE_NO_OPT
+			static gmAddress drawSkinned = gmAddress::Scan("48 89 54 24 10 48 89 4C 24 08 48 83 EC 38 33 C0 85 C0 75 FA 48 8B 44 24 48 48 83");
+#else
 			static gmAddress vft = gmAddress::Scan("48 8D 05 ?? ?? ?? ?? 33 F6 48 8B D9 48 89 01 8B 05").GetRef(3);
 			static gmAddress drawSkinned = *(u64*)(vft + 0x28);
+#endif
 			static auto fn = drawSkinned.ToFunc<void(grmGeometryQB*, u64)>();
 			fn(this, bones);
 		}
