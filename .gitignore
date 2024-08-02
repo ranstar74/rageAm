@@ -404,5 +404,11 @@ MigrationBackup/
 FodyWeavers.xsd
 /rageAm
 
-## bc7 object files
-!projects/app/vendor/bc7enc_rdo/*.obj
+
+# Dependencies
+!projects/app/vendor/**
+
+# Temp Data
+data/packcache
+data/profiles
+
