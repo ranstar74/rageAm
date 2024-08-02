@@ -204,7 +204,7 @@ rage::grcVertexDeclaration* rage::grcVertexDeclaration::BuildCachedDeclarator(co
 
 	// Try to retrieve existing declaration from cache using binary search
 	DeclPair* cachedDecl = std::lower_bound(sm_CachedDecls.begin(), sm_CachedDecls.end(), hashkey, DeclPair::SearchCompare);
-	if (cachedDecl != sm_CachedDecls.end())
+	if (/*cachedDecl != sm_CachedDecls.end()*/cachedDecl->HashKey == hashkey) // TODO: Is it working?
 		return cachedDecl->Declaration;
 
 	// Create new declaration and cache it
