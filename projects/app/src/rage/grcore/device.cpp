@@ -3,7 +3,6 @@
 #include "buffer.h"
 #include "am/graphics/dxgi_utils.h"
 #include "am/graphics/render.h"
-#include "am/graphics/vertexbufferiterator.h"
 #include "am/integration/memory/address.h"
 
 rage::grcVertexDeclaration* rage::grcDevice::CreateVertexDeclaration(const grcVertexElement* elements, u32 elementCount)
