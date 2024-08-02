@@ -412,3 +412,4 @@ FodyWeavers.xsd
 data/packcache
 data/profiles
 
+projects/app/src/protoc
