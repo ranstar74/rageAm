@@ -14,6 +14,10 @@ function default_config()
 	flags { "MultiProcessorCompile" }
 	symbols "On"
 
+	-- TODO: Only disable if tracy profiler is enabled
+	-- Works terribl and incompatible with Tracy, disable it for now
+	editandcontinue "Off"
+
 	filter { "options:avx2" }
 		vectorextensions "AVX2"
 		defines { "AM_IMAGE_USE_AVX2" }
@@ -237,6 +241,7 @@ project "rageAm"
 		"libwebp",
 		"icbc",
 		"lunasvg",
+		"tracy",
 	}
 	links { "Comctl32.lib" } 	-- TaskDialog
 	links { "dbghelp" } 		-- StackTrace
