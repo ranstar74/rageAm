@@ -6,7 +6,15 @@ This library / toolkit is focused on realtime development without the need to re
 
 How it works? See here https://www.youtube.com/watch?v=-uz1p3hUxSo
 
-Currently supported features:
+# Building from source
+Install [Autodesk FBX SDK](https://aps.autodesk.com/developer/overview/fbx-sdk) and add environment variable `FBXSDK` with path to it, example: `C:/Program Files/Autodesk/FBX SDK/2020.3.7`
+
+Install gRPC: (*Takes ~18 minutes on Ryzen 3700X*)
+```
+vcpkg install grpc:x64-windows-static-md
+```
+
+# Currently supported features:
 * Drawable Editor
   * Skinning + linking nodes to bones
   * Embed dictionary

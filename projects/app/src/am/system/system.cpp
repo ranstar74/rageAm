@@ -7,7 +7,7 @@
 #include "am/xml/doc.h"
 #include "rage/grcore/fvf.h"
 #include "exception/handler.h"
-
+#include "dispatcher.h"
 #include "am/crypto/cipher.h"
 
 #ifdef AM_INTEGRATED
@@ -184,6 +184,9 @@ void rageam::System::Init(bool withUI)
 	AM_INTEGRATED_ONLY(m_Integration = std::make_unique<integration::GameIntegration>());
 
 	m_FileDevice = std::make_unique<file::FileDevice>();
+	// Nothing depends on server, initialize last
+	m_RemoteServer = std::make_unique<remote::RemoteServer>();
+
 	m_Initialized = true;
 
 #ifdef AM_SOVIET_KEYS
@@ -208,6 +211,7 @@ void rageam::System::Init(bool withUI)
 void rageam::System::Update() const
 {
 	EASY_BLOCK("System::Update");
-	if (m_ImageCache) m_ImageCache->DeleteOldEntries();
+	Dispatcher::UpdateThread().ExecuteTasks();
+	if (m_RemoteServer) m_RemoteServer->Update();
 	if (m_FileDevice) m_FileDevice->Update();
 }

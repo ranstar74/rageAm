@@ -259,6 +259,19 @@ project "rageAm"
 	
 	defines { "NOMINMAX" }
 
+	-- GRPC + Protobuf
+	include_vendors 
+	{
+		"grpc",
+	}
+	files
+	{
+		"projects/app/src/protoc/**.*",
+	}
+	-- https://stackoverflow.com/questions/21399650/cannot-include-both-files-winsock2-windows-h
+	defines { "_WINSOCKAPI_" }
+	includedirs { "protos/include_cpp" }
+
 	-- Easy Profiler
 	include_vendors {
 		"easy_profiler",
