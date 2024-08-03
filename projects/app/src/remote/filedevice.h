@@ -150,6 +150,7 @@ namespace rageam::remote
 					batchEntries.Add(responseEntry);
 					if (batchEntries.GetSize() == BATCH_SIZE)
 						sendBatch();
+					return true;
 				}, request->recurse(), request->includeflags());
 
 				// Write remaining
