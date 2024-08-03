@@ -176,8 +176,8 @@ bool rage::fiPackfile::ReInit(ConstString archivePath)
 				fiPackEntry rootEntry = m_Entries[0];
 				char entryName[16];
 				memcpy(entryName, m_NameHeap, 16);
-				if (!CIPHER.Decrypt(0, selectorToValidate, &rootEntry, 16)) return false;
-				if (!CIPHER.Decrypt(0, selectorToValidate, entryName, 16)) return false;
+				if (!CIPHER.Decrypt(header.Encryption, selectorToValidate, &rootEntry, 16)) return false;
+				if (!CIPHER.Decrypt(header.Encryption, selectorToValidate, entryName, 16)) return false;
 				// Sanity check - first name heap character is always null terminator for valid RPF, because that's the name of implicit root directory
 				// If decryption fails (most likely - due to renamed file causing invalid TFIT selector), name heap will contain garbage
 				return entryName[0] == '\0' && rootEntry.IsDirectory();
@@ -207,8 +207,8 @@ bool rage::fiPackfile::ReInit(ConstString archivePath)
 		}
 
 		ZoneScopedN("Decrypt TFIT");
-		if (!CIPHER.Decrypt(0, selector, m_Entries, entriesSize)) decrypted = false;
-		if (!CIPHER.Decrypt(0, selector, m_NameHeap, header.NameHeapSize)) decrypted = false;
+		if (!CIPHER.Decrypt(header.Encryption, selector, m_Entries, entriesSize)) decrypted = false;
+		if (!CIPHER.Decrypt(header.Encryption, selector, m_NameHeap, header.NameHeapSize)) decrypted = false;
 	}
 	else if (header.Encryption == CIPHER_KEY_ID_AES)
 	{
