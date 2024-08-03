@@ -148,11 +148,12 @@ namespace rage
 		int          GetEntryIndex(ConstString name) const override; // -1 if entry wasn't found
 		int          GetEntryIndex(const fiPackEntry& entry) const;
 		ConstString  GetEntryName(u32 index) const override;
+		ConstString  GetEntryName(const fiPackEntry& entry) const { return GetEntryName(GetEntryIndex(entry)); }
 		ConstString  GetEntryFullName(u32 index, char* dest, int destSize) const override; // Quite slow, file cache... caches full paths
 		u64          GetEntrySize(const fiPackEntry& entry) const { return entry.GetUncompressedSize(); }
 		u64          GetEntryCompressedSize(const fiPackEntry& entry); // Handles big (16MB+) resources 
 		u32          GetResourceCompressedSize(const fiPackEntry& entry);
-		u32			 GetResourceInfo(const fiPackEntry& entry, datResourceInfo& info);
+		u32          GetResourceInfo(const fiPackEntry& entry, datResourceInfo& info);
 		fiPackEntry& GetRootEntry() const { return m_Entries[0]; }
 
 		ConstString GetFullName() const { return m_Fullname; }
