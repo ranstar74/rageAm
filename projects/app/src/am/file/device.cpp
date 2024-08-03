@@ -197,7 +197,7 @@ void rageam::file::FileDevice::ScanAndCachePackfilesRecurse(const WPath& basePat
 	}
 }
 
-void rageam::file::FileDevice::EnumeratePackfileRecurse(const Packfile& packfile, rage::fiPackEntry* entry, bool recurse, const PackfileEnumerateFn& findFn) const
+bool rageam::file::FileDevice::EnumeratePackfileRecurse(const Packfile& packfile, rage::fiPackEntry* entry, bool recurse, const PackfileEnumerateFn& findFn) const
 {
 	ZoneScoped;
 	u32 start = entry->Directory.StartIndex;
@@ -214,21 +214,26 @@ void rageam::file::FileDevice::EnumeratePackfileRecurse(const Packfile& packfile
 		// Only files can be ... packfiles
 		bool isPackfile = entry->IsFile() && entryName.EndsWith(".rpf");
 
-		findFn(packfile.Device.get(), *entry, entryPath, isPackfile);
+		if (!findFn(packfile.Device.get(), *entry, entryPath, isPackfile))
+			return false;
+
 		if (recurse && isPackfile)
 		{
 			PackfileIndex* nestedPackfileIndex = m_EntryToPackfile.TryGetAt(DataHash(entry, 8));
 			if (nestedPackfileIndex) // Might be NULL if failed loading
 			{
 				const Packfile& nestedPackfile = m_Packfiles[*nestedPackfileIndex];
-				EnumeratePackfileRecurse(nestedPackfile, &nestedPackfile.Device->GetRootEntry(), true, findFn);
+				if (!EnumeratePackfileRecurse(nestedPackfile, &nestedPackfile.Device->GetRootEntry(), true, findFn))
+					return false;
 			}
 		}
 		else if (recurse && entry->IsDirectory())
 		{
-			EnumeratePackfileRecurse(packfile, entry, recurse, findFn);
+			if (!EnumeratePackfileRecurse(packfile, entry, recurse, findFn))
+				return false;
 		}
 	}
+	return true;
 }
 
 void rageam::file::FileDevice::EnumeratePackfile(ConstWString path, const PackfileEnumerateFn& findFn, bool recurse)
@@ -249,7 +254,7 @@ void rageam::file::FileDevice::EnumeratePackfile(ConstWString path, const Packfi
 
 	rage::fiPackEntry* entry = packfile.Device->FindEntry(entryPath);
 	if (entry && entry->IsDirectory())
-		EnumeratePackfileRecurse(packfile, entry, recurse, findFn);
+		(void) EnumeratePackfileRecurse(packfile, entry, recurse, findFn);
 }
 
 rageam::file::FileDevice::PackfileIndex rageam::file::FileDevice::LookupPackfileInCacheOrOpen(ConstWString normalizedPath)
@@ -283,7 +288,7 @@ rageam::file::FileDevice::PackfileIndex rageam::file::FileDevice::LookupPackfile
 			ConstWString subPath = cursor;
 
 			// If we are not in archive yet, first check if RPF file exists at all, before doing any loading
-			if (currentPackfileIndex < 0 && !IsFileExists(cursor))
+			if (currentPackfileIndex < 0 && !file::IsFileExists(cursor))
 				return -1;
 
 			// If were in archive, we need to find current packfile entry
@@ -390,7 +395,8 @@ void rageam::file::FileDevice::SearchInPackfileCache(ConstString pattern, const 
 			searchResult.Entry = &entry;
 			searchResult.Path = PATH_TO_WIDE(lazy.Cache.GetFullEntryPath(i));
 			searchResult.Type = type;
-			onFindFn(searchResult);
+			if (!onFindFn(searchResult))
+				return;
 		}
 	}
 }
@@ -409,17 +415,17 @@ void rageam::file::FileDevice::Search(ConstWString path, ConstWString pattern, c
 	{
 		// Match include type mask
 		if (!(includeMask & 1 << searchData.Type))
-			return;
+			return true;
 
 		ConstWString entryName = GetFileName<wchar_t>(searchData.Path);
 
 		// Compare name with search request
 		if (doGlobSearch && !GlobMatch(entryName, processedPattern))
-			return;
+			return true;
 		if (!doGlobSearch && !ImmutableWString(entryName).Contains(processedPattern))
-			return;
+			return true;
 
-		onFindFn(searchData);
+		return onFindFn(searchData);
 	}, recurse);
 }
 
@@ -445,7 +451,7 @@ void rageam::file::FileDevice::Enumerate(ConstWString path, const FileSearchFn& 
 				data.Type = FileEntry_Directory;
 			else 
 				data.Type = FileEntry_File;
-			onFindFn(data);
+			return onFindFn(data);
 		}, recurse);
 	};
 
@@ -479,6 +485,29 @@ void rageam::file::FileDevice::Enumerate(ConstWString path, const FileSearchFn& 
 		if (recurse && data.Type == FileEntry_Packfile)
 			enumeratePackfile(fullPath);
 	});
+}
+
+bool rageam::file::FileDevice::IsFileExists(ConstWString path)
+{
+	if (!IsInPackfile(path))
+		return file::IsFileExists(path); // Fallback to OS file system
+
+	bool exists = false;
+	WPath directory = path;
+	directory = directory.GetParentDirectory();
+	Path fileName = String::ToAnsiTemp(GetFileName(path));
+	fileName.ToLower();
+
+	Enumerate(directory, [&](const FileSearchData& searchData)
+		{
+			ConstString entryName = searchData.Packfile->GetEntryName(*searchData.Entry);
+			if (!String::Equals(fileName, entryName))
+				return true;
+			exists = true;
+			return false;
+		}, false);
+
+	return exists;
 }
 
 rage::fiPackfile* rageam::file::FileDevice::GetPackfile(ConstWString path)

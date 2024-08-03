@@ -82,7 +82,7 @@ namespace rageam::file
 		WPath			   Path;
 		FileEntryType	   Type;
 	};
-	using FileSearchFn = std::function<void(FileSearchData)>;
+	using FileSearchFn = std::function<bool(FileSearchData)>; // Return false to stop iterating
 
 	/**
 	 * \brief High-level wrapper for fiDevice (primarily for fiPackfile) with caching.
@@ -90,7 +90,8 @@ namespace rageam::file
 	 */
 	class FileDevice : public Singleton<FileDevice>
 	{
-		using PackfileEnumerateFn = std::function<void(rage::fiPackfile*, rage::fiPackEntry&, ConstString fullPath, bool isPackfile)>;
+		// Return false to stop iterating
+		using PackfileEnumerateFn = std::function<bool(rage::fiPackfile*, rage::fiPackEntry&, ConstString fullPath, bool isPackfile)>;
 		using PackfileIndex = s32;
 
 		struct Packfile
@@ -117,7 +118,8 @@ namespace rageam::file
 		// Recursevly iterates all packfiles in specified base directory
 		void ScanAndCachePackfilesRecurse(const WPath& basePath, const WPath& relativePath = L"");
 		// This is a cached up version to prevent unnecessary slow lookup of search directory in archive every call
-		void EnumeratePackfileRecurse(const Packfile& packfile, rage::fiPackEntry* entry, bool recurse, const PackfileEnumerateFn& findFn) const;
+		// Return value is internally used for early-existing enumeration (canceled by caller)
+		bool EnumeratePackfileRecurse(const Packfile& packfile, rage::fiPackEntry* entry, bool recurse, const PackfileEnumerateFn& findFn) const;
 		void EnumeratePackfile(ConstWString path, const PackfileEnumerateFn& findFn, bool recurse = true);
 
 		PackfileIndex LookupPackfileInCacheOrOpen(ConstWString normalizedPath);
@@ -152,12 +154,7 @@ namespace rageam::file
 		void Enumerate(ConstWString path, const FileSearchFn& onFindFn, bool recurse);
 
 		// Could be file or directory, including entries in packfiles
-		bool IsFileExists(ConstWString path)
-		{
-			if (IsInPackfile(path))
-				return GetPackfile(path);
-			return file::IsFileExists(path); // Fallback to OS file system
-		}
+		bool IsFileExists(ConstWString path);
 
 		// Tries to find already cached device or opens it
 		// Note that if packfiles is nested, all parent packfiles will be open and cached too
