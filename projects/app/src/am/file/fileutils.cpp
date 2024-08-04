@@ -120,7 +120,8 @@ u64 rageam::file::GetFileModifyTime(const wchar_t* path)
 	if (!IsFileExists(path))
 		return false;
 
-	HANDLE hFile = OpenFile(path);
+	HANDLE hFile = CreateFileW(
+		path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_DIRECTORY | FILE_FLAG_BACKUP_SEMANTICS, NULL);
 	if (hFile == INVALID_HANDLE_VALUE)
 		return false;
 
