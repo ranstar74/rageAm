@@ -121,10 +121,14 @@ rageam::file::FileDevice::PackfileIndex rageam::file::FileDevice::EnsurePackfile
 	if (entry) // NULL if not nested
 		m_EntryToPackfile.InsertAt(DataHash(entry, 8), newIndex);
 	m_Packfiles.Emplace(std::move(packfile));
+
+	// Now that packfile is cached, cache nested archives
+	ScanAndCacheNestedPackfilesRecurse(newIndex, path);
+
 	return newIndex;
 }
 
-void rageam::file::FileDevice::ScanAndCacheNestedPackfilesRecurse(PackfileIndex rootPackfileIndex, const WPath& basePath, const WPath& relativePath)
+void rageam::file::FileDevice::ScanAndCacheNestedPackfilesRecurse(PackfileIndex rootPackfileIndex, const WPath& basePath)
 {
 	// What's good is that we don't have to iterate recursevly, hierarchy is laid out flat
 	rage::fiPackfile* packfile = m_Packfiles[rootPackfileIndex].Device.get();
@@ -138,11 +142,11 @@ void rageam::file::FileDevice::ScanAndCacheNestedPackfilesRecurse(PackfileIndex 
 		if (!String::Equals(GetExtension(entryName), "rpf", true))
 			continue;
 
-		WPath currentRelativePath = relativePath / PATH_TO_WIDE(m_Packfiles[rootPackfileIndex].Cache.GetFullEntryPath(i));
-
 		PackfileIndex packfileIndex;
 		{
-			ConstString rpfPath = PATH_TO_UTF8(currentRelativePath);
+			WPath fullPath = basePath / PATH_TO_WIDE(m_Packfiles[rootPackfileIndex].Cache.GetFullEntryPath(i));
+
+			ConstString rpfPath = PATH_TO_UTF8(fullPath);
 			ConstString rpfName = GetFileName(rpfPath);
 			ZoneScoped;
 			ZoneNameF(rpfName);
@@ -150,7 +154,6 @@ void rageam::file::FileDevice::ScanAndCacheNestedPackfilesRecurse(PackfileIndex 
 			ZoneTextF(rpfPath, 1);
 
 			// Cache packfile
-			WPath fullPath = basePath / currentRelativePath;
 			packfileIndex = EnsurePackfileIsCached(fullPath, packfile, &entry);
 		}
 
@@ -159,7 +162,7 @@ void rageam::file::FileDevice::ScanAndCacheNestedPackfilesRecurse(PackfileIndex 
 			continue;
 
 		// Recursevly scan it for nested packfiles
-		ScanAndCacheNestedPackfilesRecurse(packfileIndex, basePath, currentRelativePath);
+		ScanAndCacheNestedPackfilesRecurse(packfileIndex, basePath);
 	}
 }
 
@@ -182,13 +185,8 @@ void rageam::file::FileDevice::ScanAndCachePackfilesRecurse(const WPath& basePat
 			ZoneNameF(rpfName);
 			ZoneColor(tracy::Color::Orange);
 			ZoneTextF(rpfPath, 1);
-			PackfileIndex packfileIndex = EnsurePackfileIsCached(findData.Path, nullptr, nullptr);
-			if (packfileIndex >= 0) // Make sure it loaded
-			{
-				// Now that packfile is cached, we have to iterate nested archives, though this is much easier
-				ScanAndCacheNestedPackfilesRecurse(packfileIndex, basePath, currentRelativePath);
+			EnsurePackfileIsCached(findData.Path, nullptr, nullptr);
 			}
-		}
 		// A directory, scan recursevly
 		else if (IsDirectory(findData.Path))
 		{

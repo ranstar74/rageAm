@@ -114,7 +114,7 @@ namespace rageam::file
 		// Packfile and handle must be specified for nested archives, it will make loading faster
 		PackfileIndex EnsurePackfileIsCached(ConstWString path, rage::fiPackfile* parent, rage::fiPackEntry* entry);
 		// ScanAndCachePackfilesRecurse but for nested packfiles
-		void ScanAndCacheNestedPackfilesRecurse(PackfileIndex rootPackfileIndex, const WPath& basePath, const WPath& relativePath = L"");
+		void ScanAndCacheNestedPackfilesRecurse(PackfileIndex rootPackfileIndex, const WPath& basePath);
 		// Recursevly iterates all packfiles in specified base directory
 		void ScanAndCachePackfilesRecurse(const WPath& basePath, const WPath& relativePath = L"");
 		// This is a cached up version to prevent unnecessary slow lookup of search directory in archive every call
