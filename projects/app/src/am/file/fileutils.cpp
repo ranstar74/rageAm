@@ -166,8 +166,11 @@ u32 rageam::file::GetResourceInfo(const wchar_t* path, rage::datResourceInfo& in
 	ReadFileStream(&header, 16, 16, stream);
 	if (header.IsValidMagic())
 	{
-		version = header.Version;
+		version = header.Info.GetVersion();
 		info = header.Info;
+
+		if (header.Info.GetVersion() != (int) header.Version)
+			AM_WARNINGF("file::GetResourceInfo() -> Version mismatch between header and flags, check exporter! %ls", path);
 	}
 	CloseFileStream(stream);
 	return version;
