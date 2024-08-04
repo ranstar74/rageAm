@@ -28,6 +28,9 @@ message FileSearchResponse { bytes FileData = 1; }
 message FileExistsRequest { string Path = 1; }
 message FileExistResponse { bool Value = 1; }
 
+message DirectoryEmptyRequest { string Path = 1; }
+message DirectoryEmptyResponse { bool Value = 1; }
+
 service FileDevice
 {
 	// Pre-loads all packfiles (.RPF) in specified directory recursively, including nested archives
@@ -39,4 +42,7 @@ service FileDevice
 
 	// Could be file or directory, including entries in packfiles
 	rpc IsFileExists(FileExistsRequest) returns (FileExistResponse) {}
+
+	// Could be directory or packfile, returns true if there's at least one entry
+	rpc IsDirectoryEmpty(DirectoryEmptyRequest) returns (DirectoryEmptyResponse) {}
 }

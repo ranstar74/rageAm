@@ -172,5 +172,16 @@ namespace rageam::remote
 			response->set_value(task.get());
 			return grpc::Status::OK;
 		}
+
+		grpc::Status IsDirectoryEmpty(grpc::ServerContext* context, const DirectoryEmptyRequest* request, DirectoryEmptyResponse* response) override
+		{
+			file::WPath path = PATH_TO_WIDE(request->path().c_str());
+			auto task = Dispatcher::UpdateThread().RunAsync([&]
+				{
+					return file::FileDevice::GetInstance()->IsDirectoryEmpty(path);
+				});
+			response->set_value(task.get());
+			return grpc::Status::OK;
+		}
 	};
 }

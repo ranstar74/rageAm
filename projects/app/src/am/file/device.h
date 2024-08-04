@@ -156,6 +156,9 @@ namespace rageam::file
 		// Could be file or directory, including entries in packfiles
 		bool IsFileExists(ConstWString path);
 
+		// Could be directory or packfile, returns true if there's at least one entry
+		bool IsDirectoryEmpty(ConstWString path);
+
 		// Tries to find already cached device or opens it
 		// Note that if packfiles is nested, all parent packfiles will be open and cached too
 		rage::fiPackfile* GetPackfile(ConstWString path);

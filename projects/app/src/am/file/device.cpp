@@ -186,7 +186,7 @@ void rageam::file::FileDevice::ScanAndCachePackfilesRecurse(const WPath& basePat
 			ZoneColor(tracy::Color::Orange);
 			ZoneTextF(rpfPath, 1);
 			EnsurePackfileIsCached(findData.Path, nullptr, nullptr);
-			}
+		}
 		// A directory, scan recursevly
 		else if (IsDirectory(findData.Path))
 		{
@@ -505,6 +505,17 @@ bool rageam::file::FileDevice::IsFileExists(ConstWString path)
 		}, false);
 
 	return exists;
+}
+
+bool rageam::file::FileDevice::IsDirectoryEmpty(ConstWString path)
+{
+	bool isEmpty = true;
+	Enumerate(path, [&](const FileSearchData&)
+		{
+			isEmpty = false;
+			return false;
+		}, false);
+	return isEmpty;
 }
 
 rage::fiPackfile* rageam::file::FileDevice::GetPackfile(ConstWString path)
