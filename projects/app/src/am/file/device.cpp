@@ -493,12 +493,11 @@ bool rageam::file::FileDevice::IsFileExists(ConstWString path)
 	bool exists = false;
 	WPath directory = path;
 	directory = directory.GetParentDirectory();
-	Path fileName = String::ToAnsiTemp(GetFileName(path));
-	fileName.ToLower();
+	ConstWString fileName = GetFileName(path);
 
 	Enumerate(directory, [&](const FileSearchData& searchData)
 		{
-			ConstString entryName = searchData.Packfile->GetEntryName(*searchData.Entry);
+			ConstWString entryName = GetFileName<wchar_t>(searchData.Path);
 			if (!String::Equals(fileName, entryName))
 				return true;
 			exists = true;
