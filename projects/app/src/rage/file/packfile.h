@@ -153,7 +153,7 @@ namespace rage
 		u64          GetEntrySize(const fiPackEntry& entry) const { return entry.GetUncompressedSize(); }
 		u64          GetEntryCompressedSize(const fiPackEntry& entry); // Handles big (16MB+) resources 
 		u32          GetResourceCompressedSize(const fiPackEntry& entry);
-		u32          GetResourceInfo(const fiPackEntry& entry, datResourceInfo& info);
+		u32          GetResourceInfo(const fiPackEntry& entry, datResourceInfo& info) const;
 		fiPackEntry& GetRootEntry() const { return m_Entries[0]; }
 
 		ConstString GetFullName() const { return m_Fullname; }

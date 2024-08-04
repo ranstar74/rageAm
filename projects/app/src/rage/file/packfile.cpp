@@ -432,21 +432,11 @@ u32 rage::fiPackfile::GetResourceCompressedSize(const fiPackEntry& entry)
 	return u32(buffer[2] << 24 | buffer[5] << 16 | buffer[14] << 8 | buffer[7]);
 }
 
-u32 rage::fiPackfile::GetResourceInfo(const fiPackEntry& entry, datResourceInfo& info)
+u32 rage::fiPackfile::GetResourceInfo(const fiPackEntry& entry, datResourceInfo& info) const
 {
 	AM_ASSERTS(entry.IsResource);
-	info = {};
-	u64 offset;
-	u32 version = 0;
-	fiHandle_t file = OpenBulkEntry(entry, offset);
-	datResourceHeader header;
-	if (ReadBulk(file, offset, &header, sizeof datResourceHeader) != FI_INVALID_RESULT)
-	{
-		version = header.Version;
-		info = header.Info;
-	}
-	CloseBulk(file);
-	return version;
+	info = entry.Resource.Info;
+	return info.GetVersion();
 }
 
 u32 rage::fiPackfile::ReadBulk(fiHandle_t file, u64 offset, pVoid buffer, u32 size)
