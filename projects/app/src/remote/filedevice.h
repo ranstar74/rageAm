@@ -42,8 +42,14 @@ namespace rageam::remote
 			else
 			{
 				if (search.Type != file::FileEntry_Directory) // Directories don't have size...
-					responseEntry.Size = GetFileSize64(search.Path);
-				responseEntry.Packed = 0; // Although there are compressed Zip/Rar files in OS file system, we use it really only for packfiles
+				{
+					// Actual resource size (uncompressed) is not stored directly, we only know compressed size. Handle it properly:
+					u32 size = GetFileSize64(search.Path);
+					if (search.Type == file::FileEntry_Resource)
+						responseEntry.Packed = size;
+					else
+						responseEntry.Size = size;
+				}
 				responseEntry.Modified = GetFileModifyTime(search.Path);
 			}
 
@@ -105,6 +111,10 @@ namespace rageam::remote
 					responseEntry.Version = version;
 					responseEntry.VirtualSize = info.ComputeVirtualSize();
 					responseEntry.PhysicalSize = info.ComputePhysicalSize();
+					responseEntry.Size = responseEntry.VirtualSize + responseEntry.PhysicalSize;
+					// In packfiles resource header is stored in entry itself, don't account it
+					if (!search.Packfile)
+						responseEntry.Size += 16;
 				}
 			}
 			return responseEntry;
